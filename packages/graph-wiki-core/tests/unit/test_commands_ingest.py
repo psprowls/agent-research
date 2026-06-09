@@ -2503,3 +2503,86 @@ def test_ingest_result_archived_to_defaults_none_and_serializes():
     result.archived_to = "raw/_archived/specs/x.md"
     parsed = json.loads(json.dumps(dataclasses.asdict(result)))
     assert parsed["archived_to"] == "raw/_archived/specs/x.md"
+
+
+def _patch_skill_branch_llm(monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    planner_yaml = (
+        "- title: Use a Virtualizer\n"
+        "  slug: use-virtualizer\n"
+        "  topic: react-native\n"
+        "  summary: Use a virtualizer.\n"
+        "  applies_when: Rendering a list.\n"
+        "  impact: high\n"
+        "  triggers:\n    globs: []\n    keywords: []\n    entities: []\n"
+        "  content: Use a virtualizer instead of ScrollView.\n"
+    )
+    guidance_page = (
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: Use a virtualizer.\napplies_when: Rendering a list.\nimpact: high\n"
+        "updated: 2026-06-08\ntokens: 0\n---\n\n## Guidance\nUse a virtualizer.\n"
+    )
+
+    def _fake_make_llm(role, model_override=None):
+        out = planner_yaml if role == "skill_planner" else guidance_page
+
+        class _LLM:
+            async def ainvoke(self, messages):
+                class _R:
+                    content = out
+                    usage_metadata = None
+
+                return _R()
+
+        return _LLM()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", _fake_make_llm)
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_archives_skill_directory_wholesale(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    skill_dir = ws / "raw" / "skill" / "react-native"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# RN Skill\nUse a virtualizer.\n", encoding="utf-8")
+    (skill_dir / "extra.txt").write_text("companion\n", encoding="utf-8")
+    _patch_skill_branch_llm(monkeypatch)
+
+    # Pass the SKILL.md file — the anchor's PARENT directory must move wholesale.
+    result = await ingest_mod.run_ingest_source(skill_dir / "SKILL.md", workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to == "raw/_archived/skill/react-native"
+    assert not skill_dir.exists()
+    archived = ws / "raw" / "_archived" / "skill" / "react-native"
+    assert (archived / "SKILL.md").is_file()
+    assert (archived / "extra.txt").is_file()
+    # The kind folder itself stays put.
+    assert (ws / "raw" / "skill").is_dir()
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_skill_md_directly_in_kind_folder_moves_only_file(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    kind_dir = ws / "raw" / "skill"
+    kind_dir.mkdir(parents=True)
+    src = kind_dir / "SKILL.md"
+    src.write_text("# Bare Skill\nGuidance.\n", encoding="utf-8")
+    # A sibling awaiting ingestion must NOT be swept along.
+    sibling = kind_dir / "other-skill.md"
+    sibling.write_text("# Other\n", encoding="utf-8")
+    _patch_skill_branch_llm(monkeypatch)
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    assert result.status == "ok"
+    assert result.archived_to == "raw/_archived/skill/SKILL.md"
+    assert not src.exists()
+    assert sibling.exists()
+    assert kind_dir.is_dir()
+    assert (ws / "raw" / "_archived" / "skill" / "SKILL.md").is_file()

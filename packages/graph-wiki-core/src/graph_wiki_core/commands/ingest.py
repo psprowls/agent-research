@@ -1252,6 +1252,23 @@ async def run_ingest_source(
                 pass
             path_guess = guess_source_type(rel_to_workspace, rel_to_repo)
 
+        # Archive move-unit (raw-source-archive design 2026-06-09): a skill
+        # anchor moves its directory wholesale — unless the anchor sits
+        # directly in a kind folder (e.g. raw/skill/SKILL.md, parent path has
+        # fewer than 2 parts relative to raw/), where moving the parent would
+        # archive the entire kind folder; move just the file there. Every
+        # other source moves itself. Units outside raw/ no-op downstream
+        # (archive_destination returns None).
+        archive_unit: Path = source_path
+        if anchor is not None:
+            archive_unit = anchor.parent
+            try:
+                rel = anchor.parent.relative_to(raw_dir(wiki.parent))
+                if len(rel.parts) < 2:
+                    archive_unit = anchor
+            except ValueError:
+                pass
+
         # URI-drift limitation (INGESTOR-03 / Phase 40):
         #
         # When a package is renamed in the source repo, the `entity_uri` recorded
@@ -1308,7 +1325,7 @@ async def run_ingest_source(
             source_path=source_path,
             source_text=text,
             title_guess=title_guess,
-            archive_unit=source_path,
+            archive_unit=archive_unit,
         )
     finally:
         try:
