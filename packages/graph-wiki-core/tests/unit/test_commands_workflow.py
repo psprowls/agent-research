@@ -99,8 +99,24 @@ def test_next_execute_with_plan_doc_carries_dispatch_transition(tmp_path: Path) 
     result = asyncio.run(run_work_next(workspace_path=workspace, slug=slug))
 
     assert result.action["skill"] == "subagent-driven-development"
+    assert result.phase == "execute"
     assert result.on_dispatch == {"phase": None, "status": "in-progress", "requires": ["owner"]}
     assert result.artifact is None
+
+
+def test_next_broken_yaml_frontmatter_blocks(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = "2026-06-08-broken-yaml"
+    (wiki / "work" / f"{slug}.md").write_text("---\ntitle: broken\nbad: [unclosed\n---\n\n## Summary\ncontent\n")
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=slug))
+
+    assert result.action is None
+    assert result.blockers
 
 
 def test_lint_passes_workspace_root_for_artifact_rule(tmp_path: Path) -> None:
