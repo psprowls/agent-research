@@ -21,7 +21,6 @@ from graph_wiki_core.commands.ack_drift import run_ack_drift
 from graph_wiki_core.commands.ingest import (
     IngestorGraphNotInitializedError,
     run_ingest_source,
-    run_ingest_work_item,
 )
 from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.log import run_log
@@ -304,14 +303,11 @@ def propagate_drift(
 
 
 # ---------------------------------------------------------------------------
-# ingest sub-app
+# ingest command
 # ---------------------------------------------------------------------------
 
-ingest_app = typer.Typer(help="Ingest a source file or work item into the wiki.")
-wiki_app.add_typer(ingest_app, name="ingest")
 
-
-@ingest_app.command(name="source")
+@wiki_app.command(name="ingest")
 def ingest_source(
     path: Path = typer.Argument(..., help="Path to the source file to ingest"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
@@ -354,38 +350,6 @@ def ingest_source(
                 )
         if not result.suggestions_parsed:
             typer.echo("⚠ suggestion pass degraded — wrote 0 suggestions", err=True)
-
-
-@ingest_app.command(name="work-item")
-def ingest_work_item(
-    frontmatter: str = typer.Option(..., "--frontmatter", help="YAML frontmatter string for the work item"),
-    body: str = typer.Option(..., "--body", help="Markdown body text for the work item"),
-    slug: Optional[str] = typer.Option(None, "--slug", help="Page slug (derived from title if omitted)"),
-    force: bool = typer.Option(False, "--force", help="Overwrite existing page"),
-    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
-    json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
-) -> None:
-    """File a structured work item into the wiki workspace."""
-    workspace_path = Path(workspace) if workspace else None
-    try:
-        result = asyncio.run(
-            run_ingest_work_item(
-                frontmatter_text=frontmatter,
-                body=body,
-                slug=slug,
-                force=force,
-                workspace_path=workspace_path,
-            )
-        )
-    except (RuntimeError, ValueError, FileExistsError) as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    if json_output:
-        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
-    else:
-        typer.echo(f"[ok] Filed work item: {result.page_path}")
-        typer.echo(f"     slug: {result.slug}")
 
 
 def main() -> None:
