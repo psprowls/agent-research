@@ -487,3 +487,100 @@ def test_gather_not_scripts_dominant_when_markdown_majority(tmp_path: Path) -> N
     (skill_dir / "data.json").write_text("{}\n", encoding="utf-8")  # 1 excluded, 1 included
 
     assert gather_skill_sources(skill_dir / "SKILL.md").scripts_dominant is False
+
+
+# ---------------------------------------------------------------------------
+# gather_skill_sources — transitive link following
+# ---------------------------------------------------------------------------
+
+
+def test_gather_transitive_dfs_order(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    (skill_dir / "references").mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# S\n\nSee [a](references/a.md).\n", encoding="utf-8")
+    (skill_dir / "references" / "a.md").write_text("# A\n\nSee [b](b.md).\n", encoding="utf-8")
+    (skill_dir / "references" / "b.md").write_text("# B\n\nLeaf.\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+
+    assert bundle.included_files == ["SKILL.md", "references/a.md", "references/b.md"]
+    # Each file gets exactly one marker, in DFS order.
+    assert bundle.combined_text.count("<!-- skill-file:") == 3
+    assert bundle.combined_text.index("SKILL.md -->") < bundle.combined_text.index("references/a.md -->")
+    assert bundle.combined_text.index("references/a.md -->") < bundle.combined_text.index("references/b.md -->")
+
+
+def test_gather_reference_style_links_followed(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n\nSee [the guide][g].\n\n[g]: guide.md\n", encoding="utf-8")
+    (skill_dir / "guide.md").write_text("# Guide\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+    assert bundle.included_files == ["SKILL.md", "guide.md"]
+
+
+def test_gather_cycle_terminates_each_once(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n\nSee [a](a.md).\n", encoding="utf-8")
+    (skill_dir / "a.md").write_text("# A\n\nBack to [b](b.md).\n", encoding="utf-8")
+    (skill_dir / "b.md").write_text("# B\n\nBack to [a](a.md).\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+    assert bundle.included_files == ["SKILL.md", "a.md", "b.md"]
+    assert bundle.combined_text.count("<!-- skill-file: a.md -->") == 1
+    assert bundle.combined_text.count("<!-- skill-file: b.md -->") == 1
+
+
+def test_gather_directory_boundary_guard(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    outside = tmp_path / "outside.md"
+    outside.write_text("# Outside\n", encoding="utf-8")
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n\nEscape [o](../outside.md).\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+    assert bundle.included_files == ["SKILL.md"]
+    assert "Outside" not in bundle.combined_text
+
+
+def test_gather_skips_non_md_http_and_anchor_targets(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text(
+        "# S\n\n"
+        "Script [s](helper.py).\n"
+        "Web [w](https://example.com/page.md).\n"
+        "Anchor [a](#section).\n"
+        "Mail [m](mailto:x@y.md).\n"
+        "Real [r](real.md).\n",
+        encoding="utf-8",
+    )
+    (skill_dir / "helper.py").write_text("x\n", encoding="utf-8")
+    (skill_dir / "real.md").write_text("# Real\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+    assert bundle.included_files == ["SKILL.md", "real.md"]
+
+
+def test_gather_strips_fragment_before_resolving(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n\nSee [a](a.md#heading).\n", encoding="utf-8")
+    (skill_dir / "a.md").write_text("# A\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+    assert bundle.included_files == ["SKILL.md", "a.md"]
