@@ -146,7 +146,7 @@ EVAL_SYSTEM_PROMPT_IMPLEMENT = (
 
 @dataclass
 class RunResult:
-    final_status: str  # "success" | "budget_exceeded" | "error_*"
+    final_status: str  # "success" | "completed_interactive" | "budget_exceeded" | "error_*"
     budget_exceeded: bool
     wall_seconds: float
     error_reason: str | None = None
