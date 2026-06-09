@@ -1,0 +1,109 @@
+from __future__ import annotations
+
+import pytest
+from guidance_io.frontmatter import emit, parse, validate
+
+
+def test_parse_roundtrip() -> None:
+    text = "---\ntitle: Use a Virtualizer\ncategory: guidance\n---\n\n## Guidance\nContent.\n"
+    fm, body = parse(text)
+    assert fm == {"title": "Use a Virtualizer", "category": "guidance"}
+    assert body.strip() == "## Guidance\nContent."
+
+
+def test_parse_nested_triggers_block() -> None:
+    text = "---\ntriggers:\n  globs: ['**/*.tsx']\n  keywords: [ScrollView, FlatList]\n---\n"
+    fm, _ = parse(text)
+    assert fm["triggers"]["globs"] == ["**/*.tsx"]
+    assert fm["triggers"]["keywords"] == ["ScrollView", "FlatList"]
+
+
+def test_parse_missing_open_fence_raises() -> None:
+    with pytest.raises(ValueError, match="no frontmatter block"):
+        parse("title: foo\n")
+
+
+def test_parse_unclosed_fence_raises() -> None:
+    with pytest.raises(ValueError, match="unclosed frontmatter"):
+        parse("---\ntitle: foo\n")
+
+
+def test_parse_non_mapping_raises() -> None:
+    with pytest.raises(ValueError, match="YAML mapping"):
+        parse("---\n- item1\n- item2\n---\n")
+
+
+def test_emit_parse_roundtrip() -> None:
+    fm = {"title": "Test", "category": "guidance", "tags": ["performance", "lists"]}
+    emitted = emit(fm)
+    parsed_fm, _ = parse(emitted + "\n\nbody\n")
+    assert parsed_fm == fm
+
+
+def _valid_fm() -> dict:
+    return {
+        "title": "Use a List Virtualizer for Any List",
+        "category": "guidance",
+        "summary": "Use a virtualizer instead of ScrollView for lists.",
+        "topic": "react-native",
+        "applies_when": "Rendering any scrollable list in React Native.",
+        "impact": "high",
+        "updated": "2026-06-08",
+        "tokens": 0,
+    }
+
+
+def test_validate_accepts_minimal_valid_fm() -> None:
+    assert validate(_valid_fm()) == []
+
+
+def test_validate_accepts_full_triggers_block() -> None:
+    fm = _valid_fm()
+    fm["triggers"] = {
+        "globs": ["**/*.tsx"],
+        "keywords": ["ScrollView", "FlatList"],
+        "entities": ["[[entities/pkg_foo]]"],
+    }
+    assert validate(fm) == []
+
+
+def test_validate_flags_missing_required_key() -> None:
+    fm = _valid_fm()
+    del fm["summary"]
+    errors = validate(fm)
+    assert any("summary" in e for e in errors)
+
+
+def test_validate_flags_wrong_category() -> None:
+    fm = _valid_fm()
+    fm["category"] = "concept"
+    errors = validate(fm)
+    assert any("category" in e for e in errors)
+
+
+def test_validate_flags_bad_impact() -> None:
+    fm = _valid_fm()
+    fm["impact"] = "HIGH"  # uppercase is invalid; enum is lowercased
+    errors = validate(fm)
+    assert any("impact" in e for e in errors)
+
+
+def test_validate_flags_empty_topic() -> None:
+    fm = _valid_fm()
+    fm["topic"] = "  "
+    errors = validate(fm)
+    assert any("topic" in e for e in errors)
+
+
+def test_validate_flags_non_mapping_triggers() -> None:
+    fm = _valid_fm()
+    fm["triggers"] = ["**/*.tsx"]
+    errors = validate(fm)
+    assert any("triggers" in e for e in errors)
+
+
+def test_validate_flags_non_list_trigger_value() -> None:
+    fm = _valid_fm()
+    fm["triggers"] = {"globs": "**/*.tsx"}  # should be a list
+    errors = validate(fm)
+    assert any("globs" in e for e in errors)
