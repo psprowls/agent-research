@@ -1,0 +1,26 @@
+name: example-interactive
+description: >
+  Example of an interactive (human-in-the-loop) scenario. The orchestrator sets up
+  the worktree, prints its path, and waits for you to run `claude` there yourself.
+  Signal completion with `touch <worktree>/.eval-done`; verifiers then run against
+  the resulting worktree state. Interactive mode forbids auto_user.
+isolation_mode: worktree
+target_repo: ~/Personal/mono-repo
+baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652
+configs: [base]
+mode: interactive
+eval_mode: implement
+preflight: preflight.sh
+verify:
+  - kind: script
+    path: verify.sh
+budgets:
+  max_turns: 40
+  max_input_tokens: 4000000
+  # In interactive mode this is the wait limit for the .eval-done sentinel
+  # before the run is marked budget_exceeded. Bumped up to leave room for a
+  # human session.
+  max_wall_seconds: 3600
+metrics:
+  tool_shape: true
+  judge_qualitative: false

@@ -118,9 +118,17 @@ tasks.
 `eval_mode: implement` adds a system instruction that the agent should make the
 requested changes and finish with `<DONE>`. Use it for code modification tasks.
 
-`interactive` currently acts as schema-level intent: it forbids `auto_user`, but
-the main `cc-eval run` path executes one-shot headless Claude Code runs. Use
-`headless` for normal scenarios.
+`headless` runs Claude Code non-interactively. With no `auto_user`, the
+orchestrator dispatches to a single one-shot run; with `auto_user` set, it
+dispatches to a multi-turn run driven by the auto-user simulator (see below).
+
+`interactive` hands the isolated worktree to a human. The orchestrator dispatches
+to `run_interactive()`, which prints the worktree path and polls for a
+`.eval-done` sentinel file. Run `claude` yourself in that worktree, then signal
+completion with `touch <worktree>/.eval-done`. The run finishes with
+`final_status: completed_interactive`, or `budget_exceeded` if the wait exceeds
+the interactive wait limit. Interactive mode forbids `auto_user` (a schema-level
+check). Use `headless` for normal automated scenarios.
 
 ### Auto User
 
@@ -128,7 +136,12 @@ the main `cc-eval run` path executes one-shot headless Claude Code runs. Use
 auto_user: auto_user.yaml
 ```
 
-`auto_user` points at an `AutoUser` YAML file with:
+`auto_user` points at an `AutoUser` YAML file. When set on a `headless` scenario,
+the orchestrator runs the multi-turn path: it spawns Claude Code in multi-turn
+mode and uses `AutoUserSimulator` to generate each follow-up user message until
+the conversation ends. (`interactive` mode forbids `auto_user`.)
+
+A minimal `AutoUser` file:
 
 ```yaml
 model: claude-haiku-4-5-20251001
@@ -137,9 +150,47 @@ stop_on: "<DONE>"
 system_prompt: "Drive the task forward. Say <DONE> when finished."
 ```
 
-The schema supports this for multi-turn runs, and `interactive` mode forbids it.
-The standard CLI path does not currently invoke the multi-turn runner, so do not
-rely on `auto_user` unless you are extending or directly testing that path.
+Fields:
+
+- `model`: judge model used to generate LLM-driven replies.
+- `max_replies`: maximum number of simulated user replies before the
+  conversation ends (default 5).
+- `stop_on`: when this substring appears in the assistant's text, the
+  conversation ends (default `<DONE>`).
+- `system_prompt`: instruction given to the reply model.
+- `triggers`: optional list of rule-based replies, checked before the LLM.
+- `default_reply`: reply used when an LLM call fails (default `proceed`).
+- `abort_on_default_after`: after this many *consecutive* default-reply
+  fallbacks, the conversation ends (default 2, must be ≥ 1).
+
+Each `triggers` entry is a `match` plus a `reply`. A `match` sets exactly one of
+`contains` (substring) or `regex` — setting both or neither fails validation:
+
+```yaml
+triggers:
+  - match:
+      contains: "clarify"
+    reply: "Please proceed without clarification."
+  - match:
+      regex: "question\\?"
+    reply: "Yes, go ahead."
+default_reply: continue
+abort_on_default_after: 3
+```
+
+The simulator resolves each turn with this priority chain:
+
+1. `stop_on` substring present in the assistant text → end the conversation.
+2. `max_replies` budget exhausted → end the conversation.
+3. First matching trigger (in order) → use its `reply`; resets the consecutive
+   default counter.
+4. Otherwise call the LLM judge → use its reply; resets the consecutive default
+   counter.
+5. If the LLM call raises → fall back to `default_reply`. Once consecutive
+   defaults reach `abort_on_default_after`, end the conversation instead.
+
+Old-style `auto_user.yaml` files (without `triggers`, `default_reply`, or
+`abort_on_default_after`) still load: the new fields default as listed above.
 
 ### Preflight
 
@@ -511,7 +562,10 @@ The key files are:
 Start with `meta.json`:
 
 - `final_status: success`: Claude Code emitted a successful result event.
-- `final_status: budget_exceeded`: `max_wall_seconds` expired.
+- `final_status: completed_interactive`: an `interactive`-mode run finished when
+  the `.eval-done` sentinel file appeared.
+- `final_status: budget_exceeded`: `max_wall_seconds` expired (or, for
+  interactive runs, the interactive wait limit expired).
 - `final_status: dry_run`: `--dry-run` skipped the Claude Code invocation.
 - `final_status: error_no_result`: the CLI crashed or produced no result event.
 - Other `error*` statuses come from Claude Code result events.

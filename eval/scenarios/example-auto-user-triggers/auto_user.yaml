@@ -1,0 +1,26 @@
+# Auto-user config for the example-auto-user-triggers scenario.
+#
+# The simulator resolves each turn with this priority chain:
+#   1. stop_on substring in the assistant text -> end conversation
+#   2. max_replies budget exhausted        -> end conversation
+#   3. first matching trigger (in order)   -> use its reply
+#   4. otherwise call the LLM judge        -> use its reply
+#   5. LLM call raised                     -> default_reply, or end after
+#                                             abort_on_default_after consecutive defaults
+model: claude-haiku-4-5-20251001
+max_replies: 6
+stop_on: "<DONE>"
+system_prompt: >
+  You are the user. Keep the agent moving toward completing the task with short,
+  decisive replies. Say <DONE> only once the requested file clearly exists.
+triggers:
+  # A clarifying question containing the word "clarify" -> tell it to proceed.
+  - match:
+      contains: "clarify"
+    reply: "No clarification needed — proceed with sensible defaults."
+  # Any literal question mark -> a generic go-ahead, handled without an LLM call.
+  - match:
+      regex: "\\?"
+    reply: "Yes, go ahead."
+default_reply: "Please continue."
+abort_on_default_after: 2

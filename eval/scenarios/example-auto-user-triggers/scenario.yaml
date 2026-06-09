@@ -1,0 +1,25 @@
+name: example-auto-user-triggers
+description: >
+  Example of a headless multi-turn scenario driven by the auto-user simulator.
+  The agent is asked to do a small task that tends to provoke a clarifying
+  question; trigger rules in auto_user.yaml answer those questions deterministically
+  so the run proceeds without a live LLM reply. Illustrative of the auto_user /
+  trigger mechanism, not a wiki-value experiment.
+isolation_mode: worktree
+target_repo: ~/Personal/mono-repo
+baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652
+configs: [base]
+mode: headless
+eval_mode: implement
+auto_user: auto_user.yaml
+preflight: preflight.sh
+verify:
+  - kind: script
+    path: verify.sh
+budgets:
+  max_turns: 40
+  max_input_tokens: 4000000
+  max_wall_seconds: 300
+metrics:
+  tool_shape: true
+  judge_qualitative: false

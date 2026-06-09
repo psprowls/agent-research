@@ -126,10 +126,12 @@ def run_one(
             logger = EvalLogger("orchestrator_runner_start")
             logger.log("Invoking runner", model=config.model)
 
-            # Load auto_user config if specified (headless multi-turn)
+            # Load auto_user config if specified (headless multi-turn).
+            # Resolve relative to the scenario dir, like preflight/prompt.md;
+            # an absolute path passes through unchanged.
             auto_user: AutoUser | None = None
             if scenario.auto_user:
-                auto_user = AutoUser.from_path(Path(scenario.auto_user))
+                auto_user = AutoUser.from_path(scenario_dir / scenario.auto_user)
 
             if scenario.mode == "interactive":
                 run_result, raw_jsonl = run_interactive(
