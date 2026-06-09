@@ -103,3 +103,35 @@ def _handle_tool_use(t: Transcript, block: dict) -> None:
         skill_name = inp.get("skill", "")
         if skill_name:
             t.skill_invocations.append(skill_name)
+
+
+def extract_tool_calls_from_jsonl(raw_jsonl: str) -> list[dict[str, object]]:
+    """Extract tool call details from raw stream-json output.
+
+    Args:
+        raw_jsonl: Raw output from claude -p in stream-json format (one JSON per line)
+
+    Returns:
+        List of dicts with keys: tool_name, tool_id, input_length (approx)
+    """
+    tool_calls: list[dict[str, object]] = []
+
+    for line in raw_jsonl.splitlines():
+        s = line.strip()
+        if not s:
+            continue
+        try:
+            ev = json.loads(s)
+        except json.JSONDecodeError:
+            continue
+
+        if ev.get("type") == "tool_call":
+            tool_calls.append(
+                {
+                    "tool_name": ev.get("tool_name"),
+                    "tool_id": ev.get("id"),
+                    "input_length": len(json.dumps(ev.get("input", {}))),
+                }
+            )
+
+    return tool_calls

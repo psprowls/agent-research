@@ -5,8 +5,11 @@
 # 2. Edit the fields below:
 #    - name: scenario identifier (matches directory name)
 #    - description: one sentence about what the scenario tests
-#    - prompt: path to prompt.md (edit that file with your scenario)
-#    - rubric: path to rubric.md (define scoring criteria)
+#    - isolation_mode: worktree | fixture
+#    - target_repo: path to the repo (for worktree mode)
+#    - baseline_sha: commit hash (for worktree mode)
+#    - mode: headless | interactive
+#    - eval_mode: qa | implement
 #    - discriminator.type: choose one:
 #        * correctness-gated: base fails, wiki arm passes rubric
 #        * efficiency-gated: both pass, wiki arm beats declared metric threshold
@@ -15,15 +18,27 @@
 # 3. Update prompt.md and rubric.md with your scenario specifics
 # 4. Run: `uv run --package claude-code-evals pytest` to verify scenario loads
 
-name: TEMPLATE_SCENARIO_NAME
-description: |
+name: TEMPLATE
+description: >
   One-sentence description of what this scenario tests.
 
-prompt: eval/scenarios/TEMPLATE/prompt.md
-rubric: eval/scenarios/TEMPLATE/rubric.md
-config: base  # Will be parameterized by orchestrator
-
-expected_pass_rate: 0.5
+isolation_mode: worktree
+target_repo: ~/Personal/mono-repo
+baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652
+configs: [base]
+mode: headless
+eval_mode: implement
+preflight: preflight.sh
+verify:
+  - kind: script
+    path: verify.sh
+  - kind: rubric
+    path: rubric.md
+    pass_threshold: 4.0
+budgets:
+  max_turns: 40
+  max_input_tokens: 4000000
+  max_wall_seconds: 300
 
 discriminator:
   type: correctness-gated
@@ -36,3 +51,7 @@ inject:
   # - concepts/some-concept.md
   # - adrs/0001-some-decision.md
   - concepts/TEMPLATE.md
+
+metrics:
+  tool_shape: true
+  judge_qualitative: false

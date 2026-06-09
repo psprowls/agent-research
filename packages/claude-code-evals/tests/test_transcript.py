@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from claude_code_evals.transcript import Transcript, parse_transcript
+from claude_code_evals.transcript import Transcript, extract_tool_calls_from_jsonl, parse_transcript
 
 
 def _make_jsonl(*events: dict) -> str:
@@ -165,3 +165,108 @@ def test_skill_invocations():
     jsonl = _make_jsonl(skill_event)
     t = parse_transcript(jsonl)
     assert "my-skill" in t.skill_invocations
+
+
+def test_extract_tool_calls_empty():
+    """Verify empty input returns empty list."""
+    result = extract_tool_calls_from_jsonl("")
+    assert result == []
+
+
+def test_extract_tool_calls_single():
+    """Verify extraction of single tool call."""
+    tool_call_event = {
+        "type": "tool_call",
+        "tool_name": "Read",
+        "id": "tc1",
+        "input": {"file_path": "README.md"},
+    }
+    jsonl = json.dumps(tool_call_event)
+    result = extract_tool_calls_from_jsonl(jsonl)
+
+    assert len(result) == 1
+    assert result[0]["tool_name"] == "Read"
+    assert result[0]["tool_id"] == "tc1"
+    assert isinstance(result[0]["input_length"], int)
+    assert result[0]["input_length"] > 0
+
+
+def test_extract_tool_calls_multiple():
+    """Verify extraction of multiple tool calls."""
+    event1 = {
+        "type": "tool_call",
+        "tool_name": "Read",
+        "id": "tc1",
+        "input": {"file_path": "README.md"},
+    }
+    event2 = {
+        "type": "tool_call",
+        "tool_name": "Edit",
+        "id": "tc2",
+        "input": {"file_path": "src/foo.py", "old_string": "a", "new_string": "b"},
+    }
+    jsonl = _make_jsonl(event1, event2)
+    result = extract_tool_calls_from_jsonl(jsonl)
+
+    assert len(result) == 2
+    assert result[0]["tool_name"] == "Read"
+    assert result[1]["tool_name"] == "Edit"
+
+
+def test_extract_tool_calls_ignores_non_tool_events():
+    """Verify non-tool_call events are skipped."""
+    assistant_event = {
+        "type": "assistant",
+        "message": {"content": [{"type": "text", "text": "Hello"}]},
+    }
+    tool_call_event = {
+        "type": "tool_call",
+        "tool_name": "Read",
+        "id": "tc1",
+        "input": {"file_path": "README.md"},
+    }
+    result_event = {
+        "type": "result",
+        "subtype": "success",
+        "usage": {"input_tokens": 100},
+    }
+    jsonl = _make_jsonl(assistant_event, tool_call_event, result_event)
+    result = extract_tool_calls_from_jsonl(jsonl)
+
+    assert len(result) == 1
+    assert result[0]["tool_name"] == "Read"
+
+
+def test_extract_tool_calls_handles_malformed_json():
+    """Verify malformed JSON lines are skipped gracefully."""
+    good_event = {
+        "type": "tool_call",
+        "tool_name": "Read",
+        "id": "tc1",
+        "input": {"file_path": "README.md"},
+    }
+    jsonl = f"not valid json\n{json.dumps(good_event)}\n{{incomplete"
+    result = extract_tool_calls_from_jsonl(jsonl)
+
+    assert len(result) == 1
+    assert result[0]["tool_name"] == "Read"
+
+
+def test_extract_tool_calls_input_length():
+    """Verify input_length is correctly calculated."""
+    tool_call_event = {
+        "type": "tool_call",
+        "tool_name": "Write",
+        "id": "tc1",
+        "input": {
+            "file_path": "output.txt",
+            "content": "Hello, World!",
+        },
+    }
+    jsonl = json.dumps(tool_call_event)
+    result = extract_tool_calls_from_jsonl(jsonl)
+
+    assert len(result) == 1
+    # input_length should be the length of the JSON-encoded input dict
+    expected_length = len(json.dumps({"file_path": "output.txt", "content": "Hello, World!"}))
+    assert result[0]["input_length"] == expected_length

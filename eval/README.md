@@ -1,7 +1,7 @@
 # Eval Harness
 
 Automated evaluation harness for `graph-wiki-agent`. Compares query quality across
-Bedrock model alternatives against a recorded lattice-wiki baseline.
+Bedrock model alternatives against a recorded graph-wiki baseline.
 
 ---
 
@@ -13,24 +13,33 @@ eval/
     query_cases.json       # Eval case definitions (case_id, query, expected_answer)
   baselines/
     <case_id>.json         # One file per case — written by baseline recording
+  SCENARIOS.md             # How to create, run, and read Claude Code eval scenarios
   README.md                # This file
 ```
+
+---
+
+## Claude Code Scenario Evals
+
+For the `claude-code-evals` package, see [SCENARIOS.md](SCENARIOS.md) for the
+full workflow for adding a scenario, configuring arms, running `cc-eval`, and
+reading result artifacts.
 
 ---
 
 ## Recording a Baseline
 
 The baseline is the reference point for regression detection. It captures the
-current lattice-wiki query output (via `claude -p`) for each eval case as a
+current graph-wiki query output (via `claude -p`) for each eval case as a
 reproducible oracle.
 
 ### Prerequisites
 
-1. **`claude` CLI installed and on PATH** — the lattice-wiki plugin runs inside it.
+1. **`claude` CLI installed and on PATH** — the graph-wiki plugin runs inside it.
    Verify: `claude --version`
 
-2. **lattice-wiki plugin path configured** — either set via the `--plugin-dir` flag
-   (recommended for explicit control) or via the `LATTICE_WIKI_PLUGIN_DIR` environment
+2. **graph-wiki plugin path configured** — either set via the `--plugin-dir` flag
+   (recommended for explicit control) or via the `GRAPH_WIKI_PLUGIN_DIR` environment
    variable if your wrapper script exports it.
 
 3. **AWS credentials configured** — Bedrock access is required for the full eval sweep
@@ -60,7 +69,7 @@ GRAPH_WIKI_RUN_EVAL=1 uv run --package eval-harness python -m eval_harness.basel
   --cases eval/cases/query_cases.json \
   --workspace <path-to-workspace> \
   --out eval/baselines/ \
-  --plugin-dir /path/to/lattice-wiki/plugin
+  --plugin-dir /path/to/graph-wiki/plugin
 ```
 
 With a non-default model ARN:
@@ -90,8 +99,8 @@ Each file contains the 8 EVAL-08 reproducibility fields:
 ```json
 {
   "case_id": "pkg-lookup-01",
-  "query": "What does lattice-wiki-core do?",
-  "answer": "lattice-wiki-core provides the core wiki maintenance logic...",
+  "query": "What does graph-wiki-core do?",
+  "answer": "graph-wiki-core provides the core wiki maintenance logic...",
   "model_arn": "us.anthropic.claude-sonnet-4-6",
   "prompt_hash": "abc123...64-char-sha256-hex...",
   "wiki_content_hash": "def456...64-char-sha256-hex...",

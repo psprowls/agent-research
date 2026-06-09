@@ -1,16 +1,32 @@
 name: impossible-without-wiki
-description: |
+description: >
   Knowledge required only from wiki: a design decision (auto-create activities)
   that is not derivable from reading the code.
 
-prompt: eval/scenarios/impossible-without-wiki/prompt.md
-rubric: eval/scenarios/impossible-without-wiki/rubric.md
-config: base  # Will be parameterized by orchestrator
-
-expected_pass_rate: 0.5
+isolation_mode: worktree
+target_repo: ~/Personal/mono-repo
+baseline_sha: 551f7ed8b9c0b4f51a4000302548e24284729652
+configs: [base]
+mode: headless
+eval_mode: implement
+preflight: preflight.sh
+verify:
+  - kind: script
+    path: verify.sh
+  - kind: rubric
+    path: rubric.md
+    pass_threshold: 4.0
+budgets:
+  max_turns: 40
+  max_input_tokens: 4000000
+  max_wall_seconds: 300
 
 discriminator:
   type: impossible-without-wiki
 
 inject:
   - adrs/0006-auto-create-activities-from-presence-events.md
+
+metrics:
+  tool_shape: true
+  judge_qualitative: false
