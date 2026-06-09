@@ -113,7 +113,7 @@ async def test_cancel_mid_fan_out(tmp_path: Path, monkeypatch) -> None:
 
     # --- Cancel sequence ---
     # asyncio.ensure_future schedules run_query on the running event loop.
-    task = asyncio.ensure_future(run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3))
+    task = asyncio.ensure_future(run_query(query="What is alpha?", workspace_path=tmp_path, top_k=3, use_legacy=True))
 
     # Yield control long enough for asyncio.gather to start _run_one coroutines and
     # for each _run_one to reach its "await asyncio.sleep(3)" in _slow_ainvoke.

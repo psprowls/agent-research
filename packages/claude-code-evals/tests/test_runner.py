@@ -273,6 +273,7 @@ def test_load_oauth_token_from_explicit_path(tmp_path: Path, monkeypatch):
 def test_load_oauth_token_from_home_config(tmp_path: Path, monkeypatch):
     """Load token from ~/.config/cc-eval/token (priority 4)."""
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
+    monkeypatch.chdir(tmp_path)
 
     # Mock home directory
     home = tmp_path / "home"
@@ -289,10 +290,11 @@ def test_load_oauth_token_from_home_config(tmp_path: Path, monkeypatch):
     assert token == "sk-ant-oat01-home-token"
 
 
-def test_load_oauth_token_missing_raises(monkeypatch):
+def test_load_oauth_token_missing_raises(tmp_path: Path, monkeypatch):
     """Raise ValueError if token not found anywhere."""
     monkeypatch.delenv("CLAUDE_CODE_OAUTH_TOKEN", raising=False)
     monkeypatch.delenv("HOME", raising=False)
+    monkeypatch.chdir(tmp_path)
 
     with pytest.raises(ValueError, match="OAuth token not found"):
         load_oauth_token()
