@@ -162,6 +162,26 @@ class IngestResult:
     guidance_pages_written: list[str] = field(default_factory=list)
 
 
+@dataclass
+class _IngestBranchResult:
+    """Intermediate hand-off from a source-type branch to _run_common_tail.
+
+    Both branches produce a source-page body and the metadata the shared tail
+    needs to write + finalize it. The skill branch additionally populates
+    guidance_pages_written (written before the tail runs).
+    """
+
+    page_body: str
+    target_slug: str
+    source_type: str
+    entity_uri: str | None
+    entity_stem: str | None
+    frontmatter_parsed: bool
+    run_suggest: bool
+    allowed_kinds: frozenset[str] | None = None
+    guidance_pages_written: list[str] = field(default_factory=list)
+
+
 # ---------------------------------------------------------------------------
 # Route page_type -> target directory
 # ---------------------------------------------------------------------------
@@ -646,6 +666,108 @@ def build_ingest_source_prompt(
     )
 
 
+async def _run_common_tail(
+    branch: _IngestBranchResult,
+    *,
+    wiki: Path,
+    conn,
+    source_path: Path,
+    source_text: str,
+    title_guess: str,
+) -> IngestResult:
+    """Shared finalize path for every ingest branch.
+
+    Writes the source page (stamping source_type/target_slug/entity_uri),
+    resolves wikilinks, ensures the entity forward-link, optionally runs the
+    suggest phase (gated by branch.run_suggest), updates the index, and logs.
+    """
+    # Route + write the source page (D1: always under sources/).
+    target_path = _route_target_path(wiki, "source", branch.target_slug)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    canonical_slug = target_path.stem
+
+    body = branch.page_body
+    # D3 synthesize-frontmatter rule (only when the branch produced no frontmatter).
+    if not branch.frontmatter_parsed and not body.lstrip().startswith("---"):
+        body = _synthesize_frontmatter_block(body, branch.source_type, canonical_slug, branch.entity_uri)
+
+    body = _rewrite_target_slug_in_body(body, canonical_slug)
+    body = _set_entity_uri_in_body(body, branch.entity_uri)
+    body = _set_source_type_in_body(body, branch.source_type)
+    target_path.write_text(body, encoding="utf-8")
+
+    resolved_output, stripped_wikilinks = _resolve_wikilinks(body, wiki)
+    current_output = resolved_output if stripped_wikilinks else body
+    if stripped_wikilinks:
+        target_path.write_text(resolved_output, encoding="utf-8")
+
+    if branch.entity_stem:
+        linked_output = _ensure_entity_touch_link(current_output, branch.entity_stem)
+        if linked_output != current_output:
+            target_path.write_text(linked_output, encoding="utf-8")
+
+    # Suggest phase (gated). Best-effort: a failure never fails the ingest.
+    if branch.run_suggest:
+        try:
+            graph_tools = build_graph_tools(conn)
+            suggested_pages, proposal_status = await run_suggest_phase(
+                wiki=wiki,
+                page_path=target_path,
+                source_path=source_path,
+                source_text=source_text,
+                entity_uri=branch.entity_uri,
+                entity_stem=branch.entity_stem,
+                graph_tools=graph_tools,
+                allowed_kinds=branch.allowed_kinds,
+            )
+        except Exception:
+            logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
+            suggested_pages = []
+            proposal_status = {
+                "reasoner": "failed",
+                "extractor": "skipped",
+                "proposals": 0,
+                "error": "suggest phase failed",
+            }
+        suggestions_parsed = proposal_status["extractor"] == "ok"
+        current_text = target_path.read_text(encoding="utf-8")
+        stamped_text = _set_proposal_status_in_body(current_text, proposal_status)
+        if stamped_text != current_text:
+            target_path.write_text(stamped_text, encoding="utf-8")
+    else:
+        suggested_pages = []
+        suggestions_parsed = True
+        proposal_status = {"reasoner": "skipped", "extractor": "skipped", "proposals": 0, "error": None}
+
+    update_index(wiki)
+
+    detail = f"source: {source_path}"
+    if stripped_wikilinks:
+        detail += f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): {stripped_wikilinks[:5]}"
+    append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
+
+    page_path_rel = str(target_path.relative_to(wiki))
+    return IngestResult(
+        status="ok",
+        page_path=page_path_rel,
+        slug=branch.target_slug,
+        title=title_guess,
+        page_type="source",
+        source_path=str(source_path),
+        cross_refs_updated=1,
+        entity_uri=branch.entity_uri,
+        source_type=branch.source_type,
+        stripped_wikilinks=stripped_wikilinks,
+        frontmatter_parsed=branch.frontmatter_parsed,
+        suggested_pages=suggested_pages,
+        suggestions_parsed=suggestions_parsed,
+        proposal_reasoner_status=str(proposal_status.get("reasoner", "skipped")),
+        proposal_extractor_status=str(proposal_status.get("extractor", "skipped")),
+        proposal_error=proposal_status.get("error"),
+        guidance_pages_written=branch.guidance_pages_written,
+    )
+
+
 # ---------------------------------------------------------------------------
 # Public: run_ingest_source
 # ---------------------------------------------------------------------------
@@ -806,101 +928,24 @@ async def run_ingest_source(
         # Sanitize slug: re-slugify whatever the LLM provided (T-05-05-02)
         target_slug = slugify(target_slug) if target_slug else slug
 
-        # Step 7: write page. D1 — always route to sources/ (page_type fixed to
-        # "source"; _route_target_path keeps the path-traversal safety check).
-        target_path = _route_target_path(wiki, "source", target_slug)
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        canonical_slug = target_path.stem
-
-        # D3 synthesize-frontmatter rule: when the LLM emitted NO frontmatter at
-        # all, the body-mutation helpers below would no-op — prepend a minimal
-        # block so the Source page lands with its metadata.
-        if not frontmatter_parsed and not llm_output.lstrip().startswith("---"):
-            llm_output = _synthesize_frontmatter_block(llm_output, source_type, canonical_slug, canonical_uri)
-
-        # Reconcile target_slug in the body with the on-disk filename slug, write
-        # entity_uri (null when no graph match), and stamp source_type. All three
-        # helpers are idempotent and preserve comments/order.
-        llm_output = _rewrite_target_slug_in_body(llm_output, canonical_slug)
-        llm_output = _set_entity_uri_in_body(llm_output, canonical_uri)
-        llm_output = _set_source_type_in_body(llm_output, source_type)
-        # Write the file first so it is part of the "known pages" set when
-        # resolving self-references in the body (e.g. an ADR linking to
-        # itself or a sibling created earlier in the same ingest).
-        target_path.write_text(llm_output, encoding="utf-8")
-        # Plan 06-14 / UAT G4: strip wikilinks the LLM fabricated for pages
-        # that do not exist in the vault. Two writes is acceptable — vaults
-        # are local-disk and writes are <1ms.
-        resolved_output, stripped_wikilinks = _resolve_wikilinks(llm_output, wiki)
-        current_output = resolved_output if stripped_wikilinks else llm_output
-        if stripped_wikilinks:
-            target_path.write_text(resolved_output, encoding="utf-8")
-        # Slice 4: ensure the matched entity's forward-link is present. Runs
-        # AFTER _resolve_wikilinks so it is never stripped (the entity page may
-        # not exist on disk yet at ingest time — the scanner backfills it).
-        if entity_stem:
-            linked_output = _ensure_entity_touch_link(current_output, entity_stem)
-            if linked_output != current_output:
-                target_path.write_text(linked_output, encoding="utf-8")
-
-        # Step 7.5 (Living Wiki M3): inline suggest phase — propose derived
-        # concept/adr/architecture pages from the just-written Source page.
-        # Best-effort: a failure here never fails the ingest (spec §3.1).
-        try:
-            graph_tools = build_graph_tools(conn)
-            suggested_pages, proposal_status = await run_suggest_phase(
-                wiki=wiki,
-                page_path=target_path,
-                source_path=source_path,
-                source_text=text,
-                entity_uri=canonical_uri,
-                entity_stem=entity_stem,
-                graph_tools=graph_tools,
-            )
-        except Exception:
-            logger.warning("suggest phase failed; continuing without suggestions", exc_info=True)
-            suggested_pages = []
-            proposal_status = {
-                "reasoner": "failed",
-                "extractor": "skipped",
-                "proposals": 0,
-                "error": "suggest phase failed",
-            }
-        suggestions_parsed = proposal_status["extractor"] == "ok"
-
-        current_text = target_path.read_text(encoding="utf-8")
-        stamped_text = _set_proposal_status_in_body(current_text, proposal_status)
-        if stamped_text != current_text:
-            target_path.write_text(stamped_text, encoding="utf-8")
-
-        # Step 8: update cross-refs (index-only scope — CONTEXT.md deferred)
-        update_index(wiki)
-
-        # Step 9: append log (record stripped-wikilink count for hallucination audit)
-        detail = f"source: {source_path}"
-        if stripped_wikilinks:
-            detail += f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): {stripped_wikilinks[:5]}"
-        append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
-
-        # Step 10: return result
-        page_path_rel = str(target_path.relative_to(wiki))
-        return IngestResult(
-            status="ok",
-            page_path=page_path_rel,
-            slug=target_slug,
-            title=title_guess,
-            page_type="source",  # D1: run_ingest_source always files under sources/
-            source_path=str(source_path),
-            cross_refs_updated=1,
-            entity_uri=canonical_uri,
+        # Build the default-branch result and finalize via the shared tail.
+        branch = _IngestBranchResult(
+            page_body=llm_output,
+            target_slug=target_slug,
             source_type=source_type,
-            stripped_wikilinks=stripped_wikilinks,
+            entity_uri=canonical_uri,
+            entity_stem=entity_stem,
             frontmatter_parsed=frontmatter_parsed,
-            suggested_pages=suggested_pages,
-            suggestions_parsed=suggestions_parsed,
-            proposal_reasoner_status=str(proposal_status.get("reasoner", "skipped")),
-            proposal_extractor_status=str(proposal_status.get("extractor", "skipped")),
-            proposal_error=proposal_status.get("error"),
+            run_suggest=True,
+            allowed_kinds=None,
+        )
+        return await _run_common_tail(
+            branch,
+            wiki=wiki,
+            conn=conn,
+            source_path=source_path,
+            source_text=text,
+            title_guess=title_guess,
         )
     finally:
         try:
