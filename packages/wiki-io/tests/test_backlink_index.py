@@ -162,3 +162,30 @@ def test_regenerate_preserves_other_h2s(tmp_path: Path) -> None:
     text = (wiki / "entities" / "pkg_foo.md").read_text(encoding="utf-8")
     assert "## Custom Notes\nHand-written, keep me." in text
     assert "## Narrative\nSome prose." in text
+
+
+def test_guidance_page_applies_to_produces_entity_backlink(tmp_path):
+    from wiki_io.backlink_index import regenerate_referenced_in_wiki
+
+    wiki = tmp_path / "wiki"
+    # Entity page with the scanner-owned heading.
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "entities" / "pkg_graph-io.md").write_text(
+        "---\ntitle: graph-io\n---\n\n## Referenced in wiki\n\n_No wiki pages reference this entity yet._\n",
+        encoding="utf-8",
+    )
+    # Guidance page (nested under a topic) linking that entity.
+    (wiki / "guidance" / "react-native").mkdir(parents=True)
+    (wiki / "guidance" / "react-native" / "use-virtualizer.md").write_text(
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: x\napplies_when: y\nimpact: high\nupdated: 2026-06-08\ntokens: 0\n---\n\n"
+        "## Guidance\nUse a virtualizer.\n\n## Applies to\n- [[entities/pkg_graph-io]]\n",
+        encoding="utf-8",
+    )
+
+    updated = regenerate_referenced_in_wiki(wiki)
+
+    assert "pkg_graph-io" in updated
+    body = (wiki / "entities" / "pkg_graph-io.md").read_text(encoding="utf-8")
+    # The bullet must carry the topic-qualified slug so the link resolves.
+    assert "[[guidance/react-native/use-virtualizer]]" in body

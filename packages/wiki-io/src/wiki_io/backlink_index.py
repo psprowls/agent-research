@@ -33,7 +33,7 @@ _EMPTY_BODY = "_No wiki pages reference this entity yet._"
 
 # Preserved categories (folder name -> category label used in the bullet link).
 # `work` lives at <workspace>/work (sibling of wiki); handled separately.
-_PRESERVED_WIKI_DIRS = ("sources", "concepts", "adrs", "architecture")
+_PRESERVED_WIKI_DIRS = ("sources", "concepts", "adrs", "architecture", "guidance")
 
 
 def inject_referenced_in_wiki(page_path: Path, body: str) -> None:
@@ -112,7 +112,13 @@ def build_entity_backlink_map(wiki: Path) -> dict[str, list[tuple[str, str, Path
             post = frontmatter.load(str(page_path))
         except Exception:  # noqa: BLE001 — a malformed page must not abort the map
             continue
-        slug = page_path.stem
+        if category == "guidance":
+            # Guidance pages are nested (guidance/<topic>/<slug>.md). Render the
+            # topic-qualified slug so the [[guidance/<topic>/<slug>]] wikilink the
+            # bullet emits actually resolves. Flat categories keep the bare stem.
+            slug = page_path.relative_to(wiki / "guidance").with_suffix("").as_posix()
+        else:
+            slug = page_path.stem
         seen_here: set[str] = set()
         for m in _ENTITY_LINK_RE.finditer(post.content):
             stem = m.group(1).strip().removesuffix(".md")
