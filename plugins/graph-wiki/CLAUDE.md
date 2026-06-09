@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file scopes guidance to the `graph-wiki` plugin tree. The marketplace-level `CLAUDE.md` two directories up covers cross-plugin conventions; don't duplicate that here.
+This file scopes guidance to the `graph-wiki` plugin tree.
 
 ## What lives here
 
