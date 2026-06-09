@@ -378,3 +378,112 @@ def test_skill_bundle_fields() -> None:
         "excluded_files",
         "scripts_dominant",
     }
+
+
+# ---------------------------------------------------------------------------
+# gather_skill_sources — single-file (no companion links)
+# ---------------------------------------------------------------------------
+
+
+def test_gather_single_file_combined_text_and_marker(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    anchor = skill_dir / "SKILL.md"
+    anchor.write_text("# Skill\n\nBody line.\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(anchor)
+
+    assert bundle.included_files == ["SKILL.md"]
+    assert bundle.combined_text.startswith("<!-- skill-file: SKILL.md -->\n")
+    assert "Body line." in bundle.combined_text
+    # The marker appears exactly once for the single included file.
+    assert bundle.combined_text.count("<!-- skill-file:") == 1
+    assert bundle.skill_dir == skill_dir.resolve()
+    assert bundle.anchor == anchor.resolve()
+
+
+def test_gather_title_frontmatter_name_wins(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    anchor = skill_dir / "SKILL.md"
+    anchor.write_text(
+        "---\nname: Frontmatter Name\n---\n\n# Heading Title\n\nBody.\n",
+        encoding="utf-8",
+    )
+    assert gather_skill_sources(anchor).title == "Frontmatter Name"
+
+
+def test_gather_title_falls_back_to_heading(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    anchor = skill_dir / "SKILL.md"
+    anchor.write_text("# Heading Title\n\nBody.\n", encoding="utf-8")
+    assert gather_skill_sources(anchor).title == "Heading Title"
+
+
+def test_gather_title_none_when_absent(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    anchor = skill_dir / "SKILL.md"
+    anchor.write_text("Just body text, no heading and no frontmatter.\n", encoding="utf-8")
+    assert gather_skill_sources(anchor).title is None
+
+
+def test_gather_excluded_files_captures_non_markdown(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n", encoding="utf-8")
+    (skill_dir / "helper.py").write_text("print('hi')\n", encoding="utf-8")
+    (skill_dir / "logo.png").write_bytes(b"\x89PNG\r\n")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+
+    assert bundle.excluded_files == ["helper.py", "logo.png"]  # sorted POSIX rel paths
+    assert "helper.py" not in bundle.combined_text  # not read into combined text
+
+
+def test_gather_scripts_dominant_on_top_level_scripts_dir(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    (skill_dir / "scripts").mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# S\n", encoding="utf-8")
+    (skill_dir / "scripts" / "run.sh").write_text("echo hi\n", encoding="utf-8")
+
+    bundle = gather_skill_sources(skill_dir / "SKILL.md")
+
+    assert bundle.scripts_dominant is True
+    assert bundle.excluded_files == ["scripts/run.sh"]
+
+
+def test_gather_scripts_dominant_on_excluded_majority(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n", encoding="utf-8")  # 1 included
+    (skill_dir / "a.py").write_text("a\n", encoding="utf-8")  # 2 excluded > 1 included
+    (skill_dir / "b.py").write_text("b\n", encoding="utf-8")
+
+    assert gather_skill_sources(skill_dir / "SKILL.md").scripts_dominant is True
+
+
+def test_gather_not_scripts_dominant_when_markdown_majority(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import gather_skill_sources
+
+    skill_dir = tmp_path / "skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# S\n", encoding="utf-8")
+    (skill_dir / "data.json").write_text("{}\n", encoding="utf-8")  # 1 excluded, 1 included
+
+    assert gather_skill_sources(skill_dir / "SKILL.md").scripts_dominant is False

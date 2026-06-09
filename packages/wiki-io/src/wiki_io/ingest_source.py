@@ -19,6 +19,7 @@ Exports:
     build_ingest_brief(source_path, wiki, repo, workspace_root) -> dict
     resolve_skill_anchor(source_path) -> Path | None
     SkillBundle   (dataclass — directory-aware skill ingest)
+    gather_skill_sources(anchor) -> SkillBundle
     _HTMLTextExtractor
 """
 
@@ -385,3 +386,74 @@ def resolve_skill_anchor(source_path: Path) -> Path | None:
     if source_path.is_file() and source_path.name == "SKILL.md":
         return source_path
     return None
+
+
+def _skill_title(anchor_text: str) -> str | None:
+    """Title from a SKILL.md: frontmatter `name:` → first `# ` heading → None.
+
+    Stdlib-only (this module avoids a yaml dependency): the frontmatter `name:`
+    is read line-by-line from the leading `---`-fenced block.
+    """
+    stripped = anchor_text.lstrip()
+    if stripped.startswith("---"):
+        after = stripped[3:].lstrip("\n")
+        end = after.find("\n---")
+        if end != -1:
+            for line in after[:end].splitlines():
+                if line.strip().startswith("name:"):
+                    value = line.split(":", 1)[1].strip().strip("\"'")
+                    if value:
+                        return value
+    for line in anchor_text.splitlines():
+        if line.startswith("# "):
+            return line[2:].strip()
+    return None
+
+
+def gather_skill_sources(anchor: Path) -> SkillBundle:
+    """Gather a skill directory into one combined markdown blob.
+
+    Reads `anchor` (a SKILL.md) plus every companion `.md` it links to,
+    transitively, and concatenates them with `<!-- skill-file: <rel> -->`
+    markers. Non-markdown files under the skill directory are recorded in
+    `excluded_files` (not read). Pure / Bedrock-free.
+    """
+    skill_dir = anchor.parent.resolve()
+
+    # DFS preorder from the anchor, visited-set keyed by resolved abs path so
+    # cycles terminate and each file is included at most once. (Link-following
+    # recursion is wired in a later step; here we visit the anchor only.)
+    visited: set[Path] = set()
+    included: list[tuple[Path, str]] = []  # (resolved_abs_path, content), DFS order
+
+    def visit(md_file: Path) -> None:
+        resolved = md_file.resolve()
+        if resolved in visited:
+            return
+        visited.add(resolved)
+        content = resolved.read_text(encoding="utf-8", errors="replace")
+        included.append((resolved, content))
+
+    visit(anchor)
+
+    parts = []
+    for abs_path, content in included:
+        rel = abs_path.relative_to(skill_dir).as_posix()
+        parts.append(f"<!-- skill-file: {rel} -->\n{content}")
+    combined_text = "\n\n".join(parts)
+
+    included_files = [abs_path.relative_to(skill_dir).as_posix() for abs_path, _ in included]
+    excluded_files = sorted(
+        p.relative_to(skill_dir).as_posix() for p in skill_dir.rglob("*") if p.is_file() and p.suffix.lower() != ".md"
+    )
+    scripts_dominant = (skill_dir / "scripts").is_dir() or len(excluded_files) > len(included_files)
+
+    return SkillBundle(
+        combined_text=combined_text,
+        skill_dir=skill_dir,
+        anchor=anchor.resolve(),
+        title=_skill_title(included[0][1]),
+        included_files=included_files,
+        excluded_files=excluded_files,
+        scripts_dominant=scripts_dominant,
+    )
