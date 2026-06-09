@@ -162,6 +162,65 @@ def test_run_work_file_returns_ingest_result(tmp_path: Path) -> None:
     assert "work" in result.page_path
 
 
+def test_run_work_file_emits_full_schema_frontmatter(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+    from work_io import frontmatter as _frontmatter
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Migrate the thing",
+            kind="tech-debt",
+            summary="Rewrite the thing",
+            affects=["packages/foo", "packages/bar"],
+            effort="small",
+            blast_radius="package",
+            tags=["cli", "refactor"],
+        )
+    )
+
+    page = wiki / result.page_path
+    fm, _body = _frontmatter.parse(page.read_text(encoding="utf-8"))
+    assert fm["category"] == "work"
+    assert fm["kind"] == "tech-debt"
+    assert fm["effort"] == "small"
+    assert fm["blast_radius"] == "package"
+    assert fm["affects"] == ["packages/foo", "packages/bar"]
+    assert fm["tags"] == ["cli", "refactor"]
+    # Unset optional scalars are omitted, not emitted as null placeholders.
+    assert "severity" not in fm
+    assert "owner" not in fm
+
+
+def test_run_work_file_omits_optional_scalars_when_unset(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+    from work_io import frontmatter as _frontmatter
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Minimal item",
+            kind="bug",
+            summary="Just the basics",
+        )
+    )
+
+    page = wiki / result.page_path
+    fm, _body = _frontmatter.parse(page.read_text(encoding="utf-8"))
+    assert fm["affects"] == []
+    assert fm["tags"] == []
+    for k in ("severity", "effort", "blast_radius", "target", "owner"):
+        assert k not in fm
+
+
 def test_work_result_dataclasses_importable() -> None:
     from graph_wiki_core.commands.work import (
         WorkArchiveResult,

@@ -268,6 +268,12 @@ async def run_work_file(
     summary: str,
     affects: list[str] | None = None,
     status: str = "open",
+    severity: str | None = None,
+    effort: str | None = None,
+    blast_radius: str | None = None,
+    target: str | None = None,
+    owner: str | None = None,
+    tags: list[str] | None = None,
     body: str = "",
     force: bool = False,
 ) -> IngestResult:
@@ -287,16 +293,31 @@ async def run_work_file(
     work_dir = wiki / "work"
     work_dir.mkdir(parents=True, exist_ok=True)
 
-    fm = {
+    # Build frontmatter in wiki-schema.md ("Work pages") key order. Optional
+    # scalars are omitted when unset rather than emitted as null placeholders;
+    # list keys (affects, tags) are always present. Lifecycle-transition keys
+    # (resolved_in, mitigation, …) are added on status change, not at filing.
+    fm: dict = {
         "title": title,
         "category": "work",
         "kind": kind,
-        "status": status,
         "summary": summary,
-        "opened": today,
-        "updated": today,
-        "affects": affects,
+        "status": status,
     }
+    if severity:
+        fm["severity"] = severity
+    if effort:
+        fm["effort"] = effort
+    if blast_radius:
+        fm["blast_radius"] = blast_radius
+    fm["affects"] = affects
+    if target:
+        fm["target"] = target
+    if owner:
+        fm["owner"] = owner
+    fm["opened"] = today
+    fm["updated"] = today
+    fm["tags"] = tags or []
     item_body = body or f"## Summary\n{summary}\n"
     if not item_body.endswith("\n"):
         item_body += "\n"
