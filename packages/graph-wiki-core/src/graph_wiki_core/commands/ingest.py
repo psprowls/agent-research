@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import logging
 import re
+import shutil
 import time
 import uuid
 from dataclasses import dataclass, field
@@ -52,6 +53,7 @@ from wiki_io.ingest_source import (
     RAW_FOLDER_TYPES,
     SOURCE_TYPE_ENUM,
     SkillBundle,
+    archive_destination,
     extract,
     gather_skill_sources,
     guess_source_type,
@@ -61,7 +63,7 @@ from wiki_io.ingest_source import (
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
 from wiki_io.wikilinks import vault_wikilink
-from workspace_io.paths import graph_dir
+from workspace_io.paths import graph_dir, raw_dir
 
 from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 from graph_wiki_core.graph_tools import build_graph_tools
@@ -148,6 +150,9 @@ class IngestResult:
         guidance_pages_written: Type-branched ingest: workspace-relative paths of
                             guidance pages written by the skill branch (empty for
                             all other source types).
+        archived_to:        Workspace-relative raw/_archived/ destination the source
+                            was moved to after a successful ingest; None for sources
+                            outside raw/, work items, or when the move failed.
     """
 
     status: str
@@ -171,6 +176,10 @@ class IngestResult:
     # Type-branched ingest: workspace-relative paths of guidance pages created or
     # updated by the skill branch. Empty list for every other source type.
     guidance_pages_written: list[str] = field(default_factory=list)
+    # Raw-source archive (design 2026-06-09): workspace-relative destination the
+    # raw source was moved to (e.g. "raw/_archived/specs/x.md"). None when the
+    # source was outside raw/, already archived, or the move failed.
+    archived_to: str | None = None
 
 
 @dataclass
@@ -945,6 +954,7 @@ async def _run_common_tail(
     source_path: Path,
     source_text: str,
     title_guess: str,
+    archive_unit: Path | None = None,
 ) -> IngestResult:
     """Shared finalize path for every ingest branch.
 
@@ -1012,7 +1022,31 @@ async def _run_common_tail(
 
     update_index(wiki)
 
+    # Archive the raw source (raw-source-archive design 2026-06-09). The raw
+    # dir is derived from the workspace root (wiki.parent — matching
+    # workspace_io.paths.raw_dir); sources outside raw/ map to None and are
+    # never touched. A failed move logs a warning and leaves archived_to=None
+    # — housekeeping never poisons a completed ingest.
+    archived_to: str | None = None
+    if archive_unit is not None:
+        workspace_root = wiki.parent
+        dest = archive_destination(raw_dir(workspace_root), archive_unit)
+        if dest is not None:
+            try:
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if dest.is_dir():
+                    shutil.rmtree(dest)
+                elif dest.exists():
+                    dest.unlink()
+                shutil.move(str(archive_unit), str(dest))
+                archived_to = dest.relative_to(workspace_root).as_posix()
+            except Exception:
+                logger.warning("failed to archive ingested source %s; leaving it in place", archive_unit, exc_info=True)
+                archived_to = None
+
     detail = f"source: {source_path}"
+    if archived_to:
+        detail += f"; archived: {archived_to}"
     if stripped_wikilinks:
         detail += f"; stripped {len(stripped_wikilinks)} unresolved wikilink(s): {stripped_wikilinks[:5]}"
     append_log(wiki, "ingest", title_guess, detail=detail, silent=True, raise_exception=True)
@@ -1036,6 +1070,7 @@ async def _run_common_tail(
         proposal_extractor_status=str(proposal_status.get("extractor", "skipped")),
         proposal_error=proposal_status.get("error"),
         guidance_pages_written=branch.guidance_pages_written,
+        archived_to=archived_to,
     )
 
 
@@ -1273,6 +1308,7 @@ async def run_ingest_source(
             source_path=source_path,
             source_text=text,
             title_guess=title_guess,
+            archive_unit=source_path,
         )
     finally:
         try:
