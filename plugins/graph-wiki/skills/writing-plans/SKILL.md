@@ -71,7 +71,7 @@ Key principle: TDD cycles happen WITHIN tasks, not as separate tasks. A task is 
 ```markdown
 # [Feature Name] Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers-extended-cc:subagent-driven-development (recommended) or superpowers-extended-cc:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use graph-wiki:subagent-driven-development (recommended) or graph-wiki:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** [One sentence describing what this builds]
 
@@ -177,7 +177,7 @@ Otherwise, show this short heads-up before the Execution Handoff (substitute {N}
 
 > Heads up — I tagged {N} task(s) as user-gate (Tasks #X, #Y, …). The plan runs end-to-end as-is. If you'd like automatic close-time enforcement, the JSON snippets are in `README.md` — paste them into `.claude/settings.json` (or `settings.local.json`). Happy to walk you through it; just say the word.
 
-Internal reference (do NOT show): README sections `#force-re-validation-on-user-thrown-gate-close` + `#re-validate-gates-on-plan-complete-claims` in `~/.claude/plugins/marketplaces/superpowers-extended-cc-marketplace/README.md`. Hooks: `hooks/examples/{post-task-complete-revalidate,stop-revalidate-user-gates}.sh`. Design doc: `docs/user-gate-flow.md`.
+Internal reference (do NOT show): README sections `#force-re-validation-on-user-thrown-gate-close` + `#re-validate-gates-on-plan-complete-claims` in `~/.claude/plugins/marketplaces/agent-research/README.md`. Hooks: `hooks/examples/{post-task-complete-revalidate,stop-revalidate-user-gates}.sh`. Design doc: `docs/user-gate-flow.md`.
 
 Suppress entirely if no user-gate tasks were tagged. Do NOT turn this into an `AskUserQuestion`.
 
@@ -206,13 +206,13 @@ AskUserQuestion:
 STOP. The user has chosen an execution method. You MUST invoke the corresponding skill using the Skill tool NOW. Do NOT implement tasks yourself — do NOT read files, make edits, or update task statuses. Your ONLY permitted action is invoking the skill below.
 
 **If Subagent-Driven chosen:**
-Invoke the Skill tool: `superpowers-extended-cc:subagent-driven-development`
+Invoke the Skill tool: `graph-wiki:subagent-driven-development`
 - The skill handles everything: subagent dispatch, review, task tracking
 - You stay in this session as the coordinator
 - Do NOT start working on tasks directly
 
 **If Parallel Session chosen:**
-Guide the user to open a new session in the worktree, then invoke: `superpowers-extended-cc:executing-plans`
+Guide the user to open a new session in the worktree, then invoke: `graph-wiki:executing-plans`
 </HARD-GATE>
 
 ---
@@ -380,7 +380,7 @@ Both the plan `.md` and `.tasks.json` must be co-located in `docs/superpowers/pl
 
 Any new session can resume by running:
 ```
-/superpowers-extended-cc:executing-plans <plan-path>
+/graph-wiki:executing-plans <plan-path>
 ```
 
 The skill reads the `.tasks.json` file and continues from where it left off.
