@@ -2091,3 +2091,31 @@ async def test_run_ingest_source_skill_falls_back_when_plan_unparseable(tmp_path
     assert result.page_type == "source"
     # raw/skill/ is authoritative for source_type even on the default branch.
     assert result.source_type == "skill"
+
+
+# ---------------------------------------------------------------------------
+# Skill-branch ## Excluded section (directory-aware skill ingest)
+# ---------------------------------------------------------------------------
+
+
+def test_compose_skill_source_body_renders_excluded_section() -> None:
+    from graph_wiki_core.commands.ingest import _compose_skill_source_body
+
+    body = _compose_skill_source_body(
+        "My Skill",
+        ["wiki/guidance/topic/a.md"],
+        excluded_files=["scripts/run.sh", "logo.png"],
+    )
+    assert "## Excluded" in body
+    assert "2 non-markdown file(s)" in body
+    assert "`scripts/run.sh`" in body
+    assert "`logo.png`" in body
+    # The ## Generates section is still present (additive, not a replacement).
+    assert "## Generates" in body
+
+
+def test_compose_skill_source_body_omits_excluded_when_empty() -> None:
+    from graph_wiki_core.commands.ingest import _compose_skill_source_body
+
+    assert "## Excluded" not in _compose_skill_source_body("My Skill", [], excluded_files=[])
+    assert "## Excluded" not in _compose_skill_source_body("My Skill", [])  # default None

@@ -50,6 +50,7 @@ from wiki_io.ingest_source import (
     PREVIEW_CHARS,
     RAW_FOLDER_TYPES,
     SOURCE_TYPE_ENUM,
+    SkillBundle,
     extract,
     guess_source_type,
     slugify,
@@ -723,16 +724,20 @@ def _guidance_wikilink_target(rel_path: str) -> str:
     return t
 
 
-def _compose_skill_source_body(title: str, written_rel_paths: list[str]) -> str:
+def _compose_skill_source_body(
+    title: str, written_rel_paths: list[str], excluded_files: list[str] | None = None
+) -> str:
     """Build the Source page body for a skill ingest.
 
     Minimal frontmatter (title only — source_type/target_slug/entity_uri are
     stamped by the common tail) plus a `## Generates` section linking every
-    guidance page the skill produced. Provenance: skill → guidance.
+    guidance page the skill produced. Provenance: skill → guidance. When the
+    skill directory had non-markdown files, an additive `## Excluded` section
+    records them (directory-aware skill ingest, 2026-06-09).
     """
     lines = [f"- [[{_guidance_wikilink_target(p)}]]" for p in written_rel_paths]
     generates = "\n".join(lines) if lines else "_No guidance pages were generated._"
-    return (
+    body = (
         f"---\ntitle: {title}\n---\n\n"
         f"# {title}\n\n"
         f"## Summary\n"
@@ -740,6 +745,10 @@ def _compose_skill_source_body(title: str, written_rel_paths: list[str]) -> str:
         f"{len(written_rel_paths)} guidance page(s) under `wiki/guidance/`.\n\n"
         f"## Generates\n{generates}\n"
     )
+    if excluded_files:
+        excl_lines = "\n".join(f"- `{p}`" for p in excluded_files)
+        body += f"\n## Excluded\n{len(excluded_files)} non-markdown file(s) were not ingested:\n{excl_lines}\n"
+    return body
 
 
 def _build_skill_synth_human(entry: dict) -> str:
@@ -828,6 +837,7 @@ async def _run_skill_branch(
     canonical_uri: str | None,
     entity_stem: str | None,
     model_override: str | None,
+    bundle: SkillBundle | None = None,
 ) -> _IngestBranchResult | None:
     """Two-pass skill ingest. Returns None to signal fall-back to the default branch.
 
@@ -885,7 +895,21 @@ async def _run_skill_branch(
         plan, workspace_root=workspace_root, project_ctx=project_ctx, model_override=model_override
     )
 
-    page_body = _compose_skill_source_body(title_guess, written)
+    excluded_files = bundle.excluded_files if bundle is not None else []
+    if excluded_files:
+        logger.warning(
+            "skill ingest excluded %d non-markdown file(s): %s",
+            len(excluded_files),
+            excluded_files,
+        )
+    if bundle is not None and bundle.scripts_dominant:
+        logger.warning(
+            "skill directory %s looks like a workflow skill (scripts/non-markdown dominant); "
+            "guidance ingestion may be a poor fit — proceeding anyway",
+            bundle.skill_dir,
+        )
+
+    page_body = _compose_skill_source_body(title_guess, written, excluded_files=excluded_files)
     return _IngestBranchResult(
         page_body=page_body,
         target_slug=slug,
