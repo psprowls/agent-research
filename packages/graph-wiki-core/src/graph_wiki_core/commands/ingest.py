@@ -52,7 +52,9 @@ from wiki_io.ingest_source import (
     SOURCE_TYPE_ENUM,
     SkillBundle,
     extract,
+    gather_skill_sources,
     guess_source_type,
+    resolve_skill_anchor,
     slugify,
 )
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
@@ -1167,26 +1169,40 @@ async def run_ingest_source(
         raise IngestorGraphNotInitializedError(workspace_root) from exc
 
     try:
-        # Step 2: extract text and title
-        text, title = extract(source_path)
+        # Step 2: resolve a skill anchor (a directory containing SKILL.md, or a
+        # SKILL.md file). When found, gather SKILL.md + all transitively-linked
+        # companion markdown into one combined text and force the skill branch.
+        # Otherwise fall through to today's single-file extract.
+        anchor = resolve_skill_anchor(source_path)
+        bundle: SkillBundle | None = None
+        if anchor is not None:
+            bundle = gather_skill_sources(anchor)
+            text = bundle.combined_text
+            title = bundle.title
+        else:
+            text, title = extract(source_path)
         title_guess = title or source_path.stem.replace("-", " ").title()
         slug = slugify(title_guess)
 
-        # Step 3: path-guess the source_type. raw/<type>/ folders are
-        # authoritative, so guess from the WORKSPACE-relative path (raw/ is a
-        # sibling of wiki/, not under it). In-repo docs fall to `doc`; loose
-        # files to `note` (source-type-consolidation design 2026-06-05).
-        rel_to_workspace: Path | None = None
-        rel_to_repo: Path | None = None
-        try:
-            rel_to_workspace = source_path.relative_to(workspace_root)
-        except ValueError:
-            pass
-        try:
-            rel_to_repo = source_path.relative_to(repo)
-        except ValueError:
-            pass
-        path_guess = guess_source_type(rel_to_workspace, rel_to_repo)
+        # Step 3: path-guess the source_type. A resolved skill anchor forces
+        # "skill" regardless of where the directory lives (works for skills
+        # outside raw/skill/). Otherwise guess from the path: raw/<type>/
+        # folders are authoritative (measured workspace-relative — raw/ is a
+        # sibling of wiki/), in-repo docs fall to `doc`, loose files to `note`.
+        if anchor is not None:
+            path_guess = "skill"
+        else:
+            rel_to_workspace: Path | None = None
+            rel_to_repo: Path | None = None
+            try:
+                rel_to_workspace = source_path.relative_to(workspace_root)
+            except ValueError:
+                pass
+            try:
+                rel_to_repo = source_path.relative_to(repo)
+            except ValueError:
+                pass
+            path_guess = guess_source_type(rel_to_workspace, rel_to_repo)
 
         # URI-drift limitation (INGESTOR-03 / Phase 40):
         #
@@ -1222,6 +1238,7 @@ async def run_ingest_source(
                 canonical_uri=canonical_uri,
                 entity_stem=entity_stem,
                 model_override=model_override,
+                bundle=bundle,
             )
         if branch is None:
             branch = await _run_default_branch(

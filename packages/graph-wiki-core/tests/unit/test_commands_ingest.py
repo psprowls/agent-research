@@ -2119,3 +2119,160 @@ def test_compose_skill_source_body_omits_excluded_when_empty() -> None:
 
     assert "## Excluded" not in _compose_skill_source_body("My Skill", [], excluded_files=[])
     assert "## Excluded" not in _compose_skill_source_body("My Skill", [])  # default None
+
+
+# ---------------------------------------------------------------------------
+# Directory anchor forces the skill branch + renders ## Excluded end-to-end
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_skill_directory_forces_skill_and_excludes(tmp_path, monkeypatch):
+    """A skill DIRECTORY (outside raw/skill/) is anchored on SKILL.md, gathers a
+    linked companion .md, excludes a script, and renders ## Excluded."""
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = tmp_path
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "log.md").write_text("", encoding="utf-8")
+
+    # Skill directory lives OUTSIDE raw/ — only the anchor (not the path-guess)
+    # can route this to the skill branch.
+    skill_dir = ws / "skills" / "my-skill"
+    (skill_dir / "references").mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        "---\nname: My Skill\n---\n\n# My Skill\n\nSee [adv](references/advanced.md).\n",
+        encoding="utf-8",
+    )
+    (skill_dir / "references" / "advanced.md").write_text("# Advanced\n\nDeep guidance.\n", encoding="utf-8")
+    (skill_dir / "run.py").write_text("print('workflow')\n", encoding="utf-8")  # excluded
+
+    monkeypatch.setattr(ingest_mod, "resolve_wiki_and_repo", lambda wp: (ws / "wiki", ws))
+    monkeypatch.setattr(ingest_mod, "render_project_context", lambda wiki: "")
+
+    class _Conn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+
+    captured: dict = {}
+
+    planner_yaml = (
+        "- title: Deep Guidance\n"
+        "  slug: deep-guidance\n"
+        "  topic: my-skill\n"
+        "  summary: Deep guidance.\n"
+        "  applies_when: Working on the skill.\n"
+        "  impact: high\n"
+        "  content: Deep guidance from the companion file.\n"
+    )
+    guidance_page = (
+        "---\ntitle: Deep Guidance\ncategory: guidance\ntopic: my-skill\n"
+        "summary: Deep guidance.\napplies_when: Working on the skill.\nimpact: high\n"
+        "updated: 2026-06-09\ntokens: 0\n---\n\n## Guidance\nDeep guidance.\n"
+    )
+
+    def _fake_make_llm(role, model_override=None):
+        out = planner_yaml if role == "skill_planner" else guidance_page
+
+        class _LLM:
+            async def ainvoke(self, messages):
+                # Capture the planner human message to assert the companion text
+                # made it into the combined blob the planner sees.
+                if role == "skill_planner":
+                    captured["planner_human"] = messages[-1].content
+
+                class _R:
+                    content = out
+                    usage_metadata = None
+
+                return _R()
+
+        return _LLM()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", _fake_make_llm)
+
+    # Pass the DIRECTORY, not a file.
+    result = await ingest_mod.run_ingest_source(skill_dir, workspace_path=ws)
+
+    # Directory anchor forced the skill branch despite living outside raw/skill/.
+    assert result.source_type == "skill"
+    assert result.page_type == "source"
+    # Title came from SKILL.md frontmatter `name:`.
+    assert result.title == "My Skill"
+    # Companion markdown was gathered into the combined text the planner saw.
+    assert "Deep guidance" in captured["planner_human"]
+    assert "<!-- skill-file: references/advanced.md -->" in captured["planner_human"]
+    # Guidance page written from the plan.
+    assert result.guidance_pages_written == ["wiki/guidance/my-skill/deep-guidance.md"]
+    # ## Excluded section recorded the non-markdown file.
+    src = (ws / "wiki" / result.page_path).read_text(encoding="utf-8")
+    assert "## Excluded" in src
+    assert "`run.py`" in src
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_raw_skill_single_file_still_works(tmp_path, monkeypatch):
+    """Regression: a raw/skill/<file>.md single file (NOT named SKILL.md) has no
+    anchor, so bundle is None — it still routes to the skill branch via the
+    path-guess and renders no ## Excluded section."""
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = tmp_path
+    (ws / "wiki").mkdir()
+    (ws / "wiki" / "log.md").write_text("", encoding="utf-8")
+    skill_dir = ws / "raw" / "skill"
+    skill_dir.mkdir(parents=True)
+    skill_file = skill_dir / "react-native.md"
+    skill_file.write_text("# RN Skill\nAlways use a virtualizer.\n", encoding="utf-8")
+
+    monkeypatch.setattr(ingest_mod, "resolve_wiki_and_repo", lambda wp: (ws / "wiki", ws))
+    monkeypatch.setattr(ingest_mod, "render_project_context", lambda wiki: "")
+
+    class _Conn:
+        def close(self):
+            pass
+
+    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
+    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+
+    planner_yaml = (
+        "- title: Use a Virtualizer\n"
+        "  slug: use-virtualizer\n"
+        "  topic: react-native\n"
+        "  summary: Use a virtualizer.\n"
+        "  applies_when: Rendering a list.\n"
+        "  impact: high\n"
+        "  content: Use a virtualizer instead of ScrollView.\n"
+    )
+    guidance_page = (
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: Use a virtualizer.\napplies_when: Rendering a list.\nimpact: high\n"
+        "updated: 2026-06-09\ntokens: 0\n---\n\n## Guidance\nUse a virtualizer.\n"
+    )
+
+    def _fake_make_llm(role, model_override=None):
+        out = planner_yaml if role == "skill_planner" else guidance_page
+
+        class _LLM:
+            async def ainvoke(self, messages):
+                class _R:
+                    content = out
+                    usage_metadata = None
+
+                return _R()
+
+        return _LLM()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", _fake_make_llm)
+
+    result = await ingest_mod.run_ingest_source(skill_file, workspace_path=ws)
+
+    assert result.source_type == "skill"
+    assert result.guidance_pages_written == ["wiki/guidance/react-native/use-virtualizer.md"]
+    src = (ws / "wiki" / result.page_path).read_text(encoding="utf-8")
+    assert "## Excluded" not in src  # no bundle -> no excluded section
