@@ -134,6 +134,7 @@ def run_one(
             if scenario.mode == "interactive":
                 run_result, raw_jsonl = run_interactive(
                     worktree_path=iso.worktree_path,
+                    max_wait_seconds=float(scenario.budgets.max_wall_seconds),
                 )
             elif auto_user is not None:
                 simulator = AutoUserSimulator(auto_user)
@@ -167,7 +168,7 @@ def run_one(
         # An infra-level failure (auth, CLI crash, no result event) means there's nothing the agent
         # produced to verify — running the LLM judge on an empty transcript only yields a misleading
         # "reason". Skip verifiers and surface the real failure reason instead.
-        run_errored = run_result.final_status not in ("success", "budget_exceeded", "dry_run")
+        run_errored = run_result.final_status not in ("success", "completed_interactive", "budget_exceeded", "dry_run")
         if run_errored:
             verifiers: list[VerifierBase] = []
             verify_result = {
