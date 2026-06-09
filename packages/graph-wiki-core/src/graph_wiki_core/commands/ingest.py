@@ -1095,16 +1095,25 @@ async def run_ingest_source(
 ) -> IngestResult:
     """Ingest a source file into the wiki via the ingestor LLM.
 
+    Shared setup resolves wiki/repo, extracts text, path-guesses source_type, and
+    looks up the matching entity (Steps 1–3 below). It then DISPATCHES on the
+    path-guess: a `raw/skill/` file runs `_run_skill_branch` (a two-pass
+    planner→synthesizer flow that writes `wiki/guidance/<topic>/<slug>.md` pages
+    directly and falls back to the default branch on planner failure); every other
+    type runs `_run_default_branch`. Both produce an `_IngestBranchResult` that
+    `_run_common_tail` finalizes (Steps 4–10).
+
     Steps:
         1. Resolve wiki and repo paths.
         2. Extract text and title from source file.
-        3. Guess source_type from path location.
-        4. Build ingestor prompt (vault structure + source preview).
-        5. Single LLM call to ingestor role (no fan-out needed for single source).
-        6. Parse YAML frontmatter from LLM response to read source_type + target_slug.
-        7. Write LLM output to sources/<target_slug>.md (routing is fixed — M3 Part A).
-        8. update_index(wiki) — cross-ref update (index-only scope per CONTEXT.md deferred).
-        9. append_log(wiki, "ingest", ...) — audit trail.
+        3. Guess source_type from path location; look up the matching entity.
+        4. Branch: default → single ingestor LLM call → Source body; skill →
+           two-pass guidance synthesis. Both yield an _IngestBranchResult.
+        5. Parse/stamp source_type + target_slug onto the page body.
+        6. Write the body to sources/<target_slug>.md (routing is fixed — M3 Part A).
+        7. Resolve wikilinks + ensure the entity forward-link.
+        8. Suggest phase (default branch only; skill branch skips it).
+        9. update_index(wiki) + append_log(wiki, "ingest", ...) — cross-ref + audit.
         10. Return IngestResult.
 
     Args:
