@@ -1,7 +1,13 @@
+"""Pytest configuration for claude-code-evals tests."""
+
 import pytest
+from claude_code_evals.stderr_logger import set_logger_enabled
 
 
 @pytest.fixture(autouse=True)
-def _disable_stderr_logging_by_default(monkeypatch):
-    """Disable stderr logging for tests by default to keep output clean."""
-    monkeypatch.setenv("CLAUDE_EVAL_STDERR", "0")
+def reset_logger_state():
+    """Reset logger global state before each test."""
+    set_logger_enabled(True)
+    yield
+    # Cleanup after test
+    set_logger_enabled(True)

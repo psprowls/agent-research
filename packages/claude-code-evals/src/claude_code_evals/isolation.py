@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Protocol, runtime_checkable
 
 from claude_code_evals.schemas import Config, Scenario
+from claude_code_evals.stderr_logger import EvalLogger
 
 
 @runtime_checkable
@@ -179,10 +180,23 @@ class WorktreeIsolation(_BaseIsolation):
         )
 
         self._setup_cfg_dir()
+        logger = EvalLogger("fixture_worktree_setup")
+        logger.log_dict(
+            "Worktree isolation created",
+            {
+                "scenario": self._scenario.name,
+                "config": self._config.name,
+                "worktree_path": str(self.worktree_path),
+                "baseline_sha": self._scenario.baseline_sha,
+                "isolation_mode": "worktree",
+            },
+        )
         return self
 
     def __exit__(self, *_: object) -> None:
         """Remove git worktree and clean up tmpdir."""
+        logger = EvalLogger("fixture_worktree_teardown")
+        logger.log("Worktree isolation cleaning up", scenario=self._scenario.name)
         if self._wt and self._wt.exists():
             target_repo = Path(self._scenario.target_repo).expanduser()  # type: ignore[arg-type]
             subprocess.run(
@@ -203,8 +217,20 @@ class FixtureIsolation(_BaseIsolation):
         self._wt = Path(self._tmp) / "wt"
         shutil.copytree(fixture_src, self._wt)
         self._setup_cfg_dir()
+        logger = EvalLogger("fixture_copy_setup")
+        logger.log_dict(
+            "Fixture isolation created",
+            {
+                "scenario": self._scenario.name,
+                "config": self._config.name,
+                "fixture_path": str(self.worktree_path),
+                "isolation_mode": "fixture",
+            },
+        )
         return self
 
     def __exit__(self, *_: object) -> None:
         """Clean up tmpdir (unless keep=True)."""
+        logger = EvalLogger("fixture_copy_teardown")
+        logger.log("Fixture isolation cleaning up", scenario=self._scenario.name)
         self._cleanup()

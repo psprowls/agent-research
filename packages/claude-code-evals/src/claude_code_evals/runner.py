@@ -9,6 +9,7 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
+from claude_code_evals.stderr_logger import EvalLogger
 from claude_code_evals.user_simulator import AutoUserSimulator
 
 
@@ -187,6 +188,19 @@ def _build_cmd(
     if multi_turn:
         cmd += ["--input-format", "stream-json", "--replay-user-messages"]
     cmd.append(prompt)
+
+    logger = EvalLogger("runner_cmd_build")
+    logger.log_dict(
+        "Claude invocation command built",
+        {
+            "model": model,
+            "multi_turn": multi_turn,
+            "plugin_dirs_count": len(plugin_dirs or []),
+            "system_prompt_length": len(system_prompt),
+            "user_prompt_length": len(prompt),
+        },
+    )
+
     return cmd
 
 
@@ -211,6 +225,23 @@ def run_one_shot(
         system_prompt=system_prompt,
         model=model,
         plugin_dirs=plugin_dirs,
+    )
+
+    logger = EvalLogger("runner_one_shot")
+    logger.log("Starting one-shot run", model=model, max_wall_seconds=max_wall_seconds)
+    logger.log_dict(
+        "System prompt injected",
+        {
+            "system_prompt_length": len(system_prompt),
+            "system_prompt_prefix": system_prompt[:100] + "..." if len(system_prompt) > 100 else system_prompt,
+        },
+    )
+    logger.log_dict(
+        "User prompt",
+        {
+            "prompt_length": len(prompt),
+            "prompt_prefix": prompt[:100] + "..." if len(prompt) > 100 else prompt,
+        },
     )
 
     proc = subprocess.Popen(
@@ -246,6 +277,18 @@ def run_one_shot(
                 ev = json.loads(line_str)
             except json.JSONDecodeError:
                 continue
+
+            # Log notable events from stream-json
+            if ev.get("type") in ("message", "assistant"):
+                if ev.get("role") == "assistant":
+                    logger.log("Assistant message received", content_length=len(ev.get("content", "")))
+                elif ev.get("role") == "user":
+                    logger.log("User message received", content_length=len(ev.get("content", "")))
+            elif ev.get("type") == "tool_call":
+                logger.log("Tool called", tool_name=ev.get("tool_name"), tool_id=ev.get("id"))
+            elif ev.get("type") == "tool_result":
+                logger.log("Tool result received", tool_id=ev.get("id"), result_length=len(str(ev.get("result", ""))))
+
             if ev.get("type") == "result":
                 saw_result = True
                 final_status, error_reason = _classify_result(ev)
@@ -260,6 +303,17 @@ def run_one_shot(
         # No result event: the CLI crashed (bad flag, auth, etc.) or produced nothing.
         final_status = "error_no_result"
         error_reason = _tail_non_json("".join(lines)) or f"claude exited {exit_code} with no result event"
+
+    logger.log_dict(
+        "One-shot run completed",
+        {
+            "final_status": final_status,
+            "budget_exceeded": budget_exceeded,
+            "wall_seconds": time.monotonic() - start,
+            "exit_code": exit_code,
+            "error_reason": error_reason,
+        },
+    )
 
     return (
         RunResult(
@@ -327,6 +381,9 @@ def run_multi_turn(
         multi_turn=True,
     )
 
+    logger = EvalLogger("runner_multi_turn")
+    logger.log("Starting multi-turn run", model=model, max_wall_seconds=max_wall_seconds)
+
     proc = subprocess.Popen(
         cmd,
         cwd=str(worktree_path),
@@ -359,6 +416,18 @@ def run_multi_turn(
                 ev = json.loads(line_str)
             except json.JSONDecodeError:
                 continue
+
+            # Log notable events from stream-json
+            if ev.get("type") in ("message", "assistant"):
+                if ev.get("role") == "assistant":
+                    logger.log("Assistant message received", content_length=len(ev.get("content", "")))
+                elif ev.get("role") == "user":
+                    logger.log("User message received", content_length=len(ev.get("content", "")))
+            elif ev.get("type") == "tool_call":
+                logger.log("Tool called", tool_name=ev.get("tool_name"), tool_id=ev.get("id"))
+            elif ev.get("type") == "tool_result":
+                logger.log("Tool result received", tool_id=ev.get("id"), result_length=len(str(ev.get("result", ""))))
+
             if ev.get("type") == "assistant":
                 for block in (ev.get("message") or {}).get("content") or []:
                     if block.get("type") == "text":
@@ -375,11 +444,24 @@ def run_multi_turn(
         proc.terminate()
         proc.wait(timeout=5)
 
+    exit_code = proc.returncode
+    wall_seconds = time.monotonic() - start
+
+    logger.log_dict(
+        "Multi-turn run completed",
+        {
+            "final_status": final_status,
+            "budget_exceeded": budget_exceeded,
+            "wall_seconds": wall_seconds,
+            "exit_code": exit_code,
+        },
+    )
+
     return (
         RunResult(
             final_status=final_status,
             budget_exceeded=budget_exceeded,
-            wall_seconds=time.monotonic() - start,
+            wall_seconds=wall_seconds,
             simulator_input_tokens=simulator.input_tokens,
             simulator_output_tokens=simulator.output_tokens,
         ),
