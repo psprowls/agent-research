@@ -167,6 +167,8 @@ def test_ingest_source_script_claude_branch_emits_json_brief(
         "file_count": 1,
         "state_gate": {},
     }
+    module.build_skill_ingest_brief = lambda *args, **kwargs: {}  # type: ignore[attr-defined]  # not reached in this test
+    module.resolve_skill_anchor = lambda path: None  # type: ignore[attr-defined]
     monkeypatch.setitem(sys.modules, "wiki_io.ingest_source", module)
 
     wiki = workspace / "wiki"
@@ -187,6 +189,66 @@ def test_ingest_source_script_claude_branch_emits_json_brief(
     assert data["title"] == "Demo Source"
     assert data["suggested_summary_path"].startswith("sources/")
     assert data["entity_match"] == {"uri": None, "entity_filename": None}
+
+
+def test_ingest_source_script_claude_branch_emits_skill_brief(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _install_claude_backend(monkeypatch)
+    workspace = tmp_path / "workspace"
+    _install_fake_wiki_io(monkeypatch, workspace)
+    module = types.ModuleType("wiki_io.ingest_source")
+
+    module.resolve_skill_anchor = lambda path: path  # type: ignore[attr-defined]  # non-None → skill branch
+    module.build_skill_ingest_brief = lambda *args, **kwargs: {  # type: ignore[attr-defined]
+        "is_skill": True,
+        "source_type": "skill",
+        "title": "My Skill",
+        "slug": "my-skill",
+        "suggested_summary_path": "sources/2026-06-my-skill.md",
+        "guidance_dir": "guidance/",
+        "included_files": ["SKILL.md", "references/advanced.md"],
+        "excluded_files": ["scripts/helper.py"],
+        "scripts_dominant": True,
+        "warnings": ["scripts_dominant"],
+        "entity_match": {"uri": None, "entity_filename": None},
+        "state_gate": {},
+    }
+    module.build_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # must not be reached
+    module.build_folder_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # must not be reached
+    monkeypatch.setitem(sys.modules, "wiki_io.ingest_source", module)
+
+    wiki = workspace / "wiki"
+    wiki.mkdir(parents=True)
+    skill_dir = workspace / "raw" / "skills" / "my-skill"
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text("# My Skill\n\nDoes things.\n", encoding="utf-8")
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest_source.py", str(skill_dir), "--workspace", str(workspace), "--json"],
+    )
+
+    runpy.run_path(str(_SCRIPT_DIR / "ingest_source.py"), run_name="__main__")
+
+    data = json.loads(capsys.readouterr().out)
+    assert data["is_skill"] is True
+    assert data["source_type"] == "skill"
+    assert data["included_files"][0] == "SKILL.md"
+
+    # Human-readable branch (no --json) prints the skill summary.
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest_source.py", str(skill_dir), "--workspace", str(workspace)],
+    )
+    runpy.run_path(str(_SCRIPT_DIR / "ingest_source.py"), run_name="__main__")
+    out = capsys.readouterr().out
+    assert "Source type: skill" in out
+    assert "Target guidance dir: guidance/" in out
 
 
 def test_init_vault_script_claude_branch_calls_init_wiki(
