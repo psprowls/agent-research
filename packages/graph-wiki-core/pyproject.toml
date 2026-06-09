@@ -10,6 +10,7 @@ dependencies = [
     "subagent-runtime",
     "workspace-io",
     "work-io",
+    "guidance-io",
     "bm25s==0.3.8",
     "langchain-aws>=1.4.7",
     "langchain-core>=1.4.0",
@@ -30,6 +31,7 @@ model-adapter   = { workspace = true }
 subagent-runtime = { workspace = true }
 workspace-io    = { workspace = true }
 work-io         = { workspace = true }
+guidance-io     = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
