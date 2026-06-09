@@ -78,6 +78,7 @@ def test_prep_module_exports_brief_builders(monkeypatch: pytest.MonkeyPatch) -> 
     importlib.reload(prep)
     assert callable(prep.build_ingest_brief)
     assert callable(prep.build_folder_ingest_brief)
+    assert callable(prep.build_skill_ingest_brief)
     assert not hasattr(prep, "main")
 
 
