@@ -455,6 +455,32 @@ async def test_wiki_ingest_source_passes_through_guidance_pages(monkeypatch):
     assert out.guidance_pages_written == ["wiki/guidance/t/a.md"]
 
 
+async def test_wiki_ingest_output_carries_archived_to() -> None:
+    """WikiIngestOutput mirrors IngestResult.archived_to."""
+    from graph_wiki_core.commands.ingest import IngestResult
+    from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="sources/auth-spec.md",
+        slug="auth-spec",
+        title="Auth Spec",
+        page_type="source",
+        source_path="/ws/raw/specs/auth.md",
+        cross_refs_updated=1,
+        archived_to="raw/_archived/specs/auth.md",
+    )
+
+    mock_ctx = MagicMock()
+    mock_ctx.report_progress = AsyncMock()
+
+    with patch("graph_wiki_mcp.server.run_ingest_source", new_callable=AsyncMock) as mock_source:
+        mock_source.return_value = mock_result
+        out = await wiki_ingest(WikiIngestInput(type="source", source_path="/ws/raw/specs/auth.md"), mock_ctx)
+
+    assert out.archived_to == "raw/_archived/specs/auth.md"
+
+
 # ---------------------------------------------------------------------------
 # wiki_propagate_drift tool (Living Wiki M4)
 # ---------------------------------------------------------------------------
