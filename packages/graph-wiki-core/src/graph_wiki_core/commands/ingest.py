@@ -31,8 +31,13 @@ from pathlib import Path
 import yaml
 from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
 from graph_io.store import GraphNotInitializedError, read_only_connect
+from guidance_io.frontmatter import parse as parse_guidance_fm
+from guidance_io.frontmatter import validate as validate_guidance_fm
+from guidance_io.paths import page_path as guidance_page_path
+from guidance_io.paths import slugify as guidance_slugify
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
+from subagent_runtime.pool import SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
@@ -58,6 +63,7 @@ from graph_wiki_core.commands.suggest_pages import run_suggest_phase
 from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
+from graph_wiki_core.prompts.skill_synthesizer import build_skill_synthesizer_system
 
 logger = logging.getLogger(__name__)
 
@@ -664,6 +670,144 @@ def build_ingest_source_prompt(
         f"entity, reference it with a [[entities/...]] wikilink in the body — do "
         f"not create a package page."
     )
+
+
+# ---------------------------------------------------------------------------
+# Skill-branch helpers (Task 11) — plan parse, source body, synthesis fan-out
+# ---------------------------------------------------------------------------
+
+# Required keys a planner chunk-plan entry must carry to be usable.
+_SKILL_PLAN_REQUIRED = ("title", "topic", "content")
+
+
+def _parse_skill_plan(text: str) -> list[dict] | None:
+    """Parse the planner response (a YAML list of chunk entries).
+
+    Strips a leading ```yaml / ``` code fence defensively (same failure mode as
+    the ingestor). Returns None when the text is empty, not valid YAML, not a
+    list, or contains no usable entry (each usable entry has title/topic/content).
+    """
+    if not text or not text.strip():
+        return None
+    stripped = text.strip()
+    if stripped.startswith("```"):
+        nl = stripped.find("\n")
+        if nl == -1:
+            return None
+        stripped = stripped[nl + 1 :]
+        fence = stripped.rfind("```")
+        if fence != -1:
+            stripped = stripped[:fence]
+        stripped = stripped.strip()
+    try:
+        loaded = yaml.safe_load(stripped)
+    except yaml.YAMLError:
+        return None
+    if not isinstance(loaded, list):
+        return None
+    entries = [e for e in loaded if isinstance(e, dict) and all(e.get(k) for k in _SKILL_PLAN_REQUIRED)]
+    return entries or None
+
+
+def _guidance_wikilink_target(rel_path: str) -> str:
+    """Turn a workspace-relative guidance path into a wikilink target.
+
+    `wiki/guidance/<topic>/<slug>.md` -> `guidance/<topic>/<slug>`.
+    """
+    t = rel_path
+    if t.startswith("wiki/"):
+        t = t[len("wiki/") :]
+    if t.endswith(".md"):
+        t = t[: -len(".md")]
+    return t
+
+
+def _compose_skill_source_body(title: str, written_rel_paths: list[str]) -> str:
+    """Build the Source page body for a skill ingest.
+
+    Minimal frontmatter (title only — source_type/target_slug/entity_uri are
+    stamped by the common tail) plus a `## Generates` section linking every
+    guidance page the skill produced. Provenance: skill → guidance.
+    """
+    lines = [f"- [[{_guidance_wikilink_target(p)}]]" for p in written_rel_paths]
+    generates = "\n".join(lines) if lines else "_No guidance pages were generated._"
+    return (
+        f"---\ntitle: {title}\n---\n\n"
+        f"# {title}\n\n"
+        f"## Summary\n"
+        f"Agent skill ingested. Reusable guidance was synthesized into "
+        f"{len(written_rel_paths)} guidance page(s) under `wiki/guidance/`.\n\n"
+        f"## Generates\n{generates}\n"
+    )
+
+
+def _build_skill_synth_human(entry: dict) -> str:
+    """Human message for one synthesizer call: the chunk-plan entry as YAML."""
+    return "Chunk plan entry:\n```yaml\n" + yaml.safe_dump(entry, sort_keys=False, allow_unicode=True) + "```\n"
+
+
+async def _synthesize_guidance_pages(
+    plan: list[dict],
+    *,
+    workspace_root: Path,
+    project_ctx: str,
+    model_override: str | None,
+) -> list[str]:
+    """Pass 2: synthesize + write one guidance page per plan entry.
+
+    Fans out one skill_synthesizer call per entry via SubagentPool. Each result
+    is parsed + validated against the guidance-io schema; valid pages are written
+    to wiki/guidance/<topic>/<slug>.md (overwriting on re-ingest). Invalid or
+    failed chunks are logged and skipped (best-effort — a bad chunk never fails
+    the ingest). The on-disk path is derived from the planner entry's topic/slug
+    (NOT the synthesizer's frontmatter), so the path is deterministic.
+
+    Returns workspace-relative paths of the pages written, in plan order.
+    """
+    synth_cfg = load_role_config("skill_synthesizer")
+    system = build_skill_synthesizer_system(project_context=project_ctx)
+
+    async def synth_one(entry: dict) -> TaskResult:
+        llm = make_llm("skill_synthesizer", model_override=model_override)
+        resp = await llm.ainvoke([SystemMessage(system), HumanMessage(_build_skill_synth_human(entry))])
+        content = resp.content if isinstance(resp.content, str) else ""
+        return TaskResult(value=content, response=resp)
+
+    pool = SubagentPool(trace_dir=graph_dir(workspace_root) / "traces")
+    fan = await pool.run_all(
+        items=list(plan),
+        task=synth_one,
+        role="skill_synthesizer",
+        model_id=synth_cfg["model_id"],
+        max_concurrency=int(synth_cfg.get("max_concurrency", 5)),
+    )
+
+    # Map entries to their synthesized text (only successes).
+    by_id = {id(entry): page_text for entry, page_text in fan.successes}
+
+    written: list[str] = []
+    for entry in plan:  # preserve plan order, not fan-out completion order
+        page_text = by_id.get(id(entry))
+        if not page_text:
+            continue
+        try:
+            fm, _body = parse_guidance_fm(page_text)
+        except ValueError:
+            logger.warning(
+                "skill synthesizer produced unparseable guidance page; skipping chunk %r", entry.get("title")
+            )
+            continue
+        errors = validate_guidance_fm(fm)
+        if errors:
+            logger.warning("skill guidance page failed validation (%s); skipping chunk %r", errors, entry.get("title"))
+            continue
+        topic = guidance_slugify(str(entry["topic"]))
+        slug = guidance_slugify(str(entry.get("slug") or entry["title"]))
+        page = guidance_page_path(workspace_root, topic, slug)
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(page_text, encoding="utf-8")
+        written.append(page.relative_to(workspace_root).as_posix())
+    return written
 
 
 async def _run_common_tail(

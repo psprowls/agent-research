@@ -1834,3 +1834,126 @@ def test_set_proposal_status_in_body_quotes_colon_error_scalar() -> None:
 
     assert 'error: "bedrock: access denied"' in out
     assert "\n...\n" not in out
+
+
+# ---------------------------------------------------------------------------
+# Task 11 — skill-branch helpers (plan parse, synthesis fan-out, source body)
+# ---------------------------------------------------------------------------
+
+
+def test_parse_skill_plan_reads_yaml_list():
+    from graph_wiki_core.commands.ingest import _parse_skill_plan
+
+    text = (
+        "- title: Use a Virtualizer\n"
+        "  slug: use-virtualizer\n"
+        "  topic: react-native\n"
+        "  content: |\n"
+        "    Use a virtualizer.\n"
+    )
+    plan = _parse_skill_plan(text)
+    assert isinstance(plan, list)
+    assert plan[0]["topic"] == "react-native"
+    assert plan[0]["slug"] == "use-virtualizer"
+
+
+def test_parse_skill_plan_strips_code_fence():
+    from graph_wiki_core.commands.ingest import _parse_skill_plan
+
+    text = "```yaml\n- title: A\n  topic: t\n  content: body\n```\n"
+    plan = _parse_skill_plan(text)
+    assert plan and plan[0]["title"] == "A"
+
+
+def test_parse_skill_plan_returns_none_on_garbage():
+    from graph_wiki_core.commands.ingest import _parse_skill_plan
+
+    assert _parse_skill_plan("not yaml: [unclosed") is None
+    assert _parse_skill_plan("title: not-a-list") is None  # mapping, not a list
+    assert _parse_skill_plan("") is None
+
+
+def test_guidance_wikilink_target_from_relpath():
+    from graph_wiki_core.commands.ingest import _guidance_wikilink_target
+
+    assert _guidance_wikilink_target("wiki/guidance/react-native/use-virtualizer.md") == (
+        "guidance/react-native/use-virtualizer"
+    )
+
+
+def test_compose_skill_source_body_lists_generates():
+    from graph_wiki_core.commands.ingest import _compose_skill_source_body
+
+    body = _compose_skill_source_body(
+        title="React Native Skill",
+        written_rel_paths=[
+            "wiki/guidance/react-native/use-virtualizer.md",
+            "wiki/guidance/react-native/avoid-inline-styles.md",
+        ],
+    )
+    assert body.lstrip().startswith("---")
+    assert "## Generates" in body
+    assert "[[guidance/react-native/use-virtualizer]]" in body
+    assert "[[guidance/react-native/avoid-inline-styles]]" in body
+
+
+@pytest.mark.asyncio
+async def test_synthesize_guidance_pages_writes_validated_pages(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    workspace_root = tmp_path
+    (workspace_root / "wiki").mkdir()
+
+    valid_page = (
+        "---\ntitle: Use a Virtualizer\ncategory: guidance\ntopic: react-native\n"
+        "summary: s\napplies_when: a\nimpact: high\nupdated: 2026-06-08\ntokens: 0\n---\n\n"
+        "## Guidance\nUse a virtualizer.\n"
+    )
+
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = valid_page
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _FakeLLM())
+
+    plan = [
+        {"title": "Use a Virtualizer", "slug": "use-virtualizer", "topic": "react-native", "content": "x"},
+    ]
+    written = await ingest_mod._synthesize_guidance_pages(
+        plan,
+        workspace_root=workspace_root,
+        project_ctx="",
+        model_override=None,
+    )
+    assert written == ["wiki/guidance/react-native/use-virtualizer.md"]
+    page = workspace_root / "wiki" / "guidance" / "react-native" / "use-virtualizer.md"
+    assert page.is_file()
+    assert "## Guidance" in page.read_text(encoding="utf-8")
+
+
+@pytest.mark.asyncio
+async def test_synthesize_guidance_pages_skips_invalid(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    workspace_root = tmp_path
+    (workspace_root / "wiki").mkdir()
+
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = "this is not a guidance page"
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _FakeLLM())
+
+    plan = [{"title": "Bad", "slug": "bad", "topic": "t", "content": "x"}]
+    written = await ingest_mod._synthesize_guidance_pages(
+        plan, workspace_root=workspace_root, project_ctx="", model_override=None
+    )
+    assert written == []
