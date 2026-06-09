@@ -322,3 +322,59 @@ def test_no_lattice_wiki_core_imports() -> None:
     assert "lattice_wiki_core" not in text
     assert "_version_check" not in text
     assert "check_for_updates" not in text
+
+
+# ---------------------------------------------------------------------------
+# resolve_skill_anchor (directory-aware skill ingest)
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_skill_anchor_directory_with_skill_md(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import resolve_skill_anchor
+
+    skill_dir = tmp_path / "my-skill"
+    skill_dir.mkdir()
+    (skill_dir / "SKILL.md").write_text("# My Skill\n", encoding="utf-8")
+    assert resolve_skill_anchor(skill_dir) == skill_dir / "SKILL.md"
+
+
+def test_resolve_skill_anchor_skill_md_file(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import resolve_skill_anchor
+
+    skill_md = tmp_path / "SKILL.md"
+    skill_md.write_text("# My Skill\n", encoding="utf-8")
+    assert resolve_skill_anchor(skill_md) == skill_md
+
+
+def test_resolve_skill_anchor_unrelated_file_returns_none(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import resolve_skill_anchor
+
+    other = tmp_path / "notes.md"
+    other.write_text("# Notes\n", encoding="utf-8")
+    assert resolve_skill_anchor(other) is None
+
+
+def test_resolve_skill_anchor_directory_without_skill_md_returns_none(tmp_path: Path) -> None:
+    from wiki_io.ingest_source import resolve_skill_anchor
+
+    plain_dir = tmp_path / "plain"
+    plain_dir.mkdir()
+    (plain_dir / "README.md").write_text("# Readme\n", encoding="utf-8")
+    assert resolve_skill_anchor(plain_dir) is None
+
+
+def test_skill_bundle_fields() -> None:
+    import dataclasses
+
+    from wiki_io.ingest_source import SkillBundle
+
+    field_names = {f.name for f in dataclasses.fields(SkillBundle)}
+    assert field_names == {
+        "combined_text",
+        "skill_dir",
+        "anchor",
+        "title",
+        "included_files",
+        "excluded_files",
+        "scripts_dominant",
+    }

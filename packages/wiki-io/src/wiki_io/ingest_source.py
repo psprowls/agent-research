@@ -17,6 +17,8 @@ Exports:
     folder_brief(root, rel_to_wiki) -> dict
     build_folder_ingest_brief(source_path, wiki, repo) -> dict
     build_ingest_brief(source_path, wiki, repo, workspace_root) -> dict
+    resolve_skill_anchor(source_path) -> Path | None
+    SkillBundle   (dataclass — directory-aware skill ingest)
     _HTMLTextExtractor
 """
 
@@ -26,6 +28,7 @@ import datetime
 import html.parser
 import json
 import re
+from dataclasses import dataclass
 from pathlib import Path
 
 from wiki_io.scan_monorepo import compute_state_gate
@@ -331,3 +334,54 @@ def folder_brief(root: Path, rel_to_wiki: Path | None) -> dict:
         "representative_file": representative,
         "warnings": warnings,
     }
+
+
+# ---------------------------------------------------------------------------
+# Directory-aware skill ingest (2026-06-09 design).
+#
+# A skill is frequently a directory: a SKILL.md that links out to companion
+# reference markdown. These pure, Bedrock-free helpers gather SKILL.md plus all
+# transitively-linked companion .md into one combined text and report the
+# non-markdown files that were excluded. The combined text is fed unchanged to
+# the existing two-pass skill branch in graph-wiki-core.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class SkillBundle:
+    """Result of gathering a skill directory into one combined markdown blob.
+
+    Fields:
+        combined_text:   SKILL.md, then linked companion files in DFS link order,
+                         each prefixed with an `<!-- skill-file: <rel> -->` marker.
+        skill_dir:       the resolved directory containing the anchor SKILL.md.
+        anchor:          the resolved SKILL.md the bundle is anchored on.
+        title:           SKILL.md frontmatter `name:` → first `# ` heading → None.
+        included_files:  skill_dir-relative POSIX paths, SKILL.md first, DFS order.
+        excluded_files:  every non-.md file under skill_dir (POSIX rel, sorted).
+        scripts_dominant: True when a top-level `scripts/` dir exists OR there are
+                         more excluded files than included.
+    """
+
+    combined_text: str
+    skill_dir: Path
+    anchor: Path
+    title: str | None
+    included_files: list[str]
+    excluded_files: list[str]
+    scripts_dominant: bool
+
+
+def resolve_skill_anchor(source_path: Path) -> Path | None:
+    """Return the SKILL.md to anchor a skill ingest on, or None.
+
+    - a directory containing `SKILL.md` -> `<dir>/SKILL.md`
+    - a file named `SKILL.md`           -> the file itself
+    - anything else                     -> None (caller falls back to today's path)
+    """
+    if source_path.is_dir():
+        candidate = source_path / "SKILL.md"
+        return candidate if candidate.is_file() else None
+    if source_path.is_file() and source_path.name == "SKILL.md":
+        return source_path
+    return None
