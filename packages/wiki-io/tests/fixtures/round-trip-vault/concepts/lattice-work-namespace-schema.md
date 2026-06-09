@@ -25,7 +25,7 @@ kind: bug                       # required — 8-value enum
 summary: <one-line>
 status: open                    # required — 7-state lifecycle
 severity: medium                # bug | security | perf — optional otherwise
-effort: small                   # trivial | small | medium | large
+effort: s                       # xs | s | m | l | xl
 blast_radius: package           # file | package | domain | system
 affects:
   - packages/<pkg>

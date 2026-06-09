@@ -5,7 +5,7 @@ kind: bug                        # bug | tech-debt | test-gap | security | perf 
 summary: <one-line — symptom for bug-shaped, capability for feature-shaped>
 status: open                     # open | accepted | in-progress | mitigated | resolved | wontfix | superseded
 severity:                        # bug | security | perf — leave blank for feature/initiative/spike
-effort:                          # trivial | small | medium | large
+effort:                          # xs | s | m | l | xl
 blast_radius:                    # file | package | domain | system
 affects: []                      # paths or packages this work touches
 target:                          # YYYY-QN | YYYY-MM — meaningful for feature/initiative
