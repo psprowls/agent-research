@@ -237,6 +237,13 @@ class TestBuildFileMap:
         assert result is not None
         assert "> Truncated at 3 files." in result
 
+    def test_default_max_entries_is_200(self) -> None:
+        """81 files should not trigger truncation when max_entries is not specified."""
+        files = [f"src/file{i}.ts" for i in range(81)]
+        result = _bfm("mypkg", files)
+        assert result is not None
+        assert "> Truncated" not in result
+
     def test_empty_package_uses_legacy_short_circuit(self) -> None:
         """Empty package (no tracked files) uses the legacy no-table format."""
         result = _bfm("mypkg", [])
@@ -342,6 +349,13 @@ class TestBuildDirFileMap:
         result = _bdfm("tests", files, max_entries=3)
         assert result is not None
         assert "> Truncated at 3 files." in result
+
+    def test_default_max_entries_is_200(self) -> None:
+        """81 files should not trigger truncation when max_entries is not specified."""
+        files = [f"file{i}.py" for i in range(81)]
+        result = _bdfm("mydir", files)
+        assert result is not None
+        assert "> Truncated" not in result
 
 
 # ---------------------------------------------------------------------------
@@ -542,6 +556,14 @@ class TestBuildFileMaps:
         prod, test = result
         assert "> Truncated at 4 files." in prod
         assert "> Truncated at 4 files." in test
+
+    def test_default_max_entries_is_200(self) -> None:
+        """81 prod files should not trigger truncation when max_entries is not specified."""
+        files = [f"src/file{i}.ts" for i in range(81)]
+        result = _bfms("mypkg", files)
+        assert result is not None
+        prod, _test = result
+        assert "> Truncated" not in prod
 
     def test_legacy_api_equals_prod_block(self) -> None:
         """build_file_map() returns the same string as build_file_maps()[0]."""
