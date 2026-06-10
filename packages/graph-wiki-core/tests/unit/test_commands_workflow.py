@@ -184,12 +184,12 @@ def test_advance_design_complete_small_bug_shortcuts_to_execute(tmp_path: Path) 
     (workspace / "raw" / "specs").mkdir(parents=True)
     (workspace / "raw" / "specs" / f"{slug}.md").write_text("# findings\n")
 
-    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, effort="s"))
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, effort="small"))
 
     fm = _read_fm(wiki, slug)
     assert fm["phase"] == "execute"
     assert fm["status"] == "open"  # shortcut skips accepted
-    assert fm["effort"] == "s"
+    assert fm["effort"] == "small"
     assert fm["spec_doc"] == f"raw/specs/{slug}.md"
     assert result.stamped["spec_doc"] == f"raw/specs/{slug}.md"
 
@@ -224,7 +224,7 @@ def test_advance_execute_dispatch_requires_owner(tmp_path: Path) -> None:
     from graph_wiki_core.commands.work import run_work_advance
 
     workspace, wiki = _make_workspace(tmp_path)
-    slug = _write_item(wiki / "work", "exec-me", kind="bug", phase="execute", effort="s")
+    slug = _write_item(wiki / "work", "exec-me", kind="bug", phase="execute", effort="small")
 
     with pytest.raises(ValueError, match="owner"):
         asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
@@ -236,7 +236,7 @@ def test_advance_execute_dispatch_sets_in_progress(tmp_path: Path) -> None:
     from graph_wiki_core.commands.work import run_work_advance
 
     workspace, wiki = _make_workspace(tmp_path)
-    slug = _write_item(wiki / "work", "exec-me", kind="bug", phase="execute", effort="s")
+    slug = _write_item(wiki / "work", "exec-me", kind="bug", phase="execute", effort="small")
 
     asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, owner="pat"))
 
@@ -253,7 +253,7 @@ def test_advance_execute_complete_moves_to_finish(tmp_path: Path) -> None:
 
     workspace, wiki = _make_workspace(tmp_path)
     slug = _write_item(
-        wiki / "work", "executing", kind="bug", status="in-progress", phase="execute", effort="s", owner="pat"
+        wiki / "work", "executing", kind="bug", status="in-progress", phase="execute", effort="small", owner="pat"
     )
 
     asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
@@ -271,7 +271,7 @@ def test_advance_finish_requires_resolved_in(tmp_path: Path) -> None:
 
     workspace, wiki = _make_workspace(tmp_path)
     slug = _write_item(
-        wiki / "work", "finishing", kind="bug", status="in-progress", phase="finish", effort="s", owner="pat"
+        wiki / "work", "finishing", kind="bug", status="in-progress", phase="finish", effort="small", owner="pat"
     )
 
     with pytest.raises(ValueError, match="resolved"):
@@ -285,7 +285,7 @@ def test_advance_finish_complete_resolves(tmp_path: Path) -> None:
 
     workspace, wiki = _make_workspace(tmp_path)
     slug = _write_item(
-        wiki / "work", "finishing", kind="bug", status="in-progress", phase="finish", effort="s", owner="pat"
+        wiki / "work", "finishing", kind="bug", status="in-progress", phase="finish", effort="small", owner="pat"
     )
 
     result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, resolved_in="pr#42"))

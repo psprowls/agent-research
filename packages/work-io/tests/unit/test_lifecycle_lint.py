@@ -202,13 +202,13 @@ def test_lint_finding_has_required_fields() -> None:
 
 
 def test_effort_not_in_enum_warns() -> None:
-    findings = run_lint([_item(effort="small")], None, None)
+    findings = run_lint([_item(effort="s")], None, None)
     f = next(f for f in findings if f.rule_id == "effort-not-in-enum")
     assert f.severity == "warn"
 
 
 def test_effort_valid_ok() -> None:
-    findings = run_lint([_item(effort="xs")], None, None)
+    findings = run_lint([_item(effort="xtra-small")], None, None)
     assert "effort-not-in-enum" not in _rule_ids(findings)
 
 

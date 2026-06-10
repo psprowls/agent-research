@@ -383,7 +383,7 @@ async def run_work_advance(
     if t is None:
         raise ValueError(f"nothing to advance: {r.reason}")
     if "effort" in t.requires:
-        raise ValueError("effort required to advance: pass --effort xs|s|m|l|xl")
+        raise ValueError("effort required to advance: pass --effort xtra-small|small|medium|large|xtra-large")
     if "owner" in t.requires and not (owner or fm.get("owner")):
         raise ValueError("owner required to advance: pass --owner <handle>")
     if "resolved_in" in t.requires and not (resolved_in or fm.get("resolved_in")):

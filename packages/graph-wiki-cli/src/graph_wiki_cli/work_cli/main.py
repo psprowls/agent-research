@@ -35,7 +35,7 @@ def file(
     status: str = typer.Option("open", "--status", help="open|accepted|in-progress|done|wont-fix|deferred"),
     affects: str = typer.Option("", "--affects", help="Comma-separated paths or package names"),
     severity: str = typer.Option("", "--severity", help="bug|security|perf — blank for feature/initiative/spike"),
-    effort: str = typer.Option("", "--effort", help="xs|s|m|l|xl"),
+    effort: str = typer.Option("", "--effort", help="xtra-small|small|medium|large|xtra-large"),
     blast_radius: str = typer.Option("", "--blast-radius", help="file|package|domain|system"),
     target: str = typer.Option("", "--target", help="YYYY-QN or YYYY-MM"),
     owner: str = typer.Option("", "--owner", help="Owner handle"),
@@ -216,7 +216,7 @@ def next_cmd(
 @work_app.command()
 def advance(
     slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
-    effort: str = typer.Option("", "--effort", help="xs|s|m|l|xl"),
+    effort: str = typer.Option("", "--effort", help="xtra-small|small|medium|large|xtra-large"),
     owner: str = typer.Option("", "--owner", help="Owner handle"),
     resolved_in: str = typer.Option("", "--resolved-in", help="PR/commit reference"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),

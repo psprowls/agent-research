@@ -25,7 +25,7 @@ Run `gw work next <slug> --json`.
   around a blocker — terminal/mitigated items, invalid enums, and unknown slugs
   are all human decisions.
 - If the only blocker says **effort required**: ask the user to size the item
-  (xs / s / m / l / xl — xs/s means a bug-like item skips the planning stage),
+  (xtra-small / small / medium / large / xtra-large — xtra-small/small means a bug-like item skips the planning stage),
   then run `gw work advance <slug> --effort <value>` and re-run `gw work next`.
 - Otherwise announce the dispatch: item title, kind, phase, and the stage skill
   from `action.skill`.

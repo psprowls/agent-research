@@ -19,7 +19,7 @@ from work_io.lifecycle_lint import (
     VALID_STATUSES,
 )
 
-SMALL_EFFORTS = frozenset({"xs", "s"})
+SMALL_EFFORTS = frozenset({"xtra-small", "small"})
 DIAGNOSIS_KINDS = frozenset({"bug", "security", "perf"})
 
 # Sentinel phase reported when the design-complete fork cannot be decided
@@ -114,7 +114,7 @@ def _entry(state: WorkItemState) -> RouteResult:
                 skill=None,
                 reason="test-gap entry forks on effort",
                 blockers=(
-                    "effort required: test-gap routes to execute (xs/s) or plan (m/l/xl); "
+                    "effort required: test-gap routes to execute (xtra-small/small) or plan (medium/large/xtra-large); "
                     "size the item and advance with --effort",
                 ),
             )

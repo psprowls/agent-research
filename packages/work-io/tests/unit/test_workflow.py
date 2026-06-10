@@ -23,7 +23,7 @@ def _state(
         _state(kind="epic"),
         _state(status="todo"),
         _state(phase="designing"),
-        _state(effort="small"),
+        _state(effort="s"),
     ],
 )
 def test_invalid_enums_block(state: WorkItemState) -> None:
@@ -80,14 +80,14 @@ def test_entry_test_gap_without_effort_blocks() -> None:
     assert any("effort" in b for b in r.blockers)
 
 
-@pytest.mark.parametrize("effort", ["xs", "s"])
+@pytest.mark.parametrize("effort", ["xtra-small", "small"])
 def test_entry_test_gap_small_goes_straight_to_execute(effort: str) -> None:
     r = route(_state(kind="test-gap", effort=effort))
     assert r.skill == "test-driven-development"
     assert r.on_dispatch == Transition(phase="execute", status="in-progress", requires=("owner",))
 
 
-@pytest.mark.parametrize("effort", ["m", "l", "xl"])
+@pytest.mark.parametrize("effort", ["medium", "large", "xtra-large"])
 def test_entry_test_gap_large_goes_to_plan(effort: str) -> None:
     r = route(_state(kind="test-gap", effort=effort))
     assert r.skill == "writing-plans"
@@ -99,14 +99,14 @@ def test_entry_test_gap_large_goes_to_plan(effort: str) -> None:
 
 
 def test_design_bug_like_small_effort_shortcuts_to_execute() -> None:
-    r = route(_state(kind="bug", phase="design", effort="s"))
+    r = route(_state(kind="bug", phase="design", effort="small"))
     assert r.skill == "systematic-debugging"
     assert r.on_dispatch is None
     assert r.on_complete == Transition(phase="execute", stamp_doc="spec_doc")
 
 
 def test_design_bug_like_large_effort_goes_to_plan() -> None:
-    r = route(_state(kind="tech-debt", phase="design", effort="l"))
+    r = route(_state(kind="tech-debt", phase="design", effort="large"))
     assert r.skill == "brainstorming"
     assert r.on_complete == Transition(phase="plan", stamp_doc="spec_doc")
 
@@ -120,7 +120,7 @@ def test_design_bug_like_missing_effort_reports_fork_sentinel() -> None:
 
 @pytest.mark.parametrize("kind", ["feature", "initiative", "spike"])
 def test_design_feature_like_always_plans_even_when_small(kind: str) -> None:
-    r = route(_state(kind=kind, phase="design", effort="xs"))
+    r = route(_state(kind=kind, phase="design", effort="xtra-small"))
     assert r.on_complete == Transition(phase="plan", stamp_doc="spec_doc")
 
 
@@ -145,13 +145,13 @@ def test_execute_with_plan_doc_uses_subagent_driven_development() -> None:
 
 
 def test_execute_shortcut_path_uses_tdd() -> None:
-    r = route(_state(kind="bug", status="open", phase="execute", effort="s"))
+    r = route(_state(kind="bug", status="open", phase="execute", effort="small"))
     assert r.skill == "test-driven-development"
     assert r.on_dispatch == Transition(status="in-progress", requires=("owner",))
 
 
 def test_execute_already_in_progress_has_no_dispatch_transition() -> None:
-    r = route(_state(kind="bug", status="in-progress", phase="execute", effort="s"))
+    r = route(_state(kind="bug", status="in-progress", phase="execute", effort="small"))
     assert r.on_dispatch is None
     assert r.on_complete == Transition(phase="finish")
 

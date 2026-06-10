@@ -191,7 +191,7 @@ kind: bug                       # bug | tech-debt | test-gap | security | perf |
 summary: <one-line>
 status: open                    # open | accepted | in-progress | mitigated | resolved | wontfix | superseded
 severity: medium                # bug | security | perf — leave blank for feature/initiative/spike
-effort: s                       # xs | s | m | l | xl
+effort: small                   # xtra-small | small | medium | large | xtra-large
 blast_radius: package           # file | package | domain | system
 affects:
   - packages/location-aws-node-ts
@@ -348,11 +348,11 @@ Values: `low | medium | high | critical`.
 
 | Value | Anchor |
 |---|---|
-| `xs` | minutes — one-line change, no test, no review needed |
-| `s` | hours — single file, tests, single PR |
-| `m` | days — multiple files, possibly cross-package, single PR |
-| `l` | weeks — multiple PRs, possibly an initiative |
-| `xl` | months — multi-initiative, large team or quarter-long scope |
+| `xtra-small` | minutes — one-line change, no test, no review needed |
+| `small` | hours — single file, tests, single PR |
+| `medium` | days — multiple files, possibly cross-package, single PR |
+| `large` | weeks — multiple PRs, possibly an initiative |
+| `xtra-large` | months — multi-initiative, large team or quarter-long scope |
 
 Anchors are advisory. Missing field = unknown; no `unknown` value.
 

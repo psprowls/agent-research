@@ -118,7 +118,7 @@ These rules fire only when the workflow-owned keys are present — items filed
 outside the workflow lint clean.
 
 ### `effort-not-in-enum` — warn
-**Trigger:** `effort:` set but not one of `xs | s | m | l | xl`.
+**Trigger:** `effort:` set but not one of `xtra-small | small | medium | large | xtra-large`.
 **Rationale:** the workflow's effort fork (small bug-like work skips planning) needs a comparable scale; legacy free-text efforts degrade to warnings, not errors.
 **Remedy:** re-size the item (`gw work advance <slug> --effort <value>` or edit frontmatter).
 

@@ -15,7 +15,7 @@ VALID_KINDS = frozenset({"bug", "tech-debt", "test-gap", "security", "perf", "fe
 BUG_LIKE_KINDS = frozenset({"bug", "security", "perf", "tech-debt", "test-gap"})
 TERMINAL_STATUSES = frozenset({"resolved", "wontfix", "superseded"})
 FEATURE_LIKE_KINDS = frozenset({"feature", "initiative"})
-VALID_EFFORTS = frozenset({"xs", "s", "m", "l", "xl"})
+VALID_EFFORTS = frozenset({"xtra-small", "small", "medium", "large", "xtra-large"})
 VALID_PHASES = frozenset({"design", "plan", "execute", "finish", "done"})
 
 # Rule 22 compatibility map: statuses listed here constrain which phases are coherent.
