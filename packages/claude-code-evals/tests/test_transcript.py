@@ -270,3 +270,52 @@ def test_extract_tool_calls_input_length():
     # input_length should be the length of the JSON-encoded input dict
     expected_length = len(json.dumps({"file_path": "output.txt", "content": "Hello, World!"}))
     assert result[0]["input_length"] == expected_length
+
+
+# --- ToolCallEvent enrichment (tools.json capture) ---
+
+
+def test_tool_call_full_input_captured():
+    t = parse_transcript(_make_jsonl(EDIT_EVENT))
+    call = t.tool_calls[0]
+    assert call.input == {"file_path": "src/foo.py", "old_string": "a", "new_string": "b"}
+    assert call.input_keys == ["file_path", "old_string", "new_string"]
+    assert call.tool_use_id == "tu2"
+
+
+def test_tool_call_seq_is_global_order():
+    t = parse_transcript(_make_jsonl(ASSISTANT_EVENT, EDIT_EVENT))
+    assert [c.seq for c in t.tool_calls] == [0, 1]
+    assert [c.tool for c in t.tool_calls] == ["Read", "Edit"]
+
+
+def test_main_stream_call_defaults():
+    t = parse_transcript(_make_jsonl(ASSISTANT_EVENT))
+    call = t.tool_calls[0]
+    assert call.source == "main"
+    assert call.parent_tool_use_id is None
+    assert call.feed == "stream"
+
+
+def test_main_stream_subagent_tagged_call():
+    ev = {
+        "type": "assistant",
+        "parent_tool_use_id": "toolu_parent01",
+        "message": {"content": [{"type": "tool_use", "id": "tu9", "name": "Read", "input": {"file_path": "x.md"}}]},
+    }
+    t = parse_transcript(_make_jsonl(ev))
+    call = t.tool_calls[0]
+    assert call.source == "subagent"
+    assert call.parent_tool_use_id == "toolu_parent01"
+    assert call.feed == "stream"
+
+
+def test_main_stream_subagent_camelcase_tag():
+    ev = {
+        "type": "assistant",
+        "parentToolUseId": "toolu_parent02",
+        "message": {"content": [{"type": "tool_use", "id": "tu10", "name": "Bash", "input": {"command": "ls"}}]},
+    }
+    t = parse_transcript(_make_jsonl(ev))
+    assert t.tool_calls[0].parent_tool_use_id == "toolu_parent02"
+    assert t.tool_calls[0].source == "subagent"

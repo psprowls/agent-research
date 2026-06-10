@@ -10,6 +10,12 @@ from dataclasses import dataclass, field
 class ToolCallEvent:
     tool: str
     input_keys: list[str]
+    input: dict = field(default_factory=dict)
+    tool_use_id: str = ""
+    seq: int = 0
+    parent_tool_use_id: str | None = None
+    source: str = "main"  # "main" | "subagent"
+    feed: str = "stream"  # "stream" (main stream-json) | "jsonl" (subagent transcript file)
 
 
 @dataclass
@@ -59,12 +65,13 @@ def parse_transcript(jsonl: str) -> Transcript:
         if ev_type == "assistant":
             t.turn_count += 1
             msg = ev.get("message") or {}
+            parent_id = ev.get("parent_tool_use_id") or ev.get("parentToolUseId") or None
             text_parts: list[str] = []
             for block in msg.get("content") or []:
                 if block.get("type") == "text":
                     text_parts.append(block.get("text", ""))
                 elif block.get("type") == "tool_use":
-                    _handle_tool_use(t, block)
+                    _handle_tool_use(t, block, parent_tool_use_id=parent_id)
             if text_parts:
                 last_assistant_text = "".join(text_parts)
 
@@ -82,12 +89,23 @@ def parse_transcript(jsonl: str) -> Transcript:
     return t
 
 
-def _handle_tool_use(t: Transcript, block: dict) -> None:
+def _handle_tool_use(t: Transcript, block: dict, parent_tool_use_id: str | None = None) -> None:
     name = block.get("name", "")
     inp = block.get("input") or {}
     keys = list(inp.keys())
 
-    t.tool_calls.append(ToolCallEvent(tool=name, input_keys=keys))
+    t.tool_calls.append(
+        ToolCallEvent(
+            tool=name,
+            input_keys=keys,
+            input=inp,
+            tool_use_id=block.get("id", ""),
+            seq=len(t.tool_calls),
+            parent_tool_use_id=parent_tool_use_id,
+            source="subagent" if parent_tool_use_id else "main",
+            feed="stream",
+        )
+    )
     t.tool_call_counts[name] = t.tool_call_counts.get(name, 0) + 1
 
     path = inp.get("file_path") or inp.get("path", "")
