@@ -163,13 +163,13 @@ def run_lint(
             findings.append(LintFinding("stuck-accepted", "warn", slug, "status=accepted with no update in >60 days"))
 
         # 14. archive-eligible
-        if status in TERMINAL_STATUSES and _days_since(str(fm.get("updated", ""))) >= 7:
+        if status in TERMINAL_STATUSES:
             findings.append(
                 LintFinding(
                     "archive-eligible",
                     "info",
                     slug,
-                    f"status={status!r} (terminal) and updated >=7 days ago; consider archiving",
+                    f"status={status!r} (terminal); consider archiving",
                 )
             )
 

@@ -139,8 +139,8 @@ def _mechanical_pass(
         if rel.name in {"log.md"}:
             continue
         top = rel.parts[0] if rel.parts else ""
-        # Skip work/archived/ — lifecycle is owned by graph-wiki work
-        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "archived":
+        # Skip work/_archived/ — lifecycle is owned by graph-wiki work
+        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "_archived":
             continue
         key = str(rel).replace("\\", "/")[:-3]
         # Add to link_targets regardless of whether it's an index page
@@ -198,7 +198,7 @@ def _mechanical_pass(
         if any(part.startswith(".") for part in rel.parts):
             continue
         top = rel.parts[0] if rel.parts else ""
-        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "archived":
+        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "_archived":
             continue
         idx_key = str(rel).replace("\\", "/")[:-3]
         text = md.read_text(encoding="utf-8", errors="replace")

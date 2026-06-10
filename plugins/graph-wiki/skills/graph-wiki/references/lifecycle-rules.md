@@ -79,9 +79,9 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 **Remedy:** review the plan; either start work on it, downgrade to `open` if the plan has gone stale and needs rework, or close with `wontfix`.
 
 ### `archive-eligible` — info
-**Trigger:** `status: resolved | wontfix | superseded` and `updated:` is at least `--archive-eligible-days` days old (default 7).
+**Trigger:** `status: resolved | wontfix | superseded`.
 **Rationale:** terminal-status items aren't drift, but they clutter the active queue. Surfacing them as `info` keeps the queue clean without inflating the warning channel.
-**Remedy:** run `/graph-wiki:archive` to move eligible items into `<vault>/work/archived/`. Pass `--dry-run` first to see what would move; pass a slug to override the age check for a specific item.
+**Remedy:** run `/graph-wiki:archive` to move eligible items into `<vault>/work/_archived/`. Pass `--dry-run` first to see what would move; pass slugs to target specific items.
 
 ## Body shape (3)
 

@@ -13,27 +13,17 @@ def _make_item(work_dir: Path, slug: str, status: str = "open", updated_days_ago
     (work_dir / f"{opened}-{slug}.md").write_text(content)
 
 
-def test_sweep_mode_archives_terminal_aged_items(tmp_path: Path) -> None:
+def test_sweep_mode_archives_terminal_items_immediately(tmp_path: Path) -> None:
     work_dir = tmp_path
-    _make_item(work_dir, "resolved-old", status="resolved", updated_days_ago=10)
-    _make_item(work_dir, "open-item", status="open", updated_days_ago=10)
+    _make_item(work_dir, "resolved-now", status="resolved", updated_days_ago=0)
+    _make_item(work_dir, "open-item", status="open", updated_days_ago=0)
 
     plan = plan_archive(work_dir)
 
     assert len(plan.actions) == 1
-    assert plan.actions[0].slug.endswith("resolved-old")
+    assert plan.actions[0].slug.endswith("resolved-now")
     assert len(plan.skipped) == 1
     assert plan.skipped[0]["slug"].endswith("open-item")
-
-
-def test_sweep_mode_skips_terminal_under_min_age(tmp_path: Path) -> None:
-    work_dir = tmp_path
-    _make_item(work_dir, "resolved-new", status="resolved", updated_days_ago=3)
-
-    plan = plan_archive(work_dir, min_age_days=7)
-
-    assert len(plan.actions) == 0
-    assert any("only 3 days old" in s["reason"] for s in plan.skipped)
 
 
 def test_targeted_mode_bypasses_age_check(tmp_path: Path) -> None:
@@ -70,19 +60,19 @@ def test_targeted_mode_missing_slug_goes_to_skipped(tmp_path: Path) -> None:
 
 def test_archive_dst_is_archive_subdir(tmp_path: Path) -> None:
     work_dir = tmp_path
-    _make_item(work_dir, "wontfix-item", status="wontfix", updated_days_ago=8)
+    _make_item(work_dir, "wontfix-item", status="wontfix", updated_days_ago=0)
 
     plan = plan_archive(work_dir)
 
     assert len(plan.actions) == 1
-    assert plan.actions[0].dst.parent.name == "archived"
+    assert plan.actions[0].dst.parent.name == "_archived"
     assert plan.actions[0].dst.name == plan.actions[0].src.name
 
 
 def test_all_terminal_statuses_eligible(tmp_path: Path) -> None:
     work_dir = tmp_path
     for status in TERMINAL_STATUSES:
-        _make_item(work_dir, f"item-{status}", status=status, updated_days_ago=10)
+        _make_item(work_dir, f"item-{status}", status=status, updated_days_ago=0)
 
     plan = plan_archive(work_dir)
     assert len(plan.actions) == len(TERMINAL_STATUSES)
