@@ -123,13 +123,8 @@ def test_stuck_accepted_over_60d() -> None:
 
 
 def test_archive_eligible() -> None:
-    findings = run_lint([_item(status="resolved", updated_days_ago=8, resolved_in="pr#1")], None, None)
+    findings = run_lint([_item(status="resolved", updated_days_ago=0, resolved_in="pr#1")], None, None)
     assert "archive-eligible" in _rule_ids(findings)
-
-
-def test_archive_eligible_under_7d_not_flagged() -> None:
-    findings = run_lint([_item(status="resolved", updated_days_ago=5, resolved_in="pr#1")], None, None)
-    assert "archive-eligible" not in _rule_ids(findings)
 
 
 # --- Body shape ---

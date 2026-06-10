@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
 from pathlib import Path
 
 TERMINAL_STATUSES = frozenset({"resolved", "wontfix", "superseded"})
@@ -25,16 +24,15 @@ class ArchivePlan:
 def plan_archive(
     work_dir: Path,
     slugs: list[str] | None = None,
-    min_age_days: int = 7,
 ) -> ArchivePlan:
     """Plan archiving of terminal work items.
 
-    Sweep mode (slugs=None): all terminal items aged >= min_age_days.
-    Targeted mode (slugs provided): named items, age check bypassed; non-terminal skipped.
+    Sweep mode (slugs=None): all terminal items.
+    Targeted mode (slugs provided): named items; non-terminal skipped.
     """
     from work_io.frontmatter import parse as fm_parse
 
-    archived_dir = work_dir / "archived"
+    archived_dir = work_dir / "_archived"
     actions: list[ArchiveAction] = []
     skipped: list[dict] = []
 
@@ -61,21 +59,6 @@ def plan_archive(
             skipped.append({"slug": slug, "reason": f"status={status!r} is not terminal"})
             continue
 
-        if slugs is None:
-            updated = str(fm.get("updated", fm.get("opened", "")))
-            age = _days_since(updated)
-            if age < min_age_days:
-                skipped.append({"slug": slug, "reason": f"only {age} days old (min {min_age_days})"})
-                continue
-
         actions.append(ArchiveAction(slug=slug, src=md, dst=archived_dir / md.name))
 
     return ArchivePlan(actions=actions, skipped=skipped)
-
-
-def _days_since(date_str: str) -> int:
-    try:
-        dt = date.fromisoformat(date_str[:10])
-        return (date.today() - dt).days
-    except (ValueError, TypeError):
-        return 0
