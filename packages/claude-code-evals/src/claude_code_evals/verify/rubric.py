@@ -68,6 +68,8 @@ class RubricVerifier(VerifierBase):
     def _build_tool_summary(self) -> str:
         lines = []
         for call in self._transcript.tool_calls:
+            if call.feed != "stream":
+                continue
             if call.tool in _SCRUBBED_TOOLS:
                 lines.append(f"{call.tool}({', '.join(call.input_keys)})")
             else:

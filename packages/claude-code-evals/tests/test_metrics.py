@@ -60,3 +60,26 @@ def test_tool_calls_before_first_edit_with_edit():
     t = _transcript(tool_calls=calls)
     m = compute_metrics(t, {})
     assert m["tool_calls_before_first_edit"] == 2
+
+
+def test_jsonl_merged_calls_do_not_change_before_first_edit():
+    # A jsonl-merged Edit positioned before the stream calls must be invisible to
+    # the metric: the stream view is [Read] (no edit) → value 1 (stream-call count).
+    # Unfiltered code would return 0 (index of the jsonl Edit).
+    t = Transcript()
+    t.tool_calls = [
+        ToolCallEvent(tool="Edit", input_keys=["file_path"], seq=0, source="subagent", feed="jsonl"),
+        ToolCallEvent(tool="Read", input_keys=["file_path"], seq=1, feed="stream"),
+    ]
+    metrics = compute_metrics(t, {"success": True})
+    assert metrics["tool_calls_before_first_edit"] == 1
+
+    # With a stream edit present, the metric counts stream calls before it: [Read, Edit] → 1.
+    t2 = Transcript()
+    t2.tool_calls = [
+        ToolCallEvent(tool="Read", input_keys=["file_path"], seq=0, feed="stream"),
+        ToolCallEvent(tool="Edit", input_keys=["file_path"], seq=1, source="subagent", feed="jsonl"),
+        ToolCallEvent(tool="Edit", input_keys=["file_path"], seq=2, feed="stream"),
+    ]
+    metrics2 = compute_metrics(t2, {"success": True})
+    assert metrics2["tool_calls_before_first_edit"] == 1

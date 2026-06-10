@@ -8,10 +8,11 @@ _EDIT_TOOLS = {"Edit", "Write", "NotebookEdit"}
 
 
 def _tool_calls_before_first_edit(transcript: Transcript) -> int:
-    for i, call in enumerate(transcript.tool_calls):
+    stream_calls = [c for c in transcript.tool_calls if c.feed == "stream"]
+    for i, call in enumerate(stream_calls):
         if call.tool in _EDIT_TOOLS:
             return i
-    return len(transcript.tool_calls)
+    return len(stream_calls)
 
 
 def compute_metrics(transcript: Transcript, verify_result: dict) -> dict:
