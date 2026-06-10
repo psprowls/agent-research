@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass, field
+from pathlib import Path
 
 
 @dataclass
@@ -35,6 +36,7 @@ class Transcript:
     hook_loaded_skills: list[str] = field(default_factory=list)
     permission_prompt_count: int = 0
     final_assistant_text: str = ""
+    warnings: list[str] = field(default_factory=list)
 
 
 _READ_TOOLS = {"Read", "Glob", "Grep"}
@@ -42,7 +44,7 @@ _EDIT_TOOLS = {"Edit"}
 _WRITE_TOOLS = {"Write", "NotebookEdit"}
 
 
-def parse_transcript(jsonl: str) -> Transcript:
+def parse_transcript(jsonl: str, *, subagent_projects_dir: Path | None = None) -> Transcript:
     """Parse stream-json JSONL into a Transcript.
 
     Processes each line as a JSON event. Unknown event types are silently
@@ -86,6 +88,8 @@ def parse_transcript(jsonl: str) -> Transcript:
             t.permission_prompt_count += 1
 
     t.final_assistant_text = last_assistant_text
+    if subagent_projects_dir is not None:
+        _merge_subagent_calls(t, subagent_projects_dir)
     return t
 
 
@@ -121,6 +125,58 @@ def _handle_tool_use(t: Transcript, block: dict, parent_tool_use_id: str | None 
         skill_name = inp.get("skill", "")
         if skill_name:
             t.skill_invocations.append(skill_name)
+
+
+def _merge_subagent_calls(t: Transcript, projects_dir: Path) -> None:
+    """Merge tool calls from subagent (sidechain) transcript JSONLs under projects_dir.
+
+    Missing/unreadable files degrade to main-stream-only capture with a warning;
+    merged calls never touch tool_call_counts/files_* so metrics.json is unaffected.
+    """
+    if not projects_dir.is_dir():
+        if t.subagent_dispatches:
+            t.warnings.append(f"subagent transcripts unavailable: {projects_dir} does not exist")
+        return
+
+    seen_ids = {c.tool_use_id for c in t.tool_calls if c.tool_use_id}
+    for jsonl_path in sorted(projects_dir.glob("*/*.jsonl")):
+        try:
+            text = jsonl_path.read_text()
+        except OSError as exc:
+            t.warnings.append(f"subagent transcripts unavailable: {jsonl_path.name}: {exc}")
+            continue
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if entry.get("type") != "assistant" or entry.get("isSidechain") is not True:
+                continue
+            parent_id = entry.get("parent_tool_use_id") or entry.get("parentToolUseId") or None
+            msg = entry.get("message") or {}
+            for block in msg.get("content") or []:
+                if block.get("type") != "tool_use":
+                    continue
+                block_id = block.get("id", "")
+                if block_id and block_id in seen_ids:
+                    continue
+                seen_ids.add(block_id)
+                inp = block.get("input") or {}
+                t.tool_calls.append(
+                    ToolCallEvent(
+                        tool=block.get("name", ""),
+                        input_keys=list(inp.keys()),
+                        input=inp,
+                        tool_use_id=block_id,
+                        seq=len(t.tool_calls),
+                        parent_tool_use_id=parent_id,
+                        source="subagent",
+                        feed="jsonl",
+                    )
+                )
 
 
 def extract_tool_calls_from_jsonl(raw_jsonl: str) -> list[dict[str, object]]:

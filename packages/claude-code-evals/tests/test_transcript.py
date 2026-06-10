@@ -319,3 +319,109 @@ def test_main_stream_subagent_camelcase_tag():
     t = parse_transcript(_make_jsonl(ev))
     assert t.tool_calls[0].parent_tool_use_id == "toolu_parent02"
     assert t.tool_calls[0].source == "subagent"
+
+
+# --- subagent JSONL merge ---
+
+
+def _write_subagent_jsonl(projects_dir, entries, rel="myproj/session-1.jsonl"):
+    path = projects_dir / rel
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps(e) for e in entries))
+    return path
+
+
+SIDECHAIN_ENTRY = {
+    "type": "assistant",
+    "isSidechain": True,
+    "message": {"content": [{"type": "tool_use", "id": "sub_tu1", "name": "Grep", "input": {"pattern": "foo"}}]},
+}
+
+
+def test_subagent_jsonl_merged_after_stream_calls(tmp_path):
+    projects = tmp_path / "projects"
+    _write_subagent_jsonl(projects, [SIDECHAIN_ENTRY])
+    t = parse_transcript(_make_jsonl(ASSISTANT_EVENT), subagent_projects_dir=projects)
+    assert len(t.tool_calls) == 2
+    merged = t.tool_calls[1]
+    assert merged.tool == "Grep"
+    assert merged.input == {"pattern": "foo"}
+    assert merged.source == "subagent"
+    assert merged.feed == "jsonl"
+    assert merged.seq == 1
+    assert t.warnings == []
+
+
+def test_subagent_jsonl_dedupes_by_tool_use_id(tmp_path):
+    projects = tmp_path / "projects"
+    dup = {
+        "type": "assistant",
+        "isSidechain": True,
+        "message": {
+            "content": [{"type": "tool_use", "id": "tu1", "name": "Read", "input": {"file_path": "README.md"}}]
+        },
+    }
+    _write_subagent_jsonl(projects, [dup])
+    # ASSISTANT_EVENT's Read already has id tu1 in the main stream
+    t = parse_transcript(_make_jsonl(ASSISTANT_EVENT), subagent_projects_dir=projects)
+    assert len(t.tool_calls) == 1
+
+
+def test_subagent_jsonl_skips_non_sidechain_entries(tmp_path):
+    projects = tmp_path / "projects"
+    main_session = {
+        "type": "assistant",
+        "isSidechain": False,
+        "message": {"content": [{"type": "tool_use", "id": "main_tu", "name": "Bash", "input": {"command": "ls"}}]},
+    }
+    _write_subagent_jsonl(projects, [main_session])
+    t = parse_transcript("", subagent_projects_dir=projects)
+    assert t.tool_calls == []
+
+
+def test_subagent_jsonl_malformed_lines_skipped(tmp_path):
+    projects = tmp_path / "projects"
+    path = projects / "myproj" / "session-1.jsonl"
+    path.parent.mkdir(parents=True)
+    path.write_text("not json\n" + json.dumps(SIDECHAIN_ENTRY) + "\n{broken")
+    t = parse_transcript("", subagent_projects_dir=projects)
+    assert [c.tool for c in t.tool_calls] == ["Grep"]
+
+
+def test_subagent_jsonl_calls_do_not_touch_counts_or_files(tmp_path):
+    projects = tmp_path / "projects"
+    sidechain_read = {
+        "type": "assistant",
+        "isSidechain": True,
+        "message": {
+            "content": [{"type": "tool_use", "id": "sub_tu2", "name": "Read", "input": {"file_path": "sub.md"}}]
+        },
+    }
+    _write_subagent_jsonl(projects, [sidechain_read])
+    t = parse_transcript(_make_jsonl(ASSISTANT_EVENT), subagent_projects_dir=projects)
+    # metrics inputs unchanged: only the main-stream Read is counted
+    assert t.tool_call_counts == {"Read": 1}
+    assert t.files_read == ["README.md"]
+
+
+def test_missing_projects_dir_warns_only_with_dispatches(tmp_path):
+    agent_event = {
+        "type": "assistant",
+        "message": {"content": [{"type": "tool_use", "id": "tu4", "name": "Agent", "input": {"prompt": "go"}}]},
+    }
+    missing = tmp_path / "projects"  # never created
+    t = parse_transcript(_make_jsonl(agent_event), subagent_projects_dir=missing)
+    assert len(t.warnings) == 1
+    assert "subagent transcripts unavailable" in t.warnings[0]
+
+    t2 = parse_transcript(_make_jsonl(ASSISTANT_EVENT), subagent_projects_dir=missing)
+    assert t2.warnings == []
+
+
+def test_unreadable_jsonl_file_warns(tmp_path):
+    projects = tmp_path / "projects"
+    # a directory named *.jsonl makes read_text raise IsADirectoryError (an OSError)
+    (projects / "myproj" / "bad.jsonl").mkdir(parents=True)
+    t = parse_transcript("", subagent_projects_dir=projects)
+    assert len(t.warnings) == 1
+    assert "subagent transcripts unavailable" in t.warnings[0]
