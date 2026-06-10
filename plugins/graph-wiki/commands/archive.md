@@ -5,7 +5,7 @@ description: Archive terminal-status work items (resolved/wontfix/superseded) �
 
 # /graph-wiki:archive
 
-Move terminal work items from `wiki/work/` to `wiki/work/archived/`.
+Move terminal work items from `wiki/work/` to `wiki/work/_archived/`.
 
 ## Usage
 
@@ -14,8 +14,8 @@ Move terminal work items from `wiki/work/` to `wiki/work/archived/`.
 /graph-wiki:archive 2026-01-15-fix-parser-bug 2026-02-03-drop-old-api
 ```
 
-Without arguments: sweep mode — all terminal-status items aged >=7 days.
-With slug arguments: targeted mode — those items only, age check bypassed.
+Without arguments: sweep mode — all terminal-status items.
+With slug arguments: targeted mode — those items only.
 
 ## What happens
 

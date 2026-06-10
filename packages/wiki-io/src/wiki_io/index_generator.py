@@ -496,7 +496,7 @@ def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
             continue
         if any(part.startswith(".") for part in rel.parts):
             continue
-        if len(rel.parts) >= 2 and rel.parts[1] == "archived":
+        if len(rel.parts) >= 2 and rel.parts[1] == "_archived":
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
         fm = _parse_frontmatter(text)

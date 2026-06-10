@@ -215,11 +215,11 @@ The lifecycle lint rules (`accepted-without-plan`, `stuck-open`, `done-when-miss
 
 > **Note:** The work-layer subsystem is not ported in graph-wiki v1.2. This note applies when/if work-layer support is added in a future version.
 
-#### The `work/archived/` sub-namespace
+#### The `work/_archived/` sub-namespace
 
 Items that have reached a terminal status (`resolved`, `wontfix`,
-`superseded`) and aged past the archive threshold may be moved to
-`<workspace>/work/archived/<slug>.md`. They retain their full schema —
+`superseded`) may be moved to
+`<workspace>/work/_archived/<slug>.md`. They retain their full schema —
 same frontmatter, same body convention, same wiki-page semantics —
 but are excluded from:
 
@@ -227,9 +227,9 @@ but are excluded from:
 - the work-tracker sidecar (`<workspace>/work/.work-index.json`)
 - consumer commands that read the sidecar
 
-Items under `archived/` must already be in a terminal status; the
+Items under `_archived/` must already be in a terminal status; the
 archive command (`/graph-wiki:archive`) enforces this on entry.
-Restoring is a `git mv` from `archived/` back to `work/` plus
+Restoring is a `git mv` from `_archived/` back to `work/` plus
 `/graph-wiki:regen-index`.
 
 ### Source pages

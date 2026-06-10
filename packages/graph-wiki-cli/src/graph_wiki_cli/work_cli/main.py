@@ -101,7 +101,6 @@ def lint(
 def archive(
     slugs: Optional[list[str]] = typer.Argument(None, help="Specific slugs to archive"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Show plan without moving files"),
-    min_age_days: int = typer.Option(7, "--min-age-days"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -113,7 +112,6 @@ def archive(
                 workspace_path=workspace_path,
                 slugs=slugs or None,
                 dry_run=dry_run,
-                min_age_days=min_age_days,
             )
         )
     except RuntimeError as e:

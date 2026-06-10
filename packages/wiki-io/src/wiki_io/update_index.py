@@ -136,7 +136,7 @@ def scan_work(workspace):
     Returns a list of entries shaped like scan_vault() values. Paths are
     wiki-relative (e.g. "work/2026-05-03-foo.md") so they render as
     wiki-rooted wikilinks. Skips the generated work index, dotfiles,
-    and the archived/ sub-namespace (owned by graph-wiki work lifecycle).
+    and the _archived/ sub-namespace (owned by graph-wiki work lifecycle).
     """
     work_root = work_dir(workspace)
     if not work_root.exists():
@@ -149,7 +149,7 @@ def scan_work(workspace):
             continue
         if any(part.startswith(".") for part in rel.parts):
             continue
-        if len(rel.parts) >= 2 and rel.parts[1] == "archived":
+        if len(rel.parts) >= 2 and rel.parts[1] == "_archived":
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
         fm = parse_frontmatter(text)

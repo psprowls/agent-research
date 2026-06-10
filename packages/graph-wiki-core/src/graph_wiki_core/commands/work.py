@@ -105,7 +105,7 @@ def _vault_commit(wiki: Path) -> str | None:
 
 
 def _load_items(work_dir: Path) -> list[dict]:
-    """Parse every work/*.md (excluding archived/) into lint-shaped item dicts.
+    """Parse every work/*.md (excluding _archived/) into lint-shaped item dicts.
 
     Each dict carries: slug, fm (frontmatter dict), plan (PlanResult).
     Unparseable pages are skipped.
@@ -216,7 +216,7 @@ async def run_work_status(workspace_path: Path | None = None) -> WorkStatusResul
 
 
 def _move(action: _archive.ArchiveAction) -> None:
-    """Move a work item into archived/, preferring `git mv`, falling back to rename."""
+    """Move a work item into _archived/, preferring `git mv`, falling back to rename."""
     action.dst.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
         ["git", "mv", str(action.src), str(action.dst)],
@@ -232,19 +232,18 @@ def _move(action: _archive.ArchiveAction) -> None:
 async def run_work_archive(
     workspace_path: Path | None = None,
     slugs: list[str] | None = None,
-    min_age_days: int = 7,
     dry_run: bool = False,
 ) -> WorkArchiveResult:
-    """Archive terminal work items into work/archived/.
+    """Archive terminal work items into work/_archived/.
 
-    Sweep mode (slugs=None): all terminal items aged >= min_age_days.
-    Targeted mode (slugs given): named items, age check bypassed.
+    Sweep mode (slugs=None): all terminal items.
+    Targeted mode (slugs given): named items, non-terminal skipped.
     Executes the moves unless dry_run; regenerates the sidecar after real moves.
     """
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
     work_dir = wiki / "work"
 
-    plan = _archive.plan_archive(work_dir, slugs=slugs, min_age_days=min_age_days)
+    plan = _archive.plan_archive(work_dir, slugs=slugs)
     moved = [{"slug": a.slug, "src": str(a.src), "dst": str(a.dst)} for a in plan.actions]
 
     if not dry_run and plan.actions:
