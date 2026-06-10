@@ -69,7 +69,7 @@ user to size the item as in step 1 — never pick an effort yourself — then re
 ### 6. Hand off
 
 End with: "Phase advanced to `<phase>`. Clear context (`/clear`) and run
-`/graph-wiki:workflow <slug>` to continue."
+`/graph-wiki:next <slug>` to continue."
 
 When the item reaches `phase: done`, report the resolution (`resolved_in`) and
 suggest `/graph-wiki:archive` once the item ages out.
