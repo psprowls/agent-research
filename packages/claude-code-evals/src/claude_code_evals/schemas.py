@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
@@ -28,15 +29,95 @@ class Discriminator:
         )
 
 
-class VerifyEntry(BaseModel):
-    """A single verification step: script, golden patch, or LLM-judged rubric."""
+class OrderStep(BaseModel):
+    """One step of an ordering assertion: a tool plus param regexes."""
 
     model_config = ConfigDict(extra="forbid")
 
-    kind: Literal["script", "golden", "rubric"]
-    path: str
+    tool: str
+    params: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("params")
+    @classmethod
+    def _compile_regexes(cls, v: dict[str, str]) -> dict[str, str]:
+        for name, pattern in v.items():
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError(f"invalid regex for param {name!r}: {exc}") from exc
+        return v
+
+
+class ToolAssertion(BaseModel):
+    """One tool-call assertion: presence/count/absence on a tool, or an ordering constraint."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    tool: str | None = None
+    params: dict[str, str] = Field(default_factory=dict)
+    min_count: int | None = Field(default=None, ge=0)
+    max_count: int | None = Field(default=None, ge=0)
+    absent: bool = False
+    include_subagents: bool = False
+    order: list[OrderStep] | None = None
+
+    @field_validator("params")
+    @classmethod
+    def _compile_regexes(cls, v: dict[str, str]) -> dict[str, str]:
+        for name, pattern in v.items():
+            try:
+                re.compile(pattern)
+            except re.error as exc:
+                raise ValueError(f"invalid regex for param {name!r}: {exc}") from exc
+        return v
+
+    @model_validator(mode="after")
+    def _check_shape(self) -> "ToolAssertion":
+        if self.order is not None:
+            if (
+                self.tool is not None
+                or self.params
+                or self.min_count is not None
+                or self.max_count is not None
+                or self.absent
+            ):
+                raise ValueError("order assertions cannot combine with tool/params/counts/absent")
+            if not self.order:
+                raise ValueError("order must contain at least one step")
+        else:
+            if self.tool is None:
+                raise ValueError("assertion requires either tool or order")
+            if self.absent and (self.min_count is not None or self.max_count is not None):
+                raise ValueError("absent: true cannot combine with min_count/max_count")
+            if self.min_count is not None and self.max_count is not None and self.min_count > self.max_count:
+                raise ValueError("min_count cannot exceed max_count")
+        return self
+
+
+class VerifyEntry(BaseModel):
+    """A single verification step: script, golden patch, LLM-judged rubric, or tool-call assertions."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["script", "golden", "rubric", "tools"]
+    path: str | None = None
     judge: str | None = None
     pass_threshold: float | None = None
+    assertions: list[ToolAssertion] | None = None
+
+    @model_validator(mode="after")
+    def _check_kind_fields(self) -> "VerifyEntry":
+        if self.kind == "tools":
+            if not self.assertions:
+                raise ValueError("kind: tools requires assertions")
+            if self.path is not None:
+                raise ValueError("kind: tools does not use path")
+        else:
+            if self.path is None:
+                raise ValueError(f"kind: {self.kind} requires path")
+            if self.assertions is not None:
+                raise ValueError("assertions are only valid for kind: tools")
+        return self
 
 
 class Budgets(BaseModel):
