@@ -5,8 +5,11 @@ from __future__ import annotations
 import json
 import re
 
+from deepeval.test_case import LLMTestCase
+
 from claude_code_evals.schemas import ToolAssertion
 from claude_code_evals.transcript import ToolCallEvent, Transcript
+from claude_code_evals.verify.base import VerifierBase
 
 
 def _param_value(call: ToolCallEvent, name: str) -> str | None:
@@ -112,3 +115,26 @@ def _check_assertion(assertion: ToolAssertion, transcript: Transcript) -> tuple[
     if assertion.order is not None:
         return _check_order(assertion, calls)
     return _check_counts(assertion, calls)
+
+
+class ToolsVerifier(VerifierBase):
+    """Evaluate tool-call assertions against the parsed Transcript.
+
+    score = fraction of assertions passed; success requires all (threshold 1.0).
+    """
+
+    def __init__(self, *, assertions: list[ToolAssertion], transcript: Transcript) -> None:
+        super().__init__(threshold=1.0)
+        self._assertions = assertions
+        self._transcript = transcript
+
+    def measure(self, test_case: LLMTestCase) -> float:  # noqa: ARG002
+        failures: list[str] = []
+        for i, assertion in enumerate(self._assertions):
+            passed, reason = _check_assertion(assertion, self._transcript)
+            if not passed:
+                failures.append(f"assertion[{i}]: {reason}")
+        total = len(self._assertions)
+        self.score = (total - len(failures)) / total if total else 1.0
+        self.reason = f"all {total} tool assertion(s) passed" if not failures else "; ".join(failures)
+        return self.score

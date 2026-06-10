@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import pytest
 from claude_code_evals.schemas import ToolAssertion
 from claude_code_evals.transcript import ToolCallEvent, Transcript
-from claude_code_evals.verify.tools import _check_assertion
+from claude_code_evals.verify.base import VerifierBase
+from claude_code_evals.verify.tools import ToolsVerifier, _check_assertion
+from deepeval.test_case import LLMTestCase
 
 
 def _call(tool: str, inp: dict | None = None, *, seq: int = 0, source: str = "main") -> ToolCallEvent:
@@ -151,3 +154,54 @@ def test_presence_failure_reports_near_miss():
     ok, reason = _check_assertion(_a(tool="Skill", params={"skill": "graph-wiki:scan"}), t)
     assert ok is False
     assert "graph-wiki:lint" in reason  # nearest near-miss quoted
+
+
+# --- ToolsVerifier ---
+
+
+def _tc() -> LLMTestCase:
+    return LLMTestCase(input="prompt", actual_output="output")
+
+
+def test_verifier_all_pass():
+    t = _transcript(_call("Read", {"file_path": "a.md"}))
+    v = ToolsVerifier(assertions=[_a(tool="Read")], transcript=t)
+    score = v.measure(_tc())
+    assert score == 1.0
+    assert v.success is True
+    assert "passed" in v.reason
+
+
+def test_verifier_score_is_fraction_and_passed_requires_all():
+    t = _transcript(_call("Read", {"file_path": "a.md"}))
+    v = ToolsVerifier(
+        assertions=[_a(tool="Read"), _a(tool="Edit"), _a(tool="Read", max_count=1)],
+        transcript=t,
+    )
+    score = v.measure(_tc())
+    assert score == pytest.approx(2 / 3)
+    assert v.success is False  # all must pass
+
+
+def test_verifier_reason_lists_each_failure():
+    t = _transcript(_call("Skill", {"skill": "graph-wiki:lint"}))
+    v = ToolsVerifier(
+        assertions=[
+            _a(tool="Skill", params={"skill": "graph-wiki:scan"}),
+            _a(tool="Edit"),
+        ],
+        transcript=t,
+    )
+    v.measure(_tc())
+    assert "Skill(skill=~graph-wiki:scan)" in v.reason
+    assert "graph-wiki:lint" in v.reason  # near-miss rendered
+    assert "Edit" in v.reason
+
+
+def test_verifier_is_a_verifier_base():
+    assert issubclass(ToolsVerifier, VerifierBase)
+
+
+def test_verifier_empty_assertions_passes():
+    v = ToolsVerifier(assertions=[], transcript=_transcript())
+    assert v.measure(_tc()) == 1.0
