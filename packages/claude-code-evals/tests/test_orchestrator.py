@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from claude_code_evals.orchestrator import ScenarioRunResult, run_one
 from claude_code_evals.runner import RunResult
-from claude_code_evals.schemas import Config, Scenario
+from claude_code_evals.schemas import Config, Scenario, VerifyEntry
 
 
 def _make_fixture_scenario(tmp_path: Path) -> tuple[Scenario, Config, Path]:
@@ -258,3 +258,74 @@ def test_orchestrator_calls_run_multi_turn_when_auto_user_set(tmp_path):
 
     mock_multi.assert_called_once()
     mock_shot.assert_not_called()
+
+
+# --- tools.json artifact + ToolsVerifier dispatch ---
+
+TOOL_CALL_EVENT = json.dumps(
+    {
+        "type": "assistant",
+        "message": {
+            "content": [{"type": "tool_use", "id": "tu_read", "name": "Read", "input": {"file_path": "README.md"}}]
+        },
+    }
+)
+JSONL_WITH_TOOL = f"{TOOL_CALL_EVENT}\n{ASSISTANT_EVENT}\n{RESULT_EVENT}\n"
+
+
+def test_run_one_writes_tools_json(tmp_path: Path):
+    s, c, evals_root = _make_fixture_scenario(tmp_path)
+    with patch("subprocess.Popen", return_value=_mock_popen(jsonl=JSONL_WITH_TOOL)):
+        result = run_one(s, c, evals_root=evals_root)
+    tools_path = result.run_dir / "tools.json"
+    assert tools_path.exists()
+    doc = json.loads(tools_path.read_text())
+    assert doc["total_calls"] == 1
+    assert doc["calls"][0]["tool"] == "Read"
+    assert doc["calls"][0]["input"] == {"file_path": "README.md"}
+    assert doc["calls"][0]["source"] == "main"
+
+
+def test_run_one_writes_tools_json_even_on_infra_error(tmp_path: Path):
+    s, c, evals_root = _make_fixture_scenario(tmp_path)
+    crash_proc = _mock_popen(jsonl="garbage\n", returncode=1)
+    with patch("subprocess.Popen", return_value=crash_proc):
+        result = run_one(s, c, evals_root=evals_root)
+    assert (result.run_dir / "tools.json").exists()
+
+
+def test_run_one_dispatches_tools_verifier(tmp_path: Path):
+    s, c, evals_root = _make_fixture_scenario(tmp_path)
+    s = s.model_copy(
+        update={
+            "verify": [
+                VerifyEntry.model_validate(
+                    {
+                        "kind": "tools",
+                        "assertions": [
+                            {"tool": "Read", "params": {"file_path": "README"}},
+                            {"tool": "Write", "absent": True},
+                        ],
+                    }
+                )
+            ]
+        }
+    )
+    with patch("subprocess.Popen", return_value=_mock_popen(jsonl=JSONL_WITH_TOOL)):
+        result = run_one(s, c, evals_root=evals_root)
+    assert result.verify_result["success"] is True
+    kinds = [v["kind"] for v in result.verify_result["verifiers"]]
+    assert "ToolsVerifier" in kinds
+
+
+def test_run_one_tools_verifier_failure_reported(tmp_path: Path):
+    s, c, evals_root = _make_fixture_scenario(tmp_path)
+    s = s.model_copy(
+        update={"verify": [VerifyEntry.model_validate({"kind": "tools", "assertions": [{"tool": "Edit"}]})]}
+    )
+    with patch("subprocess.Popen", return_value=_mock_popen(jsonl=JSONL_WITH_TOOL)):
+        result = run_one(s, c, evals_root=evals_root)
+    assert result.verify_result["success"] is False
+    outcome = result.verify_result["verifiers"][0]
+    assert outcome["passed"] is False
+    assert "Edit" in outcome["reason"]

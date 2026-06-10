@@ -23,12 +23,14 @@ from claude_code_evals.runner import (
 )
 from claude_code_evals.schemas import AutoUser, Config, Scenario
 from claude_code_evals.stderr_logger import EvalLogger
+from claude_code_evals.tools_log import render_tools_json
 from claude_code_evals.transcript import Transcript, parse_transcript
 from claude_code_evals.user_simulator import AutoUserSimulator
 from claude_code_evals.verify.base import VerifierBase
 from claude_code_evals.verify.golden import GoldenVerifier
 from claude_code_evals.verify.rubric import RubricVerifier
 from claude_code_evals.verify.script import ScriptVerifier
+from claude_code_evals.verify.tools import ToolsVerifier
 
 
 @dataclass
@@ -165,7 +167,7 @@ def run_one(
                     max_wall_seconds=float(scenario.budgets.max_wall_seconds),
                 )
 
-        transcript = parse_transcript(raw_jsonl)
+        transcript = parse_transcript(raw_jsonl, subagent_projects_dir=iso.cfg_dir / "projects")
 
         # An infra-level failure (auth, CLI crash, no result event) means there's nothing the agent
         # produced to verify — running the LLM judge on an empty transcript only yields a misleading
@@ -182,6 +184,10 @@ def run_one(
             # Build verifiers
             verifiers = []
             for ve in scenario.verify:
+                if ve.kind == "tools":
+                    verifiers.append(ToolsVerifier(assertions=ve.assertions or [], transcript=transcript))
+                    continue
+                assert ve.path is not None  # enforced by the VerifyEntry validator
                 vpath = scenario_dir / ve.path
                 if ve.kind == "script":
                     verifiers.append(ScriptVerifier(script_path=vpath, worktree_path=iso.worktree_path))
@@ -238,6 +244,7 @@ def run_one(
             )
         )
         (run_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
+        (run_dir / "tools.json").write_text(json.dumps(render_tools_json(transcript), indent=2))
         (run_dir / "verify.json").write_text(json.dumps(verify_result, indent=2))
         (run_dir / "meta.json").write_text(
             json.dumps(
