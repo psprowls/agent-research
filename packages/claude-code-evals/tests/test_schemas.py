@@ -5,7 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from claude_code_evals.schemas import AutoUser, Config, Runset, Scenario, Trigger, TriggerMatch, VerifyEntry
+from claude_code_evals.schemas import (
+    AutoUser,
+    Config,
+    Runset,
+    Scenario,
+    ToolAssertion,
+    Trigger,
+    TriggerMatch,
+    VerifyEntry,
+)
 from pydantic import ValidationError
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -250,3 +259,96 @@ def test_auto_user_backward_compat():
     assert a.triggers == []
     assert a.default_reply == "proceed"
     assert a.abort_on_default_after == 2
+
+
+# --- tools verifier schema ---
+
+
+def test_verify_entry_tools_kind_parses():
+    ve = VerifyEntry.model_validate(
+        {
+            "kind": "tools",
+            "assertions": [
+                {"tool": "Skill", "params": {"skill": "graph-wiki:scan"}},
+                {"tool": "Read", "min_count": 3},
+                {"tool": "Write", "params": {"file_path": "wiki/entities/.*"}, "absent": True},
+                {
+                    "order": [
+                        {"tool": "Read", "params": {"file_path": ".*StatusBadge.*"}},
+                        {"tool": "Edit", "params": {"file_path": ".*StatusBadge.*"}},
+                    ]
+                },
+                {"tool": "Read", "min_count": 5, "include_subagents": True},
+            ],
+        }
+    )
+    assert ve.kind == "tools"
+    assert ve.assertions is not None and len(ve.assertions) == 5
+    assert ve.assertions[4].include_subagents is True
+
+
+def test_tools_kind_requires_assertions():
+    with pytest.raises(ValueError, match="assertions"):
+        VerifyEntry.model_validate({"kind": "tools"})
+
+
+def test_tools_kind_forbids_path():
+    with pytest.raises(ValueError, match="path"):
+        VerifyEntry.model_validate({"kind": "tools", "path": "x.sh", "assertions": [{"tool": "Read"}]})
+
+
+def test_other_kinds_still_require_path():
+    with pytest.raises(ValueError, match="path"):
+        VerifyEntry.model_validate({"kind": "script"})
+
+
+def test_other_kinds_forbid_assertions():
+    with pytest.raises(ValueError, match="assertions"):
+        VerifyEntry.model_validate({"kind": "script", "path": "verify.sh", "assertions": [{"tool": "Read"}]})
+
+
+def test_invalid_regex_rejected_at_load():
+    with pytest.raises(ValueError, match="invalid regex"):
+        ToolAssertion.model_validate({"tool": "Read", "params": {"file_path": "([unclosed"}})
+
+
+def test_invalid_regex_in_order_step_rejected():
+    with pytest.raises(ValueError, match="invalid regex"):
+        ToolAssertion.model_validate({"order": [{"tool": "Read", "params": {"file_path": "([unclosed"}}]})
+
+
+def test_order_cannot_combine_with_tool_fields():
+    with pytest.raises(ValueError, match="order"):
+        ToolAssertion.model_validate({"tool": "Read", "order": [{"tool": "Edit"}]})
+
+
+def test_assertion_requires_tool_or_order():
+    with pytest.raises(ValueError, match="tool or order"):
+        ToolAssertion.model_validate({"min_count": 2})
+
+
+def test_absent_forbids_counts():
+    with pytest.raises(ValueError, match="absent"):
+        ToolAssertion.model_validate({"tool": "Write", "absent": True, "min_count": 1})
+
+
+def test_min_count_cannot_exceed_max_count():
+    with pytest.raises(ValueError, match="min_count"):
+        ToolAssertion.model_validate({"tool": "Bash", "min_count": 5, "max_count": 2})
+
+
+def test_empty_order_rejected():
+    with pytest.raises(ValueError, match="order"):
+        ToolAssertion.model_validate({"order": []})
+
+
+def test_scenario_with_tools_verify_round_trips():
+    s = Scenario.model_validate(
+        {
+            "name": "s",
+            "isolation_mode": "fixture",
+            "fixture_dir": "/tmp/x",
+            "verify": [{"kind": "tools", "assertions": [{"tool": "Skill", "params": {"skill": "graph-wiki:scan"}}]}],
+        }
+    )
+    assert s.verify[0].kind == "tools"
