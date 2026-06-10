@@ -21,7 +21,7 @@
 #
 # ## Escape hatch
 #
-# Set SUPERPOWERS_BLOCKEDBY_GUARD=0 to disable at runtime. Useful when
+# Set GRAPH_WIKI_BLOCKEDBY_GUARD=0 to disable at runtime. Useful when
 # plans are hand-reordered or when a coordinator explicitly wants to
 # parallelize past a declared dependency.
 #
@@ -29,10 +29,10 @@
 #
 # Every decision writes a line to
 # /tmp/claude-hooks/user-gate-trace.log (override via
-# SUPERPOWERS_USERGATE_TRACE_LOG). Tail with:
+# GRAPH_WIKI_USERGATE_TRACE_LOG). Tail with:
 #   tail -F /tmp/claude-hooks/user-gate-trace.log
 
-TRACE_LOG="${SUPERPOWERS_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+TRACE_LOG="${GRAPH_WIKI_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
 mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
 trace() {
     local tid="${1:-?}" event="${2:-?}" reason="${3:-}"
@@ -43,7 +43,7 @@ trace() {
 
 ALLOW='{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}'
 
-if [[ "${SUPERPOWERS_BLOCKEDBY_GUARD:-1}" == "0" ]]; then
+if [[ "${GRAPH_WIKI_BLOCKEDBY_GUARD:-1}" == "0" ]]; then
     trace "?" "skip" "guard=0"
     echo "$ALLOW"; exit 0
 fi
@@ -203,7 +203,7 @@ trace "$TASK_ID" "block" "missing=$MISSING_COUNT"
     echo "at all, verify with TaskList — your mental model may have drifted"
     echo "from the persisted state."
     echo
-    echo "(Runtime disable: SUPERPOWERS_BLOCKEDBY_GUARD=0. Trace log:"
+    echo "(Runtime disable: GRAPH_WIKI_BLOCKEDBY_GUARD=0. Trace log:"
     echo " $TRACE_LOG)"
 } >&2
 

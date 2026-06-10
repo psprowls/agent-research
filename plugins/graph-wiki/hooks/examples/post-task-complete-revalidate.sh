@@ -25,13 +25,13 @@
 #
 # ## Escape hatch
 #
-# Set SUPERPOWERS_USERGATE_GUARD=0 to disable at runtime. The hook is
+# Set GRAPH_WIKI_USERGATE_GUARD=0 to disable at runtime. The hook is
 # opt-in already, so an escape hatch exists mainly for subagent contexts
 # where re-validation has already happened upstream.
 
 # Trace logging — every decision point writes one line to the shared trace
 # log. Tail with: tail -F /tmp/claude-hooks/user-gate-trace.log
-TRACE_LOG="${SUPERPOWERS_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+TRACE_LOG="${GRAPH_WIKI_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
 mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
 trace() {
     # Args: task_id event reason
@@ -41,7 +41,7 @@ trace() {
         "${reason:+ | $reason}" >> "$TRACE_LOG" 2>/dev/null || true
 }
 
-if [[ "${SUPERPOWERS_USERGATE_GUARD:-1}" == "0" ]]; then
+if [[ "${GRAPH_WIKI_USERGATE_GUARD:-1}" == "0" ]]; then
     trace "?" "skip" "guard=0"
     exit 0
 fi
@@ -340,7 +340,7 @@ if [[ "$AB_REQUIRED" == "true" && "$AB_SATISFIED" != "true" ]]; then
         echo "\`requireEvidenceTokens\` metadata via TaskUpdate — but do that"
         echo "transparently, not as a hook bypass."
         echo
-        echo "(Runtime disable: SUPERPOWERS_USERGATE_GUARD=0. Trace: $TRACE_LOG)"
+        echo "(Runtime disable: GRAPH_WIKI_USERGATE_GUARD=0. Trace: $TRACE_LOG)"
     } >&2
     exit 2
 fi
@@ -405,7 +405,7 @@ if [[ "$IS_GATE" != "true" ]]; then
         echo "hoping the hook stops caring. It will flag again. The fix is a"
         echo "one-line observation, not bypassing the check."
         echo
-        echo "(Runtime disable: SUPERPOWERS_USERGATE_GUARD=0. Trace log:"
+        echo "(Runtime disable: GRAPH_WIKI_USERGATE_GUARD=0. Trace log:"
         echo " $TRACE_LOG)"
     } >&2
     exit 2
@@ -444,7 +444,7 @@ fi
     echo "If /gate-check is not installed in this harness, post the AC: lines"
     echo "inline by running the verification yourself. Either way, do NOT move"
     echo "on without concrete evidence per criterion."
-    echo "(To disable this check, set SUPERPOWERS_USERGATE_GUARD=0.)"
+    echo "(To disable this check, set GRAPH_WIKI_USERGATE_GUARD=0.)"
 } >&2
 
 exit 2

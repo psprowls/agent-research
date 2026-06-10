@@ -38,23 +38,23 @@
 #
 # ## Environment variables (all optional)
 #
-# SUPERPOWERS_DEFLECTION_GUARD           Set to "0" to disable the hook
+# GRAPH_WIKI_DEFLECTION_GUARD           Set to "0" to disable the hook
 #                                        entirely at runtime. Useful for
 #                                        quickly bypassing it when the hook
 #                                        is registered in settings.json
 #                                        but you want a one-off skip.
 #                                        Default: 1 (active).
 #
-# SUPERPOWERS_CONTEXT_LIMIT              Total context window in tokens.
+# GRAPH_WIKI_CONTEXT_LIMIT              Total context window in tokens.
 #                                        Default: 200000 (standard Opus).
 #                                        Set to 1000000 for Opus 1M mode.
 #
-# SUPERPOWERS_DEFLECTION_THRESHOLD_PCT   Usage percentage below which phrases
+# GRAPH_WIKI_DEFLECTION_THRESHOLD_PCT   Usage percentage below which phrases
 #                                        are treated as hard violations.
 #                                        Default: 50.
 
 # Escape hatch.
-if [[ "${SUPERPOWERS_DEFLECTION_GUARD:-1}" == "0" ]]; then
+if [[ "${GRAPH_WIKI_DEFLECTION_GUARD:-1}" == "0" ]]; then
     exit 0
 fi
 
@@ -66,8 +66,8 @@ INPUT=$(cat)
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
 [[ -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]] && exit 0
 
-CONTEXT_LIMIT="${SUPERPOWERS_CONTEXT_LIMIT:-200000}"
-THRESHOLD_PCT="${SUPERPOWERS_DEFLECTION_THRESHOLD_PCT:-50}"
+CONTEXT_LIMIT="${GRAPH_WIKI_CONTEXT_LIMIT:-200000}"
+THRESHOLD_PCT="${GRAPH_WIKI_DEFLECTION_THRESHOLD_PCT:-50}"
 
 # Extract last assistant text response + its usage tokens from the transcript.
 # Walks the JSONL from the end, skipping tool-only messages, until it finds
@@ -170,7 +170,7 @@ for pattern in "${PATTERNS[@]}"; do
     if echo "$TEXT" | grep -qi "$pattern"; then
         echo "LOW-CONTEXT STOP EXCUSE DETECTED: '$pattern'" >&2
         echo "Context usage is ${CONTEXT_PCT}% of ${CONTEXT_LIMIT} tokens — not full. Keep working in this session." >&2
-        echo "(To disable this check, set SUPERPOWERS_DEFLECTION_GUARD=0.)" >&2
+        echo "(To disable this check, set GRAPH_WIKI_DEFLECTION_GUARD=0.)" >&2
         exit 2
     fi
 done

@@ -18,9 +18,9 @@
 # where the plan spec'd Haiku for empirical measurement). Skill prose is not
 # enforcement; this hook is. Opt-in — most projects do not need it.
 #
-# Escape hatch: SUPERPOWERS_DISPATCH_GUARD=0 to disable.
+# Escape hatch: GRAPH_WIKI_DISPATCH_GUARD=0 to disable.
 
-TRACE_LOG="${SUPERPOWERS_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+TRACE_LOG="${GRAPH_WIKI_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
 mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
 trace() {
     local tid="${1:-?}" event="${2:-?}" reason="${3:-}"
@@ -31,7 +31,7 @@ trace() {
 
 ALLOW='{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}'
 
-if [[ "${SUPERPOWERS_DISPATCH_GUARD:-1}" == "0" ]]; then
+if [[ "${GRAPH_WIKI_DISPATCH_GUARD:-1}" == "0" ]]; then
     trace "?" "skip" "guard=0"
     echo "$ALLOW"; exit 0
 fi
@@ -179,7 +179,7 @@ trace "$TASK_ID" "block" "dispatch-mismatch count=${#MISMATCHES[@]}"
     echo "  3. Escalate to the user via AskUserQuestion if you think the plan"
     echo "     spec'd the wrong tier."
     echo
-    echo "(Runtime disable: SUPERPOWERS_DISPATCH_GUARD=0. Trace log: $TRACE_LOG)"
+    echo "(Runtime disable: GRAPH_WIKI_DISPATCH_GUARD=0. Trace log: $TRACE_LOG)"
 } >&2
 
 exit 2

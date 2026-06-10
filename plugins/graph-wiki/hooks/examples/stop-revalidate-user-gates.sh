@@ -33,9 +33,9 @@
 #
 # ## Escape hatch
 #
-# Set SUPERPOWERS_USERGATE_STOP_GUARD=0 to disable at runtime.
+# Set GRAPH_WIKI_USERGATE_STOP_GUARD=0 to disable at runtime.
 
-TRACE_LOG="${SUPERPOWERS_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+TRACE_LOG="${GRAPH_WIKI_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
 mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
 trace() {
     local event="${1:-?}" reason="${2:-}"
@@ -44,7 +44,7 @@ trace() {
         "${reason:+ | $reason}" >> "$TRACE_LOG" 2>/dev/null || true
 }
 
-if [[ "${SUPERPOWERS_USERGATE_STOP_GUARD:-1}" == "0" ]]; then
+if [[ "${GRAPH_WIKI_USERGATE_STOP_GUARD:-1}" == "0" ]]; then
     trace "skip" "stop-guard=0"
     exit 0
 fi
@@ -249,7 +249,7 @@ trace "block" "unproven_gates=$BLOCKED_COUNT"
     echo "If /gate-check is not installed, post the AC: lines inline by running"
     echo "the verification yourself. If a gate cannot be proven right now,"
     echo "reopen it and retract the completion claim above."
-    echo "(To disable this check, set SUPERPOWERS_USERGATE_STOP_GUARD=0.)"
+    echo "(To disable this check, set GRAPH_WIKI_USERGATE_STOP_GUARD=0.)"
 } >&2
 
 exit 2

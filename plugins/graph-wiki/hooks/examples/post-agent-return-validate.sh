@@ -9,9 +9,9 @@
 # missing axes. Forces the coordinator to re-dispatch on the spot rather
 # than grind through "looks good" at task-close time.
 #
-# Opt in; SUPERPOWERS_AGENT_RETURN_GUARD=0 disables.
+# Opt in; GRAPH_WIKI_AGENT_RETURN_GUARD=0 disables.
 
-TRACE_LOG="${SUPERPOWERS_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+TRACE_LOG="${GRAPH_WIKI_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
 mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
 trace() {
     local tid="${1:-?}" event="${2:-?}" reason="${3:-}"
@@ -20,7 +20,7 @@ trace() {
         "${reason:+ | $reason}" >> "$TRACE_LOG" 2>/dev/null || true
 }
 
-if [[ "${SUPERPOWERS_AGENT_RETURN_GUARD:-1}" == "0" ]]; then
+if [[ "${GRAPH_WIKI_AGENT_RETURN_GUARD:-1}" == "0" ]]; then
     trace "?" "skip" "guard=0"
     exit 0
 fi
@@ -173,7 +173,7 @@ trace "$TASK_ID" "block" "subagent-return-missing-axes count=$MISSING_COUNT"
     echo "evidence. post-task-complete-revalidate will catch it at close time,"
     echo "but a re-dispatch now is cheaper than a reopen later."
     echo
-    echo "(Runtime disable: SUPERPOWERS_AGENT_RETURN_GUARD=0. Trace: $TRACE_LOG)"
+    echo "(Runtime disable: GRAPH_WIKI_AGENT_RETURN_GUARD=0. Trace: $TRACE_LOG)"
 } >&2
 
 exit 2
