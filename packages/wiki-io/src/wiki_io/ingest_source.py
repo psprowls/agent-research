@@ -10,7 +10,7 @@ Exports:
     slugify(text) -> str
     extract(path) -> tuple[str, str | None]
     guess_source_type(rel_to_workspace, rel_to_repo) -> str
-    archive_destination(raw, unit) -> Path | None   (raw/_archived/ mapping; None when not applicable)
+    archive_destination(raw, unit) -> Path | None   (raw/_archive/ mapping; None when not applicable)
     SOURCE_TYPE_ENUM, RAW_FOLDER_TYPES   (closed source_type enum + raw-folder subset)
     language_for(path) -> str
     list_folder_files(root) -> list[tuple[str, int]]
@@ -146,10 +146,10 @@ def extract(path: Path) -> tuple[str, str | None]:
 
 # Source-type model (source-type-consolidation design 2026-06-05). One closed
 # enum on every Source page; `note` is the catch-all (no `unknown`, no `rfc`).
-SOURCE_TYPE_ENUM = frozenset({"spec", "article", "pr", "ticket", "transcript", "example", "doc", "note", "skill"})
+SOURCE_TYPE_ENUM = frozenset({"spec", "article", "pr", "ticket", "transcript", "doc", "note", "skill"})
 # The subset a `raw/<type>/` folder produces authoritatively. The LLM cannot
 # override these — see run_ingest_source / build_ingest_brief.
-RAW_FOLDER_TYPES = frozenset({"spec", "article", "pr", "ticket", "transcript", "example", "skill"})
+RAW_FOLDER_TYPES = frozenset({"specs", "articles", "prs", "tickets", "transcripts", "skills"})
 
 
 def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -> str:
@@ -183,19 +183,19 @@ def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -
 
 
 def archive_destination(raw: Path, unit: Path) -> Path | None:
-    """Return the `raw/_archived/` destination for an ingested move-unit, or None.
+    """Return the `raw/_archive/` destination for an ingested move-unit, or None.
 
-    `raw/_archived/<unit relative to raw>` when `unit` is under `raw/` and not
-    already under `raw/_archived/`; otherwise None. Pure path math, no I/O —
+    `raw/_archive/<unit relative to raw>` when `unit` is under `raw/` and not
+    already under `raw/_archive/`; otherwise None. Pure path math, no I/O —
     the caller performs (or skips) the actual move.
     """
     try:
         rel = unit.relative_to(raw)
     except ValueError:
         return None
-    if not rel.parts or rel.parts[0] == "_archived":
+    if not rel.parts or rel.parts[0] == "_archive":
         return None
-    return raw / "_archived" / rel
+    return raw / "_archive" / rel
 
 
 def language_for(path: Path) -> str:

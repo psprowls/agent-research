@@ -595,7 +595,7 @@ def test_archive_destination_kind_file() -> None:
     from wiki_io.ingest_source import archive_destination
 
     raw = Path("/ws/raw")
-    assert archive_destination(raw, Path("/ws/raw/specs/x.md")) == Path("/ws/raw/_archived/specs/x.md")
+    assert archive_destination(raw, Path("/ws/raw/specs/x.md")) == Path("/ws/raw/_archive/specs/x.md")
 
 
 def test_archive_destination_nested_unit() -> None:
@@ -603,14 +603,14 @@ def test_archive_destination_nested_unit() -> None:
 
     raw = Path("/ws/raw")
     # A directory unit (skill dir) maps wholesale to the mirrored path.
-    assert archive_destination(raw, Path("/ws/raw/skill/foo")) == Path("/ws/raw/_archived/skill/foo")
+    assert archive_destination(raw, Path("/ws/raw/skill/foo")) == Path("/ws/raw/_archive/skill/foo")
 
 
 def test_archive_destination_file_directly_in_raw() -> None:
     from wiki_io.ingest_source import archive_destination
 
     raw = Path("/ws/raw")
-    assert archive_destination(raw, Path("/ws/raw/x.md")) == Path("/ws/raw/_archived/x.md")
+    assert archive_destination(raw, Path("/ws/raw/x.md")) == Path("/ws/raw/_archive/x.md")
 
 
 def test_archive_destination_outside_raw_is_none() -> None:
@@ -621,8 +621,8 @@ def test_archive_destination_outside_raw_is_none() -> None:
     assert archive_destination(raw, Path("/elsewhere/x.md")) is None
 
 
-def test_archive_destination_already_archived_is_none() -> None:
+def test_archive_destination_already_archive_is_none() -> None:
     from wiki_io.ingest_source import archive_destination
 
     raw = Path("/ws/raw")
-    assert archive_destination(raw, Path("/ws/raw/_archived/specs/x.md")) is None
+    assert archive_destination(raw, Path("/ws/raw/_archive/specs/x.md")) is None

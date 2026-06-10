@@ -50,7 +50,7 @@ def test_build_sidecar_basic(tmp_path: Path) -> None:
     assert sidecar["counts"]["by_kind"]["bug"] == 1
 
 
-def test_build_sidecar_excludes_archived(tmp_path: Path) -> None:
+def test_build_sidecar_excludes_archive(tmp_path: Path) -> None:
     work_dir = tmp_path / "work"
     work_dir.mkdir()
     archived = work_dir / "archived"

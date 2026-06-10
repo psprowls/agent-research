@@ -68,7 +68,7 @@ def test_targeted_mode_missing_slug_goes_to_skipped(tmp_path: Path) -> None:
     assert "not found" in plan.skipped[0]["reason"]
 
 
-def test_archive_dst_is_archived_subdir(tmp_path: Path) -> None:
+def test_archive_dst_is_archive_subdir(tmp_path: Path) -> None:
     work_dir = tmp_path
     _make_item(work_dir, "wontfix-item", status="wontfix", updated_days_ago=8)
 
