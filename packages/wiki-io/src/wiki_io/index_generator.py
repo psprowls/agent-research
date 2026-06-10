@@ -483,7 +483,7 @@ def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
     """Walk `workspace_root / 'wiki' / 'work'` for *.md pages; wiki-rooted paths.
 
     Returns [] if `work/` does not exist. Skips `index.md`, dotfiles, and
-    the `archived/` sub-namespace.
+    the `_archived/` sub-namespace.
     """
     work_root = work_dir(workspace_root)
     if not work_root.exists():

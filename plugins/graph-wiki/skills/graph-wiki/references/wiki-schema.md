@@ -18,7 +18,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 │   ├── transcripts/*.md         # meeting and design-session notes
 │   └── assets/                  # images referenced by sources
 ├── work/                        # unified bugs, tech debt, features, initiatives, spikes
-│   └── archived/                # terminal-status items aged past archive threshold
+│   └── _archived/               # terminal-status items; consider archiving when status is terminal
 ├── knowledge/                   # other plugin-managed knowledge stores
 └── wiki/                        # this plugin's curated knowledge base
     ├── index.md                 # content catalog — updated every ingest/scan
