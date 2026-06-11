@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
@@ -35,7 +34,7 @@ def _resolve_evals_root(evals_root: str | None) -> Path:
 
 @app.command("list")
 def list_cmd(
-    evals_root: Optional[str] = typer.Option(None, "--evals-root", help="Path to evals/ directory"),
+    evals_root: str | None = typer.Option(None, "--evals-root", help="Path to evals/ directory"),
 ) -> None:
     """Print available scenarios and configs."""
     root = _resolve_evals_root(evals_root)
@@ -66,10 +65,10 @@ def list_cmd(
 
 @app.command("run")
 def run_cmd(
-    scenario: Optional[str] = typer.Argument(None, help="Scenario name"),
-    configs: Optional[list[str]] = typer.Option(None, "--config", help="Config name(s), repeatable"),
-    runset: Optional[str] = typer.Option(None, "--runset", help="Path to runset YAML"),
-    evals_root: Optional[str] = typer.Option(None, "--evals-root", help="Path to evals/ directory"),
+    scenario: str | None = typer.Argument(None, help="Scenario name"),
+    configs: list[str] | None = typer.Option(None, "--config", help="Config name(s), repeatable"),
+    runset: str | None = typer.Option(None, "--runset", help="Path to runset YAML"),
+    evals_root: str | None = typer.Option(None, "--evals-root", help="Path to evals/ directory"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Skip actual claude invocation"),
     keep_worktree: bool = typer.Option(False, "--keep-worktree", help="Keep isolation directory after run"),
 ) -> None:
@@ -123,7 +122,7 @@ def run_cmd(
 def report_cmd(
     runs_dir: str = typer.Argument(..., help="Path to runs/ directory"),
     name: str = typer.Option("report", "--name", help="Runset name for report header"),
-    out: Optional[str] = typer.Option(None, "--out", help="Output path for markdown report"),
+    out: str | None = typer.Option(None, "--out", help="Output path for markdown report"),
 ) -> None:
     """Regenerate markdown + JSON report from existing runs/."""
     md, data = build_report(runs_dir=Path(runs_dir), runset_name=name)
