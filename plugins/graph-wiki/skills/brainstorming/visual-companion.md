@@ -33,26 +33,38 @@ The server watches a directory for HTML files and serves the newest one to the b
 ## Starting a Session
 
 ```bash
-# Start server with persistence (mockups saved to project)
-scripts/start-server.sh --project-dir /path/to/project
+# Start server — it resolves where mockups are saved (see below)
+scripts/start-server.sh
 
-# Returns: {"type":"server-started","port":52341,"url":"http://localhost:52341",
-#           "screen_dir":"/path/to/project/.superpowers/brainstorm/12345-1706000000/content",
-#           "state_dir":"/path/to/project/.superpowers/brainstorm/12345-1706000000/state"}
+# Returns (graph-wiki workspace resolves):
+# {"type":"server-started","port":52341,"url":"http://localhost:52341",
+#  "screen_dir":"<workspace>/brainstorm/12345-1706000000/content",
+#  "state_dir":"<workspace>/brainstorm/12345-1706000000/state"}
 ```
 
 Save `screen_dir` and `state_dir` from the response. Tell user to open the URL.
 
-**Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. When using `--project-dir`, check `<project>/.superpowers/brainstorm/` for the session directory.
+**Where sessions are saved (default, no `--project-dir`):** the script resolves a
+fallback chain — (1) a graph-wiki workspace (`GRAPH_WIKI_WORKSPACE` env var, or a
+`.graph-wiki.local.yaml` found by walking up) → `<workspace>/brainstorm/`; (2) else
+the enclosing git repo → `<repo>/.superpowers/brainstorm/`; (3) else `/tmp` (ephemeral,
+cleaned up on stop). The workspace and `.superpowers/` locations both persist across
+server restarts.
 
-**Note:** Pass the project root as `--project-dir` so mockups persist in `.superpowers/brainstorm/` and survive server restarts. Without it, files go to `/tmp` and get cleaned up. Remind the user to add `.superpowers/` to `.gitignore` if it's not already there.
+**Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. Otherwise use the `state_dir` from the returned JSON to locate the session directory.
+
+**Override with `--project-dir`:** pass an explicit project root to force
+`<project>/.superpowers/brainstorm/` regardless of workspace resolution. In the
+non-graph-wiki fallback case (sessions under `<repo>/.superpowers/brainstorm/`), remind
+the user to add `.superpowers/` to `.gitignore` if it's not already there. The workspace
+location lives outside the repo and needs no gitignore entry.
 
 **Launching the server by platform:**
 
 **Claude Code (macOS / Linux):**
 ```bash
 # Default mode works — the script backgrounds the server itself
-scripts/start-server.sh --project-dir /path/to/project
+scripts/start-server.sh
 ```
 
 **Claude Code (Windows):**
@@ -60,7 +72,7 @@ scripts/start-server.sh --project-dir /path/to/project
 # Windows auto-detects and uses foreground mode, which blocks the tool call.
 # Use run_in_background: true on the Bash tool call so the server survives
 # across conversation turns.
-scripts/start-server.sh --project-dir /path/to/project
+scripts/start-server.sh
 ```
 When calling this via the Bash tool, set `run_in_background: true`. Then read `$STATE_DIR/server-info` on the next turn to get the URL and port.
 
@@ -68,14 +80,14 @@ When calling this via the Bash tool, set `run_in_background: true`. Then read `$
 ```bash
 # Codex reaps background processes. The script auto-detects CODEX_CI and
 # switches to foreground mode. Run it normally — no extra flags needed.
-scripts/start-server.sh --project-dir /path/to/project
+scripts/start-server.sh
 ```
 
 **Gemini CLI:**
 ```bash
 # Use --foreground and set is_background: true on your shell tool call
 # so the process survives across turns
-scripts/start-server.sh --project-dir /path/to/project --foreground
+scripts/start-server.sh --foreground
 ```
 
 **Other environments:** The server must keep running in the background across conversation turns. If your environment reaps detached processes, use `--foreground` and launch the command with your platform's background execution mechanism.
@@ -84,7 +96,6 @@ If the URL is unreachable from your browser (common in remote/containerized setu
 
 ```bash
 scripts/start-server.sh \
-  --project-dir /path/to/project \
   --host 0.0.0.0 \
   --url-host localhost
 ```
@@ -279,7 +290,7 @@ If `$STATE_DIR/events` doesn't exist, the user didn't interact with the browser 
 scripts/stop-server.sh $SESSION_DIR
 ```
 
-If the session used `--project-dir`, mockup files persist in `.superpowers/brainstorm/` for later reference. Only `/tmp` sessions get deleted on stop.
+Sessions saved under a workspace (`<workspace>/brainstorm/`) or repo (`<repo>/.superpowers/brainstorm/`) persist for later reference. Only `/tmp` sessions get deleted on stop.
 
 ## Reference
 

@@ -73,12 +73,15 @@ Follow this priority order. Explicit user preference always beats observed files
    ```
    If found, use it. If both exist, `.worktrees` wins.
 
-3. **Check for an existing global directory:**
+3. **Check for a resolved graph-wiki workspace.** Run the shared resolver — it
+   lives in the sibling `shared/` skill directory, so the path is relative to
+   this skill's own directory:
    ```bash
-   project=$(basename "$(git rev-parse --show-toplevel)")
-   ls -d ~/.config/superpowers/worktrees/$project 2>/dev/null
+   workspace="$(bash ../shared/resolve-workspace.sh 2>/dev/null)"
    ```
-   If found, use it (backward compatibility with legacy global path).
+   If it returns a non-empty path, use `<workspace>/worktrees/<branch>`. The
+   workspace lives in a separate sibling directory (not this repo), so generated
+   worktrees stay out of the checkout. If it returns empty, fall through to step 4.
 
 4. **If there is no other guidance available**, default to `.worktrees/` at the project root.
 
@@ -94,16 +97,16 @@ git check-ignore -q .worktrees 2>/dev/null || git check-ignore -q worktrees 2>/d
 
 **Why critical:** Prevents accidentally committing worktree contents to repository.
 
-Global directories (`~/.config/superpowers/worktrees/`) need no verification.
+The workspace `worktrees/` directory needs no verification — it lives in the
+separate workspace sibling, not the repo, so it can't be committed (no gitignore
+check needed).
 
 #### Create the Worktree
 
 ```bash
-project=$(basename "$(git rev-parse --show-toplevel)")
-
 # Determine path based on chosen location
 # For project-local: path="$LOCATION/$BRANCH_NAME"
-# For global: path="~/.config/superpowers/worktrees/$project/$BRANCH_NAME"
+# For workspace:      path="$workspace/worktrees/$BRANCH_NAME"
 
 git worktree add "$path" -b "$BRANCH_NAME"
 cd "$path"
@@ -163,7 +166,7 @@ Ready to implement <feature-name>
 | `worktrees/` exists | Use it (verify ignored) |
 | Both exist | Use `.worktrees/` |
 | Neither exists | Check instruction file, then default `.worktrees/` |
-| Global path exists | Use it (backward compat) |
+| graph-wiki workspace resolves | Use `<workspace>/worktrees/` (step 3) |
 | Directory not ignored | Add to .gitignore + commit |
 | Permission error on create | Sandbox fallback, work in place |
 | Tests fail during baseline | Report failures + ask |
@@ -189,7 +192,7 @@ Ready to implement <feature-name>
 ### Assuming directory location
 
 - **Problem:** Creates inconsistency, violates project conventions
-- **Fix:** Follow priority: existing > global legacy > instruction file > default
+- **Fix:** Follow priority: existing > workspace > instruction file > default
 
 ### Proceeding with failing tests
 
@@ -209,7 +212,7 @@ Ready to implement <feature-name>
 **Always:**
 - Run Step 0 detection first
 - Prefer native tools over git fallback
-- Follow directory priority: existing > global legacy > instruction file > default
+- Follow directory priority: existing > workspace > instruction file > default
 - Verify directory is ignored for project-local
 - Auto-detect and run project setup
 - Verify clean test baseline
