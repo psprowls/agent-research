@@ -432,6 +432,8 @@ def _run_fake_multi_turn(
 
 def test_multi_turn_success_and_simulator_io(tmp_path: Path):
     body = """
+first = json.loads(read_reply())
+assert first["message"]["content"] == "task"
 assistant("Hello ", "World")
 result()
 line = read_reply()
@@ -525,4 +527,20 @@ read_reply()
 """
     sim = _StubSimulator([])
     res, _ = _run_fake_multi_turn(tmp_path, body, sim)
+    assert res.final_status == "success"
+
+
+def test_multi_turn_initial_prompt_sent_over_stdin(tmp_path: Path):
+    # In --input-format stream-json mode the real CLI ignores the positional
+    # prompt and waits for the first user message on stdin; the runner must
+    # deliver the task prompt there or the CLI hangs until the watchdog.
+    body = """
+first = json.loads(read_reply())
+assert first["message"]["content"] == "task"
+assistant("ack")
+result()
+read_reply()
+"""
+    sim = _StubSimulator([])
+    res, _ = _run_fake_multi_turn(tmp_path, body, sim, max_wall_seconds=2.0)
     assert res.final_status == "success"

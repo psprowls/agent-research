@@ -170,6 +170,10 @@ def _build_cmd(
     Config isolation is via the ``CLAUDE_CONFIG_DIR`` env var (see ``_build_env``), NOT a
     ``--config-dir`` flag (which no longer exists in the claude CLI). ``--append-system-prompt``
     keeps the model's default tool guidance while layering the eval directive on top.
+
+    In multi-turn (``--input-format stream-json``) mode the CLI ignores the positional
+    prompt and waits for user messages on stdin, so the prompt is NOT appended to argv —
+    the runner delivers it as the first stdin user message instead.
     """
     cmd = [
         "claude",
@@ -188,7 +192,8 @@ def _build_cmd(
         cmd += ["--plugin-dir", str(pdir)]
     if multi_turn:
         cmd += ["--input-format", "stream-json", "--replay-user-messages"]
-    cmd.append(prompt)
+    else:
+        cmd.append(prompt)
 
     logger = EvalLogger("runner_cmd_build")
     logger.log_dict(
@@ -395,6 +400,7 @@ def run_multi_turn(
     return asyncio.run(
         _run_multi_turn_async(
             cmd=cmd,
+            prompt=prompt,
             worktree_path=worktree_path,
             env=env,
             simulator=simulator,
@@ -429,6 +435,7 @@ async def _drain_stderr(stream: asyncio.StreamReader, tail: _StderrTail) -> None
 async def _run_multi_turn_async(
     *,
     cmd: list[str],
+    prompt: str,
     worktree_path: Path,
     env: dict[str, str],
     simulator: AutoUserSimulator,
@@ -459,6 +466,16 @@ async def _run_multi_turn_async(
 
     async def _conversation() -> tuple[str, bool, str | None]:
         """Run the event loop; returns (final_status, budget_exceeded, error_reason)."""
+        # In stream-json input mode the CLI ignores the positional prompt and waits
+        # for user messages on stdin — deliver the task prompt as the first one.
+        initial_msg = json.dumps({"type": "user", "message": {"role": "user", "content": prompt}})
+        try:
+            stdin.write((initial_msg + "\n").encode("utf-8"))
+            await stdin.drain()
+        except (BrokenPipeError, ConnectionResetError):
+            reason = stderr_tail.text() or "claude CLI died while receiving initial prompt"
+            return "error_cli_died", False, reason
+
         full_turn_text = ""  # all text blocks of the current turn (stop_on/trigger scope)
         final_block = ""  # last text block of the current turn (LLM history scope)
         completed_turns = 0
