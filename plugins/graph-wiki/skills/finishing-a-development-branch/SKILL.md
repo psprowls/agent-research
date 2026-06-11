@@ -176,11 +176,12 @@ git branch -D <feature-branch>
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 WORKTREE_PATH=$(git rev-parse --show-toplevel)
+WORKSPACE=$(bash ../shared/resolve-workspace.sh 2>/dev/null)  # path relative to this skill's directory
 ```
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
 
-**If worktree path is under `.worktrees/`, `worktrees/`, or `~/.config/superpowers/worktrees/`:** Superpowers created this worktree — we own cleanup.
+**If worktree path is under `.worktrees/`, `worktrees/`, `<workspace>/worktrees/` (when a workspace resolves), or the legacy `~/.config/superpowers/worktrees/`:** Superpowers created this worktree — we own cleanup. (The legacy path is kept read-only as backward compat so worktrees created before the workspace relocation still finish and clean up correctly.)
 
 ```bash
 MAIN_ROOT=$(git -C "$(git rev-parse --git-common-dir)/.." rev-parse --show-toplevel)
@@ -224,7 +225,7 @@ git worktree prune  # Self-healing: clean up any stale registrations
 
 **Cleaning up harness-owned worktrees**
 - **Problem:** Removing a worktree the harness created causes phantom state
-- **Fix:** Only clean up worktrees under `.worktrees/`, `worktrees/`, or `~/.config/superpowers/worktrees/`
+- **Fix:** Only clean up worktrees under `.worktrees/`, `worktrees/`, `<workspace>/worktrees/`, or the legacy `~/.config/superpowers/worktrees/`
 
 **No confirmation for discard**
 - **Problem:** Accidentally delete work
