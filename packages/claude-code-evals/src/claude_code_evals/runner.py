@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import subprocess
@@ -366,11 +367,22 @@ def run_multi_turn(
     oauth_token: str | None = None,
     plugin_dirs: list[Path] | None = None,
     extra_env: dict[str, str] | None = None,
-    _max_turns: int = 20,
+    max_turns: int = 20,
     max_wall_seconds: float = 300.0,
     _max_input_tokens: int = 100_000,
 ) -> tuple[RunResult, str]:
-    """Run claude -p in multi-turn mode driven by AutoUserSimulator."""
+    """Run claude -p in multi-turn mode driven by AutoUserSimulator.
+
+    Sync facade over an asyncio implementation: concurrent stdout/stderr
+    readers, a wall-clock watchdog (fires even when the CLI hangs silently),
+    per-result classification, and a max_turns cap on completed agent turns.
+
+    Watchdog caveat: ``simulator.reply`` runs in a worker thread via
+    ``asyncio.to_thread``, and threads cannot be cancelled — if the watchdog
+    fires mid-reply, ``asyncio.run`` blocks at shutdown until the underlying
+    Bedrock call returns. So max_wall_seconds reliably bounds CLI hangs, while
+    simulator hangs are bounded by the Bedrock client's own read timeout.
+    """
     env = _build_env(cfg_dir=cfg_dir, oauth_token=oauth_token, extra_env=extra_env)
     cmd = _build_cmd(
         prompt=prompt,
@@ -380,34 +392,83 @@ def run_multi_turn(
         plugin_dirs=plugin_dirs,
         multi_turn=True,
     )
-
-    logger = EvalLogger("runner_multi_turn")
-    logger.log("Starting multi-turn run", model=model, max_wall_seconds=max_wall_seconds)
-
-    proc = subprocess.Popen(
-        cmd,
-        cwd=str(worktree_path),
-        env=env,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        bufsize=1,
+    return asyncio.run(
+        _run_multi_turn_async(
+            cmd=cmd,
+            worktree_path=worktree_path,
+            env=env,
+            simulator=simulator,
+            max_turns=max_turns,
+            max_wall_seconds=max_wall_seconds,
+        )
     )
 
-    start = time.monotonic()
-    final_status = "success"
-    budget_exceeded = False
-    lines: list[str] = []
-    last_assistant_text = ""
 
-    try:
-        assert proc.stdout is not None and proc.stdin is not None
-        for line in proc.stdout:
-            if (time.monotonic() - start) > max_wall_seconds:
-                budget_exceeded = True
-                final_status = "budget_exceeded"
-                break
+class _StderrTail:
+    """Bounded stderr accumulator: retains only the last `limit` bytes."""
+
+    def __init__(self, limit: int = 16_384) -> None:
+        self._limit = limit
+        self._data = b""
+
+    def append(self, chunk: bytes) -> None:
+        self._data = (self._data + chunk)[-self._limit :]
+
+    def text(self) -> str:
+        return self._data.decode("utf-8", errors="replace").strip()
+
+
+async def _drain_stderr(stream: asyncio.StreamReader, tail: _StderrTail) -> None:
+    while True:
+        chunk = await stream.read(4096)
+        if not chunk:
+            return
+        tail.append(chunk)
+
+
+async def _run_multi_turn_async(
+    *,
+    cmd: list[str],
+    worktree_path: Path,
+    env: dict[str, str],
+    simulator: AutoUserSimulator,
+    max_turns: int,
+    max_wall_seconds: float,
+) -> tuple[RunResult, str]:
+    logger = EvalLogger("runner_multi_turn")
+    logger.log("Starting multi-turn run", max_turns=max_turns, max_wall_seconds=max_wall_seconds)
+
+    start = time.monotonic()
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        cwd=str(worktree_path),
+        env=env,
+        stdin=asyncio.subprocess.PIPE,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+        # asyncio's default 64KB stream limit makes readline() raise ValueError on a
+        # single stream-json line larger than 64KB (large tool results are routine).
+        limit=8 * 1024 * 1024,
+    )
+    assert proc.stdin is not None and proc.stdout is not None and proc.stderr is not None
+    stdin: asyncio.StreamWriter = proc.stdin
+    stdout: asyncio.StreamReader = proc.stdout
+    stderr_tail = _StderrTail()
+    stderr_task = asyncio.create_task(_drain_stderr(proc.stderr, stderr_tail))
+    lines: list[str] = []
+
+    async def _conversation() -> tuple[str, bool, str | None]:
+        """Run the event loop; returns (final_status, budget_exceeded, error_reason)."""
+        full_turn_text = ""  # all text blocks of the current turn (stop_on/trigger scope)
+        final_block = ""  # last text block of the current turn (LLM history scope)
+        completed_turns = 0
+        while True:
+            raw = await stdout.readline()
+            if not raw:
+                # EOF without a clean conversation end: CLI crash, bad flag, auth.
+                reason = stderr_tail.text() or _tail_non_json("".join(lines))
+                return "error_no_result", False, reason or "claude exited with no result event"
+            line = raw.decode("utf-8", errors="replace")
             lines.append(line)
             line_str = line.strip()
             if not line_str:
@@ -431,29 +492,53 @@ def run_multi_turn(
             if ev.get("type") == "assistant":
                 for block in (ev.get("message") or {}).get("content") or []:
                     if block.get("type") == "text":
-                        last_assistant_text += block.get("text", "")
+                        full_turn_text += block.get("text", "")
+                        final_block = block.get("text", "")
             elif ev.get("type") == "result":
-                reply = simulator.reply(last_assistant_text, last_assistant_text)
+                status, reason = _classify_result(ev)
+                if status != "success":
+                    return status, False, reason
+                completed_turns += 1
+                if completed_turns >= max_turns:
+                    return "budget_exceeded", True, f"max_turns ({max_turns}) reached"
+                reply = await asyncio.to_thread(simulator.reply, full_turn_text, final_block)
                 if reply is None:
-                    break
-                last_assistant_text = ""
+                    return "success", False, None
+                full_turn_text = ""
+                final_block = ""
                 user_msg = json.dumps({"type": "user", "message": {"role": "user", "content": reply}})
-                proc.stdin.write(user_msg + "\n")
-                proc.stdin.flush()
+                try:
+                    stdin.write((user_msg + "\n").encode("utf-8"))
+                    await stdin.drain()
+                except (BrokenPipeError, ConnectionResetError):
+                    reason = stderr_tail.text() or "claude CLI died while receiving simulator reply"
+                    return "error_cli_died", False, reason
+
+    try:
+        final_status, budget_exceeded, error_reason = await asyncio.wait_for(_conversation(), timeout=max_wall_seconds)
+    except TimeoutError:
+        final_status = "budget_exceeded"
+        budget_exceeded = True
+        error_reason = f"max_wall_seconds ({max_wall_seconds}) exceeded"
     finally:
-        proc.terminate()
-        proc.wait(timeout=5)
+        if proc.returncode is None:
+            proc.terminate()
+            try:
+                await asyncio.wait_for(proc.wait(), timeout=5)
+            except TimeoutError:
+                proc.kill()
+                await proc.wait()
+        await stderr_task
 
-    exit_code = proc.returncode
     wall_seconds = time.monotonic() - start
-
     logger.log_dict(
         "Multi-turn run completed",
         {
             "final_status": final_status,
             "budget_exceeded": budget_exceeded,
             "wall_seconds": wall_seconds,
-            "exit_code": exit_code,
+            "exit_code": proc.returncode,
+            "error_reason": error_reason,
         },
     )
 
@@ -462,6 +547,8 @@ def run_multi_turn(
             final_status=final_status,
             budget_exceeded=budget_exceeded,
             wall_seconds=wall_seconds,
+            error_reason=error_reason,
+            exit_code=proc.returncode,
             simulator_input_tokens=simulator.input_tokens,
             simulator_output_tokens=simulator.output_tokens,
         ),
