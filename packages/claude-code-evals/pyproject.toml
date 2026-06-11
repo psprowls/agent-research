@@ -5,7 +5,7 @@ description = "Generic harness for evaluating Claude Code behavior across plugin
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6",
-    "click>=8.1",
+    "typer>=0.25.1",
     "jinja2>=3.1",
     "rich>=13.7",
     "pyyaml>=6.0",
