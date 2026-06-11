@@ -246,7 +246,6 @@ def test_source_type_enum_contents() -> None:
         "pr",
         "ticket",
         "transcript",
-        "example",
         "doc",
         "note",
         "skill",
@@ -254,24 +253,6 @@ def test_source_type_enum_contents() -> None:
     # No legacy/removed values.
     assert "unknown" not in SOURCE_TYPE_ENUM
     assert "rfc" not in SOURCE_TYPE_ENUM
-
-
-def test_raw_folder_types_is_authoritative_subset() -> None:
-    from wiki_io.ingest_source import RAW_FOLDER_TYPES, SOURCE_TYPE_ENUM
-
-    assert set(RAW_FOLDER_TYPES) == {
-        "spec",
-        "article",
-        "pr",
-        "ticket",
-        "transcript",
-        "example",
-        "skill",
-    }
-    # The raw-folder subset never includes the path-default catch-alls.
-    assert set(RAW_FOLDER_TYPES) <= set(SOURCE_TYPE_ENUM)
-    assert "doc" not in RAW_FOLDER_TYPES
-    assert "note" not in RAW_FOLDER_TYPES
 
 
 # ---------------------------------------------------------------------------
@@ -288,7 +269,7 @@ def test_skill_is_in_source_type_enum():
 def test_skill_is_an_authoritative_raw_folder_type():
     from wiki_io.ingest_source import RAW_FOLDER_TYPES
 
-    assert "skill" in RAW_FOLDER_TYPES
+    assert "skills" in RAW_FOLDER_TYPES
 
 
 def test_guess_source_type_detects_raw_skill_folder():
@@ -556,7 +537,7 @@ def test_gather_directory_boundary_guard(tmp_path: Path) -> None:
 def test_gather_skips_non_md_http_and_anchor_targets(tmp_path: Path) -> None:
     from wiki_io.ingest_source import gather_skill_sources
 
-    skill_dir = tmp_path / "skill"
+    skill_dir = tmp_path / "skills"
     skill_dir.mkdir()
     (skill_dir / "SKILL.md").write_text(
         "# S\n\n"

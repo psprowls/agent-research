@@ -123,7 +123,7 @@ def test_run_work_archive_dry_run(tmp_path: Path) -> None:
 
     assert result.dry_run is True
     assert len(result.moved) == 1
-    assert not (work_dir / "_archived").exists()
+    assert not (work_dir / "_archive").exists()
 
 
 def test_run_work_archive_executes_move(tmp_path: Path) -> None:
@@ -138,7 +138,7 @@ def test_run_work_archive_executes_move(tmp_path: Path) -> None:
     result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
 
     assert len(result.moved) == 1
-    assert (work_dir / "_archived").exists()
+    assert (work_dir / "_archive").exists()
 
 
 def test_run_work_file_returns_ingest_result(tmp_path: Path) -> None:

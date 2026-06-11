@@ -12,7 +12,7 @@ SCHEMA_VERSION = 1
 
 
 def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
-    """Walk work_dir/*.md (excluding _archived/), parse each item, return sidecar dict."""
+    """Walk work_dir/*.md (excluding _archive/), parse each item, return sidecar dict."""
     from work_io.frontmatter import parse as fm_parse
 
     items = []

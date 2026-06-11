@@ -50,6 +50,7 @@ from wiki_io.entity_lookup import (
 )
 from wiki_io.ingest_source import (
     PREVIEW_CHARS,
+    RAW_FOLDER_TYPE_MAP,
     RAW_FOLDER_TYPES,
     SOURCE_TYPE_ENUM,
     SkillBundle,
@@ -1136,7 +1137,7 @@ async def _run_default_branch(
 
     fm, _body = _parse_ingestor_response(llm_output)
     frontmatter_parsed = bool(fm)
-    if path_guess in RAW_FOLDER_TYPES:
+    if path_guess in RAW_FOLDER_TYPE_MAP.values():
         source_type = path_guess
     else:
         llm_value = str(fm.get("source_type", "")).strip().lower()

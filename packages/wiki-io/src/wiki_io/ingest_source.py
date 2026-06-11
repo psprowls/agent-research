@@ -147,9 +147,17 @@ def extract(path: Path) -> tuple[str, str | None]:
 # Source-type model (source-type-consolidation design 2026-06-05). One closed
 # enum on every Source page; `note` is the catch-all (no `unknown`, no `rfc`).
 SOURCE_TYPE_ENUM = frozenset({"spec", "article", "pr", "ticket", "transcript", "doc", "note", "skill"})
-# The subset a `raw/<type>/` folder produces authoritatively. The LLM cannot
-# override these — see run_ingest_source / build_ingest_brief.
-RAW_FOLDER_TYPES = frozenset({"specs", "articles", "prs", "tickets", "transcripts", "skills"})
+# Maps plural raw/<folder>/ names to the singular source_type they produce
+# authoritatively. The LLM cannot override types from these folders.
+RAW_FOLDER_TYPE_MAP: dict[str, str] = {
+    "specs": "spec",
+    "articles": "article",
+    "prs": "pr",
+    "tickets": "ticket",
+    "transcripts": "transcript",
+    "skills": "skill",
+}
+RAW_FOLDER_TYPES = frozenset(RAW_FOLDER_TYPE_MAP)
 
 
 def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -> str:

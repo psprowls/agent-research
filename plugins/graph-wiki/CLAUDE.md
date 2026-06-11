@@ -62,7 +62,7 @@ The shim under that path resolves the implementation from `wiki_io` via the `uv`
 
 The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.local.yaml`'s `workspace-directory` path key). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
 
-- `<workspace>/raw/` — staging inbox for sources. The LLM never edits file contents here; a successful ingest moves the source to `raw/_archived/<same relative path>`. Owned by `workspace_io`.
+- `<workspace>/raw/` — staging inbox for sources. The LLM never edits file contents here; a successful ingest moves the source to `raw/_archive/<same relative path>`. Owned by `workspace_io`.
 - `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
 - `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `architecture/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders.
 - `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are written by `init_vault` and carry the wiki schema + conventions for the host tool. They are not derived from the repo's folder shape — entity discovery is purely graph-driven, so nothing about the repo's structure is pinned into them.
@@ -76,7 +76,7 @@ When changing how entity pages are discovered, rendered, or written, update `run
 These are load-bearing for the skill's contract — preserve them when editing scripts or references:
 
 1. The code is the source of truth. If the vault contradicts the code, update the vault.
-2. The LLM never edits file contents under `<workspace>/raw/`; all LLM writes for the wiki go under `<workspace>/wiki/`. Single exception: after a successful ingest the source is *moved* to `<workspace>/raw/_archived/<same relative path>`.
+2. The LLM never edits file contents under `<workspace>/raw/`; all LLM writes for the wiki go under `<workspace>/wiki/`. Single exception: after a successful ingest the source is *moved* to `<workspace>/raw/_archive/<same relative path>`.
 3. Every vault page has YAML frontmatter with `title`, `category`, `summary`, `updated`.
 4. Every ingest or scan touches ≥3 files: the changed/new page(s), `index.md`, `log.md`.
 5. Every claim on a package/domain page cites either a source page (`[[sources/xxx]]`) or a code path.

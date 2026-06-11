@@ -81,7 +81,7 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 ### `archive-eligible` — info
 **Trigger:** `status: resolved | wontfix | superseded`.
 **Rationale:** terminal-status items aren't drift, but they clutter the active queue. Surfacing them as `info` keeps the queue clean without inflating the warning channel.
-**Remedy:** run `/graph-wiki:archive` to move eligible items into `<vault>/work/_archived/`. Pass `--dry-run` first to see what would move; pass slugs to target specific items.
+**Remedy:** run `/graph-wiki:archive` to move eligible items into `<vault>/work/_archive/`. Pass `--dry-run` first to see what would move; pass slugs to target specific items.
 
 ## Body shape (3)
 

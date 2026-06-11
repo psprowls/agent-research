@@ -5,7 +5,7 @@ description: Archive terminal-status work items (resolved/wontfix/superseded) â€
 
 # /graph-wiki:archive
 
-Move terminal work items from `wiki/work/` to `wiki/work/_archived/`.
+Move terminal work items from `wiki/work/` to `wiki/work/_archive/`.
 
 ## Usage
 

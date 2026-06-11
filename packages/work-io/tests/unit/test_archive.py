@@ -65,7 +65,7 @@ def test_archive_dst_is_archive_subdir(tmp_path: Path) -> None:
     plan = plan_archive(work_dir)
 
     assert len(plan.actions) == 1
-    assert plan.actions[0].dst.parent.name == "_archived"
+    assert plan.actions[0].dst.parent.name == "_archive"
     assert plan.actions[0].dst.name == plan.actions[0].src.name
 
 

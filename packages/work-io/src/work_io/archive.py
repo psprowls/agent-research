@@ -32,7 +32,7 @@ def plan_archive(
     """
     from work_io.frontmatter import parse as fm_parse
 
-    archived_dir = work_dir / "_archived"
+    archived_dir = work_dir / "_archive"
     actions: list[ArchiveAction] = []
     skipped: list[dict] = []
 

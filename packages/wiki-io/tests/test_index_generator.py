@@ -444,9 +444,9 @@ class TestWorkScan:
         entries = _scan_work(tmp_path)
         assert [e["title"] for e in entries] == ["Foo"]
 
-    def test_skips_archive_subdir(self, tmp_path):
+    def test_skips_archived_subdir(self, tmp_path):
         _write_curated_page(tmp_path / "wiki" / "work" / "foo.md", title="Foo")
-        _write_curated_page(tmp_path / "wiki" / "work" / "_archived" / "old.md", title="Old")
+        _write_curated_page(tmp_path / "wiki" / "work" / "_archive" / "old.md", title="Old")
         entries = _scan_work(tmp_path)
         assert [e["title"] for e in entries] == ["Foo"]
 

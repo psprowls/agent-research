@@ -136,7 +136,7 @@ def _vault_commit(wiki: Path) -> str | None:
 
 
 def _load_items(work_dir: Path) -> list[dict]:
-    """Parse every work/*.md (excluding _archived/) into lint-shaped item dicts.
+    """Parse every work/*.md (excluding _archive/) into lint-shaped item dicts.
 
     Each dict carries: slug, fm (frontmatter dict), plan (PlanResult).
     Unparseable pages are skipped.
@@ -274,7 +274,7 @@ async def run_work_status(workspace_path: Path | None = None) -> WorkStatusResul
 
 
 def _move(action: _archive.ArchiveAction) -> None:
-    """Move a work item into _archived/, preferring `git mv`, falling back to rename."""
+    """Move a work item into _archive/, preferring `git mv`, falling back to rename."""
     action.dst.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
         ["git", "mv", str(action.src), str(action.dst)],
@@ -292,7 +292,7 @@ async def run_work_archive(
     slugs: list[str] | None = None,
     dry_run: bool = False,
 ) -> WorkArchiveResult:
-    """Archive terminal work items into work/_archived/.
+    """Archive terminal work items into work/_archive/.
 
     Sweep mode (slugs=None): all terminal items.
     Targeted mode (slugs given): named items, non-terminal skipped.
