@@ -433,7 +433,7 @@ def run_multi_turn(
                     if block.get("type") == "text":
                         last_assistant_text += block.get("text", "")
             elif ev.get("type") == "result":
-                reply = simulator.reply(last_assistant_text)
+                reply = simulator.reply(last_assistant_text, last_assistant_text)
                 if reply is None:
                     break
                 last_assistant_text = ""

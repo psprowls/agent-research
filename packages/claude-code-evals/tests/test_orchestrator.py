@@ -243,6 +243,7 @@ def test_orchestrator_calls_run_multi_turn_when_auto_user_set(tmp_path):
 
     with (
         patch("claude_code_evals.orchestrator.FixtureIsolation") as MockIso,
+        patch("claude_code_evals.orchestrator.AutoUserSimulator"),
         patch("claude_code_evals.orchestrator.run_one_shot") as mock_shot,
         patch("claude_code_evals.orchestrator.run_multi_turn", return_value=(_empty_run_result(), "")) as mock_multi,
     ):

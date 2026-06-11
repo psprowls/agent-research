@@ -141,7 +141,7 @@ def run_one(
                     max_wait_seconds=float(scenario.budgets.max_wall_seconds),
                 )
             elif auto_user is not None:
-                simulator = AutoUserSimulator(auto_user)
+                simulator = AutoUserSimulator(auto_user, task_prompt=scenario_prompt)
                 run_result, raw_jsonl = run_multi_turn(
                     prompt=scenario_prompt,
                     worktree_path=iso.worktree_path,
