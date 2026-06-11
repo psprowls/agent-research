@@ -243,6 +243,7 @@ def test_orchestrator_calls_run_multi_turn_when_auto_user_set(tmp_path):
 
     with (
         patch("claude_code_evals.orchestrator.FixtureIsolation") as MockIso,
+        patch("claude_code_evals.orchestrator.AutoUserSimulator") as MockSim,
         patch("claude_code_evals.orchestrator.run_one_shot") as mock_shot,
         patch("claude_code_evals.orchestrator.run_multi_turn", return_value=(_empty_run_result(), "")) as mock_multi,
     ):
@@ -258,6 +259,47 @@ def test_orchestrator_calls_run_multi_turn_when_auto_user_set(tmp_path):
 
     mock_multi.assert_called_once()
     mock_shot.assert_not_called()
+    # Simulator gets the original scenario task prompt; runner gets the budget cap.
+    assert MockSim.call_args.kwargs["task_prompt"] == "Do X"
+    assert mock_multi.call_args.kwargs["max_turns"] == 20  # Budgets() default
+    assert mock_multi.call_args.kwargs["simulator"] is MockSim.return_value
+
+
+def test_orchestrator_writes_simulator_tokens_to_artifacts(tmp_path):
+    auto_user_yaml = tmp_path / "auto_user.yaml"
+    auto_user_yaml.write_text("max_replies: 3\nstop_on: '<DONE>'\nsystem_prompt: Drive.\n")
+    scenario = _base_scenario(auto_user=str(auto_user_yaml))
+    config = _base_config()
+    (tmp_path / "scenarios" / "test-scenario").mkdir(parents=True)
+    (tmp_path / "scenarios" / "test-scenario" / "prompt.md").write_text("Do X")
+
+    run_result = RunResult(
+        final_status="success",
+        budget_exceeded=False,
+        wall_seconds=0.1,
+        simulator_input_tokens=11,
+        simulator_output_tokens=4,
+    )
+    with (
+        patch("claude_code_evals.orchestrator.FixtureIsolation") as MockIso,
+        patch("claude_code_evals.orchestrator.run_multi_turn", return_value=(run_result, "")),
+        patch("claude_code_evals.orchestrator.AutoUserSimulator"),
+    ):
+        iso_instance = MagicMock()
+        iso_instance.__enter__ = MagicMock(return_value=iso_instance)
+        iso_instance.__exit__ = MagicMock(return_value=False)
+        iso_instance.worktree_path = tmp_path
+        iso_instance.cfg_dir = tmp_path
+        iso_instance.oauth_token = "tok"
+        MockIso.return_value = iso_instance
+
+        result = run_one(scenario, config, evals_root=tmp_path)
+
+    meta = json.loads((result.run_dir / "meta.json").read_text())
+    assert meta["simulator_input_tokens"] == 11
+    assert meta["simulator_output_tokens"] == 4
+    metrics = json.loads((result.run_dir / "metrics.json").read_text())
+    assert metrics["simulator_tokens"] == {"input": 11, "output": 4}
 
 
 # --- tools.json artifact + ToolsVerifier dispatch ---

@@ -78,11 +78,18 @@ def parse_transcript(jsonl: str, *, subagent_projects_dir: Path | None = None) -
                 last_assistant_text = "".join(text_parts)
 
         elif ev_type == "result":
+            # Multi-turn streams emit one result event per turn. Verified
+            # empirically (2026-06-11, scratch capture): usage is PER-TURN —
+            # turn-2 output_tokens (79) < turn-1 output_tokens (531), so it
+            # cannot be cumulative. Totals must sum across result events (a
+            # one-shot stream has a single result event — summing is identity
+            # there). Do NOT switch back to assignment (=): it undercounts every
+            # turn but the last.
             usage = ev.get("usage") or {}
-            t.input_tokens = usage.get("input_tokens", 0)
-            t.output_tokens = usage.get("output_tokens", 0)
-            t.cache_read_tokens = usage.get("cache_read_input_tokens", 0)
-            t.cache_write_tokens = usage.get("cache_creation_input_tokens", 0)
+            t.input_tokens += usage.get("input_tokens", 0)
+            t.output_tokens += usage.get("output_tokens", 0)
+            t.cache_read_tokens += usage.get("cache_read_input_tokens", 0)
+            t.cache_write_tokens += usage.get("cache_creation_input_tokens", 0)
 
         elif ev_type == "permission":
             t.permission_prompt_count += 1

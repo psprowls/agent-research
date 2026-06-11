@@ -56,7 +56,7 @@ def test_runset_from_path():
 
 def test_auto_user_from_path():
     a = AutoUser.from_path(FIXTURES / "auto_user.yaml")
-    assert a.model == "claude-haiku-4-5-20251001"
+    assert a.model == "qwen.qwen3-32b-v1:0"
     assert a.max_replies == 3
     assert a.stop_on == "<DONE>"
     assert a.triggers == []
@@ -218,9 +218,15 @@ def test_trigger_has_match_and_reply():
 
 def test_auto_user_defaults():
     a = AutoUser.model_validate({})
+    assert a.model is None
     assert a.triggers == []
     assert a.default_reply == "proceed"
     assert a.abort_on_default_after == 2
+
+
+def test_auto_user_model_passthrough():
+    a = AutoUser.model_validate({"model": "qwen.qwen3-32b-v1:0"})
+    assert a.model == "qwen.qwen3-32b-v1:0"
 
 
 def test_auto_user_with_triggers():
@@ -250,7 +256,7 @@ def test_auto_user_backward_compat():
     # Old-style YAML (no new fields) still loads cleanly
     a = AutoUser.model_validate(
         {
-            "model": "claude-haiku-4-5-20251001",
+            "model": "qwen.qwen3-32b-v1:0",
             "max_replies": 3,
             "stop_on": "<DONE>",
             "system_prompt": "Drive the task.",

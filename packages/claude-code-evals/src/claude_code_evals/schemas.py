@@ -259,7 +259,12 @@ class AutoUser(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    model: str = "claude-haiku-4-5-20251001"
+    model: str | None = Field(
+        default=None,
+        description=(
+            "Bedrock model id override for the user_simulator role; None uses the role default from models.toml."
+        ),
+    )
     max_replies: int = 5
     stop_on: str = "<DONE>"
     system_prompt: str = "Drive the task forward. Say <DONE> when the task is complete."

@@ -425,3 +425,41 @@ def test_unreadable_jsonl_file_warns(tmp_path):
     t = parse_transcript("", subagent_projects_dir=projects)
     assert len(t.warnings) == 1
     assert "subagent transcripts unavailable" in t.warnings[0]
+
+
+def test_parse_transcript_sums_usage_across_multi_turn_results():
+    """Multi-turn streams emit one result per turn with per-turn (not cumulative) usage.
+
+    Verified empirically 2026-06-11 via a real 2-turn claude CLI capture:
+      turn-1 usage = {"input_tokens": 10, "cache_creation_input_tokens": 11976,
+                      "cache_read_input_tokens": 18521, "output_tokens": 531}
+      turn-2 usage = {"input_tokens": 10, "cache_creation_input_tokens": 845,
+                      "cache_read_input_tokens": 30497, "output_tokens": 79}
+    turn-2 output_tokens (79) < turn-1 output_tokens (531) — cannot be cumulative.
+    Totals must be summed across result events; last-result-wins undercounts.
+    """
+    result_1 = {
+        "type": "result",
+        "subtype": "success",
+        "usage": {
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 50,
+            "cache_creation_input_tokens": 5,
+        },
+    }
+    result_2 = {
+        "type": "result",
+        "subtype": "success",
+        "usage": {
+            "input_tokens": 200,
+            "output_tokens": 20,
+            "cache_read_input_tokens": 60,
+            "cache_creation_input_tokens": 3,
+        },
+    }
+    t = parse_transcript(_make_jsonl(result_1, result_2))
+    assert t.input_tokens == 300
+    assert t.output_tokens == 30
+    assert t.cache_read_tokens == 110
+    assert t.cache_write_tokens == 8

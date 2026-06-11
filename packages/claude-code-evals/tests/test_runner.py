@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import threading
+import time
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -14,6 +16,7 @@ from claude_code_evals.runner import (
     prepare_injected_context,
     prepare_plugin_env,
     run_interactive,
+    run_multi_turn,
     run_one_shot,
 )
 
@@ -359,3 +362,185 @@ def test_run_interactive_budget_exceeded_when_timeout(tmp_path):
     assert result.final_status == "budget_exceeded"
     assert result.budget_exceeded is True
     assert jsonl == ""
+
+
+# --- multi-turn (async runner, fake-CLI subprocess fixtures) ---
+
+FAKE_CLI_PRELUDE = """\
+import json, sys, time
+
+def emit(obj):
+    sys.stdout.write(json.dumps(obj) + "\\n")
+    sys.stdout.flush()
+
+def assistant(*texts):
+    emit({"type": "assistant",
+          "message": {"content": [{"type": "text", "text": t} for t in texts]}})
+
+def result(**kw):
+    ev = {"type": "result", "subtype": "success", "usage": {}}
+    ev.update(kw)
+    emit(ev)
+
+def read_reply():
+    return sys.stdin.readline()
+"""
+
+
+class _StubSimulator:
+    """Duck-typed stand-in for AutoUserSimulator."""
+
+    def __init__(self, replies: list[str | None], *, reply_delay: float = 0.0):
+        self._replies = list(replies)
+        self._reply_delay = reply_delay
+        self.calls: list[tuple[str, str]] = []
+        self.input_tokens = 7
+        self.output_tokens = 3
+
+    def reply(self, full_text: str, final_block: str) -> str | None:
+        if self._reply_delay:
+            time.sleep(self._reply_delay)
+        self.calls.append((full_text, final_block))
+        if not self._replies:
+            return None
+        return self._replies.pop(0)
+
+
+def _run_fake_multi_turn(
+    tmp_path: Path,
+    body: str,
+    simulator: _StubSimulator,
+    *,
+    max_turns: int = 20,
+    max_wall_seconds: float = 10.0,
+):
+    """Write a fake CLI script and drive run_multi_turn against it."""
+    script = tmp_path / "fake_cli.py"
+    script.write_text(FAKE_CLI_PRELUDE + body)
+    fake_cmd = [sys.executable, str(script)]
+    with patch("claude_code_evals.runner._build_cmd", return_value=fake_cmd):
+        return run_multi_turn(
+            prompt="task",
+            worktree_path=tmp_path,
+            cfg_dir=tmp_path,
+            system_prompt="sys",
+            simulator=simulator,  # type: ignore[arg-type]  # duck-typed stand-in
+            max_turns=max_turns,
+            max_wall_seconds=max_wall_seconds,
+        )
+
+
+def test_multi_turn_success_and_simulator_io(tmp_path: Path):
+    body = """
+first = json.loads(read_reply())
+assert first["message"]["content"] == "task"
+assistant("Hello ", "World")
+result()
+line = read_reply()
+assert json.loads(line)["message"]["content"] == "keep going"
+assistant("turn two")
+result()
+read_reply()
+"""
+    sim = _StubSimulator(["keep going", None])
+    res, raw = _run_fake_multi_turn(tmp_path, body, sim)
+    assert res.final_status == "success"
+    assert not res.budget_exceeded
+    # full text = all blocks concatenated; final block = last block only
+    assert sim.calls[0] == ("Hello World", "World")
+    assert sim.calls[1] == ("turn two", "turn two")
+    assert res.simulator_input_tokens == 7
+    assert res.simulator_output_tokens == 3
+    assert '"turn two"' in raw
+
+
+def test_multi_turn_error_result_classified(tmp_path: Path):
+    body = """
+assistant("boom")
+result(subtype="error_during_execution", is_error=True, result="kaboom happened")
+"""
+    sim = _StubSimulator(["never sent"])
+    res, _ = _run_fake_multi_turn(tmp_path, body, sim)
+    assert res.final_status == "error_during_execution"
+    assert "kaboom" in (res.error_reason or "")
+    assert sim.calls == []  # verifiers must not see this as a normal end
+
+
+def test_multi_turn_no_result_event_surfaces_stderr(tmp_path: Path):
+    body = """
+sys.stderr.write("auth failure: bad token\\n")
+sys.stderr.flush()
+sys.exit(1)
+"""
+    res, _ = _run_fake_multi_turn(tmp_path, body, _StubSimulator([]))
+    assert res.final_status == "error_no_result"
+    assert "auth failure" in (res.error_reason or "")
+
+
+def test_multi_turn_cli_death_on_reply_write(tmp_path: Path):
+    # CLI exits right after its first result; the reply write hits a dead pipe.
+    # reply_delay gives the event loop time to observe the child's death so the
+    # stdin transport reliably raises instead of racing to a stdout EOF.
+    body = """
+assistant("turn one")
+result()
+sys.stdin.close()
+sys.exit(0)
+"""
+    sim = _StubSimulator(["next"], reply_delay=0.3)
+    res, _ = _run_fake_multi_turn(tmp_path, body, sim)
+    assert res.final_status == "error_cli_died"
+
+
+def test_multi_turn_wall_clock_timeout_on_silent_hang(tmp_path: Path):
+    body = """
+time.sleep(30)
+"""
+    res, _ = _run_fake_multi_turn(tmp_path, body, _StubSimulator([]), max_wall_seconds=0.5)
+    assert res.final_status == "budget_exceeded"
+    assert res.budget_exceeded
+
+
+def test_multi_turn_max_turns_enforced(tmp_path: Path):
+    body = """
+for i in range(10):
+    assistant("turn %d" % i)
+    result()
+    if not read_reply():
+        break
+"""
+    sim = _StubSimulator(["go"] * 10)
+    res, _ = _run_fake_multi_turn(tmp_path, body, sim, max_turns=2)
+    assert res.final_status == "budget_exceeded"
+    assert res.budget_exceeded
+    assert "max_turns (2)" in (res.error_reason or "")
+    assert len(sim.calls) == 1  # cap hit on the 2nd result, before a 2nd reply
+
+
+def test_multi_turn_large_line_exceeds_default_stream_limit(tmp_path: Path):
+    # A single stream-json line >64KB (large tool results are routine) must not
+    # crash the run: asyncio's default 64KB readline limit raises ValueError.
+    body = """
+assistant("x" * 100_000)
+result()
+read_reply()
+"""
+    sim = _StubSimulator([])
+    res, _ = _run_fake_multi_turn(tmp_path, body, sim)
+    assert res.final_status == "success"
+
+
+def test_multi_turn_initial_prompt_sent_over_stdin(tmp_path: Path):
+    # In --input-format stream-json mode the real CLI ignores the positional
+    # prompt and waits for the first user message on stdin; the runner must
+    # deliver the task prompt there or the CLI hangs until the watchdog.
+    body = """
+first = json.loads(read_reply())
+assert first["message"]["content"] == "task"
+assistant("ack")
+result()
+read_reply()
+"""
+    sim = _StubSimulator([])
+    res, _ = _run_fake_multi_turn(tmp_path, body, sim, max_wall_seconds=2.0)
+    assert res.final_status == "success"

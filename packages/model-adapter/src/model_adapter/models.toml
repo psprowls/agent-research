@@ -247,6 +247,20 @@ sweep_candidates = [
   "mistral.ministral-3-14b-instruct",
 ]
 
+# Auto-user simulator for claude-code-evals multi-turn runs. Replies as the
+# simulated user; short replies only. Haiku avoided on Bedrock (service limits).
+[roles.user_simulator]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 512
+max_concurrency = 2
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+]
+
 # NOTE: the binding judge configuration lives in eval_harness/judge.py
 # (JUDGE_PANEL_CONFIG). These blocks are kept in sync for reference only
 # and are NOT read by the judge harness.

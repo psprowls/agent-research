@@ -12,6 +12,8 @@ dependencies = [
     "deepeval>=4.0.0",
     "pytest-evals>=0.3.4",
     "pytest>=8.0",
+    "model-adapter",
+    "langchain-core>=1.4.0",
 ]
 
 [project.scripts]
@@ -19,6 +21,9 @@ cc-eval = "claude_code_evals.cli:app"
 
 [project.entry-points."pytest11"]
 claude-code-evals = "claude_code_evals.pytest_plugin"
+
+[tool.uv.sources]
+model-adapter = { workspace = true }
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]
@@ -30,5 +35,5 @@ addopts = "--import-mode=importlib"
 asyncio_mode = "auto"
 markers = [
     "eval: requires CLAUDE_CODE_RUN_EVALS=1",
-    "integration: requires subprocess/real claude binary",
+    "integration: requires real Bedrock or subprocess (skipped by default)",
 ]
