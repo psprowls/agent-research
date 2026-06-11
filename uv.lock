@@ -454,6 +454,8 @@ source = { editable = "packages/claude-code-evals" }
 dependencies = [
     { name = "deepeval" },
     { name = "jinja2" },
+    { name = "langchain-core" },
+    { name = "model-adapter" },
     { name = "pydantic" },
     { name = "pytest" },
     { name = "pytest-evals" },
@@ -466,6 +468,8 @@ dependencies = [
 requires-dist = [
     { name = "deepeval", specifier = ">=4.0.0" },
     { name = "jinja2", specifier = ">=3.1" },
+    { name = "langchain-core", specifier = ">=1.4.0" },
+    { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pydantic", specifier = ">=2.6" },
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-evals", specifier = ">=0.3.4" },
