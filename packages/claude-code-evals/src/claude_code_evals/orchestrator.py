@@ -152,6 +152,7 @@ def run_one(
                     oauth_token=iso.oauth_token,
                     plugin_dirs=_resolve_plugin_dirs(config.plugin_dirs),
                     extra_env=config.extra_env or None,
+                    max_turns=scenario.budgets.max_turns,
                     max_wall_seconds=float(scenario.budgets.max_wall_seconds),
                 )
             else:
@@ -224,6 +225,10 @@ def run_one(
             }
 
         metrics = compute_metrics(transcript, verify_result)
+        metrics["simulator_tokens"] = {
+            "input": run_result.simulator_input_tokens,
+            "output": run_result.simulator_output_tokens,
+        }
 
         # Write artifacts
         timestamp = str(int(time.time()))
@@ -255,6 +260,8 @@ def run_one(
                     "error_reason": run_result.error_reason,
                     "exit_code": run_result.exit_code,
                     "wall_seconds": run_result.wall_seconds,
+                    "simulator_input_tokens": run_result.simulator_input_tokens,
+                    "simulator_output_tokens": run_result.simulator_output_tokens,
                 },
                 indent=2,
             )
