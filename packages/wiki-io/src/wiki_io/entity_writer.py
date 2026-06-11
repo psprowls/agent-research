@@ -1595,6 +1595,10 @@ def fill_dir_section_descriptions(page_path: Path, descriptions: dict[str, str])
     text = page_path.read_text(encoding="utf-8")
     span = _file_map_section_span(text)
     if span is None:
+        _logger.warning(
+            "fill_dir_section_descriptions: no `## File map` heading found at %s",
+            page_path,
+        )
         return 0
     section = text[span[0] : span[1]]
     name_match = _FILE_MAP_NAME_RE.search(section)

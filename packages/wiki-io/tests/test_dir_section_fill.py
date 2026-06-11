@@ -126,3 +126,8 @@ def test_extract_file_map_descriptions_returns_filled_rows_only(tmp_path):
 def test_extract_file_map_descriptions_no_file_map_returns_empty(tmp_path):
     p = _page(tmp_path, "## Narrative\nSome text.\n")
     assert extract_file_map_descriptions(p) == {}
+
+
+def test_fill_dir_section_descriptions_no_file_map_returns_zero(tmp_path):
+    p = _page(tmp_path, "## Narrative\nSome text.\n")
+    assert fill_dir_section_descriptions(p, {"": "desc"}) == 0
