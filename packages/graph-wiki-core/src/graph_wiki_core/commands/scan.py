@@ -1448,6 +1448,7 @@ async def run_scan(
         # One synthesizer-role call per entity with unfilled dir/overview placeholders.
         # Steady-state cost is zero: entities with all placeholders filled have nothing to do.
         dir_describer_filled: list[str] = []
+        dir_describer_filled_uris: set[str] = set()
         dir_describer_errors: list[str] = []
         if narrate and file_mapped_pages and conn is not None:
             dir_items: list[tuple[str, str, Path, list[str], bool]] = []
@@ -1507,6 +1508,7 @@ async def run_scan(
                                     n_filled += 1
                             if n_filled:
                                 dir_describer_filled.append(f"{uri_inner}: {n_filled}")
+                                dir_describer_filled_uris.add(uri_inner)
                         except Exception as fill_exc:  # noqa: BLE001 — partial-success
                             dir_describer_errors.append(f"{uri_inner}: dir fill failed: {fill_exc!r}")
                     for err in dir_result.errors:
@@ -1579,7 +1581,9 @@ async def run_scan(
             stamp_page_paths: dict[str, Path] = dict(narrated_page_paths)
             for uri_inner, _node, page_path in file_mapped_pages:
                 stamp_page_paths.setdefault(uri_inner, page_path)
-            for uri_inner in good_prose_uris | redescribed_uris | package_reader_filled_uris:
+            for uri_inner in (
+                good_prose_uris | redescribed_uris | package_reader_filled_uris | dir_describer_filled_uris
+            ):
                 page_path = stamp_page_paths.get(uri_inner)
                 if page_path is None:
                     continue
@@ -1683,7 +1687,12 @@ async def run_scan(
             entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
             entities_narrated=sorted(entities_narrated),
             entity_errors=(
-                entity_write_errors + narrator_errors + file_map_errors + describer_errors + package_reader_errors
+                entity_write_errors
+                + narrator_errors
+                + file_map_errors
+                + describer_errors
+                + package_reader_errors
+                + dir_describer_errors
             ),
         )
     finally:
