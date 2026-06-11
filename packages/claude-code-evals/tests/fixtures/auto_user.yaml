@@ -1,4 +1,4 @@
-model: claude-haiku-4-5-20251001
+model: qwen.qwen3-32b-v1:0
 max_replies: 3
 stop_on: "<DONE>"
 system_prompt: "Drive the task forward. Say <DONE> when finished."
