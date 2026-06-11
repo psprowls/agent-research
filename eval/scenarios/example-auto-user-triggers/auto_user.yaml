@@ -1,13 +1,18 @@
 # Auto-user config for the example-auto-user-triggers scenario.
 #
 # The simulator resolves each turn with this priority chain:
-#   1. stop_on substring in the assistant text -> end conversation
-#   2. max_replies budget exhausted        -> end conversation
-#   3. first matching trigger (in order)   -> use its reply
-#   4. otherwise call the LLM judge        -> use its reply
-#   5. LLM call raised                     -> default_reply, or end after
-#                                             abort_on_default_after consecutive defaults
-model: claude-haiku-4-5-20251001
+#   1. stop_on substring anywhere in the turn's full text -> end conversation
+#   2. max_replies budget exhausted                       -> end conversation
+#   3. first matching trigger (in order, matched against the turn's FULL
+#      text — every text block in the turn)               -> use its reply
+#   4. otherwise ask the Bedrock user_simulator role (sees the scenario task
+#      prompt plus per-turn FINAL text blocks as history) -> use its reply
+#   5. LLM call raised -> default_reply; after abort_on_default_after
+#      consecutive default replies have been SENT, end the conversation
+#      (abort_on_default_after: 2 -> at most two defaults go out)
+#
+# No `model:` line — the user_simulator role default from models.toml applies.
+# Set `model:` to a Bedrock model id to override per-scenario.
 max_replies: 6
 stop_on: "<DONE>"
 system_prompt: >
@@ -19,6 +24,7 @@ triggers:
       contains: "clarify"
     reply: "No clarification needed — proceed with sensible defaults."
   # Any literal question mark -> a generic go-ahead, handled without an LLM call.
+  # NOTE: this matches the whole turn's text, so narration containing "?" fires it.
   - match:
       regex: "\\?"
     reply: "Yes, go ahead."

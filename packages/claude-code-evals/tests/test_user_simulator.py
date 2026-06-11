@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import os
 from unittest.mock import MagicMock, patch
 
+import pytest
 from claude_code_evals.schemas import AutoUser, Trigger, TriggerMatch
 from claude_code_evals.user_simulator import AutoUserSimulator
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
@@ -165,3 +167,24 @@ def test_stop_on_checked_before_triggers():
     triggers = [Trigger(match=TriggerMatch(contains="<DONE>"), reply="matched")]
     sim, _ = _make_sim(_make_auto_user(triggers=triggers))
     assert sim.reply("all done <DONE>", "all done <DONE>") is None
+
+
+# --- real Bedrock role (skipped by default; -m integration to opt in) ---
+
+
+@pytest.mark.integration
+@pytest.mark.skipif(
+    not os.environ.get("GRAPH_WIKI_RUN_INTEGRATION"),
+    reason="Set GRAPH_WIKI_RUN_INTEGRATION=1 to run real Bedrock invocations",
+)
+def test_real_bedrock_user_simulator_reply():
+    """Exercises the real user_simulator role end-to-end (needs AWS creds and GRAPH_WIKI_RUN_INTEGRATION=1)."""
+    sim = AutoUserSimulator(
+        _make_auto_user(max_replies=1),
+        task_prompt="Create a file named hello.txt containing the word hi.",
+    )
+    text = "I created hello.txt with the requested content. Anything else?"
+    reply = sim.reply(text, text)
+    assert isinstance(reply, str) and reply.strip()
+    assert sim.input_tokens > 0
+    assert sim.output_tokens > 0
