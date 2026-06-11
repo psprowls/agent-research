@@ -53,11 +53,16 @@ from wiki_io.entity_writer import (
     _compute_collision_set,
     _extract_file_map_descriptions,
     _kind_list_fns,
+    dir_section_todo_contexts,
+    extract_file_map_descriptions,
     extract_narrative,
     file_map_todo_paths,
+    fill_dir_section_descriptions,
     fill_file_map_descriptions,
+    fill_file_map_overview,
     inject_file_map,
     inject_narrative,
+    is_overview_unfilled,
     scanner_frontmatter_for_node,
     set_frontmatter_value,
     short_filename,
@@ -81,6 +86,7 @@ from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.graph_tools import build_graph_tools
+from graph_wiki_core.prompts.dir_describer import build_dir_describer_prompt, parse_dir_describer_output
 from graph_wiki_core.prompts.drift_judge import (
     build_drift_judge_prompt,
     parse_drift_verdict,
@@ -1438,6 +1444,90 @@ async def run_scan(
                         raise_exception=True,
                     )
 
+        # Step 10d: synthesizer fan-out to fill H3 directory section placeholders and H2 overview.
+        # One synthesizer-role call per entity with unfilled dir/overview placeholders.
+        # Steady-state cost is zero: entities with all placeholders filled have nothing to do.
+        dir_describer_filled: list[str] = []
+        dir_describer_filled_uris: set[str] = set()
+        dir_describer_errors: list[str] = []
+        if narrate and file_mapped_pages and conn is not None:
+            dir_items: list[tuple[str, str, Path, list[str], bool]] = []
+            for node_uri, node, page_path in file_mapped_pages:
+                todo_ctxs = dir_section_todo_contexts(page_path)
+                needs_ov = is_overview_unfilled(page_path)
+                if not todo_ctxs and not needs_ov:
+                    continue
+                dir_items.append((node_uri, node.name, page_path, todo_ctxs, needs_ov))
+
+            if dir_items:
+                stack = _bedrock_stack()
+                if stack is None:
+                    dir_items = []
+                else:
+                    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+                    dir_cfg = load_role_config_fn("synthesizer")
+                    dir_llm = make_llm_fn("synthesizer")
+                    dir_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                    async def describe_dirs(
+                        item: tuple[str, str, Path, list[str], bool],
+                    ) -> TaskResultType:
+                        _uri, pkg_name_inner, page_inner, todo_ctxs_inner, needs_ov_inner = item
+                        file_descs = extract_file_map_descriptions(page_inner)
+                        pkg = {"name": pkg_name_inner}
+                        system_msg, human_msg = build_dir_describer_prompt(
+                            pkg, todo_ctxs_inner, file_descs, needs_ov_inner
+                        )
+                        resp = await dir_llm.ainvoke(
+                            [
+                                SystemMessage(content=system_msg),
+                                HumanMessage(content=human_msg),
+                            ]
+                        )
+                        return task_result_type(value=resp.content, response=resp)
+
+                    dir_result = await dir_pool.run_all(
+                        items=dir_items,
+                        task=describe_dirs,
+                        role="synthesizer",
+                        model_id=dir_cfg["model_id"],
+                        max_concurrency=dir_cfg["max_concurrency"],
+                    )
+
+                    for item, value in dir_result.successes:
+                        uri_inner, _name, page_path_inner, _todo_ctxs, _needs_ov = item
+                        descriptions = parse_dir_describer_output(value)
+                        if not descriptions:
+                            continue
+                        try:
+                            overview = descriptions.pop("_overview", None)
+                            n_filled = fill_dir_section_descriptions(page_path_inner, descriptions)
+                            if overview:
+                                ov_filled = fill_file_map_overview(page_path_inner, overview)
+                                if ov_filled:
+                                    n_filled += 1
+                            if n_filled:
+                                dir_describer_filled.append(f"{uri_inner}: {n_filled}")
+                                dir_describer_filled_uris.add(uri_inner)
+                        except Exception as fill_exc:  # noqa: BLE001 — partial-success
+                            dir_describer_errors.append(f"{uri_inner}: dir fill failed: {fill_exc!r}")
+                    for err in dir_result.errors:
+                        uri_inner = err.item[0]
+                        dir_describer_errors.append(f"{uri_inner}: {err.exception!r}")
+
+            if dir_describer_filled or dir_describer_errors:
+                append_log(
+                    wiki,
+                    "scan",
+                    (
+                        f"dir descriptions filled: {len(dir_describer_filled)} "
+                        f"entity(s) (errors: {len(dir_describer_errors)})"
+                    ),
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+
         package_reader_filled_uris: set[str] = set()
         package_reader_errors: list[str] = []
         if narrate:
@@ -1491,7 +1581,9 @@ async def run_scan(
             stamp_page_paths: dict[str, Path] = dict(narrated_page_paths)
             for uri_inner, _node, page_path in file_mapped_pages:
                 stamp_page_paths.setdefault(uri_inner, page_path)
-            for uri_inner in good_prose_uris | redescribed_uris | package_reader_filled_uris:
+            for uri_inner in (
+                good_prose_uris | redescribed_uris | package_reader_filled_uris | dir_describer_filled_uris
+            ):
                 page_path = stamp_page_paths.get(uri_inner)
                 if page_path is None:
                     continue
@@ -1499,7 +1591,11 @@ async def run_scan(
                     # The refill check + the stamp share the try so an
                     # unreadable/missing page is non-fatal (mirrors the old
                     # narrator-loop try block that wrapped the equivalent I/O).
-                    if file_map_todo_paths(page_path):
+                    if (
+                        file_map_todo_paths(page_path)
+                        or dir_section_todo_contexts(page_path)
+                        or is_overview_unfilled(page_path)
+                    ):
                         continue
                     set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, short_head))
                 except Exception as exc:  # noqa: BLE001 — non-fatal stamp
@@ -1591,7 +1687,12 @@ async def run_scan(
             entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
             entities_narrated=sorted(entities_narrated),
             entity_errors=(
-                entity_write_errors + narrator_errors + file_map_errors + describer_errors + package_reader_errors
+                entity_write_errors
+                + narrator_errors
+                + file_map_errors
+                + describer_errors
+                + package_reader_errors
+                + dir_describer_errors
             ),
         )
     finally:

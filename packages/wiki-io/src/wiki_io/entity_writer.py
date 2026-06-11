@@ -1261,6 +1261,9 @@ _FILE_MAP_NAME_RE = re.compile(r"^## File map\s*-\s*(\S.*?)\s*$", re.MULTILINE)
 # A backticked path cell: `` `src/foo.py` `` → `src/foo.py`.
 _FILE_MAP_PATH_CELL_RE = re.compile(r"^\s*`(.+?)`\s*$")
 
+_DIR_SECTION_PLACEHOLDER = "TODO — describe what this directory contains."
+_OVERVIEW_PLACEHOLDER = "TODO — overview of this package's tree."
+
 
 def _is_filled_description(desc: str) -> bool:
     """True when a File-map Description cell carries real content (not a placeholder).
@@ -1499,6 +1502,43 @@ def file_map_todo_paths(page_path: Path) -> list[str]:
     return todo
 
 
+def dir_section_todo_contexts(page_path: Path) -> list[str]:
+    """Return package-root path contexts for H3 directory sections whose placeholder is unfilled.
+
+    Walks the File-map H3 sections. For each section where the line immediately after
+    the ``### heading`` is exactly the section placeholder string, returns that section's
+    package-root path context (``""`` for the root section ``### pkg/``, ``"src"`` for
+    ``### pkg/src/``). Returns ``[]`` when no unfilled sections exist or the page has no
+    File map heading.
+    """
+    text = page_path.read_text(encoding="utf-8")
+    span = _file_map_section_span(text)
+    if span is None:
+        return []
+    section = text[span[0] : span[1]]
+    name_match = _FILE_MAP_NAME_RE.search(section)
+    pkg_name = name_match.group(1).strip() if name_match else ""
+    contexts: list[str] = []
+    lines = section.splitlines()
+    n = len(lines)
+    for i in range(n - 1):
+        m = SECTION_HEADER_RE.match(lines[i])
+        if m and lines[i + 1] == _DIR_SECTION_PLACEHOLDER:
+            contexts.append(_section_path_context(m.group(1), pkg_name))
+    return contexts
+
+
+def is_overview_unfilled(page_path: Path) -> bool:
+    """Return True when the ## File map overview placeholder is still unfilled."""
+    text = page_path.read_text(encoding="utf-8")
+    match = _FILE_MAP_HEADING_RE.search(text)
+    if match is None:
+        return False
+    rest = text[match.end() :]
+    first_line = rest.split("\n", 1)[0]
+    return first_line == _OVERVIEW_PLACEHOLDER
+
+
 def fill_file_map_descriptions(page_path: Path, descriptions: dict[str, str]) -> int:
     """Fill unfilled (`— TODO`) File-map Description cells in ``page_path`` with
     ``descriptions`` (keyed by package-root path).
@@ -1538,3 +1578,97 @@ def fill_file_map_descriptions(page_path: Path, descriptions: dict[str, str]) ->
     tmp_path.write_text(new_content, encoding="utf-8")
     os.replace(tmp_path, page_path)
     return applied
+
+
+def fill_dir_section_descriptions(page_path: Path, descriptions: dict[str, str]) -> int:
+    """Replace the placeholder line in H3 directory sections whose context key is in descriptions.
+
+    Keys are package-root path contexts (``""`` = root section, ``"src"`` = ``### pkg/src/``).
+    Only replaces lines that are exactly ``_DIR_SECTION_PLACEHOLDER``. Atomic write.
+    Returns count of replacements made (0 when nothing matched or no File map heading).
+
+    Raises:
+        FileNotFoundError: when ``page_path`` does not exist.
+    """
+    if not descriptions:
+        return 0
+    text = page_path.read_text(encoding="utf-8")
+    span = _file_map_section_span(text)
+    if span is None:
+        _logger.warning(
+            "fill_dir_section_descriptions: no `## File map` heading found at %s",
+            page_path,
+        )
+        return 0
+    section = text[span[0] : span[1]]
+    name_match = _FILE_MAP_NAME_RE.search(section)
+    pkg_name = name_match.group(1).strip() if name_match else ""
+    lines = section.splitlines()
+    n = len(lines)
+    out: list[str] = []
+    filled = 0
+    i = 0
+    while i < n:
+        out.append(lines[i])
+        m = SECTION_HEADER_RE.match(lines[i])
+        if m and i + 1 < n and lines[i + 1] == _DIR_SECTION_PLACEHOLDER:
+            ctx = _section_path_context(m.group(1), pkg_name)
+            if ctx in descriptions:
+                out.append(descriptions[ctx])
+                filled += 1
+                i += 2
+                continue
+        i += 1
+    if filled == 0:
+        return 0
+    trailing = "\n" if section.endswith("\n") else ""
+    new_section = "\n".join(out) + trailing
+    new_content = text[: span[0]] + new_section + text[span[1] :]
+    tmp = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp.write_text(new_content, encoding="utf-8")
+    os.replace(tmp, page_path)
+    return filled
+
+
+def fill_file_map_overview(page_path: Path, overview: str) -> bool:
+    """Replace the ## File map overview placeholder with overview.
+
+    Only replaces when the line immediately following ``## File map - <name>`` is
+    exactly ``_OVERVIEW_PLACEHOLDER``. Atomic write. Returns True if replaced.
+
+    Raises:
+        FileNotFoundError: when ``page_path`` does not exist.
+    """
+    text = page_path.read_text(encoding="utf-8")
+    match = _FILE_MAP_HEADING_RE.search(text)
+    if match is None:
+        return False
+    rest = text[match.end() :]
+    first_line = rest.split("\n", 1)[0]
+    if first_line != _OVERVIEW_PLACEHOLDER:
+        return False
+    new_content = text[: match.end()] + overview + rest[len(first_line) :]
+    tmp = page_path.with_suffix(page_path.suffix + ".tmp")
+    tmp.write_text(new_content, encoding="utf-8")
+    os.replace(tmp, page_path)
+    return True
+
+
+def extract_file_map_descriptions(page_path: Path) -> dict[str, str]:
+    """Return ``{package_root_path: description}`` for all filled file rows in the File map.
+
+    Page-level wrapper around ``_extract_file_map_descriptions``. Used by
+    scan.py Step 10d to get child file descriptions without duplicating
+    section-walking. Returns ``{}`` when the page has no File map heading.
+
+    Raises:
+        FileNotFoundError: when ``page_path`` does not exist.
+    """
+    text = page_path.read_text(encoding="utf-8")
+    span = _file_map_section_span(text)
+    if span is None:
+        return {}
+    section = text[span[0] : span[1]]
+    name_match = _FILE_MAP_NAME_RE.search(section)
+    pkg_name = name_match.group(1).strip() if name_match else ""
+    return _extract_file_map_descriptions(section, pkg_name)

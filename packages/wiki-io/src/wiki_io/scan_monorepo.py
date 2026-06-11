@@ -35,6 +35,8 @@ import re
 import subprocess
 from pathlib import Path
 
+from wiki_io.entity_writer import _DIR_SECTION_PLACEHOLDER, _OVERVIEW_PLACEHOLDER
+
 
 def unscope(name: str) -> str:
     """Strip an npm-style scope prefix (``@scope/foo`` -> ``foo``).
@@ -440,8 +442,6 @@ def _emit_file_map_block(
     ``max_entries`` is used only in the truncation marker text.
     """
     title_line = f"## File map - {pkg_name}"
-    section_placeholder = "TODO — describe what this directory contains."
-    overview_placeholder = "TODO — overview of this package's tree."
 
     TABLE_HEADER = "| Path | Kind | Description |"
     TABLE_SEP = "|---|---|---|"
@@ -461,7 +461,7 @@ def _emit_file_map_block(
             rest = "/".join(parts[1:])
             sub_trees.setdefault(top, []).append(rest)
 
-    out: list[str] = [title_line, overview_placeholder, ""]
+    out: list[str] = [title_line, _OVERVIEW_PLACEHOLDER, ""]
 
     # Synthetic root section: ### <pkg>/
     root_dir_rows: list[str] = []
@@ -470,7 +470,7 @@ def _emit_file_map_block(
             root_dir_rows.append(top)
 
     # Emit root section
-    root_block: list[str] = [f"### {pkg_name}/", section_placeholder, "", TABLE_HEADER, TABLE_SEP]
+    root_block: list[str] = [f"### {pkg_name}/", _DIR_SECTION_PLACEHOLDER, "", TABLE_HEADER, TABLE_SEP]
     for name in sorted(root_files, key=str.lower):
         root_block.append(f"| `{name}` | file | — TODO |")
     for name in root_dir_rows:
@@ -509,7 +509,7 @@ def _emit_file_map_block(
                 for sub_rel in sorted(sub_dir_files[sub], key=str.lower):
                     file_rows.append(f"{sub}/{sub_rel}")
 
-        block: list[str] = [f"### {pkg_name}/{top}/", section_placeholder, "", TABLE_HEADER, TABLE_SEP]
+        block: list[str] = [f"### {pkg_name}/{top}/", _DIR_SECTION_PLACEHOLDER, "", TABLE_HEADER, TABLE_SEP]
         for name in file_rows:
             block.append(f"| `{name}` | file | — TODO |")
         for name in dir_rows:
@@ -556,7 +556,6 @@ def build_file_maps(
 
     pkg_name = pkg_path.name
     title_line = f"## File map - {pkg_name}"
-    overview_placeholder = "TODO — overview of this package's tree."
 
     # Truncation applies to the combined list before splitting (backward compat).
     truncated = len(files) > max_entries
@@ -569,7 +568,7 @@ def build_file_maps(
 
     # Build prod block.
     if not prod_files:
-        prod_block = f"{title_line}\n{overview_placeholder}\n\n- (no tracked files)\n"
+        prod_block = f"{title_line}\n{_OVERVIEW_PLACEHOLDER}\n\n- (no tracked files)\n"
         if truncated:
             prod_block = prod_block.rstrip("\n") + f"\n\n> Truncated at {max_entries} files.\n"
     else:
@@ -578,7 +577,7 @@ def build_file_maps(
     # Build test block.
     if not test_files:
         test_block = (
-            f"{title_line}\n{overview_placeholder}\n\n"
+            f"{title_line}\n{_OVERVIEW_PLACEHOLDER}\n\n"
             f"### {pkg_name}/\n"
             f"TODO — no test files detected. Document test strategy here when tests land.\n"
         )
@@ -634,8 +633,7 @@ def build_dir_file_map(path: Path, max_depth: int = 4, max_entries: int = 200) -
 
     if not files:
         title_line = f"## File map - {name}"
-        overview_placeholder = "TODO — overview of this package's tree."
-        block = f"{title_line}\n{overview_placeholder}\n\n- (no tracked files)\n"
+        block = f"{title_line}\n{_OVERVIEW_PLACEHOLDER}\n\n- (no tracked files)\n"
         if truncated:
             block = block.rstrip("\n") + f"\n\n> Truncated at {max_entries} files.\n"
         return block
