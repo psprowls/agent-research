@@ -186,7 +186,7 @@ def run_lint(
     if sidecar is not None:
         generated_prefix = sidecar.get("generated_at", "")[:10]
         max_updated = max(
-            (item["fm"].get("updated", "")[:10] for item in items),
+            (str(item["fm"].get("updated", ""))[:10] for item in items),
             default="",
         )
         if generated_prefix and max_updated > generated_prefix:
