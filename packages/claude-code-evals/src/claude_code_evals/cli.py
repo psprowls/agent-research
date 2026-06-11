@@ -6,7 +6,7 @@ import json
 import os
 from pathlib import Path
 
-import click
+import typer
 from rich.console import Console
 from rich.table import Table
 
@@ -15,6 +15,12 @@ from claude_code_evals.report import build_report
 from claude_code_evals.schemas import Config, Runset, Scenario
 
 console = Console()
+
+app = typer.Typer(
+    name="cc-eval",
+    help="cc-eval — Claude Code eval harness CLI.",
+    no_args_is_help=True,
+)
 
 
 def _resolve_evals_root(evals_root: str | None) -> Path:
@@ -26,14 +32,10 @@ def _resolve_evals_root(evals_root: str | None) -> Path:
     return Path.cwd()
 
 
-@click.group()
-def app() -> None:
-    """cc-eval — Claude Code eval harness CLI."""
-
-
 @app.command("list")
-@click.option("--evals-root", default=None, help="Path to evals/ directory")
-def list_cmd(evals_root: str | None) -> None:
+def list_cmd(
+    evals_root: str | None = typer.Option(None, "--evals-root", help="Path to evals/ directory"),
+) -> None:
     """Print available scenarios and configs."""
     root = _resolve_evals_root(evals_root)
     scenarios_dir = root / "scenarios"
@@ -62,19 +64,13 @@ def list_cmd(evals_root: str | None) -> None:
 
 
 @app.command("run")
-@click.argument("scenario", required=False)
-@click.option("--config", "configs", multiple=True, help="Config name(s)")
-@click.option("--runset", default=None, help="Path to runset YAML")
-@click.option("--evals-root", default=None, help="Path to evals/ directory")
-@click.option("--dry-run", is_flag=True, help="Skip actual claude invocation")
-@click.option("--keep-worktree", is_flag=True, help="Keep isolation directory after run")
 def run_cmd(
-    scenario: str | None,
-    configs: tuple[str, ...],
-    runset: str | None,
-    evals_root: str | None,
-    dry_run: bool,
-    keep_worktree: bool,
+    scenario: str | None = typer.Argument(None, help="Scenario name"),
+    configs: list[str] | None = typer.Option(None, "--config", help="Config name(s), repeatable"),
+    runset: str | None = typer.Option(None, "--runset", help="Path to runset YAML"),
+    evals_root: str | None = typer.Option(None, "--evals-root", help="Path to evals/ directory"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Skip actual claude invocation"),
+    keep_worktree: bool = typer.Option(False, "--keep-worktree", help="Keep isolation directory after run"),
 ) -> None:
     """Run one scenario or a full runset."""
     root = _resolve_evals_root(evals_root)
@@ -86,10 +82,11 @@ def run_cmd(
             for c_name in rs.default_configs or ["base"]:
                 pairs.append((s_name, c_name))
     elif scenario:
-        for c_name in configs or ("base",):
+        for c_name in configs or ["base"]:
             pairs.append((scenario, c_name))
     else:
-        raise click.UsageError("Provide a SCENARIO or --runset PATH")
+        typer.echo("Error: Provide a SCENARIO or --runset PATH", err=True)
+        raise typer.Exit(code=2)
 
     results = []
     for s_name, c_name in pairs:
@@ -103,7 +100,6 @@ def run_cmd(
         if not passed:
             reason = result.error_reason or result.verify_result.get("error")
             if not reason:
-                # Pull the first failing verifier's reason for a human-readable summary.
                 for o in result.verify_result.get("verifiers", []):
                     if not o.get("passed"):
                         reason = f"{o.get('kind')}: {o.get('reason')}"
@@ -123,10 +119,11 @@ def run_cmd(
 
 
 @app.command("report")
-@click.argument("runs_dir")
-@click.option("--name", default="report", help="Runset name for report header")
-@click.option("--out", default=None, help="Output path for markdown report")
-def report_cmd(runs_dir: str, name: str, out: str | None) -> None:
+def report_cmd(
+    runs_dir: str = typer.Argument(..., help="Path to runs/ directory"),
+    name: str = typer.Option("report", "--name", help="Runset name for report header"),
+    out: str | None = typer.Option(None, "--out", help="Output path for markdown report"),
+) -> None:
     """Regenerate markdown + JSON report from existing runs/."""
     md, data = build_report(runs_dir=Path(runs_dir), runset_name=name)
     if out:

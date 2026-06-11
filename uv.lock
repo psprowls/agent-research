@@ -452,7 +452,6 @@ name = "claude-code-evals"
 version = "0.1.0"
 source = { editable = "packages/claude-code-evals" }
 dependencies = [
-    { name = "click" },
     { name = "deepeval" },
     { name = "jinja2" },
     { name = "pydantic" },
@@ -460,11 +459,11 @@ dependencies = [
     { name = "pytest-evals" },
     { name = "pyyaml" },
     { name = "rich" },
+    { name = "typer" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "click", specifier = ">=8.1" },
     { name = "deepeval", specifier = ">=4.0.0" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "pydantic", specifier = ">=2.6" },
@@ -472,6 +471,7 @@ requires-dist = [
     { name = "pytest-evals", specifier = ">=0.3.4" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "rich", specifier = ">=13.7" },
+    { name = "typer", specifier = ">=0.25.1" },
 ]
 
 [[package]]

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from claude_code_evals.cli import app
-from click.testing import CliRunner
+from typer.testing import CliRunner
 
 
 def test_list_no_evals_root(tmp_path: Path):
