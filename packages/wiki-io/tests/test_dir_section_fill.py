@@ -5,13 +5,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from wiki_io.entity_writer import (
+    _DIR_SECTION_PLACEHOLDER as _PLACEHOLDER_SEC,
+)
+from wiki_io.entity_writer import (
+    _OVERVIEW_PLACEHOLDER as _PLACEHOLDER_OV,
+)
+from wiki_io.entity_writer import (
     extract_file_map_descriptions,
     fill_dir_section_descriptions,
     fill_file_map_overview,
 )
-
-_PLACEHOLDER_SEC = "TODO — describe what this directory contains."
-_PLACEHOLDER_OV = "TODO — overview of this package's tree."
 
 _MIXED = """\
 ## File map - test-pkg

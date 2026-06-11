@@ -4,33 +4,35 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wiki_io.entity_writer import dir_section_todo_contexts, is_overview_unfilled
+from wiki_io.entity_writer import (
+    _DIR_SECTION_PLACEHOLDER,
+    _OVERVIEW_PLACEHOLDER,
+    dir_section_todo_contexts,
+    is_overview_unfilled,
+)
 
-_MIXED = """\
-## File map - test-pkg
-TODO — overview of this package's tree.
-
-### test-pkg/
-TODO — describe what this directory contains.
-
-| Path | Kind | Description |
-|---|---|---|
-| `foo.py` | file | module foo |
-
-### test-pkg/src/
-TODO — describe what this directory contains.
-
-| Path | Kind | Description |
-|---|---|---|
-| `bar.py` | file | module bar |
-
-### test-pkg/tests/
-Already filled this directory.
-
-| Path | Kind | Description |
-|---|---|---|
-| `test_foo.py` | file | tests for foo |
-"""
+_MIXED = (
+    "## File map - test-pkg\n" + _OVERVIEW_PLACEHOLDER + "\n"
+    "\n"
+    "### test-pkg/\n" + _DIR_SECTION_PLACEHOLDER + "\n"
+    "\n"
+    "| Path | Kind | Description |\n"
+    "|---|---|---|\n"
+    "| `foo.py` | file | module foo |\n"
+    "\n"
+    "### test-pkg/src/\n" + _DIR_SECTION_PLACEHOLDER + "\n"
+    "\n"
+    "| Path | Kind | Description |\n"
+    "|---|---|---|\n"
+    "| `bar.py` | file | module bar |\n"
+    "\n"
+    "### test-pkg/tests/\n"
+    "Already filled this directory.\n"
+    "\n"
+    "| Path | Kind | Description |\n"
+    "|---|---|---|\n"
+    "| `test_foo.py` | file | tests for foo |\n"
+)
 
 _ALL_FILLED = """\
 ## File map - test-pkg

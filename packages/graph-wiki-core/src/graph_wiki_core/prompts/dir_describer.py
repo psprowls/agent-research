@@ -68,6 +68,10 @@ def build_dir_describer_prompt(
                 lines.append(f"  - {path}: {desc}")
         else:
             lines.append("  (no child file descriptions available)")
+    if not sorted_contexts and file_descs:
+        lines.append("\nAll package files (no directory sections requested):")
+        for path, desc in sorted(file_descs.items()):
+            lines.append(f"  - {path}: {desc}")
     lines.append("")
     lines.append("Return the JSON object mapping each context string to its one-line description.")
     return DIR_DESCRIBER_SYSTEM, "\n".join(lines)

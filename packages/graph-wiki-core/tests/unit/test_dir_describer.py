@@ -76,3 +76,10 @@ def test_build_prompt_deepest_first_ordering():
     _, human = build_dir_describer_prompt({"name": "foo"}, ["", "src", "src/internal"], {}, needs_overview=False)
     # "src/internal" (deeper) appears before "src" (shallower) in the output
     assert human.index("'src/internal'") < human.index("'src'")
+
+
+def test_build_prompt_includes_files_for_overview_only():
+    file_descs = {"foo.py": "main module", "bar.py": "utility functions"}
+    _, human = build_dir_describer_prompt({"name": "pkg"}, [], file_descs, needs_overview=True)
+    assert "foo.py" in human
+    assert "bar.py" in human
