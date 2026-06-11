@@ -2418,15 +2418,15 @@ async def test_run_ingest_source_archives_raw_source(tmp_path, monkeypatch):
     result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
 
     assert result.status == "ok"
-    assert result.archived_to == "raw/_archived/specs/auth.md"
+    assert result.archived_to == "raw/_archive/specs/auth.md"
     # source_path keeps the ORIGINAL path (spec §3).
     assert result.source_path == str(src)
     assert not src.exists()
-    archived = ws / "raw" / "_archived" / "specs" / "auth.md"
+    archived = ws / "raw" / "_archive" / "specs" / "auth.md"
     assert archived.read_text(encoding="utf-8") == "# Auth Spec\n\nbody\n"
     # The ingest log records the destination.
     log_text = (ws / "wiki" / "log.md").read_text(encoding="utf-8")
-    assert "archived: raw/_archived/specs/auth.md" in log_text
+    assert "archived: raw/_archive/specs/auth.md" in log_text
 
 
 @pytest.mark.asyncio
@@ -2434,7 +2434,7 @@ async def test_run_ingest_source_archive_overwrites_existing_destination(tmp_pat
     from graph_wiki_core.commands import ingest as ingest_mod
 
     ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
-    stale = ws / "raw" / "_archived" / "specs" / "auth.md"
+    stale = ws / "raw" / "_archive" / "specs" / "auth.md"
     stale.parent.mkdir(parents=True)
     stale.write_text("old version", encoding="utf-8")
     src = ws / "raw" / "specs" / "auth.md"
@@ -2444,7 +2444,7 @@ async def test_run_ingest_source_archive_overwrites_existing_destination(tmp_pat
 
     result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
 
-    assert result.archived_to == "raw/_archived/specs/auth.md"
+    assert result.archived_to == "raw/_archive/specs/auth.md"
     assert stale.read_text(encoding="utf-8") == "# Auth Spec v2\n"
 
 
@@ -2462,7 +2462,7 @@ async def test_run_ingest_source_leaves_sources_outside_raw_untouched(tmp_path, 
     assert result.status == "ok"
     assert result.archived_to is None
     assert src.exists()
-    assert not (ws / "raw" / "_archived").exists()
+    assert not (ws / "raw" / "_archive").exists()
 
 
 @pytest.mark.asyncio
@@ -2487,7 +2487,7 @@ async def test_run_ingest_source_move_failure_does_not_fail_ingest(tmp_path, mon
     assert src.exists()
 
 
-def test_ingest_result_archived_to_defaults_none_and_serializes():
+def test_ingest_result_archive_to_defaults_none_and_serializes():
     from graph_wiki_core.commands.ingest import IngestResult
 
     result = IngestResult(
@@ -2500,9 +2500,9 @@ def test_ingest_result_archived_to_defaults_none_and_serializes():
         cross_refs_updated=1,
     )
     assert result.archived_to is None
-    result.archived_to = "raw/_archived/specs/x.md"
+    result.archived_to = "raw/_archive/specs/x.md"
     parsed = json.loads(json.dumps(dataclasses.asdict(result)))
-    assert parsed["archived_to"] == "raw/_archived/specs/x.md"
+    assert parsed["archived_to"] == "raw/_archive/specs/x.md"
 
 
 def _patch_skill_branch_llm(monkeypatch):
@@ -2555,9 +2555,9 @@ async def test_run_ingest_source_archives_skill_directory_wholesale(tmp_path, mo
     result = await ingest_mod.run_ingest_source(skill_dir / "SKILL.md", workspace_path=ws)
 
     assert result.status == "ok"
-    assert result.archived_to == "raw/_archived/skill/react-native"
+    assert result.archived_to == "raw/_archive/skill/react-native"
     assert not skill_dir.exists()
-    archived = ws / "raw" / "_archived" / "skill" / "react-native"
+    archived = ws / "raw" / "_archive" / "skill" / "react-native"
     assert (archived / "SKILL.md").is_file()
     assert (archived / "extra.txt").is_file()
     # The kind folder itself stays put.
@@ -2581,8 +2581,8 @@ async def test_run_ingest_source_skill_md_directly_in_kind_folder_moves_only_fil
     result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
 
     assert result.status == "ok"
-    assert result.archived_to == "raw/_archived/skill/SKILL.md"
+    assert result.archived_to == "raw/_archive/skill/SKILL.md"
     assert not src.exists()
     assert sibling.exists()
     assert kind_dir.is_dir()
-    assert (ws / "raw" / "_archived" / "skill" / "SKILL.md").is_file()
+    assert (ws / "raw" / "_archive" / "skill" / "SKILL.md").is_file()

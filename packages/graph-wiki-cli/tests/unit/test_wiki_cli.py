@@ -200,8 +200,8 @@ def test_ingest_source_cli_prints_guidance_pages(tmp_path):
     assert "wiki/guidance/react-native/use-virtualizer.md" in result.stdout
 
 
-def test_ingest_source_cli_prints_archived_to(tmp_path):
-    """Text-mode CLI reports the raw/_archived/ destination when set."""
+def test_ingest_source_cli_prints_archive_to(tmp_path):
+    """Text-mode CLI reports the raw/_archive/ destination when set."""
     from unittest.mock import AsyncMock
 
     from graph_wiki_cli.wiki_cli.main import wiki_app
@@ -219,7 +219,7 @@ def test_ingest_source_cli_prints_archived_to(tmp_path):
         source_path=str(src),
         cross_refs_updated=1,
         source_type="spec",
-        archived_to="raw/_archived/specs/auth.md",
+        archived_to="raw/_archive/specs/auth.md",
     )
 
     with patch(
@@ -230,7 +230,7 @@ def test_ingest_source_cli_prints_archived_to(tmp_path):
         result = runner.invoke(wiki_app, ["ingest", str(src)])
 
     assert result.exit_code == 0
-    assert "[ok] Archived source → raw/_archived/specs/auth.md" in result.stdout
+    assert "[ok] Archived source → raw/_archive/specs/auth.md" in result.stdout
 
 
 def test_proposals_and_proposal_subcommands_registered() -> None:

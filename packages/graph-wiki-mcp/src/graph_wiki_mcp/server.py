@@ -334,7 +334,7 @@ class WikiIngestOutput(BaseModel):
     proposal_extractor_status: str = "skipped"
     proposal_error: str | None = None
     guidance_pages_written: list[str] = Field(default_factory=list)
-    # Raw-source archive (design 2026-06-09): workspace-relative raw/_archived/
+    # Raw-source archive (design 2026-06-09): workspace-relative raw/_archive/
     # destination, None when the source was outside raw/ or the move failed.
     archived_to: str | None = None
 

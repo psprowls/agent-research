@@ -1,13 +1,15 @@
 """Work command — orchestration over the work-io lifecycle primitives.
 
 Public API:
-    WorkRegenResult / WorkLintResult / WorkStatusResult / WorkArchiveResult
-        — typed result dataclasses for the four read/maintenance commands.
+    WorkRegenResult / WorkLintResult / WorkStatusResult / WorkArchiveResult / WorkNextResult
+        — typed result dataclasses for the read/maintenance commands.
     run_work_regen_index(workspace_path)  -> WorkRegenResult
     run_work_lint(workspace_path)         -> WorkLintResult
     run_work_status(workspace_path)       -> WorkStatusResult
     run_work_archive(workspace_path, ...) -> WorkArchiveResult
     run_work_file(workspace_path, ...)    -> IngestResult
+    run_work_next(workspace_path, slug)   -> WorkNextResult
+    run_work_advance(workspace_path, ...) -> WorkAdvanceResult
 
 These are thin async orchestrators: they resolve the wiki/work directory from
 the workspace, drive the pure work-io functions (frontmatter / plan_table /
@@ -32,6 +34,7 @@ from work_io import frontmatter as _frontmatter
 from work_io import lifecycle_lint as _lint
 from work_io import plan_table as _plan_table
 from work_io import sidecar as _sidecar
+from work_io import workflow as _workflow
 
 from graph_wiki_core.commands.ingest import IngestResult
 
@@ -81,6 +84,34 @@ class WorkArchiveResult:
     skipped: list[dict] = field(default_factory=list)
 
 
+@dataclass
+class WorkNextResult:
+    """Result of run_work_next(). Field shapes match the `gw work next --json` contract."""
+
+    slug: str
+    status: str | None = None
+    kind: str | None = None
+    phase: str | None = None
+    effort: str | None = None
+    action: dict | None = None  # {"skill", "reason"}
+    artifact: dict | None = None  # {"path": absolute path}
+    on_dispatch: dict | None = None  # {"phase", "status", "requires"}
+    on_complete: dict | None = None
+    blockers: list[str] = field(default_factory=list)
+
+
+@dataclass
+class WorkAdvanceResult:
+    """Result of run_work_advance()."""
+
+    slug: str
+    phase: str | None = None  # phase after the transition
+    status: str | None = None  # status after the transition
+    applied: dict = field(default_factory=dict)  # {"phase": [before, after], "status": [before, after]}
+    stamped: dict = field(default_factory=dict)  # frontmatter keys written (effort/owner/resolved_in/spec_doc/plan_doc)
+    findings: list[dict] = field(default_factory=list)  # lint findings for this slug after the write
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -105,7 +136,7 @@ def _vault_commit(wiki: Path) -> str | None:
 
 
 def _load_items(work_dir: Path) -> list[dict]:
-    """Parse every work/*.md (excluding archived/) into lint-shaped item dicts.
+    """Parse every work/*.md (excluding _archive/) into lint-shaped item dicts.
 
     Each dict carries: slug, fm (frontmatter dict), plan (PlanResult).
     Unparseable pages are skipped.
@@ -121,6 +152,33 @@ def _load_items(work_dir: Path) -> list[dict]:
         plan = _plan_table.parse_plan(body)
         items.append({"slug": md.stem, "fm": fm, "plan": plan})
     return items
+
+
+def _load_item(wiki: Path, slug: str) -> tuple[Path, dict, str]:
+    """Load wiki/work/<slug>.md; returns (path, frontmatter, body)."""
+    path = wiki / "work" / f"{slug}.md"
+    if not path.exists():
+        raise FileNotFoundError(f"unknown slug {slug!r}: {path} not found")
+    fm, body = _frontmatter.parse(path.read_text(encoding="utf-8"))
+    return path, fm, body
+
+
+def _state_from_fm(fm: dict, effort_override: str | None = None) -> _workflow.WorkItemState:
+    effort = effort_override or (str(fm["effort"]) if fm.get("effort") else None)
+    return _workflow.WorkItemState(
+        kind=str(fm.get("kind", "")),
+        status=str(fm.get("status", "")),
+        phase=str(fm["phase"]) if fm.get("phase") else None,
+        effort=effort,
+        has_plan_doc=bool(fm.get("plan_doc")),
+    )
+
+
+def _transition_dict(t: _workflow.Transition | None, current_status: str) -> dict | None:
+    """Render a Transition for the JSON contract: status shows the post-transition value."""
+    if t is None:
+        return None
+    return {"phase": t.phase, "status": t.status or current_status, "requires": list(t.requires)}
 
 
 # ---------------------------------------------------------------------------
@@ -155,7 +213,7 @@ async def run_work_lint(workspace_path: Path | None = None) -> WorkLintResult:
     items = _load_items(work_dir)
     sidecar = _sidecar.load_sidecar(wiki)
 
-    findings = _lint.run_lint(items, repo, sidecar)
+    findings = _lint.run_lint(items, repo, sidecar, workspace_root=wiki.parent)
     return WorkLintResult(
         total_items=len(items),
         findings=[
@@ -216,7 +274,7 @@ async def run_work_status(workspace_path: Path | None = None) -> WorkStatusResul
 
 
 def _move(action: _archive.ArchiveAction) -> None:
-    """Move a work item into archived/, preferring `git mv`, falling back to rename."""
+    """Move a work item into _archive/, preferring `git mv`, falling back to rename."""
     action.dst.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
         ["git", "mv", str(action.src), str(action.dst)],
@@ -232,19 +290,18 @@ def _move(action: _archive.ArchiveAction) -> None:
 async def run_work_archive(
     workspace_path: Path | None = None,
     slugs: list[str] | None = None,
-    min_age_days: int = 7,
     dry_run: bool = False,
 ) -> WorkArchiveResult:
-    """Archive terminal work items into work/archived/.
+    """Archive terminal work items into work/_archive/.
 
-    Sweep mode (slugs=None): all terminal items aged >= min_age_days.
-    Targeted mode (slugs given): named items, age check bypassed.
+    Sweep mode (slugs=None): all terminal items.
+    Targeted mode (slugs given): named items, non-terminal skipped.
     Executes the moves unless dry_run; regenerates the sidecar after real moves.
     """
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
     work_dir = wiki / "work"
 
-    plan = _archive.plan_archive(work_dir, slugs=slugs, min_age_days=min_age_days)
+    plan = _archive.plan_archive(work_dir, slugs=slugs)
     moved = [{"slug": a.slug, "src": str(a.src), "dst": str(a.dst)} for a in plan.actions]
 
     if not dry_run and plan.actions:
@@ -253,6 +310,131 @@ async def run_work_archive(
         await run_work_regen_index(workspace_path=workspace_path)
 
     return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped)
+
+
+# ---------------------------------------------------------------------------
+# run_work_next
+# ---------------------------------------------------------------------------
+
+
+async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> WorkNextResult:
+    """Compute the workflow routing decision for one work item. Read-only."""
+    wiki, _repo = resolve_wiki_and_repo(workspace_path)
+    workspace = wiki.parent
+
+    try:
+        _path, fm, _body = _load_item(wiki, slug)
+    except (FileNotFoundError, ValueError) as e:
+        return WorkNextResult(slug=slug, blockers=[str(e)])
+
+    state = _state_from_fm(fm)
+    r = _workflow.route(state)
+    phase = state.phase or (r.on_dispatch.phase if r.on_dispatch else None)
+    artifact = None
+    if r.artifact_slot:
+        artifact = {"path": str(workspace / "raw" / r.artifact_slot / f"{slug}.md")}
+
+    return WorkNextResult(
+        slug=slug,
+        status=state.status,
+        kind=state.kind,
+        phase=phase,
+        effort=state.effort,
+        action={"skill": r.skill, "reason": r.reason} if r.skill else None,
+        artifact=artifact,
+        on_dispatch=_transition_dict(r.on_dispatch, state.status),
+        on_complete=_transition_dict(r.on_complete, state.status),
+        blockers=list(r.blockers),
+    )
+
+
+# ---------------------------------------------------------------------------
+# run_work_advance
+# ---------------------------------------------------------------------------
+
+
+async def run_work_advance(
+    workspace_path: Path | None = None,
+    *,
+    slug: str,
+    effort: str | None = None,
+    owner: str | None = None,
+    resolved_in: str | None = None,
+) -> WorkAdvanceResult:
+    """Apply the routing table's next transition for one work item.
+
+    The single mutation point of the workflow: applies on_dispatch when the
+    current state has an unmet dispatch precondition, otherwise on_complete.
+    Stamps `updated`, writes passed field flags, stamps spec_doc/plan_doc as
+    artifacts land, syncs the ## Plan table on acceptance, regenerates the
+    sidecar, and re-lints the item. Raises ValueError on blockers or missing
+    required flags.
+    """
+    wiki, repo = resolve_wiki_and_repo(workspace_path)
+    workspace = wiki.parent
+    path, fm, body = _load_item(wiki, slug)
+
+    state = _state_from_fm(fm, effort_override=effort)
+    r = _workflow.route(state)
+    if r.blockers:
+        raise ValueError("; ".join(r.blockers))
+    t = r.on_dispatch or r.on_complete
+    if t is None:
+        raise ValueError(f"nothing to advance: {r.reason}")
+    if "effort" in t.requires:
+        raise ValueError("effort required to advance: pass --effort xtra-small|small|medium|large|xtra-large")
+    if "owner" in t.requires and not (owner or fm.get("owner")):
+        raise ValueError("owner required to advance: pass --owner <handle>")
+    if "resolved_in" in t.requires and not (resolved_in or fm.get("resolved_in")):
+        raise ValueError("resolved-in required to advance: pass --resolved-in <pr/commit>")
+
+    applied: dict = {}
+    if t.phase:
+        applied["phase"] = [fm.get("phase"), t.phase]
+        fm["phase"] = t.phase
+    if t.status:
+        applied["status"] = [fm.get("status"), t.status]
+        fm["status"] = t.status
+
+    stamped: dict = {}
+    for key, value in (("effort", effort), ("owner", owner), ("resolved_in", resolved_in)):
+        if value:
+            fm[key] = value
+            stamped[key] = value
+    if t.stamp_doc:
+        slot = "specs" if t.stamp_doc == "spec_doc" else "plans"
+        rel = f"raw/{slot}/{slug}.md"
+        fm[t.stamp_doc] = rel
+        stamped[t.stamp_doc] = rel
+    fm["updated"] = date.today().isoformat()
+
+    if t.sync_plan_table:
+        body = _plan_table.ensure_plan_row(
+            body,
+            action=f"Execute implementation plan: raw/plans/{slug}.md",
+            done_when="Implementation lands and the item is resolved",
+            rationale="Workflow plan stage complete",
+        )
+
+    # parse() consumed the closing fence plus one newline; emit() + "\n" + body round-trips.
+    path.write_text(_frontmatter.emit(fm) + "\n" + body, encoding="utf-8")
+    await run_work_regen_index(workspace_path=workspace_path)
+
+    items = _load_items(wiki / "work")
+    sidecar = _sidecar.load_sidecar(wiki)
+    findings = _lint.run_lint(items, repo, sidecar, workspace_root=workspace)
+    return WorkAdvanceResult(
+        slug=slug,
+        phase=str(fm["phase"]) if fm.get("phase") else None,
+        status=str(fm.get("status")) if fm.get("status") else None,
+        applied=applied,
+        stamped=stamped,
+        findings=[
+            {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
+            for f in findings
+            if f.slug == slug
+        ],
+    )
 
 
 # ---------------------------------------------------------------------------

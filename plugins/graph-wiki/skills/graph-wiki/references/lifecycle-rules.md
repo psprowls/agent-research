@@ -1,6 +1,6 @@
 # Lifecycle rules — work_layer
 
-The 19 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
+The 23 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
 plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 
 > **Note:** The work-layer subsystem (archive, regen-index, status commands) is not ported in graph-wiki v1.2. This reference doc is retained for parity with upstream; the rules apply when/if work-layer support is added in a future version.
@@ -79,9 +79,9 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 **Remedy:** review the plan; either start work on it, downgrade to `open` if the plan has gone stale and needs rework, or close with `wontfix`.
 
 ### `archive-eligible` — info
-**Trigger:** `status: resolved | wontfix | superseded` and `updated:` is at least `--archive-eligible-days` days old (default 7).
+**Trigger:** `status: resolved | wontfix | superseded`.
 **Rationale:** terminal-status items aren't drift, but they clutter the active queue. Surfacing them as `info` keeps the queue clean without inflating the warning channel.
-**Remedy:** run `/graph-wiki:archive` to move eligible items into `<vault>/work/archived/`. Pass `--dry-run` first to see what would move; pass a slug to override the age check for a specific item.
+**Remedy:** run `/graph-wiki:archive` to move eligible items into `<vault>/work/_archive/`. Pass `--dry-run` first to see what would move; pass slugs to target specific items.
 
 ## Body shape (3)
 
@@ -111,3 +111,28 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 **Trigger:** sidecar's `generated_at` is older than the newest item's `updated:`.
 **Rationale:** consumers will read stale data.
 **Remedy:** run `/graph-wiki:regen-index`. Never hand-edit `work-index.json`.
+
+## Workflow (4)
+
+These rules fire only when the workflow-owned keys are present — items filed
+outside the workflow lint clean.
+
+### `effort-not-in-enum` — warn
+**Trigger:** `effort:` set but not one of `xtra-small | small | medium | large | xtra-large`.
+**Rationale:** the workflow's effort fork (small bug-like work skips planning) needs a comparable scale; legacy free-text efforts degrade to warnings, not errors.
+**Remedy:** re-size the item (`gw work advance <slug> --effort <value>` or edit frontmatter).
+
+### `phase-not-in-enum` — error
+**Trigger:** `phase:` set but not one of `design | plan | execute | finish | done`.
+**Rationale:** `phase` is machine-owned pipeline position; an unknown value breaks `gw work next` routing.
+**Remedy:** fix the value or remove the key (the item re-enters the workflow at first dispatch).
+
+### `phase-status-incoherent` — warn
+**Trigger:** `accepted` with phase outside `execute | finish | done`; `in-progress` with phase outside `execute | finish`; `resolved` with phase other than `done`.
+**Rationale:** status (commitment) and phase (pipeline position) advance together via `gw work advance`; divergence means hand-editing.
+**Remedy:** re-run `gw work advance`, or hand-fix whichever field is wrong. Warn-level because disposition stays human-owned.
+
+### `artifact-doc-missing` — warn
+**Trigger:** `spec_doc:` or `plan_doc:` set but the workspace-relative file does not exist.
+**Rationale:** fresh-context workflow sessions locate prior output through these pointers; a dangling pointer strands the next stage.
+**Remedy:** restore the file under `<workspace>/raw/`, or clear the key.

@@ -4,13 +4,13 @@ The wiki sits inside a graph-wiki workspace alongside other workspace-level dire
 
 ## Layout
 
-The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archived/`) and `work/` (work tracker) sit at the workspace root as siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
+The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archive/`) and `work/` (work tracker) sit at the workspace root as siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
 
 ```
 <repo>/graph-wiki/               # workspace; Obsidian vault opens here
 ├── .graph-wiki.yaml             # workspace manifest (owned by workspace_io)
 ├── CLAUDE.md                    # workspace-level schema (owned by workspace_io)
-├── raw/                         # source inbox; ingested sources move to _archived/
+├── raw/                         # source inbox; ingested sources move to _archive/
 │   ├── articles/*.md            # Obsidian Web Clipper output
 │   ├── specs/*.md               # design docs, RFCs
 │   ├── prs/*.md                 # PR descriptions and review notes
@@ -18,7 +18,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 │   ├── transcripts/*.md         # meeting and design-session notes
 │   └── assets/                  # images referenced by sources
 ├── work/                        # unified bugs, tech debt, features, initiatives, spikes
-│   └── archived/                # terminal-status items aged past archive threshold
+│   └── _archive/               # terminal-status items; consider archiving when status is terminal
 ├── knowledge/                   # other plugin-managed knowledge stores
 └── wiki/                        # this plugin's curated knowledge base
     ├── index.md                 # content catalog — updated every ingest/scan
@@ -40,7 +40,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 ## Iron rules
 
 1. **The code is the source of truth.** If the wiki disagrees with the code, update the wiki — never the other way around.
-2. **`<workspace>/raw/` contents are read-only.** The LLM never edits, renames within, or deletes staged sources — the single permitted operation is moving a successfully-ingested source to `raw/_archived/<same relative path>`.
+2. **`<workspace>/raw/` contents are read-only.** The LLM never edits, renames within, or deletes staged sources — the single permitted operation is moving a successfully-ingested source to `raw/_archive/<same relative path>`.
 3. **All wiki writes go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`). No exceptions.
 4. **Every scan or ingest updates ≥3 files:** the touched page(s), `index.md`, `log.md`. A typical ingest touches 5-15.
 5. **Every wiki page carries YAML frontmatter.** Without frontmatter, index maintenance and `lint_wiki.py` can't see it.
@@ -191,7 +191,7 @@ kind: bug                       # bug | tech-debt | test-gap | security | perf |
 summary: <one-line>
 status: open                    # open | accepted | in-progress | mitigated | resolved | wontfix | superseded
 severity: medium                # bug | security | perf — leave blank for feature/initiative/spike
-effort: s                       # xs | s | m | l | xl
+effort: small                   # xtra-small | small | medium | large | xtra-large
 blast_radius: package           # file | package | domain | system
 affects:
   - packages/location-aws-node-ts
@@ -215,11 +215,11 @@ The lifecycle lint rules (`accepted-without-plan`, `stuck-open`, `done-when-miss
 
 > **Note:** The work-layer subsystem is not ported in graph-wiki v1.2. This note applies when/if work-layer support is added in a future version.
 
-#### The `work/archived/` sub-namespace
+#### The `work/_archive/` sub-namespace
 
 Items that have reached a terminal status (`resolved`, `wontfix`,
-`superseded`) and aged past the archive threshold may be moved to
-`<workspace>/work/archived/<slug>.md`. They retain their full schema —
+`superseded`) may be moved to
+`<workspace>/work/_archive/<slug>.md`. They retain their full schema —
 same frontmatter, same body convention, same wiki-page semantics —
 but are excluded from:
 
@@ -227,9 +227,9 @@ but are excluded from:
 - the work-tracker sidecar (`<workspace>/work/.work-index.json`)
 - consumer commands that read the sidecar
 
-Items under `archived/` must already be in a terminal status; the
+Items under `_archive/` must already be in a terminal status; the
 archive command (`/graph-wiki:archive`) enforces this on entry.
-Restoring is a `git mv` from `archived/` back to `work/` plus
+Restoring is a `git mv` from `_archive/` back to `work/` plus
 `/graph-wiki:regen-index`.
 
 ### Source pages
@@ -348,11 +348,11 @@ Values: `low | medium | high | critical`.
 
 | Value | Anchor |
 |---|---|
-| `xs` | minutes — one-line change, no test, no review needed |
-| `s` | hours — single file, tests, single PR |
-| `m` | days — multiple files, possibly cross-package, single PR |
-| `l` | weeks — multiple PRs, possibly an initiative |
-| `xl` | months — multi-initiative, large team or quarter-long scope |
+| `xtra-small` | minutes — one-line change, no test, no review needed |
+| `small` | hours — single file, tests, single PR |
+| `medium` | days — multiple files, possibly cross-package, single PR |
+| `large` | weeks — multiple PRs, possibly an initiative |
+| `xtra-large` | months — multi-initiative, large team or quarter-long scope |
 
 Anchors are advisory. Missing field = unknown; no `unknown` value.
 

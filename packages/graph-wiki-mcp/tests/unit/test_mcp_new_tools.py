@@ -455,7 +455,7 @@ async def test_wiki_ingest_source_passes_through_guidance_pages(monkeypatch):
     assert out.guidance_pages_written == ["wiki/guidance/t/a.md"]
 
 
-async def test_wiki_ingest_output_carries_archived_to() -> None:
+async def test_wiki_ingest_output_carries_archive_to() -> None:
     """WikiIngestOutput mirrors IngestResult.archived_to."""
     from graph_wiki_core.commands.ingest import IngestResult
     from graph_wiki_mcp.server import WikiIngestInput, wiki_ingest
@@ -468,7 +468,7 @@ async def test_wiki_ingest_output_carries_archived_to() -> None:
         page_type="source",
         source_path="/ws/raw/specs/auth.md",
         cross_refs_updated=1,
-        archived_to="raw/_archived/specs/auth.md",
+        archived_to="raw/_archive/specs/auth.md",
     )
 
     mock_ctx = MagicMock()
@@ -478,7 +478,7 @@ async def test_wiki_ingest_output_carries_archived_to() -> None:
         mock_source.return_value = mock_result
         out = await wiki_ingest(WikiIngestInput(type="source", source_path="/ws/raw/specs/auth.md"), mock_ctx)
 
-    assert out.archived_to == "raw/_archived/specs/auth.md"
+    assert out.archived_to == "raw/_archive/specs/auth.md"
 
 
 # ---------------------------------------------------------------------------

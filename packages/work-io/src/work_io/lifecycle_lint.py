@@ -1,4 +1,4 @@
-"""19 lifecycle lint rules for work items."""
+"""23 lifecycle lint rules for work items."""
 
 from __future__ import annotations
 
@@ -15,6 +15,16 @@ VALID_KINDS = frozenset({"bug", "tech-debt", "test-gap", "security", "perf", "fe
 BUG_LIKE_KINDS = frozenset({"bug", "security", "perf", "tech-debt", "test-gap"})
 TERMINAL_STATUSES = frozenset({"resolved", "wontfix", "superseded"})
 FEATURE_LIKE_KINDS = frozenset({"feature", "initiative"})
+VALID_EFFORTS = frozenset({"xtra-small", "small", "medium", "large", "xtra-large"})
+VALID_PHASES = frozenset({"design", "plan", "execute", "finish", "done"})
+
+# Rule 22 compatibility map: statuses listed here constrain which phases are coherent.
+# Statuses absent from the map (open, mitigated, wontfix, superseded) are unconstrained.
+_PHASE_COMPAT = {
+    "accepted": frozenset({"execute", "finish", "done"}),
+    "in-progress": frozenset({"execute", "finish"}),
+    "resolved": frozenset({"done"}),
+}
 
 _PATH_RE = re.compile(r"\b([\w][\w.\-]*/[\w.\-/]+)\b")
 
@@ -31,8 +41,13 @@ def run_lint(
     items: list[dict],
     repo_root: Path | None,
     sidecar: dict | None,
+    workspace_root: Path | None = None,
 ) -> list[LintFinding]:
-    """Run all 19 lifecycle rules. Each item dict has keys: slug, fm, plan (PlanResult)."""
+    """Run all 23 lifecycle rules. Each item dict has keys: slug, fm, plan (PlanResult).
+
+    workspace_root enables the workspace-relative checks (rule 23, and the
+    workspace fallback in rule 11); when None those checks are skipped.
+    """
     findings: list[LintFinding] = []
 
     for item in items:
@@ -124,15 +139,20 @@ def run_lint(
         if repo_root is not None and plan.state == "ok":
             for row in plan.rows:
                 for token in _PATH_RE.findall(row.get("action", "")):
-                    if not token.startswith("http") and not (repo_root / token).exists():
-                        findings.append(
-                            LintFinding(
-                                "plan-action-target-missing",
-                                "error",
-                                slug,
-                                f"plan action references {token!r} which does not exist under repo root",
-                            )
+                    if token.startswith("http"):
+                        continue
+                    if (repo_root / token).exists():
+                        continue
+                    if workspace_root is not None and (workspace_root / token).exists():
+                        continue
+                    findings.append(
+                        LintFinding(
+                            "plan-action-target-missing",
+                            "error",
+                            slug,
+                            f"plan action references {token!r} which does not exist under repo root",
                         )
+                    )
 
         # 12. stuck-open
         if status == "open" and _days_since(str(fm.get("updated", ""))) > 30:
@@ -143,13 +163,13 @@ def run_lint(
             findings.append(LintFinding("stuck-accepted", "warn", slug, "status=accepted with no update in >60 days"))
 
         # 14. archive-eligible
-        if status in TERMINAL_STATUSES and _days_since(str(fm.get("updated", ""))) >= 7:
+        if status in TERMINAL_STATUSES:
             findings.append(
                 LintFinding(
                     "archive-eligible",
                     "info",
                     slug,
-                    f"status={status!r} (terminal) and updated >=7 days ago; consider archiving",
+                    f"status={status!r} (terminal); consider archiving",
                 )
             )
 
@@ -175,6 +195,45 @@ def run_lint(
                     "plan-table-malformed", "warn", slug, "## Plan heading present but no valid markdown table follows"
                 )
             )
+
+        # 20. effort-not-in-enum (presence-gated; legacy free-text efforts degrade to warnings)
+        effort = fm.get("effort")
+        if effort and str(effort) not in VALID_EFFORTS:
+            findings.append(
+                LintFinding("effort-not-in-enum", "warn", slug, f"effort {effort!r} not in {sorted(VALID_EFFORTS)}")
+            )
+
+        # 21. phase-not-in-enum (presence-gated)
+        phase = fm.get("phase")
+        if phase and str(phase) not in VALID_PHASES:
+            findings.append(
+                LintFinding("phase-not-in-enum", "error", slug, f"phase {phase!r} not in {sorted(VALID_PHASES)}")
+            )
+
+        # 22. phase-status-incoherent (warn — humans may hand-edit status)
+        if phase and status in _PHASE_COMPAT and str(phase) not in _PHASE_COMPAT[status]:
+            findings.append(
+                LintFinding(
+                    "phase-status-incoherent",
+                    "warn",
+                    slug,
+                    f"status {status!r} expects phase in {sorted(_PHASE_COMPAT[status])}, got {phase!r}",
+                )
+            )
+
+        # 23. artifact-doc-missing (skipped when workspace_root is None)
+        if workspace_root is not None:
+            for doc_key in ("spec_doc", "plan_doc"):
+                doc = fm.get(doc_key)
+                if doc and not (workspace_root / str(doc)).exists():
+                    findings.append(
+                        LintFinding(
+                            "artifact-doc-missing",
+                            "warn",
+                            slug,
+                            f"{doc_key} {doc!r} does not exist under the workspace",
+                        )
+                    )
 
     # 18. sidecar-missing (global)
     if sidecar is None:

@@ -123,13 +123,8 @@ def test_stuck_accepted_over_60d() -> None:
 
 
 def test_archive_eligible() -> None:
-    findings = run_lint([_item(status="resolved", updated_days_ago=8, resolved_in="pr#1")], None, None)
+    findings = run_lint([_item(status="resolved", updated_days_ago=0, resolved_in="pr#1")], None, None)
     assert "archive-eligible" in _rule_ids(findings)
-
-
-def test_archive_eligible_under_7d_not_flagged() -> None:
-    findings = run_lint([_item(status="resolved", updated_days_ago=5, resolved_in="pr#1")], None, None)
-    assert "archive-eligible" not in _rule_ids(findings)
 
 
 # --- Body shape ---
@@ -178,6 +173,15 @@ def test_sidecar_fresh_not_stale() -> None:
     assert "sidecar-stale" not in _rule_ids(findings)
 
 
+def test_sidecar_stale_tolerates_date_object_updated() -> None:
+    # Unquoted YAML dates parse as datetime.date; rule 19 must not raise on them.
+    item = _item()
+    item["fm"]["updated"] = date.today()
+    sidecar = {"generated_at": "2026-01-01T00:00:00+00:00", "items": []}
+    findings = run_lint([item], None, sidecar)
+    assert "sidecar-stale" in _rule_ids(findings)
+
+
 # --- Finding shape ---
 
 
@@ -187,3 +191,108 @@ def test_lint_finding_has_required_fields() -> None:
     assert f.severity == "error"
     assert f.slug == "test-item"
     assert f.message
+
+
+# --- Workflow rules (20-23) ---
+
+
+def test_effort_not_in_enum_warns() -> None:
+    findings = run_lint([_item(effort="s")], None, None)
+    f = next(f for f in findings if f.rule_id == "effort-not-in-enum")
+    assert f.severity == "warn"
+
+
+def test_effort_valid_ok() -> None:
+    findings = run_lint([_item(effort="xtra-small")], None, None)
+    assert "effort-not-in-enum" not in _rule_ids(findings)
+
+
+def test_effort_absent_ok() -> None:
+    findings = run_lint([_item()], None, None)
+    assert "effort-not-in-enum" not in _rule_ids(findings)
+
+
+def test_phase_not_in_enum_errors() -> None:
+    findings = run_lint([_item(phase="designing")], None, None)
+    f = next(f for f in findings if f.rule_id == "phase-not-in-enum")
+    assert f.severity == "error"
+
+
+def test_phase_valid_ok() -> None:
+    findings = run_lint([_item(phase="design")], None, None)
+    assert "phase-not-in-enum" not in _rule_ids(findings)
+
+
+def test_phase_absent_ok() -> None:
+    findings = run_lint([_item()], None, None)
+    assert "phase-not-in-enum" not in _rule_ids(findings)
+
+
+def test_phase_status_incoherent_accepted_design() -> None:
+    plan = PlanResult(state="ok", rows=[{"action": "x", "done_when": "", "rationale": ""}])
+    findings = run_lint([_item(status="accepted", phase="design", plan=plan)], None, None)
+    f = next(f for f in findings if f.rule_id == "phase-status-incoherent")
+    assert f.severity == "warn"
+
+
+def test_phase_status_coherent_accepted_execute() -> None:
+    plan = PlanResult(state="ok", rows=[{"action": "x", "done_when": "", "rationale": ""}])
+    findings = run_lint([_item(status="accepted", phase="execute", plan=plan)], None, None)
+    assert "phase-status-incoherent" not in _rule_ids(findings)
+
+
+def test_phase_status_open_design_not_in_compat_map() -> None:
+    findings = run_lint([_item(status="open", phase="design")], None, None)
+    assert "phase-status-incoherent" not in _rule_ids(findings)
+
+
+def test_phase_status_in_progress_design_incoherent() -> None:
+    findings = run_lint([_item(status="in-progress", phase="design", owner="pat")], None, None)
+    assert "phase-status-incoherent" in _rule_ids(findings)
+
+
+def test_artifact_doc_missing(tmp_path) -> None:
+    findings = run_lint([_item(spec_doc="raw/specs/test-item.md")], None, None, workspace_root=tmp_path)
+    f = next(f for f in findings if f.rule_id == "artifact-doc-missing")
+    assert f.severity == "warn"
+
+
+def test_artifact_doc_present_ok(tmp_path) -> None:
+    (tmp_path / "raw" / "specs").mkdir(parents=True)
+    (tmp_path / "raw" / "specs" / "test-item.md").write_text("# spec\n")
+    findings = run_lint([_item(spec_doc="raw/specs/test-item.md")], None, None, workspace_root=tmp_path)
+    assert "artifact-doc-missing" not in _rule_ids(findings)
+
+
+def test_artifact_doc_skipped_without_workspace_root() -> None:
+    findings = run_lint([_item(plan_doc="raw/plans/test-item.md")], None, None)
+    assert "artifact-doc-missing" not in _rule_ids(findings)
+
+
+def test_plan_action_target_in_workspace_passes_rule_11(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    workspace = tmp_path / "ws"
+    (workspace / "raw" / "plans").mkdir(parents=True)
+    (workspace / "raw" / "plans" / "test-item.md").write_text("# plan\n")
+    plan = PlanResult(
+        state="ok",
+        rows=[
+            {"action": "Execute implementation plan: raw/plans/test-item.md", "done_when": "merged", "rationale": ""}
+        ],
+    )
+    findings = run_lint([_item(status="accepted", plan=plan)], repo, None, workspace_root=workspace)
+    assert "plan-action-target-missing" not in _rule_ids(findings)
+
+
+def test_plan_action_target_missing_in_both_roots_fails_rule_11(tmp_path) -> None:
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    workspace = tmp_path / "ws"
+    workspace.mkdir()
+    plan = PlanResult(
+        state="ok",
+        rows=[{"action": "Execute implementation plan: raw/plans/nope.md", "done_when": "merged", "rationale": ""}],
+    )
+    findings = run_lint([_item(status="accepted", plan=plan)], repo, None, workspace_root=workspace)
+    assert "plan-action-target-missing" in _rule_ids(findings)

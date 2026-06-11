@@ -28,6 +28,11 @@ def test_parse_unclosed_fence_raises() -> None:
         parse("---\ntitle: foo\n")
 
 
+def test_parse_broken_yaml_raises_value_error() -> None:
+    with pytest.raises(ValueError, match="malformed frontmatter YAML"):
+        parse("---\nbad: [unclosed\n---\n")
+
+
 def test_parse_non_mapping_raises() -> None:
     with pytest.raises(ValueError, match="YAML mapping"):
         parse("---\n- item1\n- item2\n---\n")

@@ -1,6 +1,6 @@
 # Cross-Tool Setup
 
-The Code Wiki plugin is tool-agnostic. The **scripts** are pure Python stdlib and run anywhere. Only the **schema loader file** (the file the tool reads to understand conventions) differs per tool.
+The Graph Wiki plugin is tool-agnostic. The **scripts** are pure Python stdlib and run anywhere. Only the **schema loader file** (the file the tool reads to understand conventions) differs per tool.
 
 ## How different CLIs discover wiki-level instructions
 

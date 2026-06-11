@@ -17,7 +17,10 @@ def parse(text: str) -> tuple[dict, str]:
     body = rest[idx + 4 :]
     if body.startswith("\n"):
         body = body[1:]
-    fm = yaml.safe_load(fm_text) if fm_text else {}
+    try:
+        fm = yaml.safe_load(fm_text) if fm_text else {}
+    except yaml.YAMLError as e:
+        raise ValueError(f"malformed frontmatter YAML: {e}") from e
     if fm is None:
         fm = {}
     if not isinstance(fm, dict):

@@ -50,6 +50,7 @@ from wiki_io.entity_lookup import (
 )
 from wiki_io.ingest_source import (
     PREVIEW_CHARS,
+    RAW_FOLDER_TYPE_MAP,
     RAW_FOLDER_TYPES,
     SOURCE_TYPE_ENUM,
     SkillBundle,
@@ -150,7 +151,7 @@ class IngestResult:
         guidance_pages_written: Type-branched ingest: workspace-relative paths of
                             guidance pages written by the skill branch (empty for
                             all other source types).
-        archived_to:        Workspace-relative raw/_archived/ destination the source
+        archived_to:        Workspace-relative raw/_archive/ destination the source
                             was moved to after a successful ingest; None for sources
                             outside raw/, work items, or when the move failed.
     """
@@ -177,7 +178,7 @@ class IngestResult:
     # updated by the skill branch. Empty list for every other source type.
     guidance_pages_written: list[str] = field(default_factory=list)
     # Raw-source archive (design 2026-06-09): workspace-relative destination the
-    # raw source was moved to (e.g. "raw/_archived/specs/x.md"). None when the
+    # raw source was moved to (e.g. "raw/_archive/specs/x.md"). None when the
     # source was outside raw/, already archived, or the move failed.
     archived_to: str | None = None
 
@@ -1136,7 +1137,7 @@ async def _run_default_branch(
 
     fm, _body = _parse_ingestor_response(llm_output)
     frontmatter_parsed = bool(fm)
-    if path_guess in RAW_FOLDER_TYPES:
+    if path_guess in RAW_FOLDER_TYPE_MAP.values():
         source_type = path_guess
     else:
         llm_value = str(fm.get("source_type", "")).strip().lower()

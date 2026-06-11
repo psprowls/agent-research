@@ -430,7 +430,7 @@ def _emit_file_map_block(
     files: list[str],
     truncated: bool,
     max_depth: int,
-    max_entries: int = 80,
+    max_entries: int = 200,
 ) -> str:
     """Emit a ``## File map - <pkg_name>`` block from the given file list.
 
@@ -527,7 +527,7 @@ def _emit_file_map_block(
 def build_file_maps(
     pkg_path: Path,
     max_depth: int = 4,
-    max_entries: int = 80,
+    max_entries: int = 200,
 ) -> tuple[str, str] | None:
     """Return ``(prod_block, test_block)`` where each is a full markdown
     ``## File map - <name>`` block in the table format.
@@ -590,7 +590,7 @@ def build_file_maps(
     return prod_block, test_block
 
 
-def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) -> str | None:
+def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 200) -> str | None:
     """Return the prod-only ``## File map - <name>`` block. (Legacy single-
     return API; see ``build_file_maps()`` for the paired prod+test output.)
 
@@ -604,7 +604,7 @@ def build_file_map(pkg_path: Path, max_depth: int = 4, max_entries: int = 80) ->
     return fms[0]
 
 
-def build_dir_file_map(path: Path, max_depth: int = 4, max_entries: int = 80) -> str | None:
+def build_dir_file_map(path: Path, max_depth: int = 4, max_entries: int = 200) -> str | None:
     """Return an unpartitioned ``## File map - <root-basename>`` block covering
     ALL tracked files under ``path``.
 
