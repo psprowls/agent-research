@@ -1,7 +1,7 @@
 """Living Wiki M4: scan-time drift producer — propose curated-page updates.
 
 For every entity whose narrative was refreshed since M4 last propagated it, find
-the curated pages (concepts/adrs/architecture) that backlink it and judge whether
+the curated pages (concepts/adrs) that backlink it and judge whether
 their claims have gone stale relative to the entity's current state. Stale
 findings are recorded as `source: drift` notes in the shared proposal ledger
 (``wiki_io.proposals.upsert_proposal``) — propose only, never auto-edit.
