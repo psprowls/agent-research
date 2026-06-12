@@ -89,7 +89,7 @@ Log contradictions in `log.md` with `op: note`.
 
 ### 9. Update concept pages (optional)
 
-If the source meaningfully shifts a high-level synthesis, revise the relevant `concepts/` page (use `kind: architecture` for system-level syntheses, `kind: pattern` for reusable patterns, or omit `kind` for general concepts). Revise the "Thesis" paragraph and append a dated entry under "How this synthesis has changed". Don't rewrite history; append.
+If the source meaningfully shifts a high-level synthesis, revise the relevant `concepts/` page (use `kind: architecture` for system-level syntheses, `kind: pattern` for reusable patterns, or omit `kind` for general concepts). On `kind: architecture` pages, revise the "Thesis" paragraph and append a dated entry under "How this synthesis has changed"; on other concept pages, update the relevant sections in place. Don't rewrite history; append.
 
 ### 10. Update `index.md`
 
