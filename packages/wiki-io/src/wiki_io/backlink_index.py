@@ -75,12 +75,16 @@ def _iter_preserved_pages(wiki: Path):
             for p in sorted(d.rglob("*.md")):
                 if p.name == "index.md":
                     continue
+                if "_archive" in p.relative_to(d).parts:
+                    continue
                 yield folder, p
     # work/ lives under the wiki (wiki-rooted, like every other category).
     work_root = work_dir(wiki.parent)
     if work_root.is_dir():
         for p in sorted(work_root.rglob("*.md")):
             if p.name == "index.md":
+                continue
+            if "_archive" in p.relative_to(work_root).parts:
                 continue
             yield "work", p
 

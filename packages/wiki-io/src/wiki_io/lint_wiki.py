@@ -93,8 +93,8 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             continue
         top = rel.parts[0] if rel.parts else ""
         key = str(rel).replace("\\", "/")[:-3]
-        # work/_archive/ items are valid link targets but excluded from orphan/stale checks
-        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "_archive":
+        # <dir>/_archive/ items are valid link targets but excluded from orphan/stale checks
+        if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
             link_targets.add(key)
             continue
         # Add to link_targets regardless of whether it's an index page
@@ -152,8 +152,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         # filter above already gates this, but keeps both loops parallel).
         if rel.name in SCHEMA_FILENAMES:
             continue
-        top = rel.parts[0] if rel.parts else ""
-        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "_archive":
+        if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
             continue
         idx_key = str(rel).replace("\\", "/")[:-3]
         text = md.read_text(encoding="utf-8", errors="replace")
