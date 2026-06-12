@@ -468,3 +468,44 @@ async def test_run_lint_all_vault_categories_linted(tmp_path) -> None:
     mf = set(result.missing_frontmatter)
     for top in tops:
         assert f"{top}/bad" in mf, f"{top}/bad not flagged (not linted): {mf}"
+
+
+@pytest.mark.asyncio
+async def test_run_lint_excludes_archived_curated_pages_from_orphans_and_stale(tmp_path) -> None:
+    """Archived adrs/concepts/proposals pages are valid wikilink targets but are
+    NOT flagged as orphans or stale by the live lint path (run_lint -> _mechanical_pass).
+    Regression for the work-only `_archive/` guard that left curated archives linted."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    wiki = tmp_path / "wiki"
+    (wiki / "adrs" / "_archive").mkdir(parents=True)
+    (wiki / "concepts" / "_archive").mkdir(parents=True)
+    # Active ADR links to an archived ADR by its archived path.
+    (wiki / "adrs" / "0009-live.md").write_text(
+        "---\ntitle: Live\ncategory: adr\nsummary: x\nupdated: 2026-06-01\n---\n\nSee [[adrs/_archive/0003-old]].\n",
+        encoding="utf-8",
+    )
+    # Archived ADR with an ancient `updated` — would be stale-checked if still linted.
+    (wiki / "adrs" / "_archive" / "0003-old.md").write_text(
+        "---\ntitle: Old\ncategory: adr\nsummary: x\nupdated: 2000-01-01\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+    # Archived concept with no inbound link — would be flagged orphan if still linted.
+    (wiki / "concepts" / "_archive" / "retired.md").write_text(
+        "---\ntitle: Retired\ncategory: concept\nsummary: x\nupdated: 2026-06-01\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        result = await run_lint(workspace_path=tmp_path)
+
+    # Excluded from orphan enumeration (absent from the pages dict).
+    assert "concepts/_archive/retired" not in result.orphans
+    # Excluded from stale enumeration despite the ancient `updated`.
+    assert all("_archive" not in str(p) for p, _ in result.stale)
+    # Still a valid wikilink target → the inbound link is not broken.
+    assert not any("0003-old" in t for _, t in result.broken_links)
