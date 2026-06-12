@@ -19,7 +19,7 @@ Core rules:
 7. Contradictions get `> ⚠️ Contradiction:` callouts on both sides.
 8. Good query answers get filed back into the wiki as new pages.
 
-Page categories: app, package, domain, concept, dependency, work, source, architecture, adr.
+Page categories: app, package, domain, concept, dependency, work, source, adr. Concept pages may carry optional kind: concept | pattern | architecture.
 
 Operations: scan / ingest / query / lint. Full workflows in AGENTS.md.
 

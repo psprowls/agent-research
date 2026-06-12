@@ -9,9 +9,6 @@ _Initialized {{DATE}} • 0 pages_
 > Topic: **{{TOPIC}}**
 > Repo:  **{{REPO_PATH}}**
 
-## Architecture (0)
-_No pages yet. Will appear here as you synthesize the repo's structure._
-
 ## App (0)
 _No pages yet. Run `/graph-wiki:scan` to populate `entities/app_*.md` pages._
 
