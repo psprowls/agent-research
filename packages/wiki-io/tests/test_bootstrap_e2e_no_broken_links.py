@@ -8,7 +8,7 @@ every CI is strictly stronger evidence than a one-time manual capture.
 
 Coverage map for this single test:
   HYGIENE-01 — sub-page wikilinks are prefixed `wiki/<container>/<slug>/...`
-  HYGIENE-02 — `init_wiki` writes `concepts/sources/adrs/architecture` index stubs
+  HYGIENE-02 — `init_wiki` writes `concepts/sources/adrs` index stubs
   HYGIENE-03 — `{{CONTAINER_DIR}}` substitutes correctly for `apps/` and `plugins/`
                (not just `packages/`)
   HYGIENE-06 — `overview.md` (not `<slug>.md`) is the filename containing the

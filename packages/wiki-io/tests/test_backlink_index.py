@@ -189,3 +189,19 @@ def test_guidance_page_applies_to_produces_entity_backlink(tmp_path):
     body = (wiki / "entities" / "pkg_graph-io.md").read_text(encoding="utf-8")
     # The bullet must carry the topic-qualified slug so the link resolves.
     assert "[[guidance/react-native/use-virtualizer]]" in body
+
+
+def test_folded_architecture_concept_page_contributes_backlinks(tmp_path):
+    """A concepts/ page with kind: architecture (folded from architecture/)
+    contributes backlinks exactly like a plain concept page."""
+    from wiki_io.backlink_index import build_entity_backlink_map
+
+    wiki = tmp_path / "wiki"
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "concepts" / "project-overview.md").write_text(
+        "---\ntitle: Project Overview\ncategory: concept\nkind: architecture\n---\n\n"
+        "Built around [[entities/pkg_alpha]].\n",
+        encoding="utf-8",
+    )
+    refs = build_entity_backlink_map(wiki)
+    assert ("concepts", "project-overview", wiki / "concepts" / "project-overview.md") in refs["pkg_alpha"]

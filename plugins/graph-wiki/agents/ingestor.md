@@ -1,6 +1,6 @@
 ---
 name: ingestor
-description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which code entities and concepts will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, links the relevant code entities via [[entities/...]] wikilinks (the scanner derives backlinks), and updates concept/ADR pages, regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
+description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which code entities and concepts will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, links the relevant code entities via [[entities/...]] wikilinks (the scanner derives backlinks), and updates concept/ADR pages (choosing the appropriate concept kind), regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
 skills: [graph-wiki]
 domain: engineering
 model: opus
@@ -12,7 +12,7 @@ context: fork
 
 ## Role
 
-You integrate a new source (spec, PR, article, ticket, transcript) into the `<workspace>/wiki/` layer — writing a source summary, linking the relevant code entities via `[[entities/...]]` wikilinks, and updating concept/architecture/ADR pages — never editing entity pages (the scanner owns them); proposing ADRs for decisions; flagging contradictions with the code; updating the index and log. Spawned per-ingest.
+You integrate a new source (spec, PR, article, ticket, transcript) into the `<workspace>/wiki/` layer — writing a source summary, linking the relevant code entities via `[[entities/...]]` wikilinks, and updating concept/ADR pages — never editing entity pages (the scanner owns them); proposing ADRs for decisions; flagging contradictions with the code; updating the index and log. Spawned per-ingest.
 
 ## Inputs
 
@@ -37,12 +37,12 @@ Follow the normal workflow below with these deltas:
   - your source page under `wiki/sources/` (steps 4/4a as normal)
   - for skill units: the guidance pages + the `## Generates` source page (step 4a)
   - `[[entities/...]]` wikilinks under `## Touches` on YOUR source page (step 5)
-- **Do NOT touch** `concepts/`, `adrs/`, `architecture/`, `proposals/`,
+- **Do NOT touch** `concepts/`, `adrs/`, `proposals/`,
   `index.md`, `log.md`, `guidance/index.md`, or any `guidance/<topic>/index.md`,
   and do NOT archive your unit (step 12). The orchestrator does all of that in
   a serial commit phase after the workers return.
 - **New curated pages become report entries, not pages.** For every
-  concept/ADR/architecture page you would have created (steps 6, 7, 9), emit a
+  concept/ADR page you would have created (steps 6, 7, 9), emit a
   `proposals[]` entry instead.
 - **Updates to existing curated pages are reported, not applied.** Emit
   `existing_page_updates[]` entries with the exact edit (steps 6, 8, 9 against
@@ -69,7 +69,7 @@ malformed report marks your unit failed:
   "entity_links": ["entities/<prefix>_<name>"],
   "proposals": [
     {
-      "kind": "concept | adr | architecture",
+      "kind": "concept | adr",
       "target_slug": "<kebab-slug>",
       "title": "<proposed page title>",
       "rationale": "<one-line why this page should exist>",
@@ -110,7 +110,7 @@ Before writing:
 - **Any contradictions** — with other wiki pages OR with current code (spot-check the files the source mentions)
 - Whether this source captures a decision worth an ADR
 - **New pages** — REQUIRED enumeration: every NEW page this ingest would create
-  (concept stubs, ADRs, architecture pages), one bullet each, e.g.
+  (concept stubs, ADRs), one bullet each, e.g.
   `- NEW concepts/<slug>.md — <one-line justification>`. If none, state
   "New pages: none." Your single confirmation covers exactly this list — never
   create a page that was not enumerated.
@@ -122,7 +122,7 @@ declined page to the proposals ledger instead:
 
 ```bash
 uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/file_proposal.py \
-  --kind <concept|adr|architecture> --target-slug <slug> --title "<title>" \
+  --kind <concept|adr> --target-slug <slug> --title "<title>" \
   --ref "sources/<YYYY-MM>-<slug>" --rationale "<why>" --evidence "<claim>" [--evidence "<claim>" ...]
 ```
 
@@ -167,8 +167,8 @@ Two kinds:
 - **Vault↔vault** — add `> ⚠️ Contradiction:` callouts to both pages
 - **Vault↔code** — note the code path and the conflicting vault claim
 
-### 9. Update architecture pages (optional)
-If the source shifts an architecture thesis, revise and append to `## How this synthesis has changed`.
+### 9. Update concept pages (optional)
+If the source shifts a high-level synthesis, revise the relevant concept page (choose `kind: architecture` for system-level syntheses; `kind: pattern` for reusable patterns; `kind: concept` or omit `kind` for general cross-cutting ideas) and append a dated entry under `## How this synthesis has changed`.
 
 ### 10. Update index
 If you edited wiki pages manually, update the relevant `index.md` category sections inline. Command-layer ingest/scan flows update indexes automatically.
@@ -203,7 +203,7 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 - **Minimum 3 file touches per ingest** (source summary + index + log). In batch
   mode this still holds per unit, split between you (source page) and the
   orchestrator's commit phase (index + log).
-- **Cite aggressively.** Every claim on a concept/architecture page links to a source page or a code path.
+- **Cite aggressively.** Every claim on a concept page links to a source page or a code path.
 - **Entity pages are scanner-owned.** Add `[[entities/...]]` wikilinks under `## Touches` on the source page; never edit files under `entities/`.
 - **Flag contradictions** on both sides.
 - **Propose ADRs** for captured decisions — don't just bury them in a source summary.

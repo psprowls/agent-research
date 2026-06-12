@@ -33,7 +33,7 @@ _EMPTY_BODY = "_No wiki pages reference this entity yet._"
 
 # Preserved categories (folder name -> category label used in the bullet link).
 # `work` lives at <workspace>/work (sibling of wiki); handled separately.
-_PRESERVED_WIKI_DIRS = ("sources", "concepts", "adrs", "architecture", "guidance")
+_PRESERVED_WIKI_DIRS = ("sources", "concepts", "adrs", "guidance")
 
 
 def inject_referenced_in_wiki(page_path: Path, body: str) -> None:

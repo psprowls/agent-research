@@ -434,3 +434,37 @@ def test_refire_same_entity_updates_origin_in_place(ws, conn, monkeypatch):
     assert len(rec["origins"]) == 1  # merged in place by ref
     assert rec["origins"][0]["detected_commit"] == "h3"
     assert rec["origins"][0]["rationale"] == "r2"
+
+
+# --- architecture-fold tests (Task 10) -------------------------------------
+
+
+def test_folded_architecture_concept_page_targets_as_concept(tmp_path):
+    """A concepts/ page carrying kind: architecture frontmatter behaves
+    identically to a plain concept page: ledger kind 'concept'."""
+    from graph_wiki_core.commands.propagate_drift import PropagationCandidate, _build_targets
+
+    page = tmp_path / "wiki" / "concepts" / "project-overview.md"
+    page.parent.mkdir(parents=True)
+    page.write_text(
+        "---\ntitle: Project Overview\ncategory: concept\nkind: architecture\n---\nbody\n",
+        encoding="utf-8",
+    )
+    cand = PropagationCandidate(
+        uri="pkg:org/repo/alpha",
+        page_path=tmp_path / "wiki" / "entities" / "pkg_alpha.md",
+        stem="pkg_alpha",
+        narrative="n",
+        last_updated_commit="abc1234",
+        drift_propagated_commit=None,
+        changed_files=["a.py"],
+    )
+    backlink_map = {"pkg_alpha": [("concepts", "project-overview", page)]}
+    targets = _build_targets([cand], backlink_map)
+    assert targets[page]["kind"] == "concept"
+
+
+def test_architecture_category_no_longer_a_drift_target(tmp_path):
+    from graph_wiki_core.commands.propagate_drift import _CATEGORY_TO_KIND
+
+    assert _CATEGORY_TO_KIND == {"concepts": "concept", "adrs": "adr"}

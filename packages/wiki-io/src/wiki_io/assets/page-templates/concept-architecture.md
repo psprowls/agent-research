@@ -1,6 +1,7 @@
 ---
 title: <Topic>
-category: architecture
+category: concept
+kind: architecture
 summary: <one-line thesis>
 packages: []
 tags: [architecture]

@@ -77,7 +77,7 @@ For each flagged stale page, ask:
 
 ### D. Concepts mentioned without their own page
 
-Grep for concept-shaped phrases repeated across 3+ package/domain/architecture pages but without a dedicated concept page. Suggest creating one. Comparisons (`<a>-vs-<b>.md`) live under `concepts/`.
+Grep for concept-shaped phrases repeated across 3+ package/domain/concept pages but without a dedicated concept page. Suggest creating one. Comparisons (`<a>-vs-<b>.md`) live under `concepts/`.
 
 ### E. ADR chain health
 

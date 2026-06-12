@@ -33,7 +33,7 @@ def test_init_wiki_titles_claude_md_with_topic(tmp_path: Path, monkeypatch: pyte
 
 
 def test_init_wiki_creates_section_index_stubs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """init_wiki seeds stub index.md files in concepts/sources/adrs/architecture
+    """init_wiki seeds stub index.md files in concepts/sources/adrs
     and preserves them across a re-init with force=True."""
     from wiki_io import init_vault
 
@@ -51,7 +51,6 @@ def test_init_wiki_creates_section_index_stubs(tmp_path: Path, monkeypatch: pyte
         "concepts": "Concept",
         "sources": "Source",
         "adrs": "ADR",
-        "architecture": "Architecture",
     }
     for section, label in expected.items():
         stub = wiki / section / "index.md"
@@ -133,8 +132,8 @@ def test_dependencies_not_in_fixed_vault_dirs() -> None:
 
 
 def test_legacy_container_folders_not_created_by_bootstrap(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """IQP: init_wiki must NOT materialize legacy container folders (apps/packages/domains/dependencies).
-    Canonical FIXED_VAULT_DIRS (entities, concepts, architecture, adrs, sources, .templates)
+    """IQP: init_wiki must NOT materialize legacy container folders (apps/packages/domains/dependencies/architecture).
+    Canonical FIXED_VAULT_DIRS (entities, concepts, adrs, sources, .templates)
     must still be created.
     """
     from wiki_io import init_vault
@@ -154,11 +153,11 @@ def test_legacy_container_folders_not_created_by_bootstrap(tmp_path: Path, monke
     assert not (wiki / "apps").exists(), "apps/ must not be created (container vault_dirs not materialized)"
     assert not (wiki / "packages").exists(), "packages/ must not be created (container vault_dirs not materialized)"
     assert not (wiki / "domains").exists(), "domains/ must not be created (container vault_dirs not materialized)"
+    assert not (wiki / "architecture").exists(), "architecture/ must NOT be created (folded into concepts/)"
 
     # Canonical dirs must still exist
     assert (wiki / "entities").is_dir(), "entities/ must be created"
     assert (wiki / "concepts").is_dir(), "concepts/ must be created"
-    assert (wiki / "architecture").is_dir(), "architecture/ must be created"
     assert (wiki / "adrs").is_dir(), "adrs/ must be created"
     assert (wiki / "sources").is_dir(), "sources/ must be created"
     assert (wiki / ".templates").is_dir(), ".templates/ must be created"

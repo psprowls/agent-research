@@ -1,7 +1,7 @@
 """Living Wiki M4: scan-time drift producer — propose curated-page updates.
 
 For every entity whose narrative was refreshed since M4 last propagated it, find
-the curated pages (concepts/adrs/architecture) that backlink it and judge whether
+the curated pages (concepts/adrs) that backlink it and judge whether
 their claims have gone stale relative to the entity's current state. Stale
 findings are recorded as `source: drift` notes in the shared proposal ledger
 (``wiki_io.proposals.upsert_proposal``) — propose only, never auto-edit.
@@ -68,7 +68,9 @@ DRIFT_PROPAGATED_COMMIT_KEY = "drift_propagated_commit"
 
 # Curated categories M4 proposes against, folder -> ledger kind. `sources`
 # (M3-refreshed) and `work` (transient) are deliberately excluded (§3.2).
-_CATEGORY_TO_KIND = {"concepts": "concept", "adrs": "adr", "architecture": "architecture"}
+# Drift keys on directory: folded `kind: architecture` pages that live under
+# `concepts/` are covered by the "concepts" entry and judged as concepts.
+_CATEGORY_TO_KIND = {"concepts": "concept", "adrs": "adr"}
 
 # Candidate kinds carry a node_path -> git change signal; mirrors
 # scan._commit_dirty_changes / DRIFT_TARGET_KINDS.

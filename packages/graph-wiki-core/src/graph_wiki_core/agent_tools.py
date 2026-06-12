@@ -10,7 +10,7 @@ from langchain_core.tools import BaseTool
 from wiki_io.proposals import read_proposal
 from wiki_io.update_index import parse_frontmatter
 
-CURATED_CATALOG_BUCKETS = ("concepts", "adrs", "architecture", "sources")
+CURATED_CATALOG_BUCKETS = ("concepts", "adrs", "sources")
 DEFAULT_EXCERPT_CHARS = 500
 
 

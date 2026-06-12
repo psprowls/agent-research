@@ -12,9 +12,8 @@ The flow the LLM follows when the user runs `/graph-wiki:query <question>` or di
 
 The index is the catalog. Scan it and pick the 3-10 pages most likely to contain the answer. A good monorepo query usually pulls across categories:
 
-- `architecture/` for the big picture
-- `entities/` for specific package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
-- `concepts/` for cross-cutting patterns
+- `concepts/` — for cross-cutting patterns and high-level syntheses; filter by `kind: architecture` for big-picture questions, `kind: pattern` for reusable patterns
+- `entities/` — for specific package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
 - `entities/dep_*` for "how do we use X library" questions
 - `work/` for "why does X fail / what's planned / what's in progress"
 - `adrs/` for "why did we do it this way"
@@ -53,16 +52,18 @@ Format:
 **Every good answer is a candidate wiki page.** At the end of the answer, ask:
 
 > _Should I file this as a new page? Suggested location:
-> `<workspace>/wiki/concepts/<slug>.md` or `<workspace>/wiki/architecture/<slug>.md` — or I can append to [[existing-page]]._
+> `<workspace>/wiki/concepts/<slug>.md` — pick the kind: `architecture` for system-level syntheses, `pattern` for reusable patterns, or omit for general concepts. Or I can append to [[existing-page]]._
 
 If yes:
-- Pick the right category:
-  - "how does X work" → `concepts/` or `architecture/`
+- Pick the right category and kind:
+  - "how does X work" (big picture) → `concepts/<slug>.md` with `kind: architecture`
+  - "how does X work" (pattern) → `concepts/<slug>.md` with `kind: pattern`
+  - "how does X work" (general) → `concepts/<slug>.md` (no `kind`)
   - "A vs B" → `concepts/<a>-vs-<b>.md`
   - "why did we decide X" → `adrs/` (only if it's capturing a real past decision)
   - "what's planned for X / why does X fail / workaround for Y" → `work/` (`kind:` discriminates)
-- Use the appropriate template
-- Add frontmatter with `category`, `summary`, `updated`
+- Use the appropriate template (`concept-architecture.md`, `concept-pattern.md`, or `concept.md`)
+- Add frontmatter with `category`, `summary`, `updated` (and `kind` if applicable)
 - Update `<workspace>/wiki/index.md`
 - Append a `## [YYYY-MM-DD] create | <question>` entry to `log.md` with the filed response path.
 

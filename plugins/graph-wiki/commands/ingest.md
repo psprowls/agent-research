@@ -29,7 +29,7 @@ The script guesses the source type from the raw/ subdirectory. Supported:
 
 | Path | Source type | Typical touches |
 |---|---|---|
-| `raw/specs/` | `spec` | `[[entities/...]]` links + architecture/ADR pages |
+| `raw/specs/` | `spec` | `[[entities/...]]` links + concept pages (`kind: architecture`) / ADR pages |
 | `raw/articles/` | `article` | Concept/dependency pages |
 | `raw/prs/` | `pr` | `[[entities/...]]` links for every package modified |
 | `raw/tickets/` | `ticket` | Source summary; light `[[entities/...]]` touches |
@@ -51,7 +51,7 @@ workspace, not the repo cwd).
 
 1. **Detect + one confirm** — run the prep script. If `unit_count` is 0: report
    "nothing to ingest" and stop. Otherwise show the unit list and ask ONCE:
-   _"raw/<kind>: N units. Will ingest all; NEW concept/ADR/architecture pages
+   _"raw/<kind>: N units. Will ingest all; NEW concept/ADR pages
    become proposals in `wiki/proposals/`, not real pages. Proceed?"_ After the
    go-ahead, run autonomously — no further questions.
 2. **Fan out** — dispatch one `ingestor` sub-agent per unit, **at most 4

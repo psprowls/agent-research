@@ -20,7 +20,7 @@ Obsidian opens at the **wiki root** (`<workspace>/wiki/`) — this directory *is
     ├── CLAUDE.md             → this file
     ├── index.md / log.md     → content catalog + append-only timeline
     ├── entities/             → one page per code-graph entity (written by scan)
-    ├── concepts/ sources/ architecture/ adrs/   → curated pages
+    ├── concepts/ sources/ adrs/   → curated pages
     └── work/                 → work-item tracker (under the wiki, so [[work/<slug>]] resolves)
 ```
 
@@ -35,9 +35,8 @@ entities/                 → one page per code-graph entity, written by scan:
                             repository / domain / package / app / agent_plugin /
                             dependency / test_suite. Filenames are slugs like
                             `pkg_<name>`, `dep_<name>`, `domain_<name>`.
-concepts/                 → cross-cutting technical concepts
+concepts/                 → cross-cutting technical concepts; optional kind: concept | pattern | architecture
 sources/                  → one summary per ingested source (cites files in ../raw/)
-architecture/             → high-level syntheses
 adrs/                     → architecture decision records
 work/                     → unified bug / tech-debt / feature / initiative / spike tracker
 guidance/                 → ingested skill content for injection 
@@ -51,7 +50,7 @@ Work items live under the wiki at `work/`. Reference them from any page with `[[
 ```yaml
 ---
 title: <Title>
-category: app | package | domain | concept | dependency | work | source | architecture | adr | index
+category: app | package | domain | concept | dependency | work | source | adr | index
 summary: <one-line summary>
 tags: [tag1, tag2]
 updated: YYYY-MM-DD
@@ -89,12 +88,12 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 ### Query (`/graph-wiki:query <question>`)
 
 1. Read `index.md` first
-2. Pick 3-10 relevant pages across categories (architecture + packages + concepts + sources + adrs)
+2. Pick 3-10 relevant pages across categories (concepts + packages + sources + adrs)
 3. Read them in full
 4. Follow wikilinks opportunistically
 5. Fall back to `wiki_search.py --query <terms>` or read code directly if the wiki doesn't cover it
 6. Synthesize: direct answer → supporting detail → inline `[[wikilinks]]` + `` `code-paths:line` `` → "Related pages" section
-7. **Offer to file the answer back** as a new page (concept/architecture/adr — comparisons live as `concepts/<a>-vs-<b>.md`)
+7. **Offer to file the answer back** as a new page (concept/adr — architecture syntheses use `kind: architecture` in `concepts/`; comparisons live as `concepts/<a>-vs-<b>.md`)
 
 ### Lint (`/graph-wiki:lint`)
 

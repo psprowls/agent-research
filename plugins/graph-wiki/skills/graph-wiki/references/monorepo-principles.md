@@ -51,7 +51,7 @@ The generic [wiki](../../wiki) pattern (entities/concepts/sources/synthesis/comp
 | `entities/` (people, orgs, places) | `entities/` (one graph-derived page per admitted entity kind: repository, domain, package, app, agent_plugin, dependency, test_suite) |
 | `concepts/` | `concepts/` (cross-cutting patterns; `<a>-vs-<b>.md` comparisons live here) |
 | `sources/` | Same, but source types are: spec, PR, ticket, article, transcript, RFC |
-| `synthesis/` | `architecture/` |
+| `synthesis/` | `concepts/` (with `kind: architecture`) |
 | *(none)* | `entities/dep_*` — one graph-derived page per dependency (`kind: package | service`) |
 | *(none)* | `adrs/` — dated, citable decisions |
 | Index-first retrieval | Same, plus **code-drift detection** (entities on disk vs. in wiki) |

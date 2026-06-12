@@ -454,7 +454,7 @@ async def test_run_lint_all_vault_categories_linted(tmp_path) -> None:
     from subagent_runtime.pool import FanOutResult
 
     wiki = tmp_path / "wiki"
-    tops = ["concepts", "adrs", "architecture", "sources", "entities", "proposals", "work"]
+    tops = ["concepts", "adrs", "sources", "entities", "proposals", "work"]
     for top in tops:
         (wiki / top).mkdir(parents=True)
         (wiki / top / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")

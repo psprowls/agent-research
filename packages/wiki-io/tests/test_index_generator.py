@@ -30,6 +30,7 @@ from wiki_io.index_generator import (
     _consumer_pkgs_in_domain,
     _place_entities,
     _render,
+    _render_concepts_section,
     _render_guidance_section,
     _scan_curated_lane,
     _scan_guidance_topics,
@@ -90,11 +91,11 @@ class TestIndexWriteResult:
     def test_module_constants(self):
         # Phase 57 D-03/D-08: flat By-Kind groups are app/package/agent_plugin only.
         assert BY_KIND_ORDER == ("app", "package", "agent_plugin")
-        assert len(CURATED_LANES) == 4
-        assert CURATED_LANES[0] == ("architecture", "architecture", "Architecture")
-        assert CURATED_LANES[1] == ("adrs", "adrs", "ADRs")
-        assert CURATED_LANES[2] == ("concepts", "concepts", "Concepts")
-        assert CURATED_LANES[3] == ("sources", "sources", "Sources")
+        assert len(CURATED_LANES) == 3
+        assert CURATED_LANES[0] == ("adrs", "adrs", "ADRs")
+        assert CURATED_LANES[1] == ("concepts", "concepts", "Concepts")
+        assert CURATED_LANES[2] == ("sources", "sources", "Sources")
+        assert "architecture/index.md" not in GENERATED_FILES
         assert KIND_LABELS["app"] == "Apps"
         assert KIND_LABELS["package"] == "Packages"
         assert KIND_LABELS["agent_plugin"] == "Agent Plugins"
@@ -1379,3 +1380,38 @@ class TestGuidanceSection:
         from wiki_io.index_generator import GENERATED_FILES
 
         assert "guidance/index.md" in GENERATED_FILES
+
+
+# ============================================================================
+# _render_concepts_section — kind grouping
+# ============================================================================
+
+
+class TestRenderConceptsSection:
+    @staticmethod
+    def _entry(title, kind=""):
+        return {"path": f"concepts/{title.lower()}.md", "title": title, "summary": "", "kind": kind}
+
+    def test_mixed_kinds_grouped_in_fixed_order(self):
+        lines = _render_concepts_section(
+            [self._entry("Auth"), self._entry("Overview", "architecture"), self._entry("Retry", "pattern")]
+        )
+        text = "\n".join(lines)
+        a, p, c = text.index("### Architecture"), text.index("### Patterns"), text.index("### Concepts")
+        assert text.startswith("## Concepts")
+        assert a < p < c
+
+    def test_unknown_kind_falls_back_to_concepts_group(self):
+        lines = _render_concepts_section([self._entry("Weird", "bogus"), self._entry("Overview", "architecture")])
+        text = "\n".join(lines)
+        assert "### Concepts" in text
+        assert text.index("Weird") > text.index("### Concepts")
+
+    def test_all_default_renders_flat(self):
+        lines = _render_concepts_section([self._entry("Auth"), self._entry("Cache")])
+        text = "\n".join(lines)
+        assert "### " not in text
+        assert text.startswith("## Concepts")
+
+    def test_empty_returns_nothing(self):
+        assert _render_concepts_section([]) == []

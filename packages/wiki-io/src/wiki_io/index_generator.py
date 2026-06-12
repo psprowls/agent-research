@@ -55,6 +55,7 @@ from graph_io.queries import (
 )
 from workspace_io.paths import wiki_dir, work_dir
 
+from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_GROUP_LABELS, KIND_GROUP_ORDER, kind_group
 from wiki_io.entity_writer import (
     ADMITTED_KINDS as _ADMITTED_KINDS,
 )
@@ -101,9 +102,9 @@ KIND_LABELS: dict[str, str] = {
 # (stable_id, lane_dir_relative_to_wiki_root, section_label)
 # Note: CONTEXT.md D-12's example showed `"wiki/architecture"`, but `wiki_root`
 # IS the wiki directory, so the lane_dir is the BARE lane name to avoid
-# double-prefixing. The decision intent (4 lanes, this order) is preserved.
+# double-prefixing. 3 lanes (architecture folded into concepts via `kind:`
+# frontmatter — pages with `kind: architecture` render under a sub-group).
 CURATED_LANES: tuple[tuple[str, str, str], ...] = (
-    ("architecture", "architecture", "Architecture"),
     ("adrs", "adrs", "ADRs"),
     ("concepts", "concepts", "Concepts"),
     ("sources", "sources", "Sources"),
@@ -116,7 +117,6 @@ GENERATED_FILES: frozenset[str] = frozenset(
         "concepts/index.md",
         "adrs/index.md",
         "sources/index.md",
-        "architecture/index.md",
         # Documentation value: guidance/<topic>/index.md paths are dynamic and
         # rely on the rel.name check in _scan_curated_lane / scan_vault.
         "guidance/index.md",
@@ -473,6 +473,7 @@ def _scan_curated_lane(wiki_root: Path, lane_dir_rel: str) -> list[dict[str, str
                 "path": rel_str,
                 "title": _infer_title(md, fm),
                 "summary": fm.get("summary", ""),
+                "kind": fm.get("kind", ""),
             }
         )
     entries.sort(key=lambda e: e["title"].lower())
@@ -809,6 +810,33 @@ def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
     return lines
 
 
+def _render_concepts_section(entries: list[dict]) -> list[str]:
+    """Render the Concepts lane grouped by effective kind.
+
+    Sub-headings (Architecture / Patterns / Concepts, fixed order, empty
+    groups omitted) appear only when at least one page has a non-default
+    kind group; an all-default lane renders flat, byte-identical to the old
+    shape. Unknown kinds fold into the default group — never dropped.
+    """
+    if not entries:
+        return []
+    if all(kind_group({"kind": e.get("kind")}) == DEFAULT_CONCEPT_KIND for e in entries):
+        return _render_curated_section("Concepts", entries)
+    lines = ["## Concepts", ""]
+    for kind in KIND_GROUP_ORDER:
+        group = [e for e in entries if kind_group({"kind": e.get("kind")}) == kind]
+        if not group:
+            continue
+        lines.append(f"### {KIND_GROUP_LABELS[kind]}")
+        lines.append("")
+        for e in group:
+            link = vault_wikilink(e["path"], e["title"])
+            summary = f" — {e['summary']}" if e.get("summary") else ""
+            lines.append(f"- {link}{summary}")
+        lines.append("")
+    return lines
+
+
 def _render_guidance_section(topics: list[tuple[str, int]]) -> list[str]:
     """Render the navigational `## Guidance` section (omitted when empty).
 
@@ -890,7 +918,10 @@ def _render(
     lines.extend(by_kind_lines)
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:
-        lines.extend(_render_curated_section(section_label, curated_entries_by_lane[stable_id]))
+        if stable_id == "concepts":
+            lines.extend(_render_concepts_section(curated_entries_by_lane[stable_id]))
+        else:
+            lines.extend(_render_curated_section(section_label, curated_entries_by_lane[stable_id]))
     lines.extend(_render_guidance_section(_scan_guidance_topics(wiki_root)))
     lines.extend(_render_curated_section("Work", work_entries))
 
@@ -961,6 +992,7 @@ __all__ = [
     "_read_entity_summary",
     "_render",
     "_render_by_kind",
+    "_render_concepts_section",
     "_render_curated_section",
     "_render_domain_section",
     "_render_domains",

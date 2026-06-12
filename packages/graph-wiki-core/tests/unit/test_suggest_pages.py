@@ -93,6 +93,7 @@ def test_parse_extractor_response_unparseable_returns_false() -> None:
 
 
 def test_parse_extractor_response_drops_invalid_kind_and_normalizes() -> None:
+    # `architecture` is now an invalid top-level kind — dropped alongside `package`.
     raw = (
         "suggestions:\n"
         "  - kind: package\n"  # invalid kind -> dropped
@@ -100,18 +101,34 @@ def test_parse_extractor_response_drops_invalid_kind_and_normalizes() -> None:
         "    slug: bad\n"
         "    mode: create_new\n"
         "    rationale: r\n"
-        "  - kind: architecture\n"
+        "  - kind: architecture\n"  # invalid top-level kind -> dropped
         "    title: Good\n"
-        "    slug: 'Good Slug!'\n"  # slugified
-        "    mode: bogus\n"  # invalid mode -> create_new
+        "    slug: 'Good Slug!'\n"
+        "    mode: bogus\n"
         "    rationale: r2\n"
     )
     entries, parsed = parse_extractor_response(raw)
     assert parsed is True
-    assert [e["kind"] for e in entries] == ["architecture"]
-    assert entries[0]["slug"] == "good-slug"
-    assert entries[0]["mode"] == "create_new"
-    assert SUGGESTION_KINDS == frozenset({"concept", "adr", "architecture"})
+    assert entries == []
+    assert SUGGESTION_KINDS == frozenset({"concept", "adr"})
+
+
+def test_parse_extractor_response_concept_kind_architecture_is_valid() -> None:
+    # `kind: concept` + `concept_kind: architecture` IS valid.
+    raw = (
+        "suggestions:\n"
+        "  - kind: concept\n"
+        "    title: Layer Architecture\n"
+        "    slug: layer-architecture\n"
+        "    mode: create_new\n"
+        "    concept_kind: architecture\n"
+        "    rationale: cross-cutting synthesis\n"
+    )
+    entries, parsed = parse_extractor_response(raw)
+    assert parsed is True
+    assert len(entries) == 1
+    assert entries[0]["kind"] == "concept"
+    assert entries[0]["concept_kind"] == "architecture"
 
 
 def test_parse_extractor_response_defaults_infinite_rank() -> None:
@@ -176,7 +193,6 @@ def test_build_curated_vault_index_lists_existing_pages(tmp_path):
     wiki = tmp_path / "wiki"
     (wiki / "concepts").mkdir(parents=True)
     (wiki / "adrs").mkdir(parents=True)
-    (wiki / "architecture").mkdir(parents=True)
     (wiki / "sources").mkdir(parents=True)  # must be ignored
 
     (wiki / "concepts" / "ownership.md").write_text(
@@ -187,8 +203,9 @@ def test_build_curated_vault_index_lists_existing_pages(tmp_path):
         "---\ntitle: 'ADR-0007: Markdown'\ncategory: adr\nsummary: md stays\n---\n# x",
         encoding="utf-8",
     )
-    (wiki / "architecture" / "layers.md").write_text(
-        "---\ntitle: Layers\nsummary: bottom to top\n---\n# x",
+    # architecture pages now live under concepts/ with kind: architecture frontmatter
+    (wiki / "concepts" / "layers.md").write_text(
+        "---\ntitle: Layers\nkind: architecture\nsummary: bottom to top\n---\n# x",
         encoding="utf-8",
     )
     (wiki / "sources" / "spec.md").write_text("---\ntitle: A Spec\n---\n# x", encoding="utf-8")
@@ -201,7 +218,8 @@ def test_build_curated_vault_index_lists_existing_pages(tmp_path):
     assert by_slug["ownership"]["title"] == "Ownership Model"
     assert by_slug["ownership"]["summary"] == "who owns what"
     assert by_slug["0007-md"]["kind"] == "adr"
-    assert by_slug["layers"]["kind"] == "architecture"
+    # layers lives in concepts/ so its kind is "concept" (dir-derived)
+    assert by_slug["layers"]["kind"] == "concept"
     # sources/ is not curated -> excluded
     assert "spec" not in by_slug
 
@@ -351,3 +369,20 @@ async def test_run_suggest_phase_parse_miss_writes_zero_notes(tmp_path):
     assert status["reasoner"] == "ok"
     assert status["extractor"] == "failed"
     assert status["error"] == "extractor output did not parse"
+
+
+def test_validate_proposal_concept_kind_default_and_validation():
+    from graph_wiki_core.commands.suggest_pages import _validate_proposal
+
+    base = {"kind": "concept", "title": "T", "slug": "t", "rank": 1}
+    assert _validate_proposal(dict(base, concept_kind="architecture"))["concept_kind"] == "architecture"
+    assert _validate_proposal(dict(base, concept_kind="bogus"))["concept_kind"] == "concept"
+    assert _validate_proposal(base)["concept_kind"] == "concept"
+    adr = _validate_proposal({"kind": "adr", "title": "T", "slug": "t", "rank": 1})
+    assert "concept_kind" not in adr
+
+
+def test_validate_proposal_drops_architecture_kind():
+    from graph_wiki_core.commands.suggest_pages import _validate_proposal
+
+    assert _validate_proposal({"kind": "architecture", "title": "T", "slug": "t"}) is None

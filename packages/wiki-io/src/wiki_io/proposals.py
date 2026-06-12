@@ -29,11 +29,13 @@ from pathlib import Path
 import frontmatter
 import yaml
 
-SUGGESTION_KINDS = frozenset({"concept", "adr", "architecture"})
+from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_TEMPLATES
+
+SUGGESTION_KINDS = frozenset({"concept", "adr"})
 HUMAN_DECIDED = frozenset({"approved", "rejected", "created"})
 
 # Fixed key order so yaml.safe_dump(..., sort_keys=False) is deterministic.
-_RECORD_KEY_ORDER = ("kind", "mode", "target_slug", "title", "status", "rank", "confidence", "origins")
+_RECORD_KEY_ORDER = ("kind", "concept_kind", "mode", "target_slug", "title", "status", "rank", "confidence", "origins")
 # `detected_commit`/`hash` are M4-reserved (the ingest producer never sets them).
 _ORIGIN_KEY_ORDER = (
     "ref",
@@ -73,8 +75,8 @@ def proposal_path(wiki: Path, kind: str, target_slug: str) -> Path:
 def split_proposal_id(proposal_id: str) -> tuple[str, str]:
     """Split a `<kind>-<target_slug>` id into (kind, target_slug).
 
-    Kinds are distinct prefixes (`concept-`, `adr-`, `architecture-`), so the
-    first matching prefix wins. Raises ValueError on an unknown kind.
+    Kinds are distinct prefixes (`concept-`, `adr-`), so the first matching
+    prefix wins. Raises ValueError on an unknown kind.
     """
     for kind in SUGGESTION_KINDS:
         prefix = f"{kind}-"
@@ -102,9 +104,14 @@ def _suggested_action(record: dict) -> str:
     kind = record["kind"]
     target = record["target_slug"]
     mode = record.get("mode", "create_new")
-    dirname = {"concept": "concepts", "adr": "adrs", "architecture": "architecture"}[kind]
+    dirname = {"concept": "concepts", "adr": "adrs"}[kind]
     verb = "Update existing" if mode == "update_existing" else "Create new"
-    return f"{verb} {kind} page `{dirname}/{target}.md`."
+    action = f"{verb} {kind} page `{dirname}/{target}.md`."
+    if kind == "concept":
+        ck = str(record.get("concept_kind") or DEFAULT_CONCEPT_KIND)
+        if ck != DEFAULT_CONCEPT_KIND and ck in KIND_TEMPLATES:
+            action += f" Stamp `kind: {ck}` in its frontmatter (template `.templates/{KIND_TEMPLATES[ck]}`)."
+    return action
 
 
 def render_proposal_body(record: dict) -> str:
@@ -186,6 +193,8 @@ def _record_from_metadata(metadata: dict, stem: str) -> dict:
         record["rank"] = metadata["rank"]
     if "confidence" in metadata:
         record["confidence"] = metadata["confidence"]
+    if "concept_kind" in metadata:
+        record["concept_kind"] = metadata["concept_kind"]
     return record
 
 
@@ -255,6 +264,8 @@ def upsert_proposal(wiki: Path, proposal: dict) -> dict:
             record["rank"] = proposal["rank"]
         if "confidence" in proposal:
             record["confidence"] = proposal["confidence"]
+        if "concept_kind" in proposal:
+            record["concept_kind"] = proposal["concept_kind"]
         record["origins"] = origins
     else:
         record = {
@@ -269,6 +280,8 @@ def upsert_proposal(wiki: Path, proposal: dict) -> dict:
             record["rank"] = proposal["rank"]
         if "confidence" in proposal:
             record["confidence"] = proposal["confidence"]
+        if "concept_kind" in proposal:
+            record["concept_kind"] = proposal["concept_kind"]
 
     record = _ordered_record(record)
     text = _serialize(record, render_proposal_body(record))
