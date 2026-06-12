@@ -68,6 +68,7 @@ def test_lint_wiki_scan_runs_on_fixture_vault(tmp_path: Path) -> None:
         "domain_placement",
         "dependency_layer",
         "workflow_hints",
+        "concept_kind",
     }
     assert expected_keys.issubset(result.keys()), f"scan() result missing keys: {expected_keys - result.keys()}"
 
@@ -308,7 +309,7 @@ def test_all_vault_categories_are_linted(tmp_path):
 
     workspace = tmp_path / "workspace"
     wiki = workspace / "wiki"
-    curated_tops = ["concepts", "adrs", "architecture", "sources", "proposals"]
+    curated_tops = ["concepts", "adrs", "sources", "proposals"]
     for top in curated_tops:
         (wiki / top).mkdir(parents=True)
         # missing category + summary → flagged under the curated contract

@@ -43,6 +43,7 @@ from wiki_io.lint.common import (
     strip_code,
     strip_frontmatter,
 )
+from wiki_io.lint.concept_kind import check as check_concept_kind
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
@@ -57,7 +58,7 @@ logger = logging.getLogger(__name__)
 # Every real top-level vault dir under the wiki root. The mechanical pass walks
 # from the wiki (not the workspace), so a page's top path-part is its category
 # dir; LINTED_TOPS must enumerate them all to keep the same pages linted.
-LINTED_TOPS = {"concepts", "adrs", "architecture", "sources", "entities", "proposals", "work"}
+LINTED_TOPS = {"concepts", "adrs", "sources", "entities", "proposals", "work"}
 
 # Sentinel used by upstream for skipped dict checks; preserved for serialization compat
 _SKIPPED: dict = {"skipped": True}
@@ -99,6 +100,7 @@ class LintResult:
     package_sync_drift: list[str] = field(default_factory=list)
     domain_placement: list[str] = field(default_factory=list)
     workflow_hints: list[str] = field(default_factory=list)
+    concept_kind: list[str] = field(default_factory=list)
     dependency_layer: list[str] | None = None
     scanner_heading_drift: list[str] = field(default_factory=list)
     semantic_findings: dict[str, list[str]] = field(default_factory=dict)
@@ -304,6 +306,7 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
         package_sync_drift = []
     domain_placement = check_domain_placement(pages)
     workflow_hints_issues = check_workflow_hints(pages, workspace)
+    concept_kind_issues = check_concept_kind(pages, wiki)
     # dependency_layer is optional — pass pages only, no workspaces (skip workspaces arg)
     dependency_layer = check_dependency_layer(pages)
     scanner_heading_drift = check_scanner_heading(pages)
@@ -339,6 +342,7 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
         "package_sync_drift": package_sync_drift,
         "domain_placement": domain_placement,
         "workflow_hints": workflow_hints_issues,
+        "concept_kind": concept_kind_issues,
         "dependency_layer": dependency_layer,
         "scanner_heading_drift": scanner_heading_drift,
         "code_drift": code_drift,
@@ -541,6 +545,7 @@ async def run_lint(
         package_sync_drift=mod["package_sync_drift"],
         domain_placement=mod["domain_placement"],
         workflow_hints=mod["workflow_hints"],
+        concept_kind=mod["concept_kind"],
         dependency_layer=mod["dependency_layer"],
         scanner_heading_drift=mod["scanner_heading_drift"],
         semantic_findings=semantic_findings,

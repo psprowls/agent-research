@@ -35,6 +35,7 @@ from wiki_io.lint.common import (
     strip_code,
     strip_frontmatter,
 )
+from wiki_io.lint.concept_kind import check as check_concept_kind
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
@@ -47,7 +48,7 @@ OPTIONAL_GROUPS = {"dependency_layer"}
 # Every real top-level vault dir under the wiki root. Walking from the wiki
 # (not the workspace) means a page's top path-part is its category dir, so
 # LINTED_TOPS must enumerate them all to keep the same pages linted as before.
-LINTED_TOPS = {"concepts", "adrs", "architecture", "sources", "entities", "proposals", "work"}
+LINTED_TOPS = {"concepts", "adrs", "sources", "entities", "proposals", "work"}
 # Tool-schema files (emitted by init_vault.py per the --tool flag). Not wiki
 # content pages — exclude at any depth from page enumeration and from the
 # index-link parser. See plan 260521-gc0 (decision: any-depth, forward-compat).
@@ -342,6 +343,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
 
     domain_placement = check_domain_placement(pages)
     workflow_hints_issues = check_workflow_hints(pages, workspace)
+    concept_kind_issues = check_concept_kind(pages, wiki)
 
     # Optional check groups (gated behind --check). Default off; pass
     # --check dependency_layer to enable.
@@ -375,6 +377,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         "domain_placement": domain_placement,
         "dependency_layer": dependency_layer,
         "workflow_hints": workflow_hints_issues,
+        "concept_kind": concept_kind_issues,
     }
 
 
@@ -475,6 +478,12 @@ def print_report(r):
     wh = r.get("workflow_hints", [])
     header("workflow_hints missing sub-pages", len(wh))
     for issue in wh[:20]:
+        print(f"   - {issue}")
+    print()
+
+    ck = r.get("concept_kind", [])
+    header("concept kind issues", len(ck))
+    for issue in ck[:20]:
         print(f"   - {issue}")
     print()
 
