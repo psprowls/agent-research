@@ -138,8 +138,14 @@ def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> 
     changed = replace_todo_human_sections(page, {"Purpose": "Real purpose prose.", "Public API": "Real API prose."})
     assert set(changed) == {"Purpose", "Public API"}
 
-    # Steady-state re-emit: files clean, head unchanged.
+    # plan decision (B): the page narrated in scan 1 had no anchor at emit time, so
+    # its drift is judged on the next scan. A second no-change scan settles
+    # drift_checked_commit == last_updated_commit so the page is no longer a drift
+    # candidate — only then is the worklist genuinely empty.
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+
+    # Steady-state re-emit: files clean, head unchanged, drift settled.
     worklist, _ = asyncio.run(
         scan_mod.build_scan_worklist(
             workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
@@ -202,3 +208,106 @@ def test_dirty_state_gate_yields_no_head(emit_workspace, monkeypatch) -> None:
     )
     assert worklist.head_commit is None
     assert worklist.short_head is None
+
+
+# ---------------------------------------------------------------------------
+# Task 3: apply_scan_results back-half tests
+# ---------------------------------------------------------------------------
+
+from graph_wiki_core.commands.scan import apply_scan_results  # noqa: E402
+from graph_wiki_core.commands.scan_contract import (  # noqa: E402
+    FillResult,
+    ScanResults,
+)
+from wiki_io._workspace import resolve_wiki_and_repo  # noqa: E402
+
+
+def test_apply_injects_fills_and_stamps(emit_workspace) -> None:
+    """A canned ScanResults for the package's fill_task injects narrative, fills
+    every — TODO file row, replaces ## Purpose / ## Public API, and stamps
+    last_updated_commit to short_head."""
+    workspace, repo = emit_workspace
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
+    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    results = ScanResults(
+        fills=[
+            FillResult(
+                uri=alpha.uri,
+                narrative="Alpha is a sample package.",
+                file_descriptions={p: "Source file." for p in alpha.needs.file_todo_paths},
+                dir_descriptions={c: "A directory." for c in alpha.needs.dir_todo_contexts},
+                overview="Overview of alpha." if alpha.needs.overview else None,
+                purpose="The purpose." if alpha.needs.purpose else None,
+                public_api="The API." if alpha.needs.public_api else None,
+            )
+        ]
+    )
+    applied = asyncio.run(apply_scan_results(worklist, results, wiki, resolved_repo or repo, propagate=False))
+    page = Path(alpha.page_path).read_text(encoding="utf-8")
+    assert "Alpha is a sample package." in page
+    assert "— TODO" not in page.split("## File map")[-1]  # all rows filled
+    assert applied.narrated >= 1 and applied.stamped >= 1
+    assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") == worklist.short_head
+
+
+def test_apply_partial_leaves_page_unstamped(emit_workspace) -> None:
+    """Narrative-only fill (file rows left unfilled) leaves the page not stamped:
+    the M2c gate refuses to stamp while — TODO rows remain."""
+    workspace, repo = emit_workspace
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
+    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    results = ScanResults(fills=[FillResult(uri=alpha.uri, narrative="Some prose.")])
+    asyncio.run(apply_scan_results(worklist, results, wiki, resolved_repo or repo, propagate=False))
+    assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") is None
+
+
+def test_apply_failed_narration_leaves_page_unstamped(emit_workspace) -> None:
+    """Decision A: a fill that injects no narrative (placeholder remains) is not
+    stamped even when every file row is filled (failed-narration guard)."""
+    workspace, repo = emit_workspace
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
+    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    # Fill every file row + human sections, but NO narrative -> placeholder stays.
+    results = ScanResults(
+        fills=[
+            FillResult(
+                uri=alpha.uri,
+                narrative=None,
+                file_descriptions={p: "Source file." for p in alpha.needs.file_todo_paths},
+                purpose="The purpose.",
+                public_api="The API.",
+            )
+        ]
+    )
+    applied = asyncio.run(apply_scan_results(worklist, results, wiki, resolved_repo or repo, propagate=False))
+    assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") is None
+    assert applied.stamped == 0
+
+
+def test_apply_empty_results_is_noop(emit_workspace) -> None:
+    """Empty ScanResults on a worklist stamps nothing and narrates nothing
+    (index/backlink/log still run, but no entity is touched)."""
+    workspace, repo = emit_workspace
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
+    applied = asyncio.run(apply_scan_results(worklist, ScanResults(), wiki, resolved_repo or repo, propagate=False))
+    assert applied.stamped == 0 and applied.narrated == 0

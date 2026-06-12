@@ -124,27 +124,24 @@ def test_package_reader_fill_stamps_and_skips_on_rescan(ws, monkeypatch):
 
     assert "## Purpose\nOwns package-level scan orchestration." in text
     assert meta["last_updated_commit"] == "head1"
-    assert meta["drift_checked_commit"] == "head1"
     assert "drift_review" not in meta
     assert calls["package_reader"] == 1
 
+    # plan decision (B): drift is judged against the emit-time anchor, so the page
+    # narrated in scan 1 settles drift_checked_commit only on the next scan. This
+    # repo is not a real git tree, so changed_files_since returns None (unknown
+    # anchor) every scan → the page stays commit-dirty and re-narrates, so scan 2
+    # both re-runs package_reader and settles drift_checked_commit == head1.
     _add_human_section(page, "## Behavior", "Curated behavior notes stay human-owned.")
-    stable_text = page.read_text(encoding="utf-8")
-    stable_meta = {
-        "last_updated_commit": _fm.load(page).metadata["last_updated_commit"],
-        "drift_checked_commit": _fm.load(page).metadata["drift_checked_commit"],
-    }
 
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
     page = _page_for(wiki)
     rescan_meta = _fm.load(page).metadata
     assert calls["package_reader"] == 2
-    assert page.read_text(encoding="utf-8") == stable_text
-    assert {
-        "last_updated_commit": rescan_meta["last_updated_commit"],
-        "drift_checked_commit": rescan_meta["drift_checked_commit"],
-    } == stable_meta
+    assert rescan_meta["last_updated_commit"] == "head1"
+    assert rescan_meta["drift_checked_commit"] == "head1"  # settled on the second scan
+    assert "Curated behavior notes stay human-owned." in page.read_text(encoding="utf-8")
     assert "drift_review" not in rescan_meta
 
 
@@ -180,7 +177,11 @@ def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
     meta = _fm.load(_page_for(wiki)).metadata
-    assert meta["drift_checked_commit"] == "head2"
+    # plan decision (B): drift is judged against the EMIT-time narrative/anchor.
+    # At scan 2's emit the page's anchor was still head1 (stamped by scan 1), so
+    # the stale flag + drift_checked_commit anchor to head1 while last_updated_commit
+    # advances to head2 (re-narration). The next scan re-judges against head2.
+    assert meta["drift_checked_commit"] == "head1"
     assert meta["last_updated_commit"] == "head2"
     review = meta["drift_review"]
     # The scanner page template seeds human sections (`## Purpose`,
@@ -188,7 +189,7 @@ def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
     # verdict_fn marks every section stale, so the contract under test is that
     # the Behavior section is flagged with the right fields (not an exact count).
     behavior = next(e for e in review if e["section"] == "Behavior")
-    assert behavior["detected_commit"] == "head2"
+    assert behavior["detected_commit"] == "head1"  # plan decision (B): emit-time anchor
     assert behavior["reason"] == "now async"
     assert behavior["hash"]  # non-empty sha
     # Prose itself is untouched (flag-only).
@@ -207,17 +208,21 @@ def test_already_checked_entity_skips_judge(ws, monkeypatch):
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
-    _add_human_section(_page_for(wiki), "## Purpose", "p")
 
-    # Re-scan, no code change -> narrative not regenerated.
+    # plan decision (B): the page narrated in scan 1 had no anchor at emit time,
+    # so its drift is judged on the NEXT scan. A no-change scan settles
+    # drift_checked_commit == last_updated_commit == head1.
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert _fm.load(_page_for(wiki)).metadata["drift_checked_commit"] == "head1"
+
+    # Now settled: another no-change scan must NOT re-judge (§5.2/§5.4).
     rec: dict = {}
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
     assert rec.get("drift_items", []) == []  # judge never ran
     assert "drift_review" not in _fm.load(_page_for(wiki)).metadata
-    # First scan set drift_checked_commit == last_updated_commit already.
     assert _fm.load(_page_for(wiki)).metadata["drift_checked_commit"] == "head1"
 
 
@@ -232,6 +237,11 @@ def test_fresh_verdict_no_flag_but_checked_advances(ws, monkeypatch):
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    # plan decision (B): a page narrated this scan has no anchor at emit time, so
+    # its drift is judged the NEXT scan (emit-time ground truth). A second no-change
+    # scan settles drift_checked_commit.
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     meta = _fm.load(_page_for(wiki)).metadata
     assert "drift_review" not in meta
@@ -274,13 +284,29 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     review = _fm.load(_page_for(wiki)).metadata.get("drift_review")
     assert review and any(e["section"] == "Behavior" for e in review)
 
+    # plan decision (B): scan 2 judged the EMIT-time state, so it flagged Behavior
+    # at the head1 anchor while last_updated_commit advanced to head2 — the page is
+    # still drift-lagging. A no-change settling scan re-judges against head2 and
+    # advances drift_checked_commit to head2 (Behavior stays flagged, stale prose).
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _spy(
+            lambda it: (
+                {"stale": True, "reason": "now async"} if it[2] == "## Behavior" else {"stale": False, "reason": ""}
+            )
+        ),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert _fm.load(_page_for(wiki)).metadata["drift_checked_commit"] == "head2"
+
     # Human edits the flagged Behavior body; re-scan with no code change.
     page = _page_for(wiki)
     text = page.read_text(encoding="utf-8").replace(
         "Processes items synchronously.", "Processes items via async fan-out."
     )
     page.write_text(text, encoding="utf-8")
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     rec: dict = {}
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}, recorder=rec))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
@@ -373,6 +399,14 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     assert _fm.load(_page_for(wiki)).metadata.get("drift_review")
 
+    # plan decision (B): scan 2 flagged Behavior at the emit-time head1 anchor while
+    # last_updated_commit advanced to head2 — the page still lags. A no-change
+    # settling scan re-judges against head2 and advances drift_checked_commit to
+    # head2 so the page is genuinely settled before the ack.
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert _fm.load(_page_for(wiki)).metadata["drift_checked_commit"] == "head2"
+
     # Ack by URI -> flags cleared, prose untouched.
     result = run_ack_drift(_PKG_A, workspace_path=ws)
     assert result.cleared == 1
@@ -381,7 +415,6 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
     assert "Processes items synchronously." in _page_for(wiki).read_text(encoding="utf-8")
 
     # No-change re-scan -> not re-flagged (checked-commit already == anchor).
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": True, "reason": "x"}))
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     assert "drift_review" not in _fm.load(_page_for(wiki)).metadata

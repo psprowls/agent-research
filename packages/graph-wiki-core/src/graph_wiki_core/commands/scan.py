@@ -86,11 +86,16 @@ from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.scan_contract import (
+    ApplyResult,
+    DriftResultItem,
     DriftSectionInput,
     DriftTask,
+    DriftVerdict,
     FillNeeds,
+    FillResult,
     FillTask,
     PropagateTask,
+    ScanResults,
     ScanWorklist,
 )
 from graph_wiki_core.graph_tools import build_graph_tools
@@ -1026,6 +1031,34 @@ async def build_scan_worklist(
             )
             conn = None
 
+    try:
+        return await _build_scan_worklist_body(
+            wiki=wiki,
+            repo=repo,
+            conn=conn,
+            no_file_map=no_file_map,
+            max_depth=max_depth,
+            propagate_drift=propagate_drift,
+        )
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001 — closing a read-only conn should not raise
+                pass
+
+
+async def _build_scan_worklist_body(
+    *,
+    wiki: Path,
+    repo: Path,
+    conn: Any | None,
+    no_file_map: bool,
+    max_depth: int,
+    propagate_drift: bool,
+) -> tuple[ScanWorklist, ScanResult]:
+    """Worklist assembly body (split out so build_scan_worklist's conn is closed
+    in a finally even when write_entities / file-map injection raises)."""
     # Step 8: compute state gate.
     state_gate = compute_state_gate(repo, workspace=wiki.parent)
     head = state_gate.get("head_commit")
@@ -1262,9 +1295,453 @@ async def build_scan_worklist(
         entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
         entity_errors=[repr(e) for e in entity_write_result.errors] if entity_write_result else [],
     )
-    if conn is not None:
-        conn.close()
     return worklist, scan_result
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5 (split scan pipeline): in-process Bedrock provider
+# ---------------------------------------------------------------------------
+
+
+async def _bedrock_provider(
+    worklist: ScanWorklist,
+    wiki: Path,
+    repo: Path,
+    *,
+    model_override: str | None = None,
+    propagate: bool = False,
+) -> ScanResults:
+    """Turn a ScanWorklist into ScanResults via the in-process Bedrock fan-outs.
+
+    Lifts run_scan's narrator / code_reader / synthesizer / package_reader /
+    drift_judge blocks, but each fan-out writes into a FillResult / DriftResultItem
+    keyed by uri instead of injecting into the page. The prompts, parsers, and
+    run_all role/item shapes are byte-identical to the old in-line blocks (the
+    test spies that intercept SubagentPool.run_all observe the same tuples).
+
+    package_reader is the one exception: it still writes human sections to disk
+    via _run_package_reader_pass (its replacements are not threaded through
+    FillResult for the in-process surface — apply's stamp gate reads the result
+    off disk). Its errors are surfaced via `results.provider_errors`, which
+    run_scan merges into the ScanResult so partial-success reporting is unchanged.
+    """
+    results = ScanResults()
+    provider_errors: list[str] = []
+    fills_by_uri: dict[str, FillResult] = {}
+
+    def _fill(uri: str) -> FillResult:
+        f = fills_by_uri.get(uri)
+        if f is None:
+            f = FillResult(uri=uri)
+            fills_by_uri[uri] = f
+        return f
+
+    stack = _bedrock_stack()
+
+    # Open a read-only conn for narrator relations / agent_plugin tables and the
+    # package_reader graph-tools. Closed in finally. The DB-existence guard mirrors
+    # run_scan's `if conn is not None` gating: on a NOT_INITIALIZED fallback the
+    # graph DB was never written, so we must not even attempt to open it.
+    conn = None
+    db_path = graph_dir(wiki.parent) / "code.db"
+    try:
+        if db_path.exists():
+            try:
+                conn = read_only_connect(db_path)
+            except GraphNotInitializedError:
+                conn = None
+
+        narrative_uris = {t.uri for t in worklist.fill_tasks if t.needs.narrative}
+
+        # --- Narrator fan-out (role="narrator") ---
+        if stack is not None and conn is not None and narrative_uris:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            narrator_items: list[tuple[str, str, Any]] = []
+            list_fns = _kind_list_fns()
+            for kind in sorted(ADMITTED_KINDS):
+                list_fn = list_fns.get(kind)
+                if list_fn is None:
+                    continue
+                for node in list_fn(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    node_uri = node.attrs.get("uri")
+                    if node_uri and node_uri in narrative_uris:
+                        narrator_items.append((node_uri, kind, node))
+
+            if narrator_items:
+                narrator_cfg = load_role_config_fn("narrator")
+                narrator_llm = make_llm_fn("narrator", model_override=model_override)
+                narrator_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                async def generate_narrative(item: tuple[str, str, Any]) -> TaskResultType:
+                    uri_inner, kind_inner, node_inner = item
+                    relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
+                    relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
+                    file_map = ""
+                    components_text = ""
+                    if kind_inner == "agent_plugin":
+                        tv = _agent_plugin_table_variables(conn, node_inner)
+                        components_text = "\n\n".join(
+                            f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
+                        )
+                    system_msg, human_msg = build_entity_narrative_prompt(
+                        node_inner,
+                        kind_inner,
+                        file_map,
+                        relations_for_prompt,
+                        components_text=components_text,
+                    )
+                    msgs = [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
+                    resp = await narrator_llm.ainvoke(msgs)
+                    return task_result_type(value=resp.content, response=resp)
+
+                narrator_result = await narrator_pool.run_all(
+                    items=narrator_items,
+                    task=generate_narrative,
+                    role="narrator",
+                    model_id=narrator_cfg["model_id"],
+                    max_concurrency=narrator_cfg["max_concurrency"],
+                )
+                for item, prose in narrator_result.successes:
+                    uri_inner, _kind_inner, _node_inner = item
+                    _fill(uri_inner).narrative = prose
+
+        # --- code_reader fan-out (role="code_reader") — file-map descriptions ---
+        describer_items: list[tuple[str, dict, Path, list[str]]] = []
+        for task in worklist.fill_tasks:
+            todo_paths = list(task.needs.file_todo_paths)
+            if not todo_paths:
+                continue
+            ws_dict = {
+                "name": task.name,
+                "path": task.graph_path or None,
+                "type": task.kind,
+                "language": task.language,
+            }
+            describer_items.append((task.uri, ws_dict, Path(task.page_path), todo_paths))
+
+        if stack is not None and describer_items:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            describer_cfg = load_role_config_fn("code_reader")
+            describer_llm = make_llm_fn("code_reader")
+            describer_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+            async def describe_files(item: tuple[str, dict, Path, list[str]]) -> TaskResultType:
+                _uri, ws_dict_inner, _page, todo_inner = item
+                system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
+                resp = await describer_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                return task_result_type(value=resp.content, response=resp)
+
+            describer_result = await describer_pool.run_all(
+                items=describer_items,
+                task=describe_files,
+                role="code_reader",
+                model_id=describer_cfg["model_id"],
+                max_concurrency=describer_cfg["max_concurrency"],
+            )
+            described_entities = 0
+            for item, value in describer_result.successes:
+                uri_inner = item[0]
+                descriptions = parse_file_describer_output(value)
+                if descriptions:
+                    _fill(uri_inner).file_descriptions.update(descriptions)
+                    described_entities += 1
+            if described_entities:
+                append_log(
+                    wiki,
+                    "scan",
+                    f"file descriptions filled: {described_entities} entity(s) (errors: 0)",
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+
+        # --- synthesizer fan-out (role="synthesizer") — dir sections + overview ---
+        dir_items: list[tuple[str, str, Path, list[str], bool]] = []
+        for task in worklist.fill_tasks:
+            todo_ctxs = list(task.needs.dir_todo_contexts)
+            needs_ov = task.needs.overview
+            if not todo_ctxs and not needs_ov:
+                continue
+            dir_items.append((task.uri, task.name, Path(task.page_path), todo_ctxs, needs_ov))
+
+        if stack is not None and dir_items:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            dir_cfg = load_role_config_fn("synthesizer")
+            dir_llm = make_llm_fn("synthesizer")
+            dir_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+            async def describe_dirs(item: tuple[str, str, Path, list[str], bool]) -> TaskResultType:
+                _uri, pkg_name_inner, page_inner, todo_ctxs_inner, needs_ov_inner = item
+                file_descs = extract_file_map_descriptions(page_inner)
+                pkg = {"name": pkg_name_inner}
+                system_msg, human_msg = build_dir_describer_prompt(pkg, todo_ctxs_inner, file_descs, needs_ov_inner)
+                resp = await dir_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                return task_result_type(value=resp.content, response=resp)
+
+            dir_result = await dir_pool.run_all(
+                items=dir_items,
+                task=describe_dirs,
+                role="synthesizer",
+                model_id=dir_cfg["model_id"],
+                max_concurrency=dir_cfg["max_concurrency"],
+            )
+            for item, value in dir_result.successes:
+                uri_inner = item[0]
+                descriptions = parse_dir_describer_output(value)
+                if not descriptions:
+                    continue
+                overview = descriptions.pop("_overview", None)
+                fill = _fill(uri_inner)
+                if descriptions:
+                    fill.dir_descriptions.update(descriptions)
+                if overview:
+                    fill.overview = overview
+
+        # --- package_reader pass (role="package_reader") — writes human sections to disk ---
+        if stack is not None:
+            package_reader_candidates: dict[str, _PackageReaderCandidate] = {}
+            for task in worklist.fill_tasks:
+                _record_package_reader_candidate(
+                    package_reader_candidates,
+                    uri=task.uri,
+                    candidate=_PackageReaderCandidate(
+                        page_path=Path(task.page_path),
+                        graph_path=task.graph_path or None,
+                        kind=task.kind,
+                        name=task.name,
+                        language=task.language,
+                    ),
+                )
+            if package_reader_candidates:
+                _pr_filled, _pr_errors = await _run_package_reader_pass(
+                    wiki=wiki,
+                    repo=repo,
+                    conn=conn,
+                    model_override=model_override,
+                    candidate_pages=package_reader_candidates,
+                )
+                provider_errors.extend(_pr_errors)
+
+        # --- drift_judge fan-out (role="drift_judge") — emit-time ground truth ---
+        if stack is not None and worklist.drift_tasks:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            # item = (page_path, anchor, heading, chunk, narrative, file_map) —
+            # identical to _drift_flag_pass so the spies' verdict_fn(it) works.
+            drift_items: list[tuple[Path, str, str, str, str, str | None]] = []
+            for dtask in worklist.drift_tasks:
+                page_path = Path(dtask.page_path)
+                for section in dtask.sections:
+                    drift_items.append(
+                        (page_path, dtask.anchor, section.heading, section.chunk, dtask.narrative, dtask.file_map)
+                    )
+
+            if drift_items:
+                drift_cfg = load_role_config_fn("drift_judge")
+                drift_llm = make_llm_fn("drift_judge", model_override=model_override)
+                drift_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                async def judge(item: tuple) -> TaskResultType:
+                    _pp, _anchor, heading, chunk, narrative, file_map = item
+                    system_msg, human_msg = build_drift_judge_prompt(heading, chunk, narrative, file_map)
+                    resp = await drift_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                    return task_result_type(value=parse_drift_verdict(resp.content), response=resp)
+
+                fan = await drift_pool.run_all(
+                    items=drift_items,
+                    task=judge,
+                    role="drift_judge",
+                    model_id=drift_cfg["model_id"],
+                    max_concurrency=drift_cfg["max_concurrency"],
+                )
+                drift_by_uri: dict[str, DriftResultItem] = {}
+                task_uri_by_page = {Path(d.page_path): d.uri for d in worklist.drift_tasks}
+                for item, verdict in fan.successes:
+                    page_path, _anchor, heading, _chunk, _narr, _fmp = item
+                    uri = task_uri_by_page.get(page_path)
+                    if uri is None:
+                        continue
+                    if not isinstance(verdict, dict):
+                        continue
+                    item_out = drift_by_uri.setdefault(uri, DriftResultItem(uri=uri))
+                    item_out.verdicts.append(
+                        DriftVerdict(
+                            section=heading.removeprefix("## ").strip(),
+                            stale=bool(verdict.get("stale")),
+                            reason=str(verdict.get("reason", "")),
+                        )
+                    )
+                results.drift = list(drift_by_uri.values())
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    results.fills = list(fills_by_uri.values())
+    results.provider_errors = provider_errors
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5 (split scan pipeline): apply-half (deterministic back-half)
+# ---------------------------------------------------------------------------
+
+
+def _regen_indexes_and_log(wiki: Path) -> None:
+    """Step 12: regenerate wiki/index.md + per-folder sub-indexes + backlinks.
+
+    Lifted from run_scan's Step 12 block. Opens its own read-only conn for
+    generate_index (graph-driven) and closes it; update_index + backlink regen
+    are graph-independent.
+    """
+    conn = None
+    db_path = graph_dir(wiki.parent) / "code.db"
+    if db_path.exists():
+        try:
+            conn = read_only_connect(db_path)
+        except GraphNotInitializedError:
+            conn = None
+    try:
+        if conn is not None:
+            display_name = _manifest.read(manifest_path(wiki.parent)).get("topic")
+            generate_index(conn, wiki, display_name)
+        try:
+            update_index(wiki)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("update_index failed (non-fatal): %s", exc)
+        try:
+            regenerate_referenced_in_wiki(wiki)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("regenerate_referenced_in_wiki failed (non-fatal): %s", exc)
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _apply_propagate_results(worklist: ScanWorklist, results: ScanResults, wiki: Path) -> int:
+    return 0  # implemented in Task 9
+
+
+async def apply_scan_results(
+    worklist: ScanWorklist,
+    results: ScanResults,
+    wiki: Path,
+    repo: Path,
+    *,
+    propagate: bool = False,
+) -> ApplyResult:
+    """Deterministic back-half: inject results, stamp, write drift, regen indexes.
+
+    Disk-driven + results-driven. Recomputes the M2c no-`— TODO` stamp gate from
+    disk, so the only state crossing the process boundary is short_head and the
+    per-page results. Every inject/fill/write is wrapped so one bad entity is
+    isolated (mirrors Bedrock per-item try/except).
+    """
+    out = ApplyResult()
+    fills_by_uri = {f.uri: f for f in results.fills}
+    drift_by_uri = {d.uri: d for d in results.drift}
+    task_by_uri = {t.uri: t for t in worklist.fill_tasks}
+    short_head = worklist.short_head
+    head = worklist.head_commit
+
+    # --- Inject fills ---
+    for uri, fill in fills_by_uri.items():
+        task = task_by_uri.get(uri)
+        if task is None:
+            continue  # result references an entity not in this worklist — skip
+        page_path = Path(task.page_path)
+        try:
+            if fill.narrative and fill.narrative.strip():
+                inject_narrative(page_path, fill.narrative)
+                out.narrated += 1
+            if fill.file_descriptions:
+                n = fill_file_map_descriptions(page_path, fill.file_descriptions)
+                out.described += n
+            if fill.dir_descriptions:
+                n = fill_dir_section_descriptions(page_path, fill.dir_descriptions)
+                out.dir_filled += n
+            if fill.overview and fill.overview.strip():
+                if fill_file_map_overview(page_path, fill.overview):
+                    out.dir_filled += 1
+            replacements: dict[str, str] = {}
+            if fill.purpose and fill.purpose.strip():
+                replacements["Purpose"] = fill.purpose
+            if fill.public_api and fill.public_api.strip():
+                replacements["Public API"] = fill.public_api
+            if replacements:
+                changed = replace_todo_human_sections(page_path, replacements)
+                out.sections_filled += len(changed)
+        except Exception as exc:  # noqa: BLE001 — partial-success isolation
+            out.entity_errors.append(f"{uri}: apply fill failed: {exc!r}")
+
+    # --- M2c refill-gated anchor stamp (decision A: also require non-placeholder narrative) ---
+    if head:
+        for uri, task in task_by_uri.items():
+            page_path = Path(task.page_path)
+            try:
+                if not page_path.exists():
+                    continue
+                page_text = page_path.read_text(encoding="utf-8", errors="replace")
+                if task.needs.narrative and extract_narrative(page_text) is None:
+                    continue  # narrative still placeholder — failed narration, do not stamp
+                if (
+                    file_map_todo_paths(page_path)
+                    or dir_section_todo_contexts(page_path)
+                    or is_overview_unfilled(page_path)
+                ):
+                    continue
+                set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, short_head))
+                out.stamped += 1
+            except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+                logger.warning("anchor stamp failed for %s: %s", uri, exc)
+
+    # --- M2e drift flag WRITE (judge already done by the provider) ---
+    for drift_task in worklist.drift_tasks:
+        page_path = Path(drift_task.page_path)
+        anchor = drift_task.anchor
+        result_item = drift_by_uri.get(drift_task.uri)
+        # Map verdicts by section name (without "## ") for hashing the current chunk.
+        chunk_by_section = {s.heading.removeprefix("## ").strip(): s.chunk for s in drift_task.sections}
+        entries: list[dict] = []
+        if result_item is not None:
+            for v in result_item.verdicts:
+                if not v.stale:
+                    continue
+                chunk = chunk_by_section.get(v.section, "")
+                entries.append(
+                    {
+                        "section": v.section,
+                        "detected_commit": anchor,
+                        "hash": section_hash(chunk),
+                        "reason": v.reason,
+                    }
+                )
+        try:
+            if entries:
+                update_frontmatter(page_path, {"drift_checked_commit": anchor, "drift_review": entries})
+                out.drift_flagged += len(entries)
+            else:
+                update_frontmatter(page_path, {"drift_checked_commit": anchor}, delete=["drift_review"])
+        except Exception as exc:  # noqa: BLE001 — non-fatal flag write
+            logger.warning("drift flag write failed for %s: %s", page_path, exc)
+
+    # --- Free every-scan clear pass ---
+    _drift_clear_pass(wiki)
+
+    # --- M4 propagate WRITE (Task 9 wires the verdict consumption) ---
+    if propagate and results.propagate:
+        out.propagated += _apply_propagate_results(worklist, results, wiki)
+
+    # --- Index + backlink + log ---
+    _regen_indexes_and_log(wiki)
+
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1322,6 +1799,71 @@ async def run_scan(
     Returns:
         ScanResult with state_gate and the entities_* / entity_errors fields.
     """
+    # Living Wiki M1.5: the narrated path now flows through the split contract —
+    # build_scan_worklist (mechanical front-half) → in-process Bedrock provider →
+    # apply_scan_results (deterministic back-half). The narrate=False structural-
+    # only fast path below is unchanged (it runs without the Bedrock stack).
+    if narrate:
+        worklist, scan_result = await build_scan_worklist(
+            workspace_path=workspace_path,
+            repo_path=repo_path,
+            no_file_map=no_file_map,
+            max_depth=max_depth,
+            propagate_drift=propagate_drift,
+        )
+        wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+        if repo_path is not None:
+            repo = repo_path.resolve()
+        elif resolved_repo is not None:
+            repo = resolved_repo
+        else:
+            repo = Path.cwd()
+
+        results = await _bedrock_provider(
+            worklist, wiki, repo, model_override=model_override, propagate=propagate_drift
+        )
+        applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate_drift)
+
+        # Living Wiki M4: opt-in cross-page drift producer. Task 9 routes this
+        # through the contract (propagate_tasks → provider → _apply_propagate_results);
+        # until then keep the in-process call here so the producer still runs once
+        # after narration with a fresh conn (parity with the pre-split path).
+        if propagate_drift:
+            pd_conn = None
+            try:
+                pd_conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+            except GraphNotInitializedError:
+                pd_conn = None
+            if pd_conn is not None:
+                try:
+                    await run_propagate_drift(wiki=wiki, repo=repo, conn=pd_conn)
+                finally:
+                    try:
+                        pd_conn.close()
+                    except Exception:  # noqa: BLE001
+                        pass
+
+        scan_result.entities_narrated = sorted(f.uri for f in results.fills if f.narrative and f.narrative.strip())
+        scan_result.entity_errors = (
+            list(scan_result.entity_errors) + list(results.provider_errors) + list(applied.entity_errors)
+        )
+
+        entity_create_count = len(scan_result.entities_created)
+        entity_update_count = len(scan_result.entities_updated)
+        entity_delete_count = len(scan_result.entities_deleted)
+        append_log(
+            wiki,
+            "scan",
+            (
+                f"scan complete: entities +{entity_create_count} ~{entity_update_count} "
+                f"-{entity_delete_count}  (narrated: {len(scan_result.entities_narrated)})"
+            ),
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        return scan_result
+
     # Step 1: resolve wiki and repo
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
     if repo_path is not None:

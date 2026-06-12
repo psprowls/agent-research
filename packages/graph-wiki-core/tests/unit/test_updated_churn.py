@@ -114,12 +114,22 @@ def test_no_op_rescan_reports_zero_updated(churn_workspace, monkeypatch) -> None
     assert "desc mod.py" in text1
 
     # Scan 2: nothing changed since head1.
+    # plan decision (B): the page narrated in scan 1 had no anchor at emit time, so
+    # scan 2 is the one that judges + stamps drift_checked_commit (a frontmatter-only
+    # write — never an entity-body churn). Byte-identity is therefore asserted from
+    # the now-settled scan 2 onward.
     monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert result.entities_updated == []  # the fix: no churn
     text2 = _page(wiki).read_text(encoding="utf-8")
-    assert text2 == text1  # byte-identical, not rewritten
+    assert "PROSE for pkg:org/repo/pkg-a" in text2
+    assert "desc mod.py" in text2
     assert "_(scanner will populate on next scan)_" not in text2
+
+    # Scan 3: drift already settled -> the page is now byte-identical to scan 2.
+    result3 = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert result3.entities_updated == []
+    assert _page(wiki).read_text(encoding="utf-8") == text2  # byte-identical, not rewritten
 
 
 def test_human_section_edit_is_preserved_not_churned(churn_workspace, monkeypatch) -> None:

@@ -337,6 +337,11 @@ class ScanResults:
     drift: list[DriftResultItem] = field(default_factory=list)
     propagate: list[PropagateResultItem] = field(default_factory=list)
     schema: int = SCHEMA_VERSION
+    # Runtime-only (NOT serialized): provider-side errors (e.g. package_reader
+    # failures on the in-process Bedrock surface) that run_scan merges into its
+    # ScanResult for partial-success reporting. Out-of-process surfaces leave this
+    # empty; the JSON results carry no error channel.
+    provider_errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
         return {
