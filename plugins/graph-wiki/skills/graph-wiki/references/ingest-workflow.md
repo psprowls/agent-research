@@ -162,7 +162,7 @@ Summary the user sees in chat:
 - `last_sync_commit` and `last_sync_at` are disallowed in frontmatter — examples are external; drift detection does not apply. The state-gate is a no-op for `source_type: example` in the brief output.
 - **Step 3 (Discuss)** for examples covers: TL;DR, what patterns the example demonstrates, key takeaways, which existing concept pages map to those patterns, and which code entities the user wants to flag under `## Where this could apply`.
 - **Step 5 (Link code entities)** for examples: add `[[entities/<prefix>_<name>]]` wikilinks under `## Touches` for the relevant entities. Do **not** edit entity pages. The scanner owns them and backfills `## Referenced in wiki`.
-- **Step 6 (Update / create concept pages)** gains an explicit ask: "Does this example demonstrate a reusable pattern? If so, propose `concepts/<topic>-pattern.md`." Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended. Wait for user confirmation before creating.
+- **Step 6 (Update / create concept pages)** — if the example demonstrates a reusable pattern, include `concepts/<topic>-pattern.md` in the step 3 New-pages enumeration — consent comes from that single confirmation. Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended.
 - **Step 7 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still include an ADR in the step 3 "New pages" list if the example concretely motivates a decision the user is making *now*, but it should not appear proactively.
 - **Step 8 (Contradictions)** still runs — an example can contradict an existing concept page's claim (e.g. "we said pattern X is bad but this example uses it well"). Flag both ways.
 - The source summary uses `page-formats.md` Section 5a (example variant): no `## Key claims`, no `## Proposed changes`; instead `Origin / What's in it / Patterns demonstrated / Key takeaways / Where this could apply / Caveats / Related`.
@@ -308,10 +308,12 @@ note's `origins[]`, which only works if writes are serialized.
 
 After the workers return, commit each successful unit in unit order: file each
 reported proposal via `scripts/file_proposal.py` (duplicate targets across
-units merge origins — existing ledger behavior); apply reported existing-page
-updates and contradiction callouts; update `index.md` (and the guidance indexes
-for skill units); append one `## [YYYY-MM-DD] ingest | <title>` log entry per
-unit; archive the unit to `raw/_archive/<same relative path>`.
+units merge origins — existing ledger behavior); apply the reported
+`existing_page_updates[]` (contradiction callouts on shared pages arrive inside
+these; `contradictions[]` is summary-only — surface it in the final report,
+don't apply it); update `index.md` (and the guidance indexes for skill units);
+append one `## [YYYY-MM-DD] ingest | <title>` log entry per unit; archive the
+unit to `raw/_archive/<same relative path>`.
 
 A failed unit (worker crash, malformed report) gets none of this — its source
 stays in `raw/` (inbox semantics: still un-ingested, re-runnable) and is listed

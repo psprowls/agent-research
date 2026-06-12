@@ -45,7 +45,7 @@ Pointing the command at a **top-level kind folder** ingests everything inside:
 the unit list — flat kinds: one unit per file (recursive); `skills/`: one per
 immediate subdirectory (a loose file directly in `raw/skills/` is NOT a unit —
 ingest it individually); `examples/`: one per immediate subdirectory plus loose
-files; `_archive/` and `assets/` are excluded. Pass the prep script the
+files; `_archive/`, `assets/`, and dotfiles are excluded. Pass the prep script the
 **absolute path** to the kind folder (resolve `raw/<kind>` against the
 workspace, not the repo cwd).
 
@@ -58,17 +58,21 @@ workspace, not the repo cwd).
    concurrent**. Each dispatch prompt starts with **BATCH MODE** and includes
    the unit path, the workspace path, and the unit type. Workers follow the
    "Batch mode" contract in `agents/ingestor.md` and return a fenced JSON
-   report. A worker that crashes or returns no parseable report marks its unit
-   **failed**; the batch continues.
+   report. A worker that crashes, returns no parseable report, or reports
+   `"status": "failed"` marks its unit **failed**; the batch continues.
 3. **Serial commit phase** — for each successful unit, in unit order:
    - file each `proposals[]` entry:
-     `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/file_proposal.py --kind <kind> --target-slug <slug> --title "<title>" --ref "<source page ref minus .md>" --rationale "<rationale>" --evidence "<bullet>" [--evidence ...]`
+     `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/file_proposal.py --kind <kind> --target-slug <slug> --title "<title>" --ref "<the unit report's source_page minus .md>" --rationale "<rationale>" --evidence "<bullet>" [--evidence ...]`
      (duplicate targets across units merge into one ledger note's `origins[]`)
-   - apply the reported `existing_page_updates[]` and contradiction callouts
+   - apply the reported `existing_page_updates[]` (contradiction callouts on
+     shared pages arrive inside these; `contradictions[]` is summary-only —
+     surface it in the final report, don't apply it)
    - update `index.md`; refresh `guidance/index.md` + `guidance/<topic>/index.md`
      when the unit wrote guidance pages
    - append the unit's `log_line` as its own `## [YYYY-MM-DD] ingest | <title>`
-     entry in `log.md` (one entry per unit)
+     entry in `log.md` (one entry per unit); compose the entry body from the
+     report fields — source page, guidance pages, proposal ledger paths,
+     contradictions — matching single-mode log entries
    - archive the unit to `raw/_archive/<same relative path>`
    A **failed** unit gets none of this — its source stays in `raw/` (still
    un-ingested, re-runnable).
