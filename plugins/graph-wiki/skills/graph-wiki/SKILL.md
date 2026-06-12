@@ -126,6 +126,7 @@ Each script is a thin shim that imports `main()` from the in-workspace `wiki_io`
 | `ingest_source.py` | Extract text + metadata from a source file — prepares a brief for the LLM |
 | `wiki_search.py` | BM25 search over vault pages (fallback when index alone isn't enough) |
 | `lint_wiki.py` | Orphans, broken links, stale pages, missing frontmatter, log gap, **+ code-drift** (entity pages on disk vs. in `entities/`) |
+| `file_proposal.py` | File one curated-page proposal into `wiki/proposals/` (batch ingest commit phase; declined single-mode pages) |
 
 ## Cross-tool compatibility
 
