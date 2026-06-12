@@ -70,6 +70,8 @@ def main(argv: list[str] | None = None) -> None:
 
     workspace_path = Path(args.workspace).expanduser().resolve() if args.workspace else None
     wiki, _ = resolve_wiki_and_repo(workspace_path)
+    if not wiki.is_dir():
+        parser.error(f"wiki not found at {wiki}")
 
     record = file_proposal(
         wiki,

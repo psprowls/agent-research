@@ -120,6 +120,29 @@ def test_main_writes_note_and_prints_json(tmp_path: Path, capsys: pytest.Capture
     assert rec["origins"][0]["evidence"] == ["claim one", "claim two"]
 
 
+def test_main_rejects_nonexistent_workspace_with_exit_2(tmp_path: Path) -> None:
+    missing = tmp_path / "nope"
+    with pytest.raises(SystemExit) as excinfo:
+        main(
+            [
+                "--kind",
+                "concept",
+                "--target-slug",
+                "t",
+                "--title",
+                "T",
+                "--ref",
+                "r",
+                "--rationale",
+                "x",
+                "--workspace",
+                str(missing),
+            ]
+        )
+    assert excinfo.value.code == 2
+    assert not missing.exists()
+
+
 def test_main_rejects_unknown_kind_with_exit_2(tmp_path: Path) -> None:
     ws, _ = _mk_workspace(tmp_path)
     with pytest.raises(SystemExit) as excinfo:
