@@ -32,7 +32,6 @@ ASSETS_DIR = Path(__file__).resolve().parent / "assets"
 
 FIXED_VAULT_DIRS = [
     "concepts",
-    "architecture",
     "adrs",
     "entities",
     "sources",
@@ -45,7 +44,6 @@ SECTION_INDEX_STUBS = {
     "concepts": "Concept",
     "sources": "Source",
     "adrs": "ADR",
-    "architecture": "Architecture",
 }
 
 TOOL_FILES = {
