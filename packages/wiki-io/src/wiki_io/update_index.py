@@ -15,6 +15,7 @@ from pathlib import Path
 
 from workspace_io.paths import wiki_dir, work_dir
 
+from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_GROUP_LABELS, KIND_GROUP_ORDER, kind_group
 from wiki_io.wikilinks import vault_wikilink
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -23,7 +24,6 @@ MAIN_INDEX_CATEGORIES = ["app", "domain", "package"]
 
 # Keep the full order for category sub-index generation
 CATEGORY_ORDER = [
-    "architecture",
     "app",
     "package",
     "domain",
@@ -42,7 +42,6 @@ CATEGORY_INDEX_FILES = {
     "concept": "concepts/index.md",
     "source": "sources/index.md",
     "adr": "adrs/index.md",
-    "architecture": "architecture/index.md",
 }
 # guidance/index.md is listed for documentation value; the per-topic
 # guidance/<topic>/index.md paths are dynamic and rely on the rel.name
@@ -59,11 +58,9 @@ CATEGORY_DIRS = {
     "dependencies": "dependency",
     "work": "work",
     "sources": "source",
-    "architecture": "architecture",
     "adrs": "adr",
 }
 CATEGORY_LABELS = {
-    "architecture": "Architecture",
     "app": "App",
     "package": "Package",
     "domain": "Domain",
@@ -122,6 +119,7 @@ def scan_vault(wiki):
                 "sources": fm.get("sources", ""),
                 "updated": fm.get("updated", ""),
                 "status": fm.get("status", ""),  # issue, roadmap, adr
+                "kind": fm.get("kind", ""),
             }
         )
 
@@ -246,7 +244,7 @@ def render_index(pages, wiki_name, vault_name):
     # ## More — links to category sub-indexes
     # These categories always appear even at 0 pages (browsing entrypoints).
     # "work" stays conditional — it is its own namespace under the wiki.
-    _ALWAYS_IN_MORE = {"architecture", "source", "concept", "adr"}
+    _ALWAYS_IN_MORE = {"source", "concept", "adr"}
     more_links = []
     for cat, fname in CATEGORY_INDEX_FILES.items():
         entries = pages.get(cat, [])
@@ -294,7 +292,8 @@ def render_category_index(entries, category, label, vault_name, location=None):
         f"## {label} ({len(entries)})",
         "",
     ]
-    for e in sorted(entries, key=lambda x: x["title"].lower()):
+
+    def _bullet(e):
         summary = f" — {e['summary']}" if e["summary"] else ""
         link = vault_wikilink(e["path"], e["title"])
         meta = []
@@ -305,7 +304,24 @@ def render_category_index(entries, category, label, vault_name, location=None):
         if e["updated"]:
             meta.append(f"upd {e['updated']}")
         meta_str = f" _({' · '.join(meta)})_" if meta else ""
-        lines.append(f"- {link}{summary}{meta_str}")
+        return f"- {link}{summary}{meta_str}"
+
+    ordered = sorted(entries, key=lambda x: x["title"].lower())
+    grouped = category == "concept" and any(
+        kind_group({"kind": e.get("kind")}) != DEFAULT_CONCEPT_KIND for e in ordered
+    )
+    if grouped:
+        for kind in KIND_GROUP_ORDER:
+            group = [e for e in ordered if kind_group({"kind": e.get("kind")}) == kind]
+            if not group:
+                continue
+            lines.append(f"### {KIND_GROUP_LABELS[kind]}")
+            lines.append("")
+            lines.extend(_bullet(e) for e in group)
+            lines.append("")
+        return "\n".join(lines)
+    for e in ordered:
+        lines.append(_bullet(e))
     lines.append("")
     return "\n".join(lines)
 
