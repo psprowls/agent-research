@@ -80,6 +80,7 @@ from wiki_io.scan_monorepo import (
     compute_state_gate,
 )
 from wiki_io.update_index import update_index
+from wiki_io.update_tokens import update_vault
 from workspace_io import manifest as _manifest
 from workspace_io.paths import graph_dir, manifest_path
 
@@ -1989,6 +1990,11 @@ async def run_scan(
         scan_result.entity_errors = (
             list(scan_result.entity_errors) + list(results.provider_errors) + list(applied.entity_errors)
         )
+
+        # Stamp `tokens` frontmatter on every page now that all writes are done.
+        # Bedrock-only (CountTokens), so it runs solely on the narrated path — the
+        # narrate=False plugin branch has no AWS access. Idempotent across re-scans.
+        update_vault(wiki)
 
         entity_create_count = len(scan_result.entities_created)
         entity_update_count = len(scan_result.entities_updated)
