@@ -330,14 +330,15 @@ Two sentences max. What the source proposes / argues / reports.
 
 `last_sync_commit` (40-char SHA) and `last_sync_at` (YYYY-MM-DD) record the repo commit this page was last verified against. `/graph-wiki:ingest` writes both when re-ingesting an in-repo doc (`source_type: doc`) with a clean working tree on `main`. `/graph-wiki:lint` compares HEAD against `last_sync_commit` to flag source files that have changed since the last ingest.
 
-## 6. Architecture page
+## 6. Architecture concept page (`kind: architecture`)
 
-High-level synthesis that draws on many packages, domains, and sources.
+High-level synthesis that draws on many packages, domains, and sources. Lives in `concepts/` with `kind: architecture`. Use the `concept-architecture.md` template.
 
 ```markdown
 ---
 title: Request Flow
-category: architecture
+category: concept
+kind: architecture
 summary: End-to-end path of an authenticated API request from client through Lambda to MongoDB
 packages: [shared-domain-ts, shared-aws-node-ts, common-context-node-ts, *-data-node-ts]
 tags: [architecture, request-flow]

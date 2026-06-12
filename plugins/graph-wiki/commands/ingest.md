@@ -28,7 +28,7 @@ The script guesses the source type from the raw/ subdirectory. Supported:
 
 | Path | Source type | Typical touches |
 |---|---|---|
-| `raw/specs/` | `spec` | `[[entities/...]]` links + architecture/ADR pages |
+| `raw/specs/` | `spec` | `[[entities/...]]` links + concept pages (`kind: architecture`) / ADR pages |
 | `raw/articles/` | `article` | Concept/dependency pages |
 | `raw/prs/` | `pr` | `[[entities/...]]` links for every package modified |
 | `raw/tickets/` | `ticket` | Source summary; light `[[entities/...]]` touches |

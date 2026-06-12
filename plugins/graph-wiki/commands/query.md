@@ -1,6 +1,6 @@
 ---
 name: query
-description: Query the Code Wiki — reads index.md first, drills into 3-10 relevant pages (packages, domains, concepts, architecture, ADRs, sources), synthesizes answer with inline [[wikilinks]] and `code-paths:line`, and offers to file the answer back. Usage /graph-wiki:query "<question>"
+description: Query the Code Wiki — reads index.md first, drills into 3-10 relevant pages (concepts, entities, ADRs, sources), synthesizes answer with inline [[wikilinks]] and `code-paths:line`, and offers to file the answer back as a concept page. Usage /graph-wiki:query "<question>"
 ---
 
 # /graph-wiki:query
@@ -22,11 +22,11 @@ Ask the wiki a question. The librarian reads `index.md` first, picks relevant pa
 ## What happens
 
 1. **Index-first read** — `<workspace>/wiki/index.md`
-2. **Drill-in** — 3-10 pages across categories (architecture + entities + concepts + sources + adrs + work)
+2. **Drill-in** — 3-10 pages across categories (concepts + entities + sources + adrs + work)
 3. **Follow links** — opportunistic
 4. **Fallback** — `scripts/wiki_search.py` (BM25); if still nothing, reads code directly
 5. **Synthesize** — direct answer + supporting detail + inline citations (`[[wikilinks]]` + `` `code-paths:line` ``) + "Related pages"
-6. **Offer to file back** — as a concept/architecture/comparison/adr page
+6. **Offer to file back** — as a concept page (choosing the kind: `architecture`, `pattern`, or default `concept`), comparison, or adr
 
 ## Output formats
 

@@ -52,9 +52,8 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
     ├── index.md                # Content catalog (LLM updates every ingest/scan)
     ├── log.md                  # Append-only timeline
     ├── entities/               # One graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, agent-plugin_*, *_tests_*)
-    ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
+    ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
-    ├── architecture/           # High-level architecture syntheses
     ├── adrs/                   # Architecture Decision Records
     ├── .templates/             # Page templates (reference only, not indexed)
     ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
@@ -140,10 +139,9 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `<workspace>/wiki/entities/app_<name>.md` |
 | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/entities/pkg_<name>.md` |
 | `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/entities/domain_<name>.md` |
-| `concept` | Cross-cutting technical idea (e.g. "GlobalContext pattern", "integration test setup"). Comparisons (`<a>-vs-<b>.md`) live here too. | `<workspace>/wiki/concepts/` |
+| `concept` | Cross-cutting technical idea, pattern, or architecture synthesis. Optional `kind:` frontmatter — `concept` (default), `pattern`, or `architecture` — selects the page template. Comparisons (`<a>-vs-<b>.md`) live here too. | `<workspace>/wiki/concepts/` |
 | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `<workspace>/wiki/entities/dep_<name>.md` |
 | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `<workspace>/wiki/sources/` |
-| `architecture` | High-level synthesis — build system, module graph, request flow, deployment topology | `<workspace>/wiki/architecture/` |
 | `adr` | Architecture Decision Record — a dated, citable decision with context + consequences | `<workspace>/wiki/adrs/` |
 
 ## Why this works (vs. just READMEs or generic docs)
@@ -165,7 +163,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 ## Reference docs
 
 - `references/wiki-schema.md` — full vault layout, page frontmatter, taxonomies, body-table conventions
-- `references/page-formats.md` — annotated examples for app, package, domain, concept, dependency, work, source, architecture, ADR
+- `references/page-formats.md` — annotated examples for app, package, domain, concept (all three kinds), dependency, work, source, ADR
 - `references/scan-workflow.md` — how the scanner builds the code graph and renders entity pages
 - `references/ingest-workflow.md` — detailed ingest flow
 - `references/query-workflow.md` — query patterns, citation format, re-filing answers
@@ -180,14 +178,14 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 - `CLAUDE.md.template`, `AGENTS.md.template`, `cursorrules.template` — schema loaders per tool
 - `index.md.template`, `log.md.template` — starter index and log
-- `page-templates/` — graph-derived entity templates (`entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md`) plus curated-page templates (`concept.md`, `concept-pattern.md`, `source.md`, `adr.md`, `architecture.md`, `dependency.md`, `work.md`, `index.md`)
+- `page-templates/` — graph-derived entity templates (`entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md`) plus curated-page templates (`concept.md`, `concept-pattern.md`, `concept-architecture.md`, `source.md`, `adr.md`, `dependency.md`, `work.md`, `index.md`)
 
 ## Iron rules
 
 1. **The code is the source of truth.** If the vault contradicts the code, the code wins — update the vault.
 2. **The LLM never edits file contents in `raw/`.** The only permitted `raw/` write is the post-ingest move to `raw/_archive/<same relative path>`.
 3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archive/`.
-4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/architecture/dependency/work) carry `title`, `category`, `summary`, `updated`; graph-derived `entities/` pages carry `title`, `uri`, `kind`, `updated` (the scanner owns their frontmatter).
+4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; concept pages may also carry `kind: concept | pattern | architecture`; graph-derived `entities/` pages carry `title`, `uri`, `kind`, `updated` (the scanner owns their frontmatter).
 5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
 7. **Good query answers get filed back** — explorations compound.

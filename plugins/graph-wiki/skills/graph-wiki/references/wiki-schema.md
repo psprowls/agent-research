@@ -25,9 +25,8 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
     ├── log.md                   # append-only timeline
     ├── entities/                # one page per graph-derived entity (all kinds)
     │   └── <prefix>_<name>.md   # e.g. pkg_common-aws-node-ts.md, app_web-next-ts.md
-    ├── concepts/                # cross-cutting technical concepts (and `<a>-vs-<b>.md` comparisons)
+    ├── concepts/                # cross-cutting technical concepts; optional kind: concept | pattern | architecture
     ├── sources/                 # one summary page per ingested source
-    ├── architecture/            # high-level syntheses
     ├── adrs/                    # architecture decision records
     ├── .templates/              # page templates (reference only, not indexed)
     ├── CLAUDE.md                # wiki schema file for Claude Code
@@ -58,7 +57,7 @@ updated: 2026-04-20
 ---
 ```
 
-Allowed `category` values: `app`, `package`, `domain`, `concept`, `dependency`, `work`, `source`, `architecture`, `adr`.
+Allowed `category` values: `app`, `package`, `domain`, `concept`, `dependency`, `work`, `source`, `adr`. For concept pages, an optional `kind` field discriminates: `concept` (default), `pattern`, or `architecture` (for high-level syntheses — build system, module graph, request flow, deployment topology).
 
 ## Category-specific frontmatter
 
@@ -252,12 +251,15 @@ updated: 2026-04-20
 
 In-repo docs (an in-repo `.md` passed to `/graph-wiki:ingest` by repo-relative path) use `source_type: doc`, set `source_path` to the repo-relative path, and record `last_sync_commit` and `last_sync_at`. PDF/DOCX/etc. are deferred — only `.md` is supported today.
 
-### Architecture pages
+### Architecture pages (concept pages with `kind: architecture`)
+
+High-level syntheses — the layers, components, and flows that span multiple packages or domains — live in `concepts/` as concept pages with `kind: architecture`. The `## Thesis` body section is the load-bearing part; the rest (layers, diagrams, key concepts, decisions) supports the thesis and rotates as the codebase changes. `packages:` lists the workspaces the synthesis reasons about so lint can flag when a referenced package goes away.
 
 ```yaml
 ---
 title: Request flow
-category: architecture
+category: concept
+kind: architecture
 summary: How a request flows from edge → API → domain → datastore
 packages: [web-next-ts, common-aws-node-ts, location-aws-node-ts]
 tags: [architecture, request-flow]
@@ -265,8 +267,6 @@ sources: 0
 updated: 2026-04-20
 ---
 ```
-
-High-level syntheses — the layers, components, and flows that span multiple packages or domains. The `## Thesis` body section is the load-bearing part; the rest (layers, diagrams, key concepts, decisions) supports the thesis and rotates as the codebase changes. `packages:` lists the workspaces the synthesis reasons about so lint can flag when a referenced package goes away.
 
 ### ADR pages
 
@@ -305,7 +305,7 @@ updated: 2026-04-20
 - **Concepts:** `concepts/<concept-slug>.md` — e.g. `concepts/global-context.md`. Comparisons live here too: `concepts/<a>-vs-<b>.md` for two-way, `concepts/<topic>-options.md` for n-way.
 - **Sources:** `sources/<YYYY-MM>-<short-slug>.md` — e.g. `sources/2026-04-auth-migration-spec.md`
 - **ADRs:** `adrs/<NNNN>-<slug>.md` — e.g. `adrs/0012-move-to-esm.md`. Zero-padded ID, monotonically increasing.
-- **Architecture:** `architecture/<topic>.md` — e.g. `architecture/request-flow.md`
+- **Architecture syntheses:** `concepts/<topic>.md` with `kind: architecture` — e.g. `concepts/request-flow.md`
 - **Dependencies:** `entities/dep_<package-name>.md` — use the registry name (`dep_react.md`, `dep_react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`dep_@tanstack__react-query.md`). Service pages use a slug derived from the service name (`dep_mongodb-atlas.md`).
 - **Work:** `work/<YYYY-MM-DD>-<slug>.md` for date-of-filing-meaningful items (most bugs, most spikes); `work/<slug>.md` for evergreen feature/initiative items.
 
@@ -428,8 +428,8 @@ See `packages/common-aws-node-ts/src/handlers/baseApiHandler.ts:42`
 
 ## Cross-reference rules
 
-- **Every package or domain mentioned on an entity or architecture page must be a wikilink** to `entities/<prefix>_<name>`.
-- **Every ADR referenced in entity/architecture pages must be a wikilink** to `adrs/<id>-<slug>`.
+- **Every package or domain mentioned on an entity or concept page must be a wikilink** to `entities/<prefix>_<name>`.
+- **Every ADR referenced in entity/concept pages must be a wikilink** to `adrs/<id>-<slug>`.
 - **Every claim on an entity page cites** either a source page (`[[sources/xxx]]`) or a code path (backticked, with file:line).
 - **Contradictions get flagged inline** with a `> ⚠️ Contradiction:` callout naming the conflicting sources or code paths.
 - **Architecture pages link back to every entity and ADR they draw on.**
@@ -452,7 +452,7 @@ entities/pkg_timeline-native-ts.md. No renames or deletions.
 ## [2026-04-20] ingest | Auth Migration Spec
 Added sources/2026-04-auth-migration-spec.md. Updated concepts/global-context,
 entities/domain_auth.md, entities/pkg_shared-aws-node-ts.md, entities/pkg_shared-native-ts.md,
-architecture/request-flow, adrs/0014-jwt-sessions (new). Flagged contradiction
+concepts/request-flow, adrs/0014-jwt-sessions (new). Flagged contradiction
 with concepts/global-context on session shape.
 ```
 

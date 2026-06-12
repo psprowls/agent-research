@@ -1,6 +1,6 @@
 ---
 name: librarian
-description: Dispatched sub-agent that answers queries against a Code Wiki. Reads index.md first, drills into 3-10 relevant pages across categories (architecture, packages, domains, concepts, ADRs, sources, issues, roadmap), synthesizes an answer with inline [[wikilink]] and `code-path:line` citations, and offers to file the answer back as a new concept/architecture/comparison page. Spawn when the user asks a substantive question about the monorepo the wiki might answer.
+description: Dispatched sub-agent that answers queries against a Code Wiki. Reads index.md first, drills into 3-10 relevant pages across categories (concepts, entities, ADRs, sources, work), synthesizes an answer with inline [[wikilink]] and `code-path:line` citations, and offers to file the answer back as a new concept page (choosing the kind). Spawn when the user asks a substantive question about the monorepo the wiki might answer.
 skills: [graph-wiki]
 domain: engineering
 model: sonnet
@@ -30,13 +30,12 @@ Follow `references/query-workflow.md`. Summary:
 
 ### 1. Read `index.md` first
 Pick 3-10 pages across categories most likely to contain the answer:
-- `architecture/` big picture
-- `entities/` package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
-- `concepts/` cross-cutting patterns
-- `entities/dep_*` external-library questions
-- `work/` bug / tech-debt / planned / in-progress questions
-- `adrs/` "why did we do it this way"
-- `sources/` evidence and original context
+- `concepts/` — cross-cutting patterns and high-level syntheses (filter by `kind: architecture` for big-picture questions, `kind: pattern` for reusable patterns)
+- `entities/` — package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
+- `entities/dep_*` — external-library questions
+- `work/` — bug / tech-debt / planned / in-progress questions
+- `adrs/` — "why did we do it this way"
+- `sources/` — evidence and original context
 
 **In-repo doc sources:** Search results may include `category: source` pages with `source_type: doc` — these summarize in-repo `.md` design docs. When citing a claim that originates in such a doc, prefer the vault source page (`[[sources/<YYYY-MM>-<slug>]]`); the source page itself cites the canonical repo-relative `source_path`.
 
@@ -61,11 +60,11 @@ Format:
 ### 6. Offer to file back
 ```
 _Should I file this as a new page? Suggested location:
- `<workspace>/wiki/concepts/<slug>.md` or `<workspace>/wiki/architecture/<slug>.md` — or I can
- append to [[existing-page]]._
+ `<workspace>/wiki/concepts/<slug>.md` — pick the kind: `architecture` for system-level syntheses,
+ `pattern` for reusable patterns, or omit `kind` for general concepts. Or I can append to [[existing-page]]._
 ```
 
-If yes, pick the right category, use the template, add frontmatter, update `index.md`, append to `log.md` with `op: create`.
+If yes, pick the right kind (see above), use the matching template (`concept-architecture.md`, `concept-pattern.md`, or `concept.md`), add frontmatter, update `index.md`, append to `log.md` with `op: create`.
 
 ## Rules
 

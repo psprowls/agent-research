@@ -73,7 +73,7 @@ If the source represents or proposes a decision, ask the user:
 If yes:
 - Get the next ADR number (scan existing `adrs/*.md` for highest `adr_id`)
 - Create the ADR using the template
-- Link from the source page and from touched concept/architecture pages
+- Link from the source page and from touched concept pages
 
 ### 8. Flag contradictions explicitly
 
@@ -87,9 +87,9 @@ If the source contradicts an existing wiki page OR current code, add a callout t
 
 Log contradictions in `log.md` with `op: note`.
 
-### 9. Update architecture (optional)
+### 9. Update concept pages (optional)
 
-If the source meaningfully shifts an `architecture/` page's thesis, revise the "Thesis" paragraph and append a dated entry under "How this synthesis has changed". Don't rewrite history; append.
+If the source meaningfully shifts a high-level synthesis, revise the relevant `concepts/` page (use `kind: architecture` for system-level syntheses, `kind: pattern` for reusable patterns, or omit `kind` for general concepts). Revise the "Thesis" paragraph and append a dated entry under "How this synthesis has changed". Don't rewrite history; append.
 
 ### 10. Update `index.md`
 
@@ -116,7 +116,7 @@ Summary the user sees in chat:
 
 ### Specs / RFCs / design docs
 - Likely to produce an ADR. Always ask.
-- Expect heavy updates to domain/architecture pages.
+- Expect heavy updates to domain pages and concept pages (especially `kind: architecture` syntheses).
 
 ### PR summaries
 - Source type `pr`. Include the PR URL in `source_path` or a `pr_url` frontmatter field.
@@ -140,7 +140,7 @@ Summary the user sees in chat:
 - An in-repo `.md` passed by repo-relative path; the file lives in the repo, not in `raw/`. Not auto-surfaced — point `/graph-wiki:ingest` at it directly.
 - `source_path` is repo-relative (e.g. `docs/architecture.md`). The doc stays canonical — the wiki summary doesn't duplicate it; it cross-references concepts, packages, ADRs, etc. inferred from the doc's content.
 - When `state_gate.allowed` is true, set `last_sync_commit` to `state_gate.head_commit` and `last_sync_at` to today; `/graph-wiki:lint` uses these to flag drift on subsequent runs. Otherwise omit both fields and warn the user that drift detection won't apply until the next clean-on-main ingest.
-- Often produce concept pages, architecture revisions, or ADRs depending on the doc's content. Treat them like specs/RFCs by default.
+- Often produce concept pages (with `kind: architecture` for high-level syntheses) or ADRs depending on the doc's content. Treat them like specs/RFCs by default.
 
 ### Code examples (source_type: example)
 - Source location: `raw/examples/`. The path passed to `/graph-wiki:ingest` may resolve to a single file or a folder; folder mode is the headline new capability and produces a single source summary (not one per file).
@@ -152,7 +152,7 @@ Summary the user sees in chat:
 - **Step 7 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still propose an ADR if the example concretely motivates a decision the user is making *now*, but the default ask is skipped.
 - **Step 8 (Contradictions)** still runs — an example can contradict an existing concept page's claim (e.g. "we said pattern X is bad but this example uses it well"). Flag both ways.
 - The source summary uses `page-formats.md` Section 5a (example variant): no `## Key claims`, no `## Proposed changes`; instead `Origin / What's in it / Patterns demonstrated / Key takeaways / Where this could apply / Caveats / Related`.
-- Each `[[entities/<prefix>_<name>]]` bullet under `## Where this could apply` on the source page is forward-linked; the scanner derives the reciprocal `## Referenced in wiki` backlink on entity pages automatically. Concept and architecture pages keep manual reciprocity (add `## Inspirations` bullets there by hand). `/graph-wiki:lint` cross-checks concept-page reciprocity and warns on drift.
+- Each `[[entities/<prefix>_<name>]]` bullet under `## Where this could apply` on the source page is forward-linked; the scanner derives the reciprocal `## Referenced in wiki` backlink on entity pages automatically. Concept pages keep manual reciprocity (add `## Inspirations` bullets there by hand). `/graph-wiki:lint` cross-checks concept-page reciprocity and warns on drift.
 - Frontmatter contract: see `wiki-schema.md` for `origin_url`, `origin_repo`, `license`, `attribution` (`origin_url` or `origin_repo` should be set; lint warns if both are empty).
 
 ## Skill → guidance pages

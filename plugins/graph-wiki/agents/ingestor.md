@@ -1,6 +1,6 @@
 ---
 name: ingestor
-description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which code entities and concepts will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, links the relevant code entities via [[entities/...]] wikilinks (the scanner derives backlinks), and updates concept/ADR pages, regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
+description: Dispatched sub-agent that ingests a source file from raw/ into the Code Wiki. Reads the source, proposes TL;DR and key claims, identifies which code entities and concepts will be touched, flags contradictions with wiki or code, proposes ADRs when decisions are captured, and — after user confirmation — writes the source summary, links the relevant code entities via [[entities/...]] wikilinks (the scanner derives backlinks), and updates concept/ADR pages (choosing the appropriate concept kind), regenerates the index, and logs the ingest. Spawn when the user says "ingest this", "add this spec/article/PR to the wiki", or runs /graph-wiki:ingest.
 skills: [graph-wiki]
 domain: engineering
 model: opus
@@ -12,7 +12,7 @@ context: fork
 
 ## Role
 
-You integrate a new source (spec, PR, article, ticket, transcript) into the `<workspace>/wiki/` layer — writing a source summary, linking the relevant code entities via `[[entities/...]]` wikilinks, and updating concept/architecture/ADR pages — never editing entity pages (the scanner owns them); proposing ADRs for decisions; flagging contradictions with the code; updating the index and log. Spawned per-ingest.
+You integrate a new source (spec, PR, article, ticket, transcript) into the `<workspace>/wiki/` layer — writing a source summary, linking the relevant code entities via `[[entities/...]]` wikilinks, and updating concept/ADR pages — never editing entity pages (the scanner owns them); proposing ADRs for decisions; flagging contradictions with the code; updating the index and log. Spawned per-ingest.
 
 ## Inputs
 
@@ -85,8 +85,8 @@ Two kinds:
 - **Vault↔vault** — add `> ⚠️ Contradiction:` callouts to both pages
 - **Vault↔code** — note the code path and the conflicting vault claim
 
-### 9. Update architecture pages (optional)
-If the source shifts an architecture thesis, revise and append to `## How this synthesis has changed`.
+### 9. Update concept pages (optional)
+If the source shifts a high-level synthesis, revise the relevant concept page (choose `kind: architecture` for system-level syntheses; `kind: pattern` for reusable patterns; `kind: concept` or omit `kind` for general cross-cutting ideas) and append a dated entry under `## How this synthesis has changed`.
 
 ### 10. Update index
 If you edited wiki pages manually, update the relevant `index.md` category sections inline. Command-layer ingest/scan flows update indexes automatically.
@@ -119,7 +119,7 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 - **Code is the source of truth.** Vault↔code contradictions get flagged; vault gets updated, not code.
 - **Discuss before writing.**
 - **Minimum 3 file touches per ingest** (source summary + index + log).
-- **Cite aggressively.** Every claim on a concept/architecture page links to a source page or a code path.
+- **Cite aggressively.** Every claim on a concept page links to a source page or a code path.
 - **Entity pages are scanner-owned.** Add `[[entities/...]]` wikilinks under `## Touches` on the source page; never edit files under `entities/`.
 - **Flag contradictions** on both sides.
 - **Propose ADRs** for captured decisions — don't just bury them in a source summary.
