@@ -23,7 +23,7 @@ You integrate a new source (spec, PR, article, ticket, transcript) into the `<wo
 
 ## Workflow
 
-Follow `references/ingest-workflow.md`. Summary:
+Follow `references/ingest-workflow.md` (single mode; in batch mode the deltas below win). Summary:
 
 ### Batch mode (dispatched as a batch worker)
 
@@ -55,10 +55,11 @@ Follow the normal workflow below with these deltas:
   for blocking conditions, or proceed and record the warning in `notes` for
   advisory ones.
 
-End your final message with exactly ONE fenced ```json block — the orchestrator
-parses it; a missing or malformed report marks your unit failed:
+End your final message with exactly ONE fenced ```json block — it replaces
+step 13's human-readable report. The orchestrator parses it; a missing or
+malformed report marks your unit failed:
 
-````json
+```json
 {
   "status": "success",
   "unit": "<the unit path you were dispatched with>",
@@ -82,10 +83,13 @@ parses it; a missing or malformed report marks your unit failed:
   "log_line": "## [YYYY-MM-DD] ingest | <title>",
   "notes": ""
 }
-````
+```
 
 On failure set `"status": "failed"` and explain in `notes`; still emit the block.
 Empty lists are required keys — emit `[]`, never omit them.
+`entity_links` are wikilink targets (no `.md`). `contradictions` is a summary
+list of every contradiction found, regardless of where its callout was routed
+(your own source page or `existing_page_updates[]`).
 
 ### 1. Prep
 ```bash
@@ -119,7 +123,7 @@ declined page to the proposals ledger instead:
 ```bash
 uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/file_proposal.py \
   --kind <concept|adr|architecture> --target-slug <slug> --title "<title>" \
-  --ref "sources/<YYYY-MM>-<slug>" --rationale "<why>" --evidence "<claim>"
+  --ref "sources/<YYYY-MM>-<slug>" --rationale "<why>" --evidence "<claim>" [--evidence "<claim>" ...]
 ```
 
 ### 4. Write the source summary
@@ -195,7 +199,7 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 - **`raw/` is an inbox.** Never edit file contents under `raw/` — the only permitted write is the post-ingest archive move into `raw/_archive/` (step 12). Anything under `raw/` outside `_archive/` is un-ingested.
 - **In-repo docs are also read-only.** The doc lives in the repo and the LLM never edits it through this skill — the canonical version stays where it is.
 - **Code is the source of truth.** Vault↔code contradictions get flagged; vault gets updated, not code.
-- **Discuss before writing.**
+- **Discuss before writing** (single mode; batch consent is up-front).
 - **Minimum 3 file touches per ingest** (source summary + index + log). In batch
   mode this still holds per unit, split between you (source page) and the
   orchestrator's commit phase (index + log).
