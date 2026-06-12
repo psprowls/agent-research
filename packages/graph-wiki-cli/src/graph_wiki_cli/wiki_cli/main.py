@@ -28,6 +28,7 @@ from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.query import run_query
 from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.update_tokens import DEFAULT_MODEL_ID, DEFAULT_REGION, update_vault
 from workspace_io.paths import graph_dir
 
 wiki_app = typer.Typer(
@@ -357,6 +358,37 @@ def ingest_source(
                 typer.echo(f"       - {g}")
         if not result.suggestions_parsed:
             typer.echo("⚠ suggestion pass degraded — wrote 0 suggestions", err=True)
+
+
+@wiki_app.command(name="tokens")
+def tokens(
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Count without writing the tokens field"),
+    json_output: bool = typer.Option(False, "--json", help="Emit the {updated, unchanged, skipped} buckets as JSON"),
+    model_id: str = typer.Option(DEFAULT_MODEL_ID, "--model-id", help="Bedrock model ID for token counting"),
+    region: str = typer.Option(DEFAULT_REGION, "--region", help="AWS region for Bedrock"),
+) -> None:
+    """Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        wiki, _ = resolve_wiki_and_repo(workspace_path)
+    except (RuntimeError, FileNotFoundError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    result = update_vault(wiki, dry_run=dry_run, model_id=model_id, region=region)
+
+    if json_output:
+        typer.echo(json.dumps(result, indent=2))
+        return
+
+    label = "Would update" if dry_run else "Updated"
+    typer.echo(
+        f"{label} {len(result['updated'])} • Unchanged {len(result['unchanged'])} • Skipped {len(result['skipped'])}"
+    )
+    for kind in ("updated", "skipped"):
+        for rel in result[kind][:20]:
+            typer.echo(f"  [{kind}] {rel}")
 
 
 def main() -> None:
