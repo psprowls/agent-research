@@ -26,7 +26,7 @@ def test_build_wiki_catalog_lists_curated_sources_entities_and_proposals(tmp_pat
     wiki = tmp_path / "wiki"
     _page(wiki / "concepts" / "ownership.md", title="Ownership", summary="Owns sections")
     _page(wiki / "adrs" / "0007-md.md", title="ADR-0007: Markdown", summary="Markdown stays canonical")
-    _page(wiki / "architecture" / "layers.md", title="Layers", summary="Bottom to top")
+    _page(wiki / "concepts" / "layers.md", title="Layers", summary="Bottom to top", kind="architecture")
     _page(wiki / "sources" / "spec.md", title="Spec", summary="Imported source")
     _page(
         wiki / "entities" / "packages" / "graph-wiki-core.md",
@@ -48,9 +48,9 @@ def test_build_wiki_catalog_lists_curated_sources_entities_and_proposals(tmp_pat
 
     catalog = build_wiki_catalog(wiki)
 
-    assert {entry["slug"] for entry in catalog["concepts"]} == {"ownership"}
+    assert {entry["slug"] for entry in catalog["concepts"]} == {"ownership", "layers"}
     assert {entry["slug"] for entry in catalog["adrs"]} == {"0007-md"}
-    assert {entry["slug"] for entry in catalog["architecture"]} == {"layers"}
+    assert "architecture" not in catalog
     assert {entry["slug"] for entry in catalog["sources"]} == {"spec"}
     assert [entry["uri"] for entry in catalog["entities"]] == ["pkg:graph-wiki-core"]
     assert catalog["entities"][0]["entity_kind"] == "package"

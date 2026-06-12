@@ -12,10 +12,9 @@ The wiki lives at `<workspace>/wiki/`. `raw/` (immutable ingested sources) and `
 └── wiki/                       # this agent's curated knowledge base
     ├── index.md                # Content catalog (updated every ingest/scan)
     ├── log.md                  # Append-only timeline
-    ├── concepts/               # Cross-cutting technical concepts (auth, testing patterns, comparisons)
+    ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
     ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
-    ├── architecture/           # High-level architecture syntheses
     ├── adrs/                   # Architecture Decision Records
     ├── .templates/             # Page templates (reference only, not indexed)
     ├── CLAUDE.md               # wiki schema + conventions (Claude Code)
