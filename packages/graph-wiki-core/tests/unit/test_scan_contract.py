@@ -8,6 +8,8 @@ from graph_wiki_core.commands.scan_contract import (
     FillNeeds,
     FillResult,
     FillTask,
+    PropagateEntity,
+    PropagateTask,
     ScanResults,
     ScanWorklist,
 )
@@ -45,7 +47,23 @@ def _sample_worklist() -> ScanWorklist:
                 sections=[DriftSectionInput(heading="## Purpose", chunk="Old purpose body.")],
             )
         ],
-        propagate_tasks=[],
+        propagate_tasks=[
+            PropagateTask(
+                kind="concept",
+                target_slug="fanout",
+                title="Fan-out",
+                page_path="/abs/wiki/concepts/fanout.md",
+                entities=[
+                    PropagateEntity(
+                        stem="pkg_wiki-io",
+                        narrative="Now async.",
+                        changed_files=["src/wiki_io/pool.py"],
+                    )
+                ],
+            )
+        ],
+        propagate_anchors={"pkg:wiki-io": "a1b2c3d"},
+        propagate_pages={"pkg:wiki-io": "/abs/wiki/entities/pkg_wiki-io.md"},
     )
 
 

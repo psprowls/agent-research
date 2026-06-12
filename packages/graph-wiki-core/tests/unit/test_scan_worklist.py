@@ -383,3 +383,115 @@ async def test_emit_apply_round_trip_via_disk(emit_workspace, tmp_path) -> None:
     # passed-in short_head (the only state crossing the process boundary).
     assert applied.stamped >= 1
     assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") == worklist.short_head
+
+
+# ---------------------------------------------------------------------------
+# Task 9: opt-in M4 cross-page propagate-drift through the contract
+# ---------------------------------------------------------------------------
+
+from graph_wiki_core.commands.scan_contract import (  # noqa: E402
+    PropagateFinding,
+    PropagateResultItem,
+)
+from wiki_io.proposals import list_proposals  # noqa: E402
+
+
+def _narrate_and_stamp_pkg_a(workspace, repo, monkeypatch) -> Path:
+    """Full narrated scan so pkg-a's entity page exists + is stamped
+    (last_updated_commit=head1, no drift_propagated_commit -> a propagate
+    candidate). Returns the entity page path."""
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+    )
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a, **k: [])
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    return _page_for(workspace / "wiki")
+
+
+def test_m4_emit_produces_target_and_apply_writes_ledger(emit_workspace, monkeypatch) -> None:
+    """[Task 9] A concept page backlinking a changed entity emits one propagate_task
+    (kind concept); apply with a stale verdict writes a source:drift ledger note and
+    stamps drift_propagated_commit on the entity page (idempotence anchor)."""
+    workspace, repo = emit_workspace
+    wiki = workspace / "wiki"
+
+    page = _narrate_and_stamp_pkg_a(workspace, repo, monkeypatch)
+    stem = page.stem
+    assert _fm.load(page).metadata.get("last_updated_commit") == "head1"
+    assert "drift_propagated_commit" not in _fm.load(page).metadata  # candidate
+
+    # A concept page backlinking the entity -> a curated propagate target.
+    concept = wiki / "concepts" / "fanout.md"
+    concept.parent.mkdir(parents=True, exist_ok=True)
+    concept.write_text(
+        f"---\ntitle: Fan-out\n---\nThe [[entities/{stem}]] package is synchronous.\n",
+        encoding="utf-8",
+    )
+
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=True
+        )
+    )
+    assert any(t.kind == "concept" for t in worklist.propagate_tasks)
+    target = next(t for t in worklist.propagate_tasks if t.kind == "concept")
+    assert target.target_slug == "fanout"
+    assert target.entities and target.entities[0].stem == stem
+    # Anchors + pages populated for every considered candidate (idempotence stamp).
+    assert worklist.propagate_anchors  # uri -> last_updated_commit
+    assert worklist.propagate_pages  # uri -> page_path
+
+    wiki_resolved, resolved_repo = resolve_wiki_and_repo(workspace, repo)
+    results = ScanResults(
+        propagate=[
+            PropagateResultItem(
+                kind="concept",
+                target_slug=target.target_slug,
+                stale=True,
+                findings=[
+                    PropagateFinding(entity_stem=stem, claim="sync", reason="now async"),
+                ],
+            )
+        ]
+    )
+    applied = asyncio.run(apply_scan_results(worklist, results, wiki_resolved, resolved_repo or repo, propagate=True))
+    assert applied.propagated == 1
+
+    notes = [r for r in list_proposals(wiki) if any(o.get("source") == "drift" for o in r.get("origins", []))]
+    assert notes  # one source:drift ledger proposal written
+    note = notes[0]
+    assert note["kind"] == "concept"
+    assert note["target_slug"] == "fanout"
+    assert {o["ref"] for o in note["origins"]} == {f"entities/{stem}"}
+    # The entity page's idempotence anchor was stamped to its last_updated_commit.
+    assert _fm.load(page).metadata.get("drift_propagated_commit") == "head1"
+
+
+def test_m4_off_by_default_emits_no_propagate_tasks(emit_workspace, monkeypatch) -> None:
+    """[Task 9] propagate_drift=False -> no propagate_tasks, no anchors, and a
+    concept backlinker triggers zero ledger writes (off by default)."""
+    workspace, repo = emit_workspace
+    wiki = workspace / "wiki"
+
+    page = _narrate_and_stamp_pkg_a(workspace, repo, monkeypatch)
+    concept = wiki / "concepts" / "fanout.md"
+    concept.parent.mkdir(parents=True, exist_ok=True)
+    concept.write_text(
+        f"---\ntitle: Fan-out\n---\nThe [[entities/{page.stem}]] package is synchronous.\n",
+        encoding="utf-8",
+    )
+
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    assert worklist.propagate_tasks == []
+    assert worklist.propagate_anchors == {}
+    assert worklist.propagate_pages == {}
+
+    wiki_resolved, resolved_repo = resolve_wiki_and_repo(workspace, repo)
+    asyncio.run(apply_scan_results(worklist, ScanResults(), wiki_resolved, resolved_repo or repo, propagate=False))
+    assert list_proposals(wiki) == []

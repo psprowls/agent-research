@@ -192,6 +192,9 @@ class ScanWorklist:
     # M4 stamping bookkeeping: candidate uri -> anchor (last_updated_commit at emit).
     # Apply stamps drift_propagated_commit for every processed candidate.
     propagate_anchors: dict[str, str] = field(default_factory=dict)
+    # M4 stamping bookkeeping: candidate uri -> entity page_path. Parallel to
+    # propagate_anchors; apply resolves the page to stamp via this map.
+    propagate_pages: dict[str, str] = field(default_factory=dict)
 
     @property
     def is_empty(self) -> bool:
@@ -206,6 +209,7 @@ class ScanWorklist:
             "drift_tasks": [t.to_dict() for t in self.drift_tasks],
             "propagate_tasks": [t.to_dict() for t in self.propagate_tasks],
             "propagate_anchors": dict(self.propagate_anchors),
+            "propagate_pages": dict(self.propagate_pages),
         }
 
     def to_json(self) -> str:
@@ -224,6 +228,7 @@ class ScanWorklist:
             propagate_tasks=[PropagateTask.from_dict(t) for t in (d.get("propagate_tasks") or [])],
             schema=schema,
             propagate_anchors=dict(d.get("propagate_anchors") or {}),
+            propagate_pages=dict(d.get("propagate_pages") or {}),
         )
 
     @classmethod

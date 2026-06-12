@@ -63,12 +63,13 @@ def ws(tmp_path, monkeypatch):
     return workspace
 
 
-def _spy(verdict_fn, *, recorder: dict | None = None):
-    """Async SubagentPool.run_all replacement covering all three roles.
+def _spy(verdict_fn, *, recorder: dict | None = None, propagate_verdict_fn=None):
+    """Async SubagentPool.run_all replacement covering all four roles.
 
     narrator -> prose; code_reader -> JSON filling every TODO row; drift_judge ->
-    verdict_fn(item). When `recorder` is given, records the drift_judge items so a
-    test can assert the judge was (not) called.
+    verdict_fn(item); drift_propagator -> propagate_verdict_fn(item) (default
+    not-stale). When `recorder` is given, records the drift_judge / drift_propagator
+    items so a test can assert the judge was (not) called.
     """
 
     async def _run_all(self, *, items, task, role, model_id, max_concurrency):
@@ -85,6 +86,11 @@ def _spy(verdict_fn, *, recorder: dict | None = None):
             if recorder is not None:
                 recorder.setdefault("drift_items", []).extend(items)
             result.successes = [(it, verdict_fn(it)) for it in items]
+        elif role == "drift_propagator":
+            if recorder is not None:
+                recorder.setdefault("propagate_items", []).extend(items)
+            fn = propagate_verdict_fn or (lambda it: {"stale": False, "findings": []})
+            result.successes = [(it, fn(it)) for it in items]
         return result
 
     return _run_all
@@ -460,47 +466,104 @@ def test_agent_plugin_judged_without_file_map(ws, monkeypatch):
     assert meta["drift_review"][0]["section"] == "Commands"
 
 
+def _add_concept_backlink(wiki, stem, slug="fanout"):
+    """A curated concept page backlinking entities/<stem> -> an M4 propagate target."""
+    page = wiki / "concepts" / f"{slug}.md"
+    page.parent.mkdir(parents=True, exist_ok=True)
+    page.write_text(
+        f"---\ntitle: Fan-out\n---\nThe [[entities/{stem}]] package is synchronous.\n",
+        encoding="utf-8",
+    )
+    return page
+
+
 def test_scan_propagate_drift_off_by_default(ws, monkeypatch):
-    """[M4 §3.7 / §5 test 15] without the flag, scan never runs the M4 producer."""
+    """[M4 §3.7 / §5 test 15] without the flag, scan emits no propagate task, the
+    drift_propagator role is never dispatched, and no source:drift note is written
+    even when a concept backlinks the entity."""
+    from wiki_io.proposals import list_proposals
+
     repo = ws / "repo"
+    wiki = ws / "wiki"
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
-    calls = {"n": 0}
-
-    async def _pd(**kwargs):
-        calls["n"] += 1
-        from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
-
-        return PropagateDriftResult(0, 0, 0, 0, 0, False, [])
-
-    monkeypatch.setattr(scan_mod, "run_propagate_drift", _pd)
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a, **k: [])
+    rec = {}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _spy(
+            lambda it: {"stale": False, "reason": ""},
+            recorder=rec,
+            propagate_verdict_fn=lambda it: {
+                "stale": True,
+                "findings": [{"entity_stem": it[4][0][0], "stale_claim": "x", "rationale": "y"}],
+            },
+        ),
+    )
+    # Create + stamp the entity page first, then add a concept backlinking it.
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
-    assert calls["n"] == 0
+    _add_concept_backlink(wiki, _page_for(wiki).stem)
+
+    # Re-scan WITHOUT the flag: no propagate fan-out, no ledger write.
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    assert rec.get("propagate_items", []) == []  # drift_propagator never dispatched
+    assert list_proposals(wiki) == []
 
 
 def test_scan_propagate_drift_on_runs_producer(ws, monkeypatch):
-    """[M4 §3.7 / §5 test 15] with the flag, the producer runs once after narration,
-    called with the open conn + resolved wiki/repo."""
+    """[M4 §3.7 / §5 test 15] with the flag, M4 flows through the contract once: a
+    concept backlinking a changed entity is judged stale -> one source:drift ledger
+    note is written and the entity's drift_propagated_commit is stamped."""
+    from wiki_io.proposals import list_proposals
+
     repo = ws / "repo"
+    wiki = ws / "wiki"
+    heads = {"v": "head1"}
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
-        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a, **k: [])
+
+    # Scan 1: create + stamp the entity page (last_updated_commit=head1).
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
-    captured: dict = {}
+    asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
+    page = _page_for(wiki)
+    stem = page.stem
+    _add_concept_backlink(wiki, stem)
+    # Entity re-narrated at a new commit so it is a fresh propagate candidate.
+    heads["v"] = "head2"
+    page.write_text(
+        page.read_text(encoding="utf-8").replace("last_updated_commit: head1", "last_updated_commit: head1_old"),
+        encoding="utf-8",
+    )
 
-    async def _pd(**kwargs):
-        captured.update(kwargs)
-        from graph_wiki_core.commands.propagate_drift import PropagateDriftResult
+    def _propagate_verdict(item):
+        # item = (kind, slug, title, body, entity_tuples)
+        return {
+            "stale": True,
+            "findings": [{"entity_stem": item[4][0][0], "stale_claim": "sync", "rationale": "now async"}],
+        }
 
-        return PropagateDriftResult(0, 0, 0, 0, 0, False, [])
-
-    monkeypatch.setattr(scan_mod, "run_propagate_drift", _pd)
+    rec = {}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _spy(
+            lambda it: {"stale": False, "reason": ""},
+            recorder=rec,
+            propagate_verdict_fn=_propagate_verdict,
+        ),
+    )
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True, propagate_drift=True))
-    assert set(captured) >= {"wiki", "repo", "conn"}  # producer invoked with state
-    assert captured["conn"] is not None
+
+    assert rec.get("propagate_items")  # drift_propagator dispatched through the contract
+    drift_notes = [r for r in list_proposals(wiki) if any(o.get("source") == "drift" for o in r.get("origins", []))]
+    assert drift_notes  # one source:drift ledger note
+    assert drift_notes[0]["kind"] == "concept"
+    assert _fm.load(page).metadata.get("drift_propagated_commit")  # idempotence anchor stamped

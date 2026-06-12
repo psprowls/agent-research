@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
-from wiki_io.backlink_index import regenerate_referenced_in_wiki
+from wiki_io.backlink_index import build_entity_backlink_map, regenerate_referenced_in_wiki
 from wiki_io.drift import (
     clear_resolved_flags,
     extract_file_map,
@@ -73,6 +73,7 @@ from wiki_io.git_state import changed_files_since, short_commit
 from wiki_io.human_sections import find_todo_human_sections, replace_todo_human_sections
 from wiki_io.index_generator import generate_index
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
+from wiki_io.proposals import HUMAN_DECIDED, list_proposals
 from wiki_io.scan_monorepo import (
     build_dir_file_map,
     build_file_map,
@@ -84,7 +85,13 @@ from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
-from graph_wiki_core.commands.propagate_drift import run_propagate_drift
+from graph_wiki_core.commands.propagate_drift import (
+    DRIFT_PROPAGATED_COMMIT_KEY,
+    _build_targets,
+    _page_title,
+    propagation_candidates,
+    write_propagation_findings,
+)
 from graph_wiki_core.commands.scan_contract import (
     ApplyResult,
     DriftResultItem,
@@ -94,6 +101,9 @@ from graph_wiki_core.commands.scan_contract import (
     FillNeeds,
     FillResult,
     FillTask,
+    PropagateEntity,
+    PropagateFinding,
+    PropagateResultItem,
     PropagateTask,
     ScanResults,
     ScanWorklist,
@@ -103,6 +113,10 @@ from graph_wiki_core.prompts.dir_describer import build_dir_describer_prompt, pa
 from graph_wiki_core.prompts.drift_judge import (
     build_drift_judge_prompt,
     parse_drift_verdict,
+)
+from graph_wiki_core.prompts.drift_propagator import (
+    build_drift_propagator_prompt,
+    parse_drift_propagator_verdict,
 )
 from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
@@ -936,8 +950,43 @@ def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
     return tasks
 
 
-def _build_propagate_tasks(wiki: Path, repo: Path, conn: Any) -> tuple[list[PropagateTask], dict[str, str]]:
-    return [], {}  # M4 emit — implemented in Task 9
+def _build_propagate_tasks(
+    wiki: Path, repo: Path, conn: Any
+) -> tuple[list[PropagateTask], dict[str, str], dict[str, str]]:
+    """M4 emit: curated propagate targets + per-candidate stamp bookkeeping.
+
+    Reuses propagate_drift's candidate/target/title machinery with the ledger
+    pre-filter (skip targets the human already disposed of). Returns the tasks
+    plus ``(anchors, pages)`` mapping EVERY considered candidate's uri to its
+    ``last_updated_commit`` / entity page_path — apply stamps
+    ``drift_propagated_commit`` for all of them (idempotence), including
+    candidates whose targets were all pre-filtered.
+    """
+    candidates = propagation_candidates(wiki, repo, conn)
+    if not candidates:
+        return [], {}, {}
+    targets = _build_targets(candidates, build_entity_backlink_map(wiki))
+    settled = {(rec["kind"], rec["target_slug"]) for rec in list_proposals(wiki) if rec["status"] in HUMAN_DECIDED}
+    tasks: list[PropagateTask] = []
+    for entry in targets.values():
+        if (entry["kind"], entry["target_slug"]) in settled:
+            continue  # ledger pre-filter
+        title = _page_title(entry["page_path"], entry["target_slug"])
+        tasks.append(
+            PropagateTask(
+                kind=entry["kind"],
+                target_slug=entry["target_slug"],
+                title=title,
+                page_path=str(entry["page_path"]),
+                entities=[
+                    PropagateEntity(stem=c.stem, narrative=c.narrative, changed_files=c.changed_files)
+                    for c in entry["candidates"]
+                ],
+            )
+        )
+    anchors = {c.uri: c.last_updated_commit for c in candidates}
+    pages = {c.uri: str(c.page_path) for c in candidates}
+    return tasks, anchors, pages
 
 
 async def build_scan_worklist(
@@ -1276,8 +1325,8 @@ async def _build_scan_worklist_body(
             )
 
     drift_tasks = _build_drift_tasks(wiki)
-    propagate_tasks, propagate_anchors = (
-        _build_propagate_tasks(wiki, repo, conn) if (propagate_drift and conn is not None) else ([], {})
+    propagate_tasks, propagate_anchors, propagate_pages = (
+        _build_propagate_tasks(wiki, repo, conn) if (propagate_drift and conn is not None) else ([], {}, {})
     )
 
     worklist = ScanWorklist(
@@ -1287,6 +1336,7 @@ async def _build_scan_worklist_body(
         drift_tasks=drift_tasks,
         propagate_tasks=propagate_tasks,
         propagate_anchors=propagate_anchors,
+        propagate_pages=propagate_pages,
     )
     scan_result = ScanResult(
         state_gate=state_gate,
@@ -1586,6 +1636,55 @@ async def _bedrock_provider(
                         )
                     )
                 results.drift = list(drift_by_uri.values())
+
+        # --- drift_propagator fan-out (role="drift_propagator") — M4, opt-in ---
+        if propagate and stack is not None and worklist.propagate_tasks:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            # item = (kind, target_slug, title, body, entity_tuples) — mirrors
+            # run_propagate_drift's judge half (entity_tuples = (stem, narrative, files)).
+            prop_items: list[tuple[str, str, str, str, list[tuple[str, str, list[str]]]]] = []
+            for ptask in worklist.propagate_tasks:
+                body = Path(ptask.page_path).read_text(encoding="utf-8")
+                entity_tuples = [(e.stem, e.narrative, e.changed_files) for e in ptask.entities]
+                prop_items.append((ptask.kind, ptask.target_slug, ptask.title, body, entity_tuples))
+
+            if prop_items:
+                prop_cfg = load_role_config_fn("drift_propagator")
+                prop_llm = make_llm_fn("drift_propagator", model_override=model_override)
+                prop_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                async def judge_propagate(item: tuple) -> TaskResultType:
+                    kind_inner, _slug, title, body, entity_tuples = item
+                    system_msg, human_msg = build_drift_propagator_prompt(kind_inner, title, body, entity_tuples)
+                    resp = await prop_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                    return task_result_type(value=parse_drift_propagator_verdict(resp.content), response=resp)
+
+                fan = await prop_pool.run_all(
+                    items=prop_items,
+                    task=judge_propagate,
+                    role="drift_propagator",
+                    model_id=prop_cfg["model_id"],
+                    max_concurrency=prop_cfg["max_concurrency"],
+                )
+                propagate_results: list[PropagateResultItem] = []
+                for item, verdict in fan.successes:
+                    kind_inner, slug, _title, _body, _entity_tuples = item
+                    if not (isinstance(verdict, dict) and verdict.get("stale")):
+                        continue
+                    findings = [
+                        PropagateFinding(
+                            entity_stem=str(f.get("entity_stem", "")),
+                            claim=str(f.get("stale_claim", "")),
+                            reason=str(f.get("rationale", "")),
+                        )
+                        for f in (verdict.get("findings") or [])
+                        if str(f.get("entity_stem", "")).strip()
+                    ]
+                    if findings:
+                        propagate_results.append(
+                            PropagateResultItem(kind=kind_inner, target_slug=slug, stale=True, findings=findings)
+                        )
+                results.propagate = propagate_results
     finally:
         if conn is not None:
             try:
@@ -1638,7 +1737,51 @@ def _regen_indexes_and_log(wiki: Path) -> None:
 
 
 def _apply_propagate_results(worklist: ScanWorklist, results: ScanResults, wiki: Path) -> int:
-    return 0  # implemented in Task 9
+    """M4 apply: write one source:drift ledger origin per stale finding, then
+    stamp ``drift_propagated_commit`` for every considered candidate (idempotence).
+
+    Reuses ``write_propagation_findings`` so the proposals are byte-identical to
+    ``run_propagate_drift``. detected_commit / page resolution come off the
+    worklist's per-candidate ``propagate_anchors`` / ``propagate_pages`` (joined
+    by uri); the entity narrative for the origin hash comes from the task's
+    ``PropagateEntity``. Stamping covers ALL candidates — including those whose
+    targets were all settled-filtered — so repeat runs are idempotent.
+    """
+    written = 0
+    task_by_slug = {(t.kind, t.target_slug): t for t in worklist.propagate_tasks}
+    # stem -> last_updated_commit (detected_commit), joined uri-wise from anchors+pages.
+    anchor_by_stem: dict[str, str] = {}
+    for uri, page_path in worklist.propagate_pages.items():
+        anchor = worklist.propagate_anchors.get(uri)
+        if anchor is not None:
+            anchor_by_stem[Path(page_path).stem] = anchor
+
+    for item in results.propagate:
+        if not item.stale:
+            continue
+        task = task_by_slug.get((item.kind, item.target_slug))
+        if task is None:
+            continue
+        narrative_by_stem = {e.stem: e.narrative for e in task.entities}
+        finding_tuples: list[tuple[str, str, str, str]] = []
+        for f in item.findings:
+            if f.entity_stem not in narrative_by_stem:
+                continue  # finding references an entity not in this target's batch
+            detected_commit = anchor_by_stem.get(f.entity_stem, "")
+            finding_tuples.append((f.entity_stem, f.reason, detected_commit, narrative_by_stem[f.entity_stem]))
+        if finding_tuples:
+            written += write_propagation_findings(wiki, item.kind, item.target_slug, task.title, finding_tuples)
+
+    # Stamp drift_propagated_commit for every considered candidate (idempotence).
+    for uri, anchor in worklist.propagate_anchors.items():
+        page_path = worklist.propagate_pages.get(uri)
+        if page_path is None:
+            continue
+        try:
+            update_frontmatter(Path(page_path), {DRIFT_PROPAGATED_COMMIT_KEY: anchor})
+        except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+            logger.warning("drift_propagated stamp failed for %s: %s", uri, exc)
+    return written
 
 
 async def apply_scan_results(
@@ -1747,8 +1890,10 @@ async def apply_scan_results(
     # --- Free every-scan clear pass ---
     _drift_clear_pass(wiki)
 
-    # --- M4 propagate WRITE (Task 9 wires the verdict consumption) ---
-    if propagate and results.propagate:
+    # --- M4 propagate WRITE: ledger proposals + per-candidate idempotence stamp.
+    # Runs whenever propagate is on and candidates were considered (anchors set) —
+    # stamping must advance even when no target is stale.
+    if propagate and worklist.propagate_anchors:
         out.propagated += _apply_propagate_results(worklist, results, wiki)
 
     # --- Index + backlink + log ---
@@ -1835,26 +1980,10 @@ async def run_scan(
         results = await _bedrock_provider(
             worklist, wiki, repo, model_override=model_override, propagate=propagate_drift
         )
+        # Living Wiki M4: opt-in cross-page drift producer now flows through the
+        # contract once — propagate_tasks (emit) → drift_propagator fan-out
+        # (_bedrock_provider) → _apply_propagate_results (apply). No direct call.
         applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate_drift)
-
-        # Living Wiki M4: opt-in cross-page drift producer. Task 9 routes this
-        # through the contract (propagate_tasks → provider → _apply_propagate_results);
-        # until then keep the in-process call here so the producer still runs once
-        # after narration with a fresh conn (parity with the pre-split path).
-        if propagate_drift:
-            pd_conn = None
-            try:
-                pd_conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
-            except GraphNotInitializedError:
-                pd_conn = None
-            if pd_conn is not None:
-                try:
-                    await run_propagate_drift(wiki=wiki, repo=repo, conn=pd_conn)
-                finally:
-                    try:
-                        pd_conn.close()
-                    except Exception:  # noqa: BLE001
-                        pass
 
         scan_result.entities_narrated = sorted(f.uri for f in results.fills if f.narrative and f.narrative.strip())
         scan_result.entity_errors = (
