@@ -23,7 +23,73 @@ You integrate a new source (spec, PR, article, ticket, transcript) into the `<wo
 
 ## Workflow
 
-Follow `references/ingest-workflow.md`. Summary:
+Follow `references/ingest-workflow.md` (single mode; in batch mode the deltas below win). Summary:
+
+### Batch mode (dispatched as a batch worker)
+
+When your dispatch prompt says **BATCH MODE**, you are one of several concurrent
+workers, each ingesting ONE unit of a kind-folder batch. The orchestrator owns
+every shared file; user consent was given once, up front, for the whole batch.
+Follow the normal workflow below with these deltas:
+
+- **Skip step 3 (Discuss) entirely.** Do not ask the user anything.
+- **Write ONLY files you uniquely own:**
+  - your source page under `wiki/sources/` (steps 4/4a as normal)
+  - for skill units: the guidance pages + the `## Generates` source page (step 4a)
+  - `[[entities/...]]` wikilinks under `## Touches` on YOUR source page (step 5)
+- **Do NOT touch** `concepts/`, `adrs/`, `architecture/`, `proposals/`,
+  `index.md`, `log.md`, `guidance/index.md`, or any `guidance/<topic>/index.md`,
+  and do NOT archive your unit (step 12). The orchestrator does all of that in
+  a serial commit phase after the workers return.
+- **New curated pages become report entries, not pages.** For every
+  concept/ADR/architecture page you would have created (steps 6, 7, 9), emit a
+  `proposals[]` entry instead.
+- **Updates to existing curated pages are reported, not applied.** Emit
+  `existing_page_updates[]` entries with the exact edit (steps 6, 8, 9 against
+  pages that already exist). Contradiction callouts on pages you don't own go
+  here too; callouts on your own source page you write directly.
+- **Red flags and warn-the-user conditions never pause a batch worker.** If a
+  `## Red flags` condition fires or a step says to warn/tell/ask the user
+  (e.g. step 4's drift-detection notice, step 4a's `scripts_dominant` warning),
+  do not ask — fail the unit (`"status": "failed"`, explanation in `notes`)
+  for blocking conditions, or proceed and record the warning in `notes` for
+  advisory ones.
+
+End your final message with exactly ONE fenced ```json block — it replaces
+step 13's human-readable report. The orchestrator parses it; a missing or
+malformed report marks your unit failed:
+
+```json
+{
+  "status": "success",
+  "unit": "<the unit path you were dispatched with>",
+  "title": "<source title>",
+  "source_page": "sources/<YYYY-MM>-<slug>.md",
+  "guidance_pages": ["guidance/<topic>/<slug>.md"],
+  "entity_links": ["entities/<prefix>_<name>"],
+  "proposals": [
+    {
+      "kind": "concept | adr | architecture",
+      "target_slug": "<kebab-slug>",
+      "title": "<proposed page title>",
+      "rationale": "<one-line why this page should exist>",
+      "evidence": ["<claim from the source>", "..."]
+    }
+  ],
+  "existing_page_updates": [
+    {"page": "concepts/<slug>.md", "update": "<exact edit to apply, naming the section>"}
+  ],
+  "contradictions": ["<vault<->vault or vault<->code contradiction, both sides named>"],
+  "log_line": "## [YYYY-MM-DD] ingest | <title>",
+  "notes": ""
+}
+```
+
+On failure set `"status": "failed"` and explain in `notes`; still emit the block.
+Empty lists are required keys — emit `[]`, never omit them.
+`entity_links` are wikilink targets (no `.md`). `contradictions` is a summary
+list of every contradiction found, regardless of where its callout was routed
+(your own source page or `existing_page_updates[]`).
 
 ### 1. Prep
 ```bash
@@ -43,8 +109,22 @@ Before writing:
 - **Which code entities and concepts you'll touch** — bulleted `[[entities/...]]` wikilinks
 - **Any contradictions** — with other wiki pages OR with current code (spot-check the files the source mentions)
 - Whether this source captures a decision worth an ADR
+- **New pages** — REQUIRED enumeration: every NEW page this ingest would create
+  (concept stubs, ADRs, architecture pages), one bullet each, e.g.
+  `- NEW concepts/<slug>.md — <one-line justification>`. If none, state
+  "New pages: none." Your single confirmation covers exactly this list — never
+  create a page that was not enumerated.
 
 **Wait for confirmation before writing.**
+
+If the user declines specific pages from the list, do not drop them — file each
+declined page to the proposals ledger instead:
+
+```bash
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/file_proposal.py \
+  --kind <concept|adr|architecture> --target-slug <slug> --title "<title>" \
+  --ref "sources/<YYYY-MM>-<slug>" --rationale "<why>" --evidence "<claim>" [--evidence "<claim>" ...]
+```
 
 ### 4. Write the source summary
 `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`. Use the source template. Required frontmatter: `title`, `category: source`, `summary`, `source_path`, `source_type`, `ingested`, `updated`.
@@ -76,9 +156,11 @@ For each code entity (package, app, domain, dependency) the source touches, add 
 For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept *content* pages under `concepts/` are hand-maintained; dependency pages are graph-derived at `entities/dep_*` and are scanner-owned — never hand-edited.)
 
 ### 7. Capture ADRs for decisions
-If the source proposes or documents a decision:
-- Ask: "Create ADR `<workspace>/wiki/adrs/<NNNN>-<slug>.md`?"
-- If yes: get next ID, use the ADR template, link both ways
+If the source proposes or documents a decision, the ADR must have appeared in
+step 3's "New pages" list — consent comes from that single confirmation, not a
+separate ask here. If confirmed: get the next ID, use the ADR template, link
+both ways. If the user declined it, file it to the ledger via `file_proposal.py`
+(see step 3) instead of dropping it.
 
 ### 8. Flag contradictions
 Two kinds:
@@ -117,8 +199,10 @@ Bulleted wikilinks to every touched page, plus contradictions flagged and ADRs c
 - **`raw/` is an inbox.** Never edit file contents under `raw/` — the only permitted write is the post-ingest archive move into `raw/_archive/` (step 12). Anything under `raw/` outside `_archive/` is un-ingested.
 - **In-repo docs are also read-only.** The doc lives in the repo and the LLM never edits it through this skill — the canonical version stays where it is.
 - **Code is the source of truth.** Vault↔code contradictions get flagged; vault gets updated, not code.
-- **Discuss before writing.**
-- **Minimum 3 file touches per ingest** (source summary + index + log).
+- **Discuss before writing** (single mode; batch consent is up-front).
+- **Minimum 3 file touches per ingest** (source summary + index + log). In batch
+  mode this still holds per unit, split between you (source page) and the
+  orchestrator's commit phase (index + log).
 - **Cite aggressively.** Every claim on a concept/architecture page links to a source page or a code path.
 - **Entity pages are scanner-owned.** Add `[[entities/...]]` wikilinks under `## Touches` on the source page; never edit files under `entities/`.
 - **Flag contradictions** on both sides.

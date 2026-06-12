@@ -29,6 +29,7 @@ Run `python scripts/ingest_source.py --source <path> --json` to get (wiki and re
 - whether a summary page already exists (→ **merge mode**)
 - `last_sync_commit`, `in_repo_doc` flag, and `state_gate` (`allowed`, `reason`, `head_commit`) — use `state_gate.allowed` to decide whether to write drift-detection frontmatter; use `state_gate.head_commit` as the value for `last_sync_commit`
 - `entity_match` — `{ uri: <str|null>, entity_filename: <str|null> }` — the best-matching entity from `entities/` for this source (used to populate `entity_uri:` frontmatter); null when no match is found
+- `is_batch`, `kind_folder`, `unit_count`, `units[]` — when `--source` is a top-level `raw/<kind>` folder (specs, articles, prs, tickets, transcripts, examples, skills); see "Batch ingest (kind-folder roots)" below
 
 ### 2. Read the source
 
@@ -43,8 +44,22 @@ Before writing anything, tell the user:
 - **Which code entities and concepts this source touches** — bulleted `[[entities/...]]` wikilinks
 - Any **contradictions** with existing pages or with current code
 - Whether this source proposes a decision worth capturing as an ADR
+- **New pages** — REQUIRED enumeration: every NEW page this ingest would create
+  (concept stubs, ADRs, architecture pages), one bullet each, e.g.
+  `- NEW concepts/<slug>.md — <one-line justification>`. If none, state
+  "New pages: none." Your single confirmation covers exactly this list — never
+  create a page that was not enumerated.
 
 **Wait for user to confirm or redirect.** The user is in the loop — the ingestor proposes, the user approves.
+
+If the user declines specific pages from the list, do not drop them — file each
+declined page to the proposals ledger instead:
+
+```bash
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/file_proposal.py \
+  --kind <concept|adr|architecture> --target-slug <slug> --title "<title>" \
+  --ref "sources/<YYYY-MM>-<slug>" --rationale "<why>" --evidence "<claim>" [--evidence "<claim>" ...]
+```
 
 ### 4. Create / merge the source summary page
 
@@ -66,14 +81,13 @@ For each cross-cutting concept mentioned:
 
 ### 7. ADR capture (if applicable)
 
-If the source represents or proposes a decision, ask the user:
-
-> _This source looks like a decision. Should I create an ADR at `<workspace>/wiki/adrs/<NNNN>-<slug>.md`?_
-
-If yes:
-- Get the next ADR number (scan existing `adrs/*.md` for highest `adr_id`)
-- Create the ADR using the template
-- Link from the source page and from touched concept/architecture pages
+If the source proposes or documents a decision, the ADR must have appeared in
+step 3's "New pages" list — consent comes from that single confirmation, not a
+separate ask here. If confirmed: get the next ADR number (scan existing
+`adrs/*.md` for highest `adr_id`), create the ADR using the template, and link
+from the source page and from touched concept/architecture pages. If the user
+declined it in step 3, file it to the proposals ledger via `file_proposal.py`
+(see step 3) instead of dropping it.
 
 ### 8. Flag contradictions explicitly
 
@@ -115,7 +129,7 @@ Summary the user sees in chat:
 ## Source-type-specific notes
 
 ### Specs / RFCs / design docs
-- Likely to produce an ADR. Always ask.
+- Likely to produce an ADR. Include it in the step 3 "New pages" enumeration — consent comes from that single confirmation.
 - Expect heavy updates to domain/architecture pages.
 
 ### PR summaries
@@ -148,8 +162,8 @@ Summary the user sees in chat:
 - `last_sync_commit` and `last_sync_at` are disallowed in frontmatter — examples are external; drift detection does not apply. The state-gate is a no-op for `source_type: example` in the brief output.
 - **Step 3 (Discuss)** for examples covers: TL;DR, what patterns the example demonstrates, key takeaways, which existing concept pages map to those patterns, and which code entities the user wants to flag under `## Where this could apply`.
 - **Step 5 (Link code entities)** for examples: add `[[entities/<prefix>_<name>]]` wikilinks under `## Touches` for the relevant entities. Do **not** edit entity pages. The scanner owns them and backfills `## Referenced in wiki`.
-- **Step 6 (Update / create concept pages)** gains an explicit ask: "Does this example demonstrate a reusable pattern? If so, propose `concepts/<topic>-pattern.md`." Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended. Wait for user confirmation before creating.
-- **Step 7 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still propose an ADR if the example concretely motivates a decision the user is making *now*, but the default ask is skipped.
+- **Step 6 (Update / create concept pages)** — if the example demonstrates a reusable pattern, include `concepts/<topic>-pattern.md` in the step 3 New-pages enumeration — consent comes from that single confirmation. Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended.
+- **Step 7 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still include an ADR in the step 3 "New pages" list if the example concretely motivates a decision the user is making *now*, but it should not appear proactively.
 - **Step 8 (Contradictions)** still runs — an example can contradict an existing concept page's claim (e.g. "we said pattern X is bad but this example uses it well"). Flag both ways.
 - The source summary uses `page-formats.md` Section 5a (example variant): no `## Key claims`, no `## Proposed changes`; instead `Origin / What's in it / Patterns demonstrated / Key takeaways / Where this could apply / Caveats / Related`.
 - Each `[[entities/<prefix>_<name>]]` bullet under `## Where this could apply` on the source page is forward-linked; the scanner derives the reciprocal `## Referenced in wiki` backlink on entity pages automatically. Concept and architecture pages keep manual reciprocity (add `## Inspirations` bullets there by hand). `/graph-wiki:lint` cross-checks concept-page reciprocity and warns on drift.
@@ -255,6 +269,60 @@ the scanner's preserved-wiki-dirs list, so the next `/graph-wiki:scan` derives t
 `## Referenced in wiki` entry on each linked entity page from these forward links (the nested
 `guidance/<topic>/<slug>` slug is rendered correctly). Write the links — the scanner backfills
 the reciprocity, just as it does for source-page `## Touches` links.
+
+## Batch ingest (kind-folder roots)
+
+Pointing `/graph-wiki:ingest` at a top-level `raw/<kind>` folder ingests every
+unit inside, fanned out to concurrent `ingestor` workers, with all NEW curated
+pages deferred to the `wiki/proposals/` ledger (same queue and approval flow as
+the Bedrock ingest path). Guidance pages are exempt — skill units keep writing
+them directly; they are the deliverable.
+
+### Detection & units
+
+The brief carries `is_batch: true`, `kind_folder`, `unit_count`, and `units[]`
+(`{path, rel, unit_type}`). Flat kinds (`specs`, `articles`, `prs`, `tickets`,
+`transcripts`): each file is a unit, recursively. `skills/`: each immediate
+subdirectory is a unit (processed exactly like a single skill ingest); a loose
+file directly in `raw/skills/` is not a unit — ingest it individually.
+`examples/`: each immediate subdirectory plus any loose files. `_archive/`,
+`assets/`, and dotfiles are excluded. Any non-kind-folder path falls through to
+the single-source flow. An empty folder → "nothing to ingest", stop.
+
+### Orchestrator flow
+
+One upfront confirmation (unit list + "new pages become proposals"), then
+autonomous: dispatch `ingestor` workers (≤4 concurrent) with **BATCH MODE**
+briefs; each worker writes only its uniquely-owned files (its source page; for
+skill units the guidance pages + the `## Generates` page) and returns the fenced
+JSON report defined in `agents/ingestor.md` → "Batch mode". Workers never touch
+`concepts/`, `adrs/`, `architecture/`, `proposals/`, `index.md`, `log.md`, or
+the guidance indexes, and never archive.
+
+The worker/orchestrator split exists because concurrent workers would collide
+on shared files — `index.md`, `log.md`, and especially the ledger:
+`upsert_proposal` merges multiple sources proposing the same target into one
+note's `origins[]`, which only works if writes are serialized.
+
+### Serial commit phase
+
+After the workers return, commit each successful unit in unit order: file each
+reported proposal via `scripts/file_proposal.py` (duplicate targets across
+units merge origins — existing ledger behavior); apply the reported
+`existing_page_updates[]` (contradiction callouts on shared pages arrive inside
+these; `contradictions[]` is summary-only — surface it in the final report,
+don't apply it); update `index.md` (and the guidance indexes for skill units);
+append one `## [YYYY-MM-DD] ingest | <title>` log entry per unit; archive the
+unit to `raw/_archive/<same relative path>`.
+
+A failed unit (worker crash, malformed report) gets none of this — its source
+stays in `raw/` (inbox semantics: still un-ingested, re-runnable) and is listed
+in the final report. One failure does not stop the batch.
+
+The iron rules hold per unit: ≥3 file touches (source page + index + log) split
+between worker and commit phase; `raw/` contents are never edited, only
+archived; existing per-folder file-count warnings for examples folders still
+apply inside their units.
 
 ## Future formats
 
