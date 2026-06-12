@@ -40,6 +40,7 @@ def main() -> None:
 
     from wiki_io._workspace import resolve_wiki_and_repo
     from wiki_io.ingest_source import (
+        build_batch_ingest_brief,
         build_folder_ingest_brief,
         build_ingest_brief,
         build_skill_ingest_brief,
@@ -66,29 +67,42 @@ def main() -> None:
     source_path = Path(source_arg).expanduser()
 
     resolved = _source_for_branch(source_path, repo)
-    anchor = resolve_skill_anchor(resolved)
-    if anchor is not None:
-        brief = build_skill_ingest_brief(
-            anchor=anchor,
-            wiki=wiki,
-            repo=repo,
-            workspace_root=workspace_root,
-        )
-    elif resolved.is_dir():
-        brief = build_folder_ingest_brief(source_path=source_path, wiki=wiki, repo=repo)
-        if "_error" in brief:
-            print(f"[error] {brief['_error']}", file=sys.stderr)
-            sys.exit(1)
-    else:
-        brief = build_ingest_brief(
-            source_path=source_path,
-            wiki=wiki,
-            repo=repo,
-            workspace_root=workspace_root,
-        )
+    brief = build_batch_ingest_brief(
+        source_path=resolved,
+        wiki=wiki,
+        repo=repo,
+        workspace_root=workspace_root,
+    )
+    if brief is None:
+        anchor = resolve_skill_anchor(resolved)
+        if anchor is not None:
+            brief = build_skill_ingest_brief(
+                anchor=anchor,
+                wiki=wiki,
+                repo=repo,
+                workspace_root=workspace_root,
+            )
+        elif resolved.is_dir():
+            brief = build_folder_ingest_brief(source_path=source_path, wiki=wiki, repo=repo)
+            if "_error" in brief:
+                print(f"[error] {brief['_error']}", file=sys.stderr)
+                sys.exit(1)
+        else:
+            brief = build_ingest_brief(
+                source_path=source_path,
+                wiki=wiki,
+                repo=repo,
+                workspace_root=workspace_root,
+            )
 
     if args.json_output:
         print(json.dumps(brief, indent=2))
+        return
+
+    if brief.get("is_batch"):
+        print(f"Batch: raw/{brief['kind_folder']} ({brief['unit_count']} units)")
+        for unit in brief["units"]:
+            print(f"  - {unit['rel']} ({unit['unit_type']})")
         return
 
     if brief.get("is_skill"):

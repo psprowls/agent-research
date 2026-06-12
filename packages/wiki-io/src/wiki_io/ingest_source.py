@@ -12,6 +12,10 @@ Exports:
     guess_source_type(rel_to_workspace, rel_to_repo) -> str
     archive_destination(raw, unit) -> Path | None   (raw/_archive/ mapping; None when not applicable)
     SOURCE_TYPE_ENUM, RAW_FOLDER_TYPES   (closed source_type enum + raw-folder subset)
+    BATCH_KIND_FOLDERS   (kind folders eligible for batch ingest)
+    resolve_batch_root(source_path, workspace_root) -> str | None
+    enumerate_batch_units(kind, root) -> list[dict]
+    build_batch_ingest_brief(source_path, wiki, repo, workspace_root) -> dict | None
     language_for(path) -> str
     list_folder_files(root) -> list[tuple[str, int]]
     pick_representative(root, entries) -> str | None
@@ -158,6 +162,86 @@ RAW_FOLDER_TYPE_MAP: dict[str, str] = {
     "skills": "skill",
 }
 RAW_FOLDER_TYPES = frozenset(RAW_FOLDER_TYPE_MAP)
+
+# Batch ingest (2026-06-11 design): pointing the CC plugin's ingest at a
+# top-level raw/<kind> folder ingests everything inside via concurrent
+# workers. These helpers detect the kind-folder root and enumerate the
+# ingest units; the brief is a manifest only — no file contents are read.
+BATCH_KIND_FOLDERS = frozenset({"specs", "articles", "prs", "tickets", "transcripts", "examples", "skills"})
+_BATCH_EXCLUDED_DIRS = frozenset({"_archive", "assets"})
+
+
+def resolve_batch_root(source_path: Path, workspace_root: Path) -> str | None:
+    """Return the kind name when source_path IS a top-level raw/ kind folder.
+
+    Only the exact folder `<workspace>/raw/<kind>` qualifies (kind in
+    BATCH_KIND_FOLDERS). Nested directories, files, `raw/` itself, and paths
+    outside the workspace all return None (single-source flow).
+    """
+    if not source_path.is_dir():
+        return None
+    try:
+        rel = source_path.resolve().relative_to(workspace_root.resolve())
+    except ValueError:
+        return None
+    if len(rel.parts) == 2 and rel.parts[0] == "raw" and rel.parts[1] in BATCH_KIND_FOLDERS:
+        return rel.parts[1]
+    return None
+
+
+def enumerate_batch_units(kind: str, root: Path) -> list[dict]:
+    """Enumerate the ingest units inside a kind-folder root, sorted by path.
+
+    - flat kinds (specs/articles/prs/tickets/transcripts): every file,
+      recursively — one unit each
+    - skills: each immediate subdirectory (one skill dir = one unit)
+    - examples: each immediate subdirectory, plus loose files
+    `_archive`/`assets` components and dotfiles are excluded. Each unit is
+    {"path": <abs str>, "rel": <root-relative posix>, "unit_type": "file"|"dir"}.
+    """
+    units: list[dict] = []
+
+    def _add(p: Path, unit_type: str) -> None:
+        units.append({"path": str(p), "rel": p.relative_to(root).as_posix(), "unit_type": unit_type})
+
+    if kind in {"skills", "examples"}:
+        for child in sorted(root.iterdir()):
+            if child.name in _BATCH_EXCLUDED_DIRS or child.name.startswith("."):
+                continue
+            if child.is_dir():
+                _add(child, "dir")
+            elif kind == "examples" and child.is_file():
+                _add(child, "file")
+        return units
+
+    for p in sorted(root.rglob("*")):
+        parts = p.relative_to(root).parts
+        if any(part in _BATCH_EXCLUDED_DIRS or part.startswith(".") for part in parts):
+            continue
+        if p.is_file():
+            _add(p, "file")
+    return units
+
+
+def build_batch_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root: Path) -> dict | None:
+    """Build the batch brief for a kind-folder root, or None for any other path.
+
+    Returning None keeps the caller's routing a single check; the manifest
+    carries no file contents (workers run the single-source prep per unit).
+    """
+    source_path = _resolve_source_path(source_path, repo)
+    kind = resolve_batch_root(source_path, workspace_root)
+    if kind is None:
+        return None
+    units = enumerate_batch_units(kind, source_path)
+    return {
+        "is_batch": True,
+        "kind_folder": kind,
+        "root": str(source_path),
+        "unit_count": len(units),
+        "units": units,
+        "state_gate": compute_state_gate(repo, workspace=workspace_root),
+    }
 
 
 def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -> str:
