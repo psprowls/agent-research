@@ -311,3 +311,75 @@ def test_apply_empty_results_is_noop(emit_workspace) -> None:
     wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
     applied = asyncio.run(apply_scan_results(worklist, ScanResults(), wiki, resolved_repo or repo, propagate=False))
     assert applied.stamped == 0 and applied.narrated == 0
+
+
+# ---------------------------------------------------------------------------
+# Task 4: emit/apply_scan_worklist round-trip-via-disk test
+# ---------------------------------------------------------------------------
+
+import json as _json  # noqa: E402
+
+from graph_wiki_core.commands.scan import apply_scan_worklist, emit_scan_worklist  # noqa: E402
+from graph_wiki_core.commands.scan_contract import ScanWorklist  # noqa: E402
+
+
+async def test_emit_apply_round_trip_via_disk(emit_workspace, tmp_path) -> None:
+    """emit_scan_worklist writes worklist.json; after hand-authoring results.json,
+    apply_scan_worklist injects narrative and stamps the anchor — full out-of-process
+    round-trip."""
+    workspace, repo = emit_workspace
+    wl_path = tmp_path / "worklist.json"
+    res_path = tmp_path / "results.json"
+
+    scan_result = await emit_scan_worklist(
+        workspace_path=workspace,
+        repo_path=repo,
+        no_file_map=False,
+        max_depth=3,
+        propagate=False,
+        out_path=wl_path,
+    )
+    assert wl_path.exists(), "emit_scan_worklist must write worklist.json"
+    assert scan_result is not None
+
+    worklist = ScanWorklist.from_json(wl_path.read_text(encoding="utf-8"))
+    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+
+    # Hand-author a results.json as the Claude agent would assemble it.
+    res_path.write_text(
+        _json.dumps(
+            {
+                "schema": 1,
+                "fills": [
+                    {
+                        "uri": alpha.uri,
+                        "narrative": "Alpha is a sample package.",
+                        "file_descriptions": {p: "src file" for p in alpha.needs.file_todo_paths},
+                        "dir_descriptions": {c: "a dir" for c in alpha.needs.dir_todo_contexts},
+                        "overview": "overview of alpha" if alpha.needs.overview else None,
+                        "purpose": "the purpose" if alpha.needs.purpose else None,
+                        "public_api": "the api" if alpha.needs.public_api else None,
+                    }
+                ],
+                "drift": [],
+                "propagate": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    applied = await apply_scan_worklist(
+        workspace_path=workspace,
+        repo_path=repo,
+        results_path=res_path,
+        short_head=worklist.short_head,
+        propagate=False,
+        worklist_path=wl_path,
+    )
+    assert applied.narrated >= 1
+    page = Path(alpha.page_path).read_text(encoding="utf-8")
+    assert "Alpha is a sample package." in page
+    # The disk apply path's distinctive behavior: stamp the anchor from the
+    # passed-in short_head (the only state crossing the process boundary).
+    assert applied.stamped >= 1
+    assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") == worklist.short_head

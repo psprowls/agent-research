@@ -2272,3 +2272,61 @@ async def _run_scan_structural_only(
                 conn.close()
             except Exception:
                 pass  # closing a read-only conn should not raise; defensive
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5: out-of-process entrypoints (Task 4)
+# ---------------------------------------------------------------------------
+
+
+async def emit_scan_worklist(
+    *,
+    workspace_path: Path | None,
+    repo_path: Path | None,
+    no_file_map: bool,
+    max_depth: int,
+    propagate: bool,
+    out_path: Path,
+) -> ScanResult:
+    """Run the mechanical front-half, write worklist.json to out_path, return the ScanResult.
+
+    Thin wrapper over build_scan_worklist for the out-of-process (Claude plugin) path.
+    Creates parent directories as needed.
+    """
+    worklist, scan_result = await build_scan_worklist(
+        workspace_path=workspace_path,
+        repo_path=repo_path,
+        no_file_map=no_file_map,
+        max_depth=max_depth,
+        propagate_drift=propagate,
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(worklist.to_json(), encoding="utf-8")
+    return scan_result
+
+
+async def apply_scan_worklist(
+    *,
+    workspace_path: Path | None,
+    repo_path: Path | None,
+    results_path: Path,
+    short_head: str | None,
+    propagate: bool,
+    worklist_path: Path,
+) -> ApplyResult:
+    """Read results.json + worklist.json, apply fill results, return ApplyResult.
+
+    The worklist is read from disk (written by emit_scan_worklist) so the apply
+    view is identical to the emit view — no second scan is needed. short_head is
+    passed in to honor the state-gate decision made at emit time; it overrides the
+    worklist's stored value (the only state crossing the process boundary).
+    """
+    results = ScanResults.from_json(results_path.read_text(encoding="utf-8"))
+    worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
+    # Honor the emit-time stamp value handed back by the orchestrator.
+    worklist.short_head = short_head
+    if short_head is None:
+        worklist.head_commit = None
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+    repo = repo_path.resolve() if repo_path else (resolved_repo or Path.cwd())
+    return await apply_scan_results(worklist, results, wiki, repo, propagate=propagate)
