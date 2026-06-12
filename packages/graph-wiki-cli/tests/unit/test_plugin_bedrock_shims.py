@@ -39,6 +39,16 @@ _SCRIPT_DIR = Path(__file__).resolve().parents[4] / "plugins" / "graph-wiki" / "
             ["Where is auth documented?", "--top-k", "5"],
             ["gw", "wiki", "query", "Where is auth documented?", "--top-k", "5"],
         ),
+        (
+            "scan_monorepo.py",
+            ["--workspace", "/tmp/wiki", "--emit-worklist", "/tmp/wl.json"],
+            ["gw", "scan", "--workspace", "/tmp/wiki", "--emit-worklist", "/tmp/wl.json"],
+        ),
+        (
+            "scan_monorepo.py",
+            ["--apply-worklist", "/tmp/res.json", "--short-head", "abc1234"],
+            ["gw", "scan", "--apply-worklist", "/tmp/res.json", "--short-head", "abc1234"],
+        ),
     ],
 )
 def test_bedrock_plugin_shims_dispatch_to_gw_with_expected_argv(

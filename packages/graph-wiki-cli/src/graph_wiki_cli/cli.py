@@ -569,9 +569,49 @@ def scan(
         False, "--propagate-drift", help="After narration, propose curated-page updates for changed entities (M4)"
     ),
     json_output: bool = typer.Option(False, "--json", help="Emit ScanResult as JSON"),
+    emit_worklist: str = typer.Option(
+        "", "--emit-worklist", help="Emit the commit-gated worklist JSON to this path and exit"
+    ),
+    apply_worklist: str = typer.Option("", "--apply-worklist", help="Apply a results JSON from this path"),
+    worklist_path: str = typer.Option(
+        "", "--worklist-path", help="Worklist JSON for --apply-worklist (default: sibling worklist.json)"
+    ),
+    short_head: str = typer.Option("", "--short-head", help="Stamp value (short HEAD sha) for --apply-worklist"),
 ) -> None:
     """Build the code graph and write one page per graph entity into wiki/entities/."""
-    workspace_path = Path(workspace) if workspace else None
+    ws = Path(workspace) if workspace else None
+    if emit_worklist:
+        from graph_wiki_core.commands.scan import emit_scan_worklist
+
+        result = asyncio.run(
+            emit_scan_worklist(
+                workspace_path=ws,
+                repo_path=None,
+                no_file_map=no_file_map,
+                max_depth=max_depth,
+                propagate=propagate_drift,
+                out_path=Path(emit_worklist),
+            )
+        )
+        typer.echo(json.dumps({"worklist_path": emit_worklist, "scan_result": dataclasses.asdict(result)}, indent=2))
+        raise typer.Exit(code=3 if result.entity_errors else 0)
+    if apply_worklist:
+        from graph_wiki_core.commands.scan import apply_scan_worklist
+
+        wl_path = Path(worklist_path) if worklist_path else Path(apply_worklist).parent / "worklist.json"
+        applied = asyncio.run(
+            apply_scan_worklist(
+                workspace_path=ws,
+                repo_path=None,
+                results_path=Path(apply_worklist),
+                worklist_path=wl_path,
+                short_head=(short_head or None),
+                propagate=propagate_drift,
+            )
+        )
+        typer.echo(json.dumps(applied.to_dict(), indent=2))
+        raise typer.Exit(code=3 if applied.entity_errors else 0)
+    workspace_path = ws
     try:
         result = asyncio.run(
             run_scan(
