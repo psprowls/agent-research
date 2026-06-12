@@ -40,3 +40,12 @@ def test_no_legacy_plugin_template() -> None:
     names = _template_names()
     assert "entity-plugin.md" not in names
     assert "entity-agent-plugin.md" in names
+
+
+def test_concept_template_seeds_status_active() -> None:
+    """The concept template ships a human-owned `status: active` field so the
+    archivability lifecycle is discoverable (gw wiki archive)."""
+    text = files("wiki_io.assets.page-templates").joinpath("concept.md").read_text(encoding="utf-8")
+    # Field is inside the frontmatter block.
+    fm_block = text.split("---", 2)[1]
+    assert "status: active" in fm_block

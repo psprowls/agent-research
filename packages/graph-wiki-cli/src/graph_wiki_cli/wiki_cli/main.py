@@ -27,6 +27,7 @@ from graph_wiki_core.commands.log import run_log
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.query import run_query
+from graph_wiki_core.commands.wiki_archive import run_wiki_archive
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.update_tokens import DEFAULT_MODEL_ID, DEFAULT_REGION, update_vault
 from workspace_io.paths import graph_dir
@@ -263,6 +264,40 @@ def proposal_reject(
 ) -> None:
     """Reject a proposal (flip its status to `rejected`, preserved so it is not re-proposed)."""
     _decide(proposal_id, "rejected", workspace, json_output)
+
+
+@wiki_app.command()
+def archive(
+    slugs: Optional[list[str]] = typer.Argument(
+        None, help="Path-qualified pages to archive, e.g. adrs/0003-foo concepts/x (omit to sweep all)"
+    ),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show plan without moving files"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Archive terminal adrs/concepts/proposals pages into <dir>/_archive/ (sweep or targeted)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        result = asyncio.run(
+            run_wiki_archive(
+                workspace_path=workspace_path,
+                slugs=slugs or None,
+                dry_run=dry_run,
+            )
+        )
+    except (RuntimeError, FileNotFoundError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        label = "[dry-run]" if dry_run else "[ok]"
+        typer.echo(f"{label} Archived {len(result.moved)} page(s).")
+        for item in result.moved:
+            typer.echo(f"  moved: {item['src']} -> {item['dst']}")
+        for skipped in result.skipped:
+            typer.echo(f"  skipped: {skipped['slug']} — {skipped['reason']}")
 
 
 @wiki_app.command(name="propagate-drift")

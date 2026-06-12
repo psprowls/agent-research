@@ -290,3 +290,61 @@ def test_proposal_reject_unknown_exits_nonzero() -> None:
 
     assert result.exit_code == 1
     assert "no proposal note found" in result.output
+
+
+def test_wiki_archive_subcommand_registered() -> None:
+    """`gw wiki archive` is registered under the wiki group."""
+    import typer
+    from graph_wiki_cli.cli import app
+
+    root_command = typer.main.get_command(app)
+    wiki_group = root_command.commands["wiki"]
+    assert "archive" in wiki_group.commands
+
+
+def test_wiki_archive_sweep_passes_none_slugs(tmp_path: Path) -> None:
+    """Zero positional args → sweep mode (slugs=None)."""
+    from unittest.mock import AsyncMock, patch
+
+    from graph_wiki_core.commands.wiki_archive import WikiArchiveResult
+
+    fake = WikiArchiveResult(dry_run=False, moved=[{"slug": "adrs/x", "src": "a", "dst": "b"}], skipped=[])
+    with patch("graph_wiki_cli.wiki_cli.main.run_wiki_archive", new_callable=AsyncMock, return_value=fake) as mock_fn:
+        result = runner.invoke(app, ["wiki", "archive", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert mock_fn.call_args.kwargs["slugs"] is None
+    # Human output renders moved pages as "src -> dst" (mirrors `gw work archive`).
+    assert "a -> b" in result.stdout
+
+
+def test_wiki_archive_targeted_passes_slug_list(tmp_path: Path) -> None:
+    """Positional args → targeted mode (slugs list)."""
+    from unittest.mock import AsyncMock, patch
+
+    from graph_wiki_core.commands.wiki_archive import WikiArchiveResult
+
+    fake = WikiArchiveResult(
+        dry_run=False, moved=[], skipped=[{"slug": "adrs/y", "reason": "status='accepted' is not terminal"}]
+    )
+    with patch("graph_wiki_cli.wiki_cli.main.run_wiki_archive", new_callable=AsyncMock, return_value=fake) as mock_fn:
+        result = runner.invoke(app, ["wiki", "archive", "adrs/y", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert mock_fn.call_args.kwargs["slugs"] == ["adrs/y"]
+    assert "not terminal" in result.stdout
+
+
+def test_wiki_archive_dry_run_and_json(tmp_path: Path) -> None:
+    from unittest.mock import AsyncMock, patch
+
+    from graph_wiki_core.commands.wiki_archive import WikiArchiveResult
+
+    fake = WikiArchiveResult(dry_run=True, moved=[{"slug": "concepts/z", "src": "a", "dst": "b"}], skipped=[])
+    with patch("graph_wiki_cli.wiki_cli.main.run_wiki_archive", new_callable=AsyncMock, return_value=fake) as mock_fn:
+        result = runner.invoke(app, ["wiki", "archive", "--dry-run", "--json", "--workspace", str(tmp_path)])
+
+    assert result.exit_code == 0
+    assert mock_fn.call_args.kwargs["dry_run"] is True
+    assert '"dry_run": true' in result.stdout
+    assert "concepts/z" in result.stdout

@@ -141,10 +141,11 @@ def _mechanical_pass(
         if rel.name in {"log.md"}:
             continue
         top = rel.parts[0] if rel.parts else ""
-        # Skip work/_archive/ — lifecycle is owned by graph-wiki work
-        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "_archive":
-            continue
         key = str(rel).replace("\\", "/")[:-3]
+        # <dir>/_archive/ items are valid link targets but excluded from orphan/stale checks
+        if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
+            link_targets.add(key)
+            continue
         # Add to link_targets regardless of whether it's an index page
         link_targets.add(key)
         # Skip adding index.md to pages dict for orphan/stale/frontmatter checks
@@ -199,8 +200,7 @@ def _mechanical_pass(
             continue
         if any(part.startswith(".") for part in rel.parts):
             continue
-        top = rel.parts[0] if rel.parts else ""
-        if top == "work" and len(rel.parts) >= 2 and rel.parts[1] == "_archive":
+        if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
             continue
         idx_key = str(rel).replace("\\", "/")[:-3]
         text = md.read_text(encoding="utf-8", errors="replace")

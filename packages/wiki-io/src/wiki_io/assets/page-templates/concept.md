@@ -2,6 +2,7 @@
 title: <Concept Name>
 category: concept
 kind: concept
+status: active
 summary: <one-line definition>
 tags: []
 sources: 0
