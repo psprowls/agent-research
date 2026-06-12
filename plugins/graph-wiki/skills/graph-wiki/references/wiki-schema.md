@@ -432,7 +432,7 @@ See `packages/common-aws-node-ts/src/handlers/baseApiHandler.ts:42`
 - **Every ADR referenced in entity/concept pages must be a wikilink** to `adrs/<id>-<slug>`.
 - **Every claim on an entity page cites** either a source page (`[[sources/xxx]]`) or a code path (backticked, with file:line).
 - **Contradictions get flagged inline** with a `> ⚠️ Contradiction:` callout naming the conflicting sources or code paths.
-- **Architecture pages link back to every entity and ADR they draw on.**
+- **Concept pages with `kind: architecture` link back to every entity and ADR they draw on.**
 
 ## Index discipline
 
