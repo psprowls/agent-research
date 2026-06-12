@@ -1,6 +1,7 @@
 ---
 title: <Concept Name>
 category: concept
+kind: concept
 summary: <one-line definition>
 tags: []
 sources: 0

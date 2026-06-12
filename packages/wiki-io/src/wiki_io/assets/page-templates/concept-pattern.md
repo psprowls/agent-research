@@ -1,6 +1,7 @@
 ---
 title: <Pattern Name>
 category: concept
+kind: pattern
 summary: <one-line definition of the pattern>
 tags: [pattern]
 sources: 0
