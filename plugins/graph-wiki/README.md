@@ -42,12 +42,14 @@ The plugin has two delivery surfaces that share the same wiki format:
    /graph-wiki:scan
    ```
 
-For direct Bedrock CLI use outside Claude Code, run the package-scoped `gw` entry point:
+For direct Bedrock CLI use outside Claude Code, use the `gw` entry point:
 
 ```bash
-uv run --package graph-wiki-cli gw --help
-uv run --package graph-wiki-cli gw scan --workspace <repo>/graph-wiki
+gw --help
+gw scan
 ```
+
+Workspace and repo are auto-discovered; pass `--workspace <ws>` only to override. If `gw` isn't on PATH, prefix any command with `uv run --package graph-wiki-cli`.
 
 ## [plugin] block syntax
 
