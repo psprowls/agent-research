@@ -149,11 +149,13 @@ def test_read_proposal_round_trips_a_written_note(tmp_path: Path) -> None:
 
 
 def test_split_proposal_id_parses_kind_prefix() -> None:
+    import pytest
     from wiki_io.proposals import split_proposal_id
 
     assert split_proposal_id("adr-0007-markdown-canonical") == ("adr", "0007-markdown-canonical")
     assert split_proposal_id("concept-section-ownership") == ("concept", "section-ownership")
-    assert split_proposal_id("architecture-layers") == ("architecture", "layers")
+    with pytest.raises(ValueError):
+        split_proposal_id("architecture-layers")
 
 
 def test_split_proposal_id_rejects_unknown_kind() -> None:
@@ -198,7 +200,8 @@ def test_upsert_persists_rank_confidence_and_rich_origin(tmp_path: Path) -> None
     upsert_proposal(
         wiki,
         {
-            "kind": "architecture",
+            "kind": "concept",
+            "concept_kind": "architecture",
             "mode": "update_existing",
             "target_slug": "runtime-flow",
             "title": "Runtime flow",
@@ -209,18 +212,19 @@ def test_upsert_persists_rank_confidence_and_rich_origin(tmp_path: Path) -> None
                 "source": "ingest",
                 "rationale": "The source changes the runtime-flow thesis.",
                 "evidence": ["Pipeline adds a reasoner stage."],
-                "existing_pages_considered": ["architecture/runtime-flow"],
-                "reasoning_summary": "Update the existing architecture page.",
+                "existing_pages_considered": ["concepts/runtime-flow"],
+                "reasoning_summary": "Update the existing concept page.",
                 "potential_conflicts": [],
                 "implementation_notes": ["Append to How this synthesis has changed."],
             },
         },
     )
 
-    rec = read_proposal(proposal_path(wiki, "architecture", "runtime-flow"))
+    rec = read_proposal(proposal_path(wiki, "concept", "runtime-flow"))
     assert rec["rank"] == 2
     assert rec["confidence"] == "medium"
     assert rec["origins"][0]["evidence"] == ["Pipeline adds a reasoner stage."]
+    assert rec["concept_kind"] == "architecture"
 
 
 def test_upsert_leaves_human_decided_untouched(tmp_path: Path) -> None:
@@ -419,3 +423,64 @@ def test_update_index_ignores_proposals(tmp_path: Path) -> None:
     # No category sub-index mentions the proposal slug.
     for sub in wiki.rglob("index.md"):
         assert "concept-xyz" not in sub.read_text(encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Task 8 — concept_kind plumbing
+# ---------------------------------------------------------------------------
+
+
+def test_concept_kind_roundtrips_and_survives_merge(tmp_path: Path) -> None:
+    from wiki_io.proposals import proposal_path, read_proposal, upsert_proposal
+
+    wiki = tmp_path / "wiki"
+    proposal = {
+        "kind": "concept",
+        "concept_kind": "architecture",
+        "target_slug": "runtime-flow",
+        "title": "Runtime Flow",
+        "origin": {"ref": "sources/spec-a", "source": "ingest", "rationale": "r"},
+    }
+    upsert_proposal(wiki, proposal)
+    rec = read_proposal(proposal_path(wiki, "concept", "runtime-flow"))
+    assert rec["concept_kind"] == "architecture"
+    # merge: same note, second origin — concept_kind survives
+    proposal2 = dict(proposal, origin={"ref": "sources/spec-b", "source": "ingest", "rationale": "r2"})
+    upsert_proposal(wiki, proposal2)
+    rec = read_proposal(proposal_path(wiki, "concept", "runtime-flow"))
+    assert rec["concept_kind"] == "architecture"
+    assert len(rec["origins"]) == 2
+
+
+def test_suggested_action_names_kind_template(tmp_path: Path) -> None:
+    from wiki_io.proposals import _suggested_action
+
+    rec = {"kind": "concept", "target_slug": "runtime-flow", "mode": "create_new", "concept_kind": "architecture"}
+    action = _suggested_action(rec)
+    assert "concepts/runtime-flow.md" in action
+    assert "kind: architecture" in action
+    assert "concept-architecture.md" in action
+
+
+def test_plain_concept_action_has_no_kind_suffix() -> None:
+    from wiki_io.proposals import _suggested_action
+
+    rec = {"kind": "concept", "target_slug": "auth", "mode": "create_new"}
+    assert "kind:" not in _suggested_action(rec)
+
+
+def test_adr_record_never_carries_concept_kind(tmp_path: Path) -> None:
+    from wiki_io.proposals import proposal_path, read_proposal, upsert_proposal
+
+    wiki = tmp_path / "wiki"
+    upsert_proposal(
+        wiki,
+        {
+            "kind": "adr",
+            "target_slug": "0009-foo",
+            "title": "Foo",
+            "origin": {"ref": "sources/spec", "source": "ingest", "rationale": "r"},
+        },
+    )
+    rec = read_proposal(proposal_path(wiki, "adr", "0009-foo"))
+    assert "concept_kind" not in rec
