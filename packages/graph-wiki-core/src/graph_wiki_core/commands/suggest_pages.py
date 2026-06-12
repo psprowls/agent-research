@@ -1,10 +1,10 @@
 """Living Wiki M3 — inline page-suggestion pass for run_ingest_source.
 
-After a Source page lands, propose which concept/adr/architecture pages the
-document justifies and record each as a note in the proposal ledger
+After a Source page lands, propose which concept/adr pages the document
+justifies and record each as a note in the proposal ledger
 (`wiki/proposals/<kind>-<target_slug>.md`) via wiki_io.proposals.upsert_proposal.
-Propose only — nothing is written under concepts/ / adrs/ / architecture/, and
-the Source page is no longer mutated.
+Propose only — nothing is written under concepts/ / adrs/, and the Source
+page is no longer mutated.
 
 Public API:
     SUGGESTION_KINDS, EXTRACT_PREVIEW_CHARS
@@ -22,6 +22,7 @@ from pathlib import Path
 import yaml
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import make_llm
+from wiki_io.concept_kinds import CONCEPT_KINDS, DEFAULT_CONCEPT_KIND
 from wiki_io.ingest_source import slugify
 from wiki_io.proposals import upsert_proposal
 from wiki_io.update_index import parse_frontmatter
@@ -31,12 +32,13 @@ from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
 
 logger = logging.getLogger(__name__)
 
-SUGGESTION_KINDS = frozenset({"concept", "adr", "architecture"})
+SUGGESTION_KINDS = frozenset({"concept", "adr"})
 EXTRACT_PREVIEW_CHARS = 4000
 
 # Canonical key order for a validated proposal dict (cosmetic; the ledger owns serialization).
 _ENTRY_KEY_ORDER = (
     "kind",
+    "concept_kind",
     "title",
     "slug",
     "mode",
@@ -53,9 +55,17 @@ _ENTRY_KEY_ORDER = (
 )
 
 
+_NONE_OMIT_KEYS = frozenset({"concept_kind"})
+
+
 def _ordered_entry(d: dict) -> dict:
-    """Return a new dict with the canonical key order (omitting absent keys)."""
-    return {k: d[k] for k in _ENTRY_KEY_ORDER if k in d}
+    """Return a new dict with the canonical key order.
+
+    Keys absent from `d` are omitted. Keys in `_NONE_OMIT_KEYS` are also
+    omitted when their value is None (so adr entries never carry concept_kind).
+    Other keys may carry None to preserve existing semantics (e.g. existing_slug).
+    """
+    return {k: d[k] for k in _ENTRY_KEY_ORDER if k in d and (d[k] is not None or k not in _NONE_OMIT_KEYS)}
 
 
 def _string_list(value: object) -> list[str]:
@@ -104,9 +114,15 @@ def _validate_proposal(raw: object) -> dict | None:
         confidence = "medium"
     rationale = str(raw.get("rationale", "")).strip()
     reasoning_summary = str(raw.get("reasoning_summary", "")).strip()
+    concept_kind: str | None = None
+    if kind == "concept":
+        concept_kind = str(raw.get("concept_kind", "")).strip().lower()
+        if concept_kind not in CONCEPT_KINDS:
+            concept_kind = DEFAULT_CONCEPT_KIND
     return _ordered_entry(
         {
             "kind": kind,
+            "concept_kind": concept_kind,
             "title": title,
             "slug": slug,
             "mode": mode,
@@ -168,13 +184,13 @@ def parse_extractor_response(text: str) -> tuple[list[dict], bool]:
 
 
 # Directory name -> curated page kind.
-_CURATED_DIRS = {"concepts": "concept", "adrs": "adr", "architecture": "architecture"}
+_CURATED_DIRS = {"concepts": "concept", "adrs": "adr"}
 
 
 def build_curated_vault_index(wiki: Path) -> list[dict]:
     """List existing curated pages as [{kind, slug, title, summary}].
 
-    Cheap dedup substrate (spec §3.6): walks concepts/ / adrs/ / architecture/
+    Cheap dedup substrate (spec §3.6): walks concepts/ / adrs/
     and reads title/summary from frontmatter only. No graph, no retrieval.
     """
     index: list[dict] = []
@@ -335,6 +351,7 @@ async def run_suggest_phase(
                 "rank": p["rank"],
                 "confidence": p["confidence"],
                 "origin": origin,
+                **({"concept_kind": p["concept_kind"]} if p.get("concept_kind") else {}),
             },
         )
         reports.append(

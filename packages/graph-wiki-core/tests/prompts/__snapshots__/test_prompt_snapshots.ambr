@@ -26,9 +26,12 @@
   Allowed kinds:
   - concept
   - adr
-  - architecture
   Each suggestion requires:
   - kind
+  - concept_kind: only for kind concept — one of concept, pattern, architecture (default concept).
+    Does this source capture a high-level architecture synthesis (build system, module graph,
+    request flow, deployment topology)? Then kind concept with concept_kind: architecture.
+    A reusable general pattern? concept_kind: pattern. Otherwise omit or use concept.
   - title
   - slug
   - mode: create_new or update_existing
@@ -784,9 +787,10 @@
   Analyze an ingested source document and decide which durable wiki pages it justifies.
   You do NOT write wiki pages. You produce candidate analyses for a downstream extractor.
   Candidate kinds:
-  - concept: reusable technical idea, pattern, or practice.
+  - concept: reusable technical idea, pattern, or practice. Concepts have an optional
+    kind flavor — pattern (general reusable pattern) or architecture (cross-cutting
+    synthesis of how system parts fit together).
   - adr: dated consequential decision recorded or strongly implied by the source.
-  - architecture: cross-cutting synthesis of how system parts fit together.
   Rules:
   - Use the provided wiki catalog before proposing a new page.
   - Prefer updating an existing page when the idea is already covered.

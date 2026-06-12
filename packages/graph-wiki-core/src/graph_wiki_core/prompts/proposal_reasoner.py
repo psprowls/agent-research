@@ -6,9 +6,10 @@ PROPOSAL_REASONER_SYSTEM = """You are a code-wiki proposal reasoner.
 Analyze an ingested source document and decide which durable wiki pages it justifies.
 You do NOT write wiki pages. You produce candidate analyses for a downstream extractor.
 Candidate kinds:
-- concept: reusable technical idea, pattern, or practice.
+- concept: reusable technical idea, pattern, or practice. Concepts have an optional
+  kind flavor — pattern (general reusable pattern) or architecture (cross-cutting
+  synthesis of how system parts fit together).
 - adr: dated consequential decision recorded or strongly implied by the source.
-- architecture: cross-cutting synthesis of how system parts fit together.
 Rules:
 - Use the provided wiki catalog before proposing a new page.
 - Prefer updating an existing page when the idea is already covered.

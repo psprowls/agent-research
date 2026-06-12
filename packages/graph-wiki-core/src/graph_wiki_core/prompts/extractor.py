@@ -1,8 +1,7 @@
 """EXTRACTOR_SYSTEM prompt — Living Wiki M3 inline page-suggestion pass.
 
 Given source-backed proposal context and a listing of existing curated pages,
-the extractor proposes which concept / adr / architecture pages the context
-justifies.
+the extractor proposes which concept / adr pages the context justifies.
 It is deliberately conservative (roadmap open-q #3: avoid low-quality
 auto-generated concepts) and PROPOSES ONLY — no page is written by this pass.
 """
@@ -15,9 +14,12 @@ Output one YAML mapping with a single `suggestions:` list. No prose and no code 
 Allowed kinds:
 - concept
 - adr
-- architecture
 Each suggestion requires:
 - kind
+- concept_kind: only for kind concept — one of concept, pattern, architecture (default concept).
+  Does this source capture a high-level architecture synthesis (build system, module graph,
+  request flow, deployment topology)? Then kind concept with concept_kind: architecture.
+  A reusable general pattern? concept_kind: pattern. Otherwise omit or use concept.
 - title
 - slug
 - mode: create_new or update_existing
