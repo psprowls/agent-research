@@ -2,11 +2,12 @@
 
 Where M2e's drift_judge compares a human SECTION against its own entity's
 narrative (within-page), the propagator compares a whole CURATED page (concept /
-ADR / architecture) against the CURRENT state of the changed entities that
-backlink it (cross-page). It is kind-aware: concept/architecture pages are stale
-when their described behaviour no longer matches the entity; ADR pages are
-annotate-only (stale only when Status/Consequences/Supersedes are overtaken by
-code reality — never a rewrite of decision history).
+ADR) against the CURRENT state of the changed entities that backlink it
+(cross-page). It is kind-aware: concept pages (including folded `kind:
+architecture` pages that live under concepts/) are stale when their described
+behaviour no longer matches the entity; ADR pages are annotate-only (stale only
+when Status/Consequences/Supersedes are overtaken by code reality — never a
+rewrite of decision history).
 
 Output is a small JSON verdict with one finding per triggering entity, so each
 ledger origin gets precise attribution. ``parse_drift_propagator_verdict`` fails
@@ -23,11 +24,6 @@ _KIND_RUBRIC = {
     "concept": (
         "This is a CONCEPT page. It is stale when the behaviour or design it "
         "describes no longer matches what the entity narratives now say."
-    ),
-    "architecture": (
-        "This is an ARCHITECTURE page. It is stale when the structure, data "
-        "flow, or component boundaries it describes are contradicted by the "
-        "entity narratives now."
     ),
     "adr": (
         "This is an ADR (architecture decision record). Treat it as "

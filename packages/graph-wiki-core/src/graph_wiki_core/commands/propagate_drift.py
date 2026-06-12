@@ -68,7 +68,9 @@ DRIFT_PROPAGATED_COMMIT_KEY = "drift_propagated_commit"
 
 # Curated categories M4 proposes against, folder -> ledger kind. `sources`
 # (M3-refreshed) and `work` (transient) are deliberately excluded (§3.2).
-_CATEGORY_TO_KIND = {"concepts": "concept", "adrs": "adr", "architecture": "architecture"}
+# Drift keys on directory: folded `kind: architecture` pages that live under
+# `concepts/` are covered by the "concepts" entry and judged as concepts.
+_CATEGORY_TO_KIND = {"concepts": "concept", "adrs": "adr"}
 
 # Candidate kinds carry a node_path -> git change signal; mirrors
 # scan._commit_dirty_changes / DRIFT_TARGET_KINDS.
