@@ -452,6 +452,12 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
     candidate = "us.amazon.nova-lite-v1:0"
     vault = _make_vault(tmp_path)
+    # The contract opens its own DB-existence-guarded read-only conn; resolve is
+    # patched to wiki=vault, so the graph DB resolves under vault.parent/.graph-wiki.
+    from workspace_io.paths import graph_dir as _graph_dir
+
+    _graph_dir(vault.parent).mkdir(parents=True, exist_ok=True)
+    (_graph_dir(vault.parent) / "code.db").write_bytes(b"")
 
     narrator_resp = MagicMock()
     narrator_resp.content = "prose body"
@@ -477,8 +483,22 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
         errors=[],
     )
 
-    fake_node = SimpleNamespace(name="foo", path="packages/foo", attrs={"uri": needy_uri})
+    fake_node = SimpleNamespace(name="foo", path="packages/foo", kind="package", attrs={"uri": needy_uri})
     fake_list_fns = {"package": lambda conn: [fake_node]}
+
+    # The split contract builds its worklist (and narrator fill_tasks) from on-disk
+    # entity pages, so the mocked write_entities must leave a placeholder page behind.
+    from wiki_io.entity_writer import short_filename as _short_filename
+
+    def _write_entities_with_page(conn, wiki, admitted_kinds):
+        page = wiki / "entities" / f"{_short_filename(needy_uri, frozenset())}.md"
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(
+            f"---\nuri: {needy_uri}\nkind: package\n---\n\n# foo\n\n"
+            "## Narrative\n_(scanner will populate on next scan)_\n",
+            encoding="utf-8",
+        )
+        return fake_write_result
 
     async def fake_run_all(items, task, **kwargs):
         result = MagicMock()
@@ -523,13 +543,19 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
         stack.enter_context(
             patch(
                 "graph_wiki_core.commands.scan.write_entities",
-                return_value=fake_write_result,
+                side_effect=_write_entities_with_page,
             )
         )
         stack.enter_context(
             patch(
                 "graph_wiki_core.commands.scan._kind_list_fns",
                 return_value=fake_list_fns,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan._compute_collision_set",
+                return_value=frozenset(),
             )
         )
         stack.enter_context(

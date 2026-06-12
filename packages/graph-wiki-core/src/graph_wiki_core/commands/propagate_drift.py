@@ -195,6 +195,45 @@ def _build_targets(candidates: list[PropagationCandidate], backlink_map: dict) -
     return targets
 
 
+def write_propagation_findings(
+    wiki: Path,
+    kind: str,
+    target_slug: str,
+    title: str,
+    findings: list[tuple[str, str, str, str]],
+) -> int:
+    """Upsert one ``source: drift`` ledger origin per finding on a stale target.
+
+    Each finding is ``(entity_stem, rationale, detected_commit, narrative)``. One
+    ``upsert_proposal`` is issued per finding (the ledger merges origins by ``ref``
+    into the same target proposal). Returns the number of origins written — the
+    back-half of the M4 producer, shared by ``run_propagate_drift`` (Bedrock) and
+    ``scan._apply_propagate_results`` (the contract apply phase) so both surfaces
+    write byte-identical proposals.
+    """
+    written = 0
+    for entity_stem, rationale, detected_commit, narrative in findings:
+        origin = {
+            "ref": f"entities/{entity_stem}",
+            "source": "drift",
+            "detected_commit": detected_commit,
+            "hash": section_hash(narrative),
+            "rationale": str(rationale),
+        }
+        upsert_proposal(
+            wiki,
+            {
+                "kind": kind,
+                "mode": "update_existing",
+                "target_slug": target_slug,
+                "title": title,
+                "origin": origin,
+            },
+        )
+        written += 1
+    return written
+
+
 async def run_propagate_drift(
     *,
     wiki: Path,
@@ -296,6 +335,7 @@ async def run_propagate_drift(
         findings = verdict.get("findings") or []
         by_stem = {c.stem: c for c in entry["candidates"]}
         origins_written: list[dict] = []
+        finding_tuples: list[tuple[str, str, str, str]] = []
         for finding in findings:
             cand = by_stem.get(finding.get("entity_stem"))
             if cand is None:
@@ -307,19 +347,13 @@ async def run_propagate_drift(
                 "hash": section_hash(cand.narrative),
                 "rationale": str(finding.get("rationale", "")),
             }
-            if not dry_run:
-                upsert_proposal(
-                    wiki,
-                    {
-                        "kind": kind,
-                        "mode": "update_existing",
-                        "target_slug": slug,
-                        "title": title,
-                        "origin": origin,
-                    },
-                )
+            finding_tuples.append(
+                (cand.stem, str(finding.get("rationale", "")), cand.last_updated_commit, cand.narrative)
+            )
             origins_written.append(origin)
         if origins_written:
+            if not dry_run:
+                write_propagation_findings(wiki, kind, slug, title, finding_tuples)
             pages_stale += 1
             if not dry_run:
                 notes_written += 1  # nothing is written in a dry run

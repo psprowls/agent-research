@@ -31,6 +31,8 @@ Current Bedrock shim mapping:
 
 Each shim preserves the user's original trailing arguments after the mapped prefix. Package-local regression coverage for this contract lives in `packages/graph-wiki-cli/tests/unit/test_plugin_bedrock_shims.py`.
 
+**Scan-specific note:** The Claude branch of `scan_monorepo.py` defaults to a commit-gated **emit → fan-out → apply** pipeline (NOT structural-only by default). `--emit-worklist <path>` drives the emit phase (writes entity pages + serializes `worklist.json`); `--apply-worklist <results.json> --short-head <sha>` drives the apply phase (injects prose results, stamps anchors, writes drift flags, regenerates indexes). A bare invocation is the `--no-narrate` structural-only fast path (no worklist written, no prose generated).
+
 Distribution: shims reference `wiki_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required. Bedrock users also need the `gw` console script from `graph-wiki-cli` on PATH (e.g. via `uv tool install`), so commands run as bare `gw ...`; where it isn't installed, fall back to `uv run --package graph-wiki-cli gw ...` in this workspace.
 
 **When changing behavior:** edit `packages/wiki-io/` and write tests there for Claude-hosted behavior; edit `packages/graph-wiki-cli/` / `packages/graph-wiki-core/` and their tests for Bedrock CLI behavior. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.

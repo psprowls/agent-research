@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
-from wiki_io.backlink_index import regenerate_referenced_in_wiki
+from wiki_io.backlink_index import build_entity_backlink_map, regenerate_referenced_in_wiki
 from wiki_io.drift import (
     clear_resolved_flags,
     extract_file_map,
@@ -73,6 +73,7 @@ from wiki_io.git_state import changed_files_since, short_commit
 from wiki_io.human_sections import find_todo_human_sections, replace_todo_human_sections
 from wiki_io.index_generator import generate_index
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
+from wiki_io.proposals import HUMAN_DECIDED, list_proposals
 from wiki_io.scan_monorepo import (
     build_dir_file_map,
     build_file_map,
@@ -84,12 +85,38 @@ from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
-from graph_wiki_core.commands.propagate_drift import run_propagate_drift
+from graph_wiki_core.commands.propagate_drift import (
+    DRIFT_PROPAGATED_COMMIT_KEY,
+    _build_targets,
+    _page_title,
+    propagation_candidates,
+    write_propagation_findings,
+)
+from graph_wiki_core.commands.scan_contract import (
+    ApplyResult,
+    DriftResultItem,
+    DriftSectionInput,
+    DriftTask,
+    DriftVerdict,
+    FillNeeds,
+    FillResult,
+    FillTask,
+    PropagateEntity,
+    PropagateFinding,
+    PropagateResultItem,
+    PropagateTask,
+    ScanResults,
+    ScanWorklist,
+)
 from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.dir_describer import build_dir_describer_prompt, parse_dir_describer_output
 from graph_wiki_core.prompts.drift_judge import (
     build_drift_judge_prompt,
     parse_drift_verdict,
+)
+from graph_wiki_core.prompts.drift_propagator import (
+    build_drift_propagator_prompt,
+    parse_drift_propagator_verdict,
 )
 from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
@@ -886,6 +913,996 @@ def _drift_clear_pass(wiki: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Living Wiki M1.5 (split scan pipeline): emit-half worklist assembly
+# ---------------------------------------------------------------------------
+
+
+def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
+    """Serialize M2e drift candidates into DriftTasks (emit-time ground truth).
+
+    Mirror of _drift_flag_pass's candidate+item assembly minus the LLM judge.
+    Each candidate page becomes one DriftTask carrying its regenerated narrative,
+    file map, and every human section chunk. The uri is read from frontmatter so
+    apply can key verdicts back to the page.
+    """
+    tasks: list[DriftTask] = []
+    for page_path, anchor, narrative, file_map in _drift_candidates(wiki):
+        try:
+            uri = frontmatter.load(str(page_path)).metadata.get("uri")
+        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
+            continue
+        if not uri:
+            continue
+        body = page_path.read_text(encoding="utf-8")
+        sections = [DriftSectionInput(heading=heading, chunk=chunk) for heading, chunk in iter_human_sections(body)]
+        if not sections:
+            continue
+        tasks.append(
+            DriftTask(
+                uri=str(uri),
+                page_path=str(page_path),
+                anchor=anchor,
+                narrative=narrative,
+                file_map=file_map,
+                sections=sections,
+            )
+        )
+    return tasks
+
+
+def _build_propagate_tasks(
+    wiki: Path, repo: Path, conn: Any
+) -> tuple[list[PropagateTask], dict[str, str], dict[str, str]]:
+    """M4 emit: curated propagate targets + per-candidate stamp bookkeeping.
+
+    Reuses propagate_drift's candidate/target/title machinery with the ledger
+    pre-filter (skip targets the human already disposed of). Returns the tasks
+    plus ``(anchors, pages)`` mapping EVERY considered candidate's uri to its
+    ``last_updated_commit`` / entity page_path — apply stamps
+    ``drift_propagated_commit`` for all of them (idempotence), including
+    candidates whose targets were all pre-filtered.
+    """
+    candidates = propagation_candidates(wiki, repo, conn)
+    if not candidates:
+        return [], {}, {}
+    targets = _build_targets(candidates, build_entity_backlink_map(wiki))
+    settled = {(rec["kind"], rec["target_slug"]) for rec in list_proposals(wiki) if rec["status"] in HUMAN_DECIDED}
+    tasks: list[PropagateTask] = []
+    for entry in targets.values():
+        if (entry["kind"], entry["target_slug"]) in settled:
+            continue  # ledger pre-filter
+        title = _page_title(entry["page_path"], entry["target_slug"])
+        tasks.append(
+            PropagateTask(
+                kind=entry["kind"],
+                target_slug=entry["target_slug"],
+                title=title,
+                page_path=str(entry["page_path"]),
+                entities=[
+                    PropagateEntity(stem=c.stem, narrative=c.narrative, changed_files=c.changed_files)
+                    for c in entry["candidates"]
+                ],
+            )
+        )
+    anchors = {c.uri: c.last_updated_commit for c in candidates}
+    pages = {c.uri: str(c.page_path) for c in candidates}
+    return tasks, anchors, pages
+
+
+async def build_scan_worklist(
+    workspace_path: Path | None = None,
+    *,
+    repo_path: Path | None = None,
+    no_file_map: bool = False,
+    max_depth: int = 3,
+    propagate_drift: bool = False,
+) -> tuple[ScanWorklist, ScanResult]:
+    """Mechanical front-half of a narrated scan + the commit-gated worklist.
+
+    Side effects (identical to run_scan's narrate=True front-half): cg update,
+    write_entities, deterministic file-map injection. Returns the worklist the
+    provider fills plus a ScanResult carrying created/updated/deleted/errors so
+    callers can still report the mechanical pass. The preserved-drop runs
+    unconditionally here (this is always the narrating path).
+    """
+    # Step 1: resolve wiki and repo (lifted from run_scan).
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+    if repo_path is not None:
+        repo = repo_path.resolve()
+    elif resolved_repo is not None:
+        repo = resolved_repo
+    else:
+        repo = Path.cwd()
+
+    # cg update + open the read-only graph conn (lifted; ScanAbortedError kept).
+    # conn is closed right before return; exceptions propagate (no try/finally).
+    conn = None
+    append_log(
+        wiki,
+        "scan",
+        "cg update (incremental)",
+        detail=None,
+        silent=True,
+        raise_exception=True,
+    )
+    _workspace_root = wiki.parent
+    _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False)
+    _graph_ready = False
+    if _cg_exit == exit_codes.SUCCESS:
+        append_log(
+            wiki,
+            "scan",
+            "cg update complete: exit_code=0",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        _graph_ready = True
+    elif _cg_exit == exit_codes.GENERIC and _is_init_failure_stderr(_cg_stderr):
+        reason = _cg_stderr.strip().splitlines()[-1] if _cg_stderr.strip() else "unknown init failure"
+        sys.stderr.write(
+            f"[NOT_INITIALIZED fallback: graph could not be initialized ({reason}); using path-based slugs]\n"
+        )
+        append_log(
+            wiki,
+            "scan",
+            f"NOT_INITIALIZED fallback: {reason}",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        _graph_ready = False
+    else:
+        append_log(
+            wiki,
+            "scan",
+            f"cg update failed: exit_code={_cg_exit}",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        raise ScanAbortedError(exit_code=_cg_exit, stderr=_cg_stderr)
+
+    if _graph_ready:
+        try:
+            conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+        except GraphNotInitializedError as exc:
+            sys.stderr.write(
+                f"[NOT_INITIALIZED fallback: graph could not be initialized ({exc}); using path-based slugs]\n"
+            )
+            append_log(
+                wiki,
+                "scan",
+                f"NOT_INITIALIZED fallback (post-update): {exc}",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+            conn = None
+
+    try:
+        return await _build_scan_worklist_body(
+            wiki=wiki,
+            repo=repo,
+            conn=conn,
+            no_file_map=no_file_map,
+            max_depth=max_depth,
+            propagate_drift=propagate_drift,
+        )
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001 — closing a read-only conn should not raise
+                pass
+
+
+async def _build_scan_worklist_body(
+    *,
+    wiki: Path,
+    repo: Path,
+    conn: Any | None,
+    no_file_map: bool,
+    max_depth: int,
+    propagate_drift: bool,
+) -> tuple[ScanWorklist, ScanResult]:
+    """Worklist assembly body (split out so build_scan_worklist's conn is closed
+    in a finally even when write_entities / file-map injection raises)."""
+    # Step 8: compute state gate.
+    state_gate = compute_state_gate(repo, workspace=wiki.parent)
+    head = state_gate.get("head_commit")
+    short_head = short_commit(repo, head) if head else head
+
+    entity_write_result = None
+    commit_dirty: dict[str, list[str] | None] = {}
+
+    if conn is not None:
+        # Step 9a: graph-driven entity page writes.
+        entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
+        append_log(
+            wiki,
+            "scan",
+            (
+                f"entities: +{len(entity_write_result.created)} "
+                f"~{len(entity_write_result.updated)} "
+                f"-{len(entity_write_result.deleted)} "
+                f"(needs_narrative: {len(entity_write_result.needs_narrative)})"
+            ),
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+
+        # M2a commit-gate: re-narrate entities whose files changed since their
+        # recorded last_updated_commit. Decision A: the needs_narrative set
+        # (which the worklist consumes) includes this commit_dirty union.
+        commit_dirty = _commit_dirty_changes(
+            wiki,
+            repo,
+            conn,
+            head,
+            _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
+        )
+        if commit_dirty:
+            entity_write_result.needs_narrative.update(commit_dirty.keys())
+            append_log(
+                wiki,
+                "scan",
+                f"commit-gate: {len(commit_dirty)} entity(s) flagged for re-narration",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+
+    # Step 10b: deterministic File-map injection. Same as run_scan's port, but
+    # the preserved-drop runs UNCONDITIONALLY here (this is always the narrating
+    # front-half) — `if narrate and node_uri in commit_dirty` -> `if node_uri in commit_dirty`.
+    entities_file_mapped: list[str] = []
+    file_map_errors: list[str] = []
+    file_mapped_pages: list[tuple[str, Any, Path]] = []
+    redescribed_uris: set[str] = set()
+    if entity_write_result is not None and conn is not None:
+        refreshed = set(entity_write_result.created) | set(entity_write_result.updated)
+        fm_targets = refreshed | set(commit_dirty)
+        list_fns = _kind_list_fns()
+        fm_collision_set = _compute_collision_set(conn, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
+        fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
+        if fm_targets and any(fm_list_fns) and not no_file_map:
+            fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
+            for node in fm_nodes:
+                if not isinstance(node.attrs, dict):
+                    continue
+                node_uri = node.attrs.get("uri")
+                if not node_uri or node_uri not in fm_targets:
+                    continue
+                node_path = node.path
+                if not node_path:
+                    continue
+                file_map = build_file_map(repo / node_path, max_depth=max_depth)
+                if not file_map:
+                    continue
+                slug = short_filename(node_uri, fm_collision_set)
+                fm_page_path = wiki / "entities" / f"{slug}.md"
+                preserved = dict(_live_file_map_descriptions(fm_page_path))
+                if node_uri in commit_dirty:
+                    changed = commit_dirty[node_uri]
+                    if changed is None:
+                        preserved = {}
+                        redescribed_uris.add(node_uri)
+                    else:
+                        changed_rel = _changed_rel_paths(changed, node_path)
+                        dropped = {p for p in preserved if p in changed_rel}
+                        if dropped:
+                            for p in dropped:
+                                preserved.pop(p, None)
+                            redescribed_uris.add(node_uri)
+                try:
+                    inject_file_map(
+                        fm_page_path,
+                        file_map,
+                        preserved=preserved,
+                    )
+                    entities_file_mapped.append(node_uri)
+                    file_mapped_pages.append((node_uri, node, fm_page_path))
+                except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                    file_map_errors.append(f"{node_uri}: inject_file_map failed: {fm_exc!r}")
+        # Step 10b-ts: test-suite File-map injection (preserved-drop unconditional).
+        if fm_targets and not no_file_map:
+            for node in queries.list_test_suites(conn):
+                if not isinstance(node.attrs, dict):
+                    continue
+                suite_uri = node.attrs.get("uri")
+                if not suite_uri or suite_uri not in fm_targets:
+                    continue
+                suite_path = node.path
+                if not suite_path:
+                    continue
+                block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
+                if not block:
+                    continue
+                ts_page_path = _entity_page_path(
+                    wiki,
+                    "test_suite",
+                    node,
+                    suite_uri,
+                    fm_collision_set,
+                )
+                preserved = dict(_live_file_map_descriptions(ts_page_path))
+                if suite_uri in commit_dirty:
+                    changed = commit_dirty[suite_uri]
+                    if changed is None:
+                        preserved = {}
+                        redescribed_uris.add(suite_uri)
+                    else:
+                        changed_rel = _changed_rel_paths(changed, suite_path)
+                        dropped = {p for p in preserved if p in changed_rel}
+                        if dropped:
+                            for p in dropped:
+                                preserved.pop(p, None)
+                            redescribed_uris.add(suite_uri)
+                try:
+                    inject_file_map(
+                        ts_page_path,
+                        block,
+                        preserved=preserved,
+                    )
+                    entities_file_mapped.append(suite_uri)
+                    file_mapped_pages.append((suite_uri, node, ts_page_path))
+                except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                    file_map_errors.append(f"{suite_uri}: inject_file_map failed: {fm_exc!r}")
+        if entities_file_mapped or file_map_errors:
+            append_log(
+                wiki,
+                "scan",
+                (f"file maps injected: {len(entities_file_mapped)} (errors: {len(file_map_errors)})"),
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+
+    # --- Build the worklist from the in-memory sets ---
+    needs_narr_set: set[str] = set(entity_write_result.needs_narrative) if entity_write_result else set()
+
+    fill_tasks: list[FillTask] = []
+    if conn is not None and entity_write_result is not None:
+        list_fns = _kind_list_fns()
+        page_path_by_uri: dict[str, Path] = {uri: pp for uri, _node, pp in file_mapped_pages}
+        node_by_uri: dict[str, Any] = {uri: node for uri, node, _pp in file_mapped_pages}
+        # Resolve any narrative-needing entity not already in file_mapped_pages
+        # (e.g. agent_plugin / domain — narrative-only, no deterministic file map).
+        if needs_narr_set - page_path_by_uri.keys():
+            collision = _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
+            for kind in sorted(ADMITTED_KINDS):
+                fn = list_fns.get(kind)
+                if fn is None:
+                    continue
+                for node in fn(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    uri = node.attrs.get("uri")
+                    if uri and uri in needs_narr_set and uri not in page_path_by_uri:
+                        page_path_by_uri[uri] = _entity_page_path(wiki, kind, node, uri, collision)
+                        node_by_uri[uri] = node
+
+        candidate_uris = set(page_path_by_uri.keys()) | needs_narr_set
+        for uri in sorted(candidate_uris):
+            page_path = page_path_by_uri.get(uri)
+            if page_path is None or not page_path.exists():
+                continue
+            node = node_by_uri.get(uri)
+            kind = getattr(node, "kind", "") or ""
+            name = getattr(node, "name", "") or page_path.stem
+            graph_path = getattr(node, "path", "") or ""
+            attrs = node.attrs if (node is not None and isinstance(node.attrs, dict)) else {}
+            language = str(attrs.get("language") or "unknown")
+            page_text = page_path.read_text(encoding="utf-8", errors="replace")
+            todo_sections = find_todo_human_sections(page_text, entity_kind=kind) if kind else []
+            # find_todo_human_sections returns BARE headings (the "## " prefix is
+            # stripped — human_sections.py:52), matching how run_scan's package
+            # reader keys requested_sections on section.heading.
+            todo_headings = {s.heading for s in todo_sections}
+            needs = FillNeeds(
+                # decision A: placeholder OR commit-dirty (uri in needs_narr_set).
+                narrative=(extract_narrative(page_text) is None) or (uri in needs_narr_set),
+                file_todo_paths=file_map_todo_paths(page_path),
+                dir_todo_contexts=dir_section_todo_contexts(page_path),
+                overview=is_overview_unfilled(page_path),
+                purpose="Purpose" in todo_headings,
+                public_api="Public API" in todo_headings,
+            )
+            if not needs.any:
+                continue
+            fill_tasks.append(
+                FillTask(
+                    uri=uri,
+                    kind=kind,
+                    name=name,
+                    page_path=str(page_path),
+                    graph_path=graph_path,
+                    language=language,
+                    needs=needs,
+                )
+            )
+
+    drift_tasks = _build_drift_tasks(wiki)
+    propagate_tasks, propagate_anchors, propagate_pages = (
+        _build_propagate_tasks(wiki, repo, conn) if (propagate_drift and conn is not None) else ([], {}, {})
+    )
+
+    worklist = ScanWorklist(
+        head_commit=head,
+        short_head=short_head,
+        fill_tasks=fill_tasks,
+        drift_tasks=drift_tasks,
+        propagate_tasks=propagate_tasks,
+        propagate_anchors=propagate_anchors,
+        propagate_pages=propagate_pages,
+    )
+    scan_result = ScanResult(
+        state_gate=state_gate,
+        entities_created=sorted(entity_write_result.created) if entity_write_result else [],
+        entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
+        entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
+        # Surface deterministic file-map injection failures alongside entity-write
+        # errors so partial-success reporting matches the pre-split narrate path.
+        entity_errors=([repr(e) for e in entity_write_result.errors] if entity_write_result else []) + file_map_errors,
+    )
+    return worklist, scan_result
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5 (split scan pipeline): in-process Bedrock provider
+# ---------------------------------------------------------------------------
+
+
+async def _bedrock_provider(
+    worklist: ScanWorklist,
+    wiki: Path,
+    repo: Path,
+    *,
+    model_override: str | None = None,
+    propagate: bool = False,
+) -> ScanResults:
+    """Turn a ScanWorklist into ScanResults via the in-process Bedrock fan-outs.
+
+    Lifts run_scan's narrator / code_reader / synthesizer / package_reader /
+    drift_judge blocks, but each fan-out writes into a FillResult / DriftResultItem
+    keyed by uri instead of injecting into the page. The prompts, parsers, and
+    run_all role/item shapes are byte-identical to the old in-line blocks (the
+    test spies that intercept SubagentPool.run_all observe the same tuples).
+
+    package_reader is the one exception: it still writes human sections to disk
+    via _run_package_reader_pass (its replacements are not threaded through
+    FillResult for the in-process surface — apply's stamp gate reads the result
+    off disk). Its errors are surfaced via `results.provider_errors`, which
+    run_scan merges into the ScanResult so partial-success reporting is unchanged.
+    """
+    results = ScanResults()
+    provider_errors: list[str] = []
+    fills_by_uri: dict[str, FillResult] = {}
+
+    def _fill(uri: str) -> FillResult:
+        f = fills_by_uri.get(uri)
+        if f is None:
+            f = FillResult(uri=uri)
+            fills_by_uri[uri] = f
+        return f
+
+    stack = _bedrock_stack()
+
+    # Open a read-only conn for narrator relations / agent_plugin tables and the
+    # package_reader graph-tools. Closed in finally. The DB-existence guard mirrors
+    # run_scan's `if conn is not None` gating: on a NOT_INITIALIZED fallback the
+    # graph DB was never written, so we must not even attempt to open it.
+    conn = None
+    db_path = graph_dir(wiki.parent) / "code.db"
+    try:
+        if db_path.exists():
+            try:
+                conn = read_only_connect(db_path)
+            except GraphNotInitializedError:
+                conn = None
+
+        narrative_uris = {t.uri for t in worklist.fill_tasks if t.needs.narrative}
+
+        # --- Narrator fan-out (role="narrator") ---
+        if stack is not None and conn is not None and narrative_uris:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            narrator_items: list[tuple[str, str, Any]] = []
+            list_fns = _kind_list_fns()
+            for kind in sorted(ADMITTED_KINDS):
+                list_fn = list_fns.get(kind)
+                if list_fn is None:
+                    continue
+                for node in list_fn(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    node_uri = node.attrs.get("uri")
+                    if node_uri and node_uri in narrative_uris:
+                        narrator_items.append((node_uri, kind, node))
+
+            if narrator_items:
+                narrator_cfg = load_role_config_fn("narrator")
+                narrator_llm = make_llm_fn("narrator", model_override=model_override)
+                narrator_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                async def generate_narrative(item: tuple[str, str, Any]) -> TaskResultType:
+                    uri_inner, kind_inner, node_inner = item
+                    relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
+                    relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
+                    file_map = ""
+                    components_text = ""
+                    if kind_inner == "agent_plugin":
+                        tv = _agent_plugin_table_variables(conn, node_inner)
+                        components_text = "\n\n".join(
+                            f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
+                        )
+                    system_msg, human_msg = build_entity_narrative_prompt(
+                        node_inner,
+                        kind_inner,
+                        file_map,
+                        relations_for_prompt,
+                        components_text=components_text,
+                    )
+                    msgs = [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
+                    resp = await narrator_llm.ainvoke(msgs)
+                    return task_result_type(value=resp.content, response=resp)
+
+                narrator_result = await narrator_pool.run_all(
+                    items=narrator_items,
+                    task=generate_narrative,
+                    role="narrator",
+                    model_id=narrator_cfg["model_id"],
+                    max_concurrency=narrator_cfg["max_concurrency"],
+                )
+                for item, prose in narrator_result.successes:
+                    uri_inner, _kind_inner, _node_inner = item
+                    _fill(uri_inner).narrative = prose
+                for err in narrator_result.errors:
+                    uri_inner = err.item[0]
+                    provider_errors.append(f"{uri_inner}: {err.exception!r}")
+
+        # --- code_reader fan-out (role="code_reader") — file-map descriptions ---
+        describer_items: list[tuple[str, dict, Path, list[str]]] = []
+        for task in worklist.fill_tasks:
+            todo_paths = list(task.needs.file_todo_paths)
+            if not todo_paths:
+                continue
+            ws_dict = {
+                "name": task.name,
+                "path": task.graph_path or None,
+                "type": task.kind,
+                "language": task.language,
+            }
+            describer_items.append((task.uri, ws_dict, Path(task.page_path), todo_paths))
+
+        if stack is not None and describer_items:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            describer_cfg = load_role_config_fn("code_reader")
+            describer_llm = make_llm_fn("code_reader")
+            describer_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+            async def describe_files(item: tuple[str, dict, Path, list[str]]) -> TaskResultType:
+                _uri, ws_dict_inner, _page, todo_inner = item
+                system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
+                resp = await describer_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                return task_result_type(value=resp.content, response=resp)
+
+            describer_result = await describer_pool.run_all(
+                items=describer_items,
+                task=describe_files,
+                role="code_reader",
+                model_id=describer_cfg["model_id"],
+                max_concurrency=describer_cfg["max_concurrency"],
+            )
+            described_entities = 0
+            describer_errors = 0
+            for item, value in describer_result.successes:
+                uri_inner = item[0]
+                descriptions = parse_file_describer_output(value)
+                if descriptions:
+                    _fill(uri_inner).file_descriptions.update(descriptions)
+                    described_entities += 1
+            for err in describer_result.errors:
+                uri_inner = err.item[0]
+                provider_errors.append(f"{uri_inner}: {err.exception!r}")
+                describer_errors += 1
+            if described_entities or describer_errors:
+                append_log(
+                    wiki,
+                    "scan",
+                    f"file descriptions filled: {described_entities} entity(s) (errors: {describer_errors})",
+                    detail=None,
+                    silent=True,
+                    raise_exception=True,
+                )
+
+        # --- synthesizer fan-out (role="synthesizer") — dir sections + overview ---
+        dir_items: list[tuple[str, str, Path, list[str], bool]] = []
+        for task in worklist.fill_tasks:
+            todo_ctxs = list(task.needs.dir_todo_contexts)
+            needs_ov = task.needs.overview
+            if not todo_ctxs and not needs_ov:
+                continue
+            dir_items.append((task.uri, task.name, Path(task.page_path), todo_ctxs, needs_ov))
+
+        if stack is not None and dir_items:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            dir_cfg = load_role_config_fn("synthesizer")
+            dir_llm = make_llm_fn("synthesizer")
+            dir_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+            async def describe_dirs(item: tuple[str, str, Path, list[str], bool]) -> TaskResultType:
+                _uri, pkg_name_inner, page_inner, todo_ctxs_inner, needs_ov_inner = item
+                file_descs = extract_file_map_descriptions(page_inner)
+                pkg = {"name": pkg_name_inner}
+                system_msg, human_msg = build_dir_describer_prompt(pkg, todo_ctxs_inner, file_descs, needs_ov_inner)
+                resp = await dir_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                return task_result_type(value=resp.content, response=resp)
+
+            dir_result = await dir_pool.run_all(
+                items=dir_items,
+                task=describe_dirs,
+                role="synthesizer",
+                model_id=dir_cfg["model_id"],
+                max_concurrency=dir_cfg["max_concurrency"],
+            )
+            for item, value in dir_result.successes:
+                uri_inner = item[0]
+                descriptions = parse_dir_describer_output(value)
+                if not descriptions:
+                    continue
+                overview = descriptions.pop("_overview", None)
+                fill = _fill(uri_inner)
+                if descriptions:
+                    fill.dir_descriptions.update(descriptions)
+                if overview:
+                    fill.overview = overview
+            for err in dir_result.errors:
+                uri_inner = err.item[0]
+                provider_errors.append(f"{uri_inner}: {err.exception!r}")
+
+        # --- package_reader pass (role="package_reader") — writes human sections to disk ---
+        if stack is not None:
+            package_reader_candidates: dict[str, _PackageReaderCandidate] = {}
+            for task in worklist.fill_tasks:
+                _record_package_reader_candidate(
+                    package_reader_candidates,
+                    uri=task.uri,
+                    candidate=_PackageReaderCandidate(
+                        page_path=Path(task.page_path),
+                        graph_path=task.graph_path or None,
+                        kind=task.kind,
+                        name=task.name,
+                        language=task.language,
+                    ),
+                )
+            if package_reader_candidates:
+                _pr_filled, _pr_errors = await _run_package_reader_pass(
+                    wiki=wiki,
+                    repo=repo,
+                    conn=conn,
+                    model_override=model_override,
+                    candidate_pages=package_reader_candidates,
+                )
+                provider_errors.extend(_pr_errors)
+
+        # --- drift_judge fan-out (role="drift_judge") — emit-time ground truth ---
+        if stack is not None and worklist.drift_tasks:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            # item = (page_path, anchor, heading, chunk, narrative, file_map) —
+            # identical to _drift_flag_pass so the spies' verdict_fn(it) works.
+            drift_items: list[tuple[Path, str, str, str, str, str | None]] = []
+            for dtask in worklist.drift_tasks:
+                page_path = Path(dtask.page_path)
+                for section in dtask.sections:
+                    drift_items.append(
+                        (page_path, dtask.anchor, section.heading, section.chunk, dtask.narrative, dtask.file_map)
+                    )
+
+            if drift_items:
+                drift_cfg = load_role_config_fn("drift_judge")
+                drift_llm = make_llm_fn("drift_judge", model_override=model_override)
+                drift_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                async def judge(item: tuple) -> TaskResultType:
+                    _pp, _anchor, heading, chunk, narrative, file_map = item
+                    system_msg, human_msg = build_drift_judge_prompt(heading, chunk, narrative, file_map)
+                    resp = await drift_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                    return task_result_type(value=parse_drift_verdict(resp.content), response=resp)
+
+                fan = await drift_pool.run_all(
+                    items=drift_items,
+                    task=judge,
+                    role="drift_judge",
+                    model_id=drift_cfg["model_id"],
+                    max_concurrency=drift_cfg["max_concurrency"],
+                )
+                drift_by_uri: dict[str, DriftResultItem] = {}
+                task_uri_by_page = {Path(d.page_path): d.uri for d in worklist.drift_tasks}
+                for item, verdict in fan.successes:
+                    page_path, _anchor, heading, _chunk, _narr, _fmp = item
+                    uri = task_uri_by_page.get(page_path)
+                    if uri is None:
+                        continue
+                    if not isinstance(verdict, dict):
+                        continue
+                    item_out = drift_by_uri.setdefault(uri, DriftResultItem(uri=uri))
+                    item_out.verdicts.append(
+                        DriftVerdict(
+                            section=heading.removeprefix("## ").strip(),
+                            stale=bool(verdict.get("stale")),
+                            reason=str(verdict.get("reason", "")),
+                        )
+                    )
+                results.drift = list(drift_by_uri.values())
+
+        # --- drift_propagator fan-out (role="drift_propagator") — M4, opt-in ---
+        if propagate and stack is not None and worklist.propagate_tasks:
+            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
+            # item = (kind, target_slug, title, body, entity_tuples) — mirrors
+            # run_propagate_drift's judge half (entity_tuples = (stem, narrative, files)).
+            prop_items: list[tuple[str, str, str, str, list[tuple[str, str, list[str]]]]] = []
+            for ptask in worklist.propagate_tasks:
+                body = Path(ptask.page_path).read_text(encoding="utf-8")
+                entity_tuples = [(e.stem, e.narrative, e.changed_files) for e in ptask.entities]
+                prop_items.append((ptask.kind, ptask.target_slug, ptask.title, body, entity_tuples))
+
+            if prop_items:
+                prop_cfg = load_role_config_fn("drift_propagator")
+                prop_llm = make_llm_fn("drift_propagator", model_override=model_override)
+                prop_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+
+                async def judge_propagate(item: tuple) -> TaskResultType:
+                    kind_inner, _slug, title, body, entity_tuples = item
+                    system_msg, human_msg = build_drift_propagator_prompt(kind_inner, title, body, entity_tuples)
+                    resp = await prop_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
+                    return task_result_type(value=parse_drift_propagator_verdict(resp.content), response=resp)
+
+                fan = await prop_pool.run_all(
+                    items=prop_items,
+                    task=judge_propagate,
+                    role="drift_propagator",
+                    model_id=prop_cfg["model_id"],
+                    max_concurrency=prop_cfg["max_concurrency"],
+                )
+                propagate_results: list[PropagateResultItem] = []
+                for item, verdict in fan.successes:
+                    kind_inner, slug, _title, _body, _entity_tuples = item
+                    if not (isinstance(verdict, dict) and verdict.get("stale")):
+                        continue
+                    findings = [
+                        PropagateFinding(
+                            entity_stem=str(f.get("entity_stem", "")),
+                            claim=str(f.get("stale_claim", "")),
+                            reason=str(f.get("rationale", "")),
+                        )
+                        for f in (verdict.get("findings") or [])
+                        if str(f.get("entity_stem", "")).strip()
+                    ]
+                    if findings:
+                        propagate_results.append(
+                            PropagateResultItem(kind=kind_inner, target_slug=slug, stale=True, findings=findings)
+                        )
+                results.propagate = propagate_results
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+    results.fills = list(fills_by_uri.values())
+    results.provider_errors = provider_errors
+    return results
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5 (split scan pipeline): apply-half (deterministic back-half)
+# ---------------------------------------------------------------------------
+
+
+def _regen_indexes_and_log(wiki: Path) -> None:
+    """Step 12: regenerate wiki/index.md + per-folder sub-indexes + backlinks.
+
+    Lifted from run_scan's Step 12 block. Opens its own read-only conn for
+    generate_index (graph-driven) and closes it; update_index + backlink regen
+    are graph-independent.
+    """
+    conn = None
+    db_path = graph_dir(wiki.parent) / "code.db"
+    if db_path.exists():
+        try:
+            conn = read_only_connect(db_path)
+        except GraphNotInitializedError:
+            conn = None
+    try:
+        if conn is not None:
+            display_name = _manifest.read(manifest_path(wiki.parent)).get("topic")
+            generate_index(conn, wiki, display_name)
+        try:
+            update_index(wiki)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("update_index failed (non-fatal): %s", exc)
+        try:
+            regenerate_referenced_in_wiki(wiki)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("regenerate_referenced_in_wiki failed (non-fatal): %s", exc)
+    finally:
+        if conn is not None:
+            try:
+                conn.close()
+            except Exception:  # noqa: BLE001
+                pass
+
+
+def _apply_propagate_results(worklist: ScanWorklist, results: ScanResults, wiki: Path) -> int:
+    """M4 apply: write one source:drift ledger origin per stale finding, then
+    stamp ``drift_propagated_commit`` for every considered candidate (idempotence).
+
+    Reuses ``write_propagation_findings`` so the proposals are byte-identical to
+    ``run_propagate_drift``. detected_commit / page resolution come off the
+    worklist's per-candidate ``propagate_anchors`` / ``propagate_pages`` (joined
+    by uri); the entity narrative for the origin hash comes from the task's
+    ``PropagateEntity``. Stamping covers ALL candidates — including those whose
+    targets were all settled-filtered — so repeat runs are idempotent.
+    """
+    written = 0
+    task_by_slug = {(t.kind, t.target_slug): t for t in worklist.propagate_tasks}
+    # stem -> last_updated_commit (detected_commit), joined uri-wise from anchors+pages.
+    anchor_by_stem: dict[str, str] = {}
+    for uri, page_path in worklist.propagate_pages.items():
+        anchor = worklist.propagate_anchors.get(uri)
+        if anchor is not None:
+            anchor_by_stem[Path(page_path).stem] = anchor
+
+    for item in results.propagate:
+        if not item.stale:
+            continue
+        task = task_by_slug.get((item.kind, item.target_slug))
+        if task is None:
+            continue
+        narrative_by_stem = {e.stem: e.narrative for e in task.entities}
+        finding_tuples: list[tuple[str, str, str, str]] = []
+        for f in item.findings:
+            if f.entity_stem not in narrative_by_stem:
+                continue  # finding references an entity not in this target's batch
+            detected_commit = anchor_by_stem.get(f.entity_stem, "")
+            finding_tuples.append((f.entity_stem, f.reason, detected_commit, narrative_by_stem[f.entity_stem]))
+        if finding_tuples:
+            written += write_propagation_findings(wiki, item.kind, item.target_slug, task.title, finding_tuples)
+
+    # Stamp drift_propagated_commit for every considered candidate (idempotence).
+    for uri, anchor in worklist.propagate_anchors.items():
+        page_path = worklist.propagate_pages.get(uri)
+        if page_path is None:
+            continue
+        try:
+            update_frontmatter(Path(page_path), {DRIFT_PROPAGATED_COMMIT_KEY: anchor})
+        except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+            logger.warning("drift_propagated stamp failed for %s: %s", uri, exc)
+    return written
+
+
+async def apply_scan_results(
+    worklist: ScanWorklist,
+    results: ScanResults,
+    wiki: Path,
+    repo: Path,
+    *,
+    propagate: bool = False,
+) -> ApplyResult:
+    """Deterministic back-half: inject results, stamp, write drift, regen indexes.
+
+    Disk-driven + results-driven. Recomputes the M2c no-`— TODO` stamp gate from
+    disk, so the only state crossing the process boundary is short_head and the
+    per-page results. Every inject/fill/write is wrapped so one bad entity is
+    isolated (mirrors Bedrock per-item try/except).
+    """
+    out = ApplyResult()
+    fills_by_uri = {f.uri: f for f in results.fills}
+    drift_by_uri = {d.uri: d for d in results.drift}
+    task_by_uri = {t.uri: t for t in worklist.fill_tasks}
+    short_head = worklist.short_head
+    head = worklist.head_commit
+
+    # --- Inject fills ---
+    for uri, fill in fills_by_uri.items():
+        task = task_by_uri.get(uri)
+        if task is None:
+            continue  # result references an entity not in this worklist — skip
+        page_path = Path(task.page_path)
+        try:
+            if fill.narrative and fill.narrative.strip():
+                inject_narrative(page_path, fill.narrative)
+                out.narrated += 1
+            if fill.file_descriptions:
+                n = fill_file_map_descriptions(page_path, fill.file_descriptions)
+                out.described += n
+            if fill.dir_descriptions:
+                n = fill_dir_section_descriptions(page_path, fill.dir_descriptions)
+                out.dir_filled += n
+            if fill.overview and fill.overview.strip():
+                if fill_file_map_overview(page_path, fill.overview):
+                    out.dir_filled += 1
+            replacements: dict[str, str] = {}
+            if fill.purpose and fill.purpose.strip():
+                replacements["Purpose"] = fill.purpose
+            if fill.public_api and fill.public_api.strip():
+                replacements["Public API"] = fill.public_api
+            if replacements:
+                changed = replace_todo_human_sections(page_path, replacements)
+                out.sections_filled += len(changed)
+        except Exception as exc:  # noqa: BLE001 — partial-success isolation
+            out.entity_errors.append(f"{uri}: apply fill failed: {exc!r}")
+
+    # --- M2c refill-gated anchor stamp (decision A: also require non-placeholder narrative) ---
+    if head:
+        for uri, task in task_by_uri.items():
+            page_path = Path(task.page_path)
+            try:
+                if not page_path.exists():
+                    continue
+                page_text = page_path.read_text(encoding="utf-8", errors="replace")
+                if task.needs.narrative and extract_narrative(page_text) is None:
+                    continue  # narrative still placeholder — failed narration, do not stamp
+                if (
+                    file_map_todo_paths(page_path)
+                    or dir_section_todo_contexts(page_path)
+                    or is_overview_unfilled(page_path)
+                ):
+                    continue
+                set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, short_head))
+                out.stamped += 1
+            except Exception as exc:  # noqa: BLE001 — non-fatal stamp
+                logger.warning("anchor stamp failed for %s: %s", uri, exc)
+
+    # --- M2e drift flag WRITE (judge already done by the provider) ---
+    for drift_task in worklist.drift_tasks:
+        page_path = Path(drift_task.page_path)
+        anchor = drift_task.anchor
+        result_item = drift_by_uri.get(drift_task.uri)
+        # Map verdicts by section name (without "## ") for hashing the current chunk.
+        chunk_by_section = {s.heading.removeprefix("## ").strip(): s.chunk for s in drift_task.sections}
+        entries: list[dict] = []
+        if result_item is not None:
+            for v in result_item.verdicts:
+                if not v.stale:
+                    continue
+                chunk = chunk_by_section.get(v.section, "")
+                entries.append(
+                    {
+                        "section": v.section,
+                        "detected_commit": anchor,
+                        "hash": section_hash(chunk),
+                        "reason": v.reason,
+                    }
+                )
+        try:
+            if entries:
+                update_frontmatter(page_path, {"drift_checked_commit": anchor, "drift_review": entries})
+                out.drift_flagged += len(entries)
+            else:
+                update_frontmatter(page_path, {"drift_checked_commit": anchor}, delete=["drift_review"])
+        except Exception as exc:  # noqa: BLE001 — non-fatal flag write
+            logger.warning("drift flag write failed for %s: %s", page_path, exc)
+
+    # --- Free every-scan clear pass ---
+    _drift_clear_pass(wiki)
+
+    # --- M4 propagate WRITE: ledger proposals + per-candidate idempotence stamp.
+    # Runs whenever propagate is on and candidates were considered (anchors set) —
+    # stamping must advance even when no target is stale.
+    if propagate and worklist.propagate_anchors:
+        out.propagated += _apply_propagate_results(worklist, results, wiki)
+
+    # --- Index + backlink + log ---
+    _regen_indexes_and_log(wiki)
+
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Public: run_scan
 # ---------------------------------------------------------------------------
 
@@ -939,6 +1956,83 @@ async def run_scan(
 
     Returns:
         ScanResult with state_gate and the entities_* / entity_errors fields.
+    """
+    # Living Wiki M1.5: the narrated path now flows through the split contract —
+    # build_scan_worklist (mechanical front-half) → in-process Bedrock provider →
+    # apply_scan_results (deterministic back-half). The narrate=False structural-
+    # only fast path below is unchanged (it runs without the Bedrock stack).
+    if narrate:
+        worklist, scan_result = await build_scan_worklist(
+            workspace_path=workspace_path,
+            repo_path=repo_path,
+            no_file_map=no_file_map,
+            max_depth=max_depth,
+            propagate_drift=propagate_drift,
+        )
+        wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+        if repo_path is not None:
+            repo = repo_path.resolve()
+        elif resolved_repo is not None:
+            repo = resolved_repo
+        else:
+            repo = Path.cwd()
+
+        results = await _bedrock_provider(
+            worklist, wiki, repo, model_override=model_override, propagate=propagate_drift
+        )
+        # Living Wiki M4: opt-in cross-page drift producer now flows through the
+        # contract once — propagate_tasks (emit) → drift_propagator fan-out
+        # (_bedrock_provider) → _apply_propagate_results (apply). No direct call.
+        applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate_drift)
+
+        scan_result.entities_narrated = sorted(f.uri for f in results.fills if f.narrative and f.narrative.strip())
+        scan_result.entity_errors = (
+            list(scan_result.entity_errors) + list(results.provider_errors) + list(applied.entity_errors)
+        )
+
+        entity_create_count = len(scan_result.entities_created)
+        entity_update_count = len(scan_result.entities_updated)
+        entity_delete_count = len(scan_result.entities_deleted)
+        append_log(
+            wiki,
+            "scan",
+            (
+                f"scan complete: entities +{entity_create_count} ~{entity_update_count} "
+                f"-{entity_delete_count}  (narrated: {len(scan_result.entities_narrated)})"
+            ),
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        return scan_result
+
+    # narrate=False: the structural-only fast path (unchanged behavior). It runs
+    # without the Bedrock stack — entity pages keep their `## Narrative`
+    # placeholder and `— TODO` rows; only the deterministic writes + drift clear
+    # pass + indexes run.
+    return await _run_scan_structural_only(
+        workspace_path=workspace_path,
+        no_file_map=no_file_map,
+        max_depth=max_depth,
+        repo_path=repo_path,
+    )
+
+
+async def _run_scan_structural_only(
+    *,
+    workspace_path: Path | None,
+    no_file_map: bool,
+    max_depth: int,
+    repo_path: Path | None,
+) -> ScanResult:
+    """Structural-only scan (the former run_scan(narrate=False) body, verbatim
+    minus the now-dead narrate-gated fan-out blocks).
+
+    cg update → write_entities → deterministic file-map injection → free drift
+    clear pass → indexes/backlinks. No narrator / code_reader / synthesizer /
+    package_reader / drift_judge fan-outs and no anchor stamping (those live in
+    the narrated path's _bedrock_provider + apply_scan_results). Runs without
+    model_adapter / subagent_runtime installed.
     """
     # Step 1: resolve wiki and repo
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
@@ -1040,20 +2134,14 @@ async def run_scan(
                 )
                 conn = None
 
-        # Step 8: compute state gate
+        # Step 8: compute state gate. `head` gates _commit_dirty_changes; no anchor
+        # is stamped on the structural-only path (stamping is narrate-only).
         state_gate = compute_state_gate(repo, workspace=wiki.parent)
         head = state_gate.get("head_commit")
-        # Item 1: abbreviate to git's canonical short form ONCE per scan (HEAD is
-        # the same for every page stamped this run). Falls back to the full SHA on
-        # any git failure, so stamping never breaks (full SHAs stay git-resolvable).
-        short_head = short_commit(repo, head) if head else head
 
-        # Phase 45 D-04: Step 9 splits into 9a (entity write) + 9b (narrator fan-out).
-        # The legacy scanner fan-out for wiki/packages/<name>/<name>.md pages is
-        # REMOVED in v1.8 — D-08 hard cutover. `model_override` is kept available
-        # for future eval sweeps targeting the narrator role.
+        # Step 9a: entity write only. The narrator fan-out (former Step 9b) lives
+        # in the narrated path's _bedrock_provider — structural-only never narrates.
         entity_write_result = None
-        narrator_result: Any | None = None
         # M2b: per-URI changed-file lists for commit-dirty package/app pages
         # (keys = dirty URIs; value = repo-relative changed paths, or None when
         # the page's anchor SHA is unknown to the repo). Consumed by Step 10b's
@@ -1100,124 +2188,15 @@ async def run_scan(
                     raise_exception=True,
                 )
 
-            # Step 9b: narrator fan-out gated on needs_narrative.
-            narrator_items: list[tuple[str, str, Any]] = []
-            if narrate and entity_write_result.needs_narrative:
-                list_fns = _kind_list_fns()
-                wanted = set(entity_write_result.needs_narrative)
-                for kind in sorted(ADMITTED_KINDS):
-                    list_fn = list_fns.get(kind)
-                    if list_fn is None:
-                        continue
-                    for node in list_fn(conn):
-                        if not isinstance(node.attrs, dict):
-                            continue
-                        node_uri = node.attrs.get("uri")
-                        if node_uri and node_uri in wanted:
-                            narrator_items.append((node_uri, kind, node))
-
-            if narrator_items:
-                stack = _bedrock_stack()
-                if stack is None:
-                    narrator_items = []
-                else:
-                    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-                    narrator_cfg = load_role_config_fn("narrator")
-                    narrator_llm = make_llm_fn("narrator", model_override=model_override)
-                    narrator_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-                    async def generate_narrative(
-                        item: tuple[str, str, Any],
-                    ) -> TaskResultType:
-                        uri_inner, kind_inner, node_inner = item
-                        relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
-                        relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
-                        # File maps are graph-sourced (Step 10b); the narrator no
-                        # longer receives a per-workspace file-map hint.
-                        file_map = ""
-                        components_text = ""
-                        if kind_inner == "agent_plugin":
-                            tv = _agent_plugin_table_variables(conn, node_inner)
-                            components_text = "\n\n".join(
-                                f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
-                            )
-                        system_msg, human_msg = build_entity_narrative_prompt(
-                            node_inner,
-                            kind_inner,
-                            file_map,
-                            relations_for_prompt,
-                            components_text=components_text,
-                        )
-                        msgs = [
-                            SystemMessage(content=system_msg),
-                            HumanMessage(content=human_msg),
-                        ]
-                        resp = await narrator_llm.ainvoke(msgs)
-                        return task_result_type(value=resp.content, response=resp)
-
-                    narrator_result = await narrator_pool.run_all(
-                        items=narrator_items,
-                        task=generate_narrative,
-                        role="narrator",
-                        model_id=narrator_cfg["model_id"],
-                        max_concurrency=narrator_cfg["max_concurrency"],
-                    )
-
         # Phase 45 D-07/D-08: Step 10 — inject narrator prose into entity pages.
         # The legacy `wiki/packages/<name>/<name>.md` write block is REMOVED (D-08
         # hard cutover — only entity pages are written from Phase 45 onward).
         # Phase 53 D-05: derive entity filenames via `short_filename` (mirroring
         # `write_entities`) so the inject-narrative path lines up with the file
         # that `write_entities` just produced.
+        # Structural-only never narrates; these stay empty for the final result.
         entities_narrated: list[str] = []
         narrator_errors: list[str] = []
-        # M2c Part 3 (§3.3 D4): the narrator loop no longer stamps the anchor
-        # inline. It records which pages got real prose (`good_prose_uris`) and
-        # where each narrated page lives (`narrated_page_paths`); a single
-        # refill-gated pass after Step 10c does the stamping. This closes the
-        # narrator-path residual where good prose advanced the anchor even though
-        # a dropped file-map row was never refilled.
-        good_prose_uris: set[str] = set()
-        narrated_page_paths: dict[str, Path] = {}
-        narrated_page_candidates: dict[str, _PackageReaderCandidate] = {}
-        if narrator_result is not None:
-            assert conn is not None
-            inject_collision_set = _compute_collision_set(
-                conn,
-                ADMITTED_KINDS,
-                _kind_list_fns(),
-            )
-
-            for item, prose in narrator_result.successes:
-                uri_inner, kind_inner, node_inner = item
-                entity_page_path = _entity_page_path(
-                    wiki,
-                    kind_inner,
-                    node_inner,
-                    uri_inner,
-                    inject_collision_set,
-                )
-                try:
-                    inject_narrative(entity_page_path, prose)
-                    narrated_page_paths[uri_inner] = entity_page_path
-                    attrs = node_inner.attrs if isinstance(node_inner.attrs, dict) else {}
-                    narrated_page_candidates[uri_inner] = _PackageReaderCandidate(
-                        page_path=entity_page_path,
-                        graph_path=node_inner.path,
-                        kind=kind_inner,
-                        name=node_inner.name,
-                        language=str(attrs.get("language") or "unknown"),
-                    )
-                    # Empty-prose guard (M2b §3.4): empty narration records
-                    # nothing, so it can never mint an anchor on its own.
-                    if head and prose.strip():
-                        good_prose_uris.add(uri_inner)
-                    entities_narrated.append(uri_inner)
-                except Exception as inject_exc:  # noqa: BLE001 — partial-success
-                    narrator_errors.append(f"{uri_inner}: inject_narrative failed: {inject_exc!r}")
-            for err in narrator_result.errors:
-                uri_inner, _kind_inner, _node_inner = err.item
-                narrator_errors.append(f"{uri_inner}: {err.exception!r}")
 
         # Step 10b: deterministic File-map injection (faithful port of the
         # plugin scanner-agent step). For every `package`/`app` entity page that
@@ -1230,15 +2209,10 @@ async def run_scan(
         # is True (guard on the `if refreshed and any(fm_list_fns)` branch).
         entities_file_mapped: list[str] = []
         file_map_errors: list[str] = []
-        describer_filled: list[str] = []
         describer_errors: list[str] = []
         # (uri, node, page_path) for each package/app whose File map was injected
-        # this scan — Step 10c uses these to fill remaining `— TODO` rows.
+        # this scan.
         file_mapped_pages: list[tuple[str, Any, Path]] = []
-        # M2b §3.4: package/app URIs whose File map was re-described this scan
-        # (>=1 changed row dropped from preserved, or an unknown anchor forced a
-        # full drop). Consumed by the shared-anchor restamp after Step 10c.
-        redescribed_uris: set[str] = set()
         if entity_write_result is not None and conn is not None:
             refreshed = set(entity_write_result.created) | set(entity_write_result.updated)
             # M2b §3.2 (load-bearing): a package whose source changed with no
@@ -1268,24 +2242,10 @@ async def run_scan(
                     fm_page_path = wiki / "entities" / f"{slug}.md"
                     # PTO: re-source surviving descriptions from the LIVE page —
                     # write_entities no longer reset the File-map body, so the
-                    # filled rows are still on disk here. Then M2b's
-                    # preserved-drop (below, unchanged) drops changed rows so
-                    # they re-emerge as `— TODO` for Step 10c.
+                    # filled rows are still on disk here. The commit-dirty
+                    # preserved-drop is narrate-only and lives in the narrated
+                    # front-half (build_scan_worklist).
                     preserved = dict(_live_file_map_descriptions(fm_page_path))
-                    if narrate and node_uri in commit_dirty:
-                        changed = commit_dirty[node_uri]
-                        if changed is None:
-                            # Unknown anchor: no preserved row can be trusted —
-                            # drop all, forcing a full re-describe (D-D / §3.1).
-                            preserved = {}
-                            redescribed_uris.add(node_uri)
-                        else:
-                            changed_rel = _changed_rel_paths(changed, node_path)
-                            dropped = {p for p in preserved if p in changed_rel}
-                            if dropped:
-                                for p in dropped:
-                                    preserved.pop(p, None)
-                                redescribed_uris.add(node_uri)
                     try:
                         inject_file_map(
                             fm_page_path,
@@ -1326,21 +2286,8 @@ async def run_scan(
                     )
                     # PTO: live-source preserved descriptions from the suite page
                     # (mirrors Step 10b; the suite branch is at package parity).
+                    # The commit-dirty preserved-drop is narrate-only (front-half).
                     preserved = dict(_live_file_map_descriptions(ts_page_path))
-                    if narrate and suite_uri in commit_dirty:
-                        changed = commit_dirty[suite_uri]
-                        if changed is None:
-                            # Unknown anchor: no preserved row can be trusted —
-                            # drop all, forcing a full re-describe (D-D / §3.1).
-                            preserved = {}
-                            redescribed_uris.add(suite_uri)
-                        else:
-                            changed_rel = _changed_rel_paths(changed, suite_path)
-                            dropped = {p for p in preserved if p in changed_rel}
-                            if dropped:
-                                for p in dropped:
-                                    preserved.pop(p, None)
-                                redescribed_uris.add(suite_uri)
                     try:
                         inject_file_map(
                             ts_page_path,
@@ -1361,264 +2308,17 @@ async def run_scan(
                     raise_exception=True,
                 )
 
-        # Step 10c: code-reader fan-out to fill remaining `— TODO` Description
-        # cells. For each just-file-mapped package that still has unfilled file
-        # rows, dispatch a code_reader-role subagent that reads representative
-        # files and returns {path: one-line description}; we fill ONLY the
-        # unfilled cells (preserved/human descriptions are never overwritten).
-        # Steady-state cost is zero: once a package's rows are all filled (and
-        # preserved across rescans by Step 10b's merge), it has no TODO paths
-        # and is skipped — no model call.
-        if narrate and file_mapped_pages and conn is not None:
-            # Build (uri, ws_dict, page_path, todo_paths) for packages with work.
-            describer_items: list[tuple[str, dict, Path, list[str]]] = []
-            for node_uri, node, page_path in file_mapped_pages:
-                todo_paths = file_map_todo_paths(page_path)
-                if not todo_paths:
-                    continue
-                attrs = node.attrs if isinstance(node.attrs, dict) else {}
-                ws_dict = {
-                    "name": node.name,
-                    "path": node.path or attrs.get("path"),
-                    "type": node.kind,
-                    "language": attrs.get("language", "unknown"),
-                }
-                describer_items.append((node_uri, ws_dict, page_path, todo_paths))
-
-            if describer_items:
-                stack = _bedrock_stack()
-                if stack is None:
-                    describer_items = []
-                else:
-                    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-                    describer_cfg = load_role_config_fn("code_reader")
-                    describer_llm = make_llm_fn("code_reader")
-                    describer_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-                    async def describe_files(
-                        item: tuple[str, dict, Path, list[str]],
-                    ) -> TaskResultType:
-                        _uri, ws_dict_inner, _page, todo_inner = item
-                        system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
-                        resp = await describer_llm.ainvoke(
-                            [
-                                SystemMessage(content=system_msg),
-                                HumanMessage(content=human_msg),
-                            ]
-                        )
-                        return task_result_type(value=resp.content, response=resp)
-
-                    describer_result = await describer_pool.run_all(
-                        items=describer_items,
-                        task=describe_files,
-                        role="code_reader",
-                        model_id=describer_cfg["model_id"],
-                        max_concurrency=describer_cfg["max_concurrency"],
-                    )
-
-                    for item, value in describer_result.successes:
-                        uri_inner, _ws, page_path, _todo = item
-                        descriptions = parse_file_describer_output(value)
-                        if not descriptions:
-                            continue
-                        try:
-                            n_filled = fill_file_map_descriptions(page_path, descriptions)
-                            if n_filled:
-                                describer_filled.append(f"{uri_inner}: {n_filled}")
-                        except Exception as fill_exc:  # noqa: BLE001 — partial-success
-                            describer_errors.append(f"{uri_inner}: fill_file_map_descriptions failed: {fill_exc!r}")
-                    for err in describer_result.errors:
-                        uri_inner = err.item[0]
-                        describer_errors.append(f"{uri_inner}: {err.exception!r}")
-
-                if describer_filled or describer_errors:
-                    append_log(
-                        wiki,
-                        "scan",
-                        (
-                            f"file descriptions filled: {len(describer_filled)} "
-                            f"entity(s) (errors: {len(describer_errors)})"
-                        ),
-                        detail=None,
-                        silent=True,
-                        raise_exception=True,
-                    )
-
-        # Step 10d: synthesizer fan-out to fill H3 directory section placeholders and H2 overview.
-        # One synthesizer-role call per entity with unfilled dir/overview placeholders.
-        # Steady-state cost is zero: entities with all placeholders filled have nothing to do.
-        dir_describer_filled: list[str] = []
-        dir_describer_filled_uris: set[str] = set()
+        # Steps 10c/10d (code_reader / synthesizer fan-outs), the package_reader
+        # pass, the M2c refill-gated anchor stamp, the M2e drift judge, and the M4
+        # producer are all narrate-only — they live in the narrated path's
+        # _bedrock_provider + apply_scan_results and never ran here. Structural-only
+        # keeps the deterministic file maps + the free drift clear pass + indexes.
         dir_describer_errors: list[str] = []
-        if narrate and file_mapped_pages and conn is not None:
-            dir_items: list[tuple[str, str, Path, list[str], bool]] = []
-            for node_uri, node, page_path in file_mapped_pages:
-                todo_ctxs = dir_section_todo_contexts(page_path)
-                needs_ov = is_overview_unfilled(page_path)
-                if not todo_ctxs and not needs_ov:
-                    continue
-                dir_items.append((node_uri, node.name, page_path, todo_ctxs, needs_ov))
-
-            if dir_items:
-                stack = _bedrock_stack()
-                if stack is None:
-                    dir_items = []
-                else:
-                    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-                    dir_cfg = load_role_config_fn("synthesizer")
-                    dir_llm = make_llm_fn("synthesizer")
-                    dir_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-                    async def describe_dirs(
-                        item: tuple[str, str, Path, list[str], bool],
-                    ) -> TaskResultType:
-                        _uri, pkg_name_inner, page_inner, todo_ctxs_inner, needs_ov_inner = item
-                        file_descs = extract_file_map_descriptions(page_inner)
-                        pkg = {"name": pkg_name_inner}
-                        system_msg, human_msg = build_dir_describer_prompt(
-                            pkg, todo_ctxs_inner, file_descs, needs_ov_inner
-                        )
-                        resp = await dir_llm.ainvoke(
-                            [
-                                SystemMessage(content=system_msg),
-                                HumanMessage(content=human_msg),
-                            ]
-                        )
-                        return task_result_type(value=resp.content, response=resp)
-
-                    dir_result = await dir_pool.run_all(
-                        items=dir_items,
-                        task=describe_dirs,
-                        role="synthesizer",
-                        model_id=dir_cfg["model_id"],
-                        max_concurrency=dir_cfg["max_concurrency"],
-                    )
-
-                    for item, value in dir_result.successes:
-                        uri_inner, _name, page_path_inner, _todo_ctxs, _needs_ov = item
-                        descriptions = parse_dir_describer_output(value)
-                        if not descriptions:
-                            continue
-                        try:
-                            overview = descriptions.pop("_overview", None)
-                            n_filled = fill_dir_section_descriptions(page_path_inner, descriptions)
-                            if overview:
-                                ov_filled = fill_file_map_overview(page_path_inner, overview)
-                                if ov_filled:
-                                    n_filled += 1
-                            if n_filled:
-                                dir_describer_filled.append(f"{uri_inner}: {n_filled}")
-                                dir_describer_filled_uris.add(uri_inner)
-                        except Exception as fill_exc:  # noqa: BLE001 — partial-success
-                            dir_describer_errors.append(f"{uri_inner}: dir fill failed: {fill_exc!r}")
-                    for err in dir_result.errors:
-                        uri_inner = err.item[0]
-                        dir_describer_errors.append(f"{uri_inner}: {err.exception!r}")
-
-            if dir_describer_filled or dir_describer_errors:
-                append_log(
-                    wiki,
-                    "scan",
-                    (
-                        f"dir descriptions filled: {len(dir_describer_filled)} "
-                        f"entity(s) (errors: {len(dir_describer_errors)})"
-                    ),
-                    detail=None,
-                    silent=True,
-                    raise_exception=True,
-                )
-
-        package_reader_filled_uris: set[str] = set()
         package_reader_errors: list[str] = []
-        if narrate:
-            package_reader_candidates: dict[str, _PackageReaderCandidate] = dict(narrated_page_candidates)
-            for uri_inner, node, page_path in file_mapped_pages:
-                attrs = node.attrs if isinstance(node.attrs, dict) else {}
-                _record_package_reader_candidate(
-                    package_reader_candidates,
-                    uri=uri_inner,
-                    candidate=_PackageReaderCandidate(
-                        page_path=page_path,
-                        graph_path=node.path,
-                        kind=node.kind,
-                        name=node.name,
-                        language=str(attrs.get("language") or "unknown"),
-                    ),
-                )
-            if package_reader_candidates:
-                package_reader_filled_uris, package_reader_errors = await _run_package_reader_pass(
-                    wiki=wiki,
-                    repo=repo,
-                    conn=conn,
-                    model_override=model_override,
-                    candidate_pages=package_reader_candidates,
-                )
-                if package_reader_filled_uris or package_reader_errors:
-                    append_log(
-                        wiki,
-                        "scan",
-                        (
-                            f"package-reader sections filled: {len(package_reader_filled_uris)} "
-                            f"entity(s) (errors: {len(package_reader_errors)})"
-                        ),
-                        detail=None,
-                        silent=True,
-                        raise_exception=True,
-                    )
-
-        # M2c Part 3 (§3.3 D4): unified, refill-gated anchor stamping. A page
-        # advances last_updated_commit to HEAD iff it was re-narrated with good
-        # prose OR had a file-map row re-described this scan, AND no file-map
-        # `— TODO` row remains. The single gate covers both stamp reasons:
-        #   - good prose with an unrefilled dropped row → NOT stamped (stays
-        #     commit-dirty; next scan retries the describe) — closes the residual;
-        #   - a re-described page whose rows are all refilled → stamped
-        #     (idempotence + cost-churn guard, preserves M2b);
-        #   - a narrated-only page with no file-map TODO (file_map_todo_paths
-        #     returns [] for pages with all rows filled or no File map section) →
-        #     stamped, preserving M2a behavior.
-        if narrate and head:
-            stamp_page_paths: dict[str, Path] = dict(narrated_page_paths)
-            for uri_inner, _node, page_path in file_mapped_pages:
-                stamp_page_paths.setdefault(uri_inner, page_path)
-            for uri_inner in (
-                good_prose_uris | redescribed_uris | package_reader_filled_uris | dir_describer_filled_uris
-            ):
-                page_path = stamp_page_paths.get(uri_inner)
-                if page_path is None:
-                    continue
-                try:
-                    # The refill check + the stamp share the try so an
-                    # unreadable/missing page is non-fatal (mirrors the old
-                    # narrator-loop try block that wrapped the equivalent I/O).
-                    if (
-                        file_map_todo_paths(page_path)
-                        or dir_section_todo_contexts(page_path)
-                        or is_overview_unfilled(page_path)
-                    ):
-                        continue
-                    set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, short_head))
-                except Exception as exc:  # noqa: BLE001 — non-fatal stamp
-                    logger.warning("anchor stamp failed for %s: %s", uri_inner, exc)
-
-        # Living Wiki M2e: human-section drift flagging post-pass. Runs after
-        # anchor stamping so each page holds its final `## Narrative` and settled
-        # human sections plus its freshly-stamped last_updated_commit. Gated on
-        # `narrate` (needs the cheap-tier drift_judge LLM); self-recovers any page
-        # whose drift pass was skipped in a prior scan (drift_checked_commit lag).
-        if narrate:
-            await _drift_flag_pass(wiki, model_override)
 
         # Free clear pass — runs every scan (even --no-narrate): a human edit to a
         # flagged section clears its flag promptly without an LLM call.
         _drift_clear_pass(wiki)
-
-        # Living Wiki M4: opt-in cross-page drift producer. Runs after narration
-        # (narratives fresh, last_updated_commit advanced) and reads M4's own
-        # anchors off disk, so no in-memory state is threaded in. Gated on both
-        # narrate (needs Bedrock) and the explicit flag (off by default, §3.7).
-        if narrate and propagate_drift and conn is not None:
-            await run_propagate_drift(wiki=wiki, repo=repo, conn=conn)
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
@@ -1701,3 +2401,61 @@ async def run_scan(
                 conn.close()
             except Exception:
                 pass  # closing a read-only conn should not raise; defensive
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5: out-of-process entrypoints (Task 4)
+# ---------------------------------------------------------------------------
+
+
+async def emit_scan_worklist(
+    *,
+    workspace_path: Path | None,
+    repo_path: Path | None,
+    no_file_map: bool,
+    max_depth: int,
+    propagate: bool,
+    out_path: Path,
+) -> ScanResult:
+    """Run the mechanical front-half, write worklist.json to out_path, return the ScanResult.
+
+    Thin wrapper over build_scan_worklist for the out-of-process (Claude plugin) path.
+    Creates parent directories as needed.
+    """
+    worklist, scan_result = await build_scan_worklist(
+        workspace_path=workspace_path,
+        repo_path=repo_path,
+        no_file_map=no_file_map,
+        max_depth=max_depth,
+        propagate_drift=propagate,
+    )
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(worklist.to_json(), encoding="utf-8")
+    return scan_result
+
+
+async def apply_scan_worklist(
+    *,
+    workspace_path: Path | None,
+    repo_path: Path | None,
+    results_path: Path,
+    short_head: str | None,
+    propagate: bool,
+    worklist_path: Path,
+) -> ApplyResult:
+    """Read results.json + worklist.json, apply fill results, return ApplyResult.
+
+    The worklist is read from disk (written by emit_scan_worklist) so the apply
+    view is identical to the emit view — no second scan is needed. short_head is
+    passed in to honor the state-gate decision made at emit time; it overrides the
+    worklist's stored value (the only state crossing the process boundary).
+    """
+    results = ScanResults.from_json(results_path.read_text(encoding="utf-8"))
+    worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
+    # Honor the emit-time stamp value handed back by the orchestrator.
+    worklist.short_head = short_head
+    if short_head is None:
+        worklist.head_commit = None
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+    repo = repo_path.resolve() if repo_path else (resolved_repo or Path.cwd())
+    return await apply_scan_results(worklist, results, wiki, repo, propagate=propagate)

@@ -739,23 +739,41 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
 
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (0, "", ""))
+    # The split contract opens its own read-only conn (DB-existence guarded), so a
+    # placeholder code.db must exist for the FakeConn to be used.
+    from workspace_io.paths import graph_dir as _graph_dir
+
+    (_graph_dir(workspace)).mkdir(parents=True, exist_ok=True)
+    (_graph_dir(workspace) / "code.db").write_bytes(b"")
     monkeypatch.setattr(scan_mod, "read_only_connect", lambda path: _FakeConn())
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "abc"},
     )
-    monkeypatch.setattr(
-        scan_mod,
-        "write_entities",
-        lambda conn, wiki, admitted_kinds: SimpleNamespace(
+
+    def _fake_write_entities(conn, wiki, admitted_kinds):
+        # The contract builds its worklist (and package_reader candidates) from
+        # on-disk entity pages, so write_entities must leave a real page behind.
+        from wiki_io.entity_writer import short_filename
+
+        page = wiki / "entities" / f"{short_filename(uri, frozenset())}.md"
+        page.parent.mkdir(parents=True, exist_ok=True)
+        page.write_text(
+            f"---\nuri: {uri}\nkind: package\n---\n\n# pkg-a\n\n"
+            "## Purpose\n> TODO: explain why this package exists.\n\n"
+            "## Narrative\n_(scanner will populate on next scan)_\n",
+            encoding="utf-8",
+        )
+        return SimpleNamespace(
             created={uri},
             updated=set(),
             deleted=set(),
             needs_narrative={uri},
             errors=[],
-        ),
-    )
+        )
+
+    monkeypatch.setattr(scan_mod, "write_entities", _fake_write_entities)
     monkeypatch.setattr(scan_mod, "_commit_dirty_changes", lambda *args, **kwargs: {})
     monkeypatch.setattr(scan_mod, "_kind_list_fns", lambda: {"package": lambda conn: [node]})
     monkeypatch.setattr(scan_mod, "scanner_frontmatter_for_node", lambda conn, kind, node: {"uri": uri, "kind": kind})
