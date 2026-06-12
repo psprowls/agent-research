@@ -161,6 +161,7 @@ def test_ingest_source_script_claude_branch_emits_json_brief(
             "entity_match": {"uri": None, "entity_filename": None},
         }
 
+    module.build_batch_ingest_brief = lambda *args, **kwargs: None  # type: ignore[attr-defined]  # not a batch → fall through
     module.build_ingest_brief = fake_build_ingest_brief  # type: ignore[attr-defined]
     module.build_folder_ingest_brief = lambda *args, **kwargs: {  # type: ignore[attr-defined]
         "is_folder": True,
@@ -201,6 +202,7 @@ def test_ingest_source_script_claude_branch_emits_skill_brief(
     _install_fake_wiki_io(monkeypatch, workspace)
     module = types.ModuleType("wiki_io.ingest_source")
 
+    module.build_batch_ingest_brief = lambda *args, **kwargs: None  # type: ignore[attr-defined]  # not a batch → fall through
     module.resolve_skill_anchor = lambda path: path  # type: ignore[attr-defined]  # non-None → skill branch
     module.build_skill_ingest_brief = lambda *args, **kwargs: {  # type: ignore[attr-defined]
         "is_skill": True,

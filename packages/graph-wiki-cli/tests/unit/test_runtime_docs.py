@@ -28,13 +28,18 @@ def _read(path: Path) -> str:
 
 
 def test_current_help_examples_use_package_scoped_gw_entrypoint() -> None:
-    """User-facing help snippets should teach the package-scoped gw command."""
+    """User-facing help snippets should teach the gw command.
+
+    The root README leads with the package-scoped form; the plugin README leads with
+    bare ``gw`` (gw is on PATH) and documents the package-scoped form as a fallback.
+    """
     root_readme = _read(REPO_ROOT / "README.md")
     plugin_readme = _read(REPO_ROOT / "plugins" / "graph-wiki" / "README.md")
 
     assert "uv run --package graph-wiki-cli gw --help" in root_readme
-    assert "uv run --package graph-wiki-cli gw --help" in plugin_readme
-    assert "uv run --package graph-wiki-cli gw scan" in plugin_readme
+    assert "gw --help" in plugin_readme
+    assert "gw scan" in plugin_readme
+    assert "uv run --package graph-wiki-cli" in plugin_readme
 
 
 def test_current_runtime_docs_do_not_advertise_stale_executable() -> None:
