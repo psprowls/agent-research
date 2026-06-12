@@ -85,6 +85,14 @@ from workspace_io.paths import graph_dir, manifest_path
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
+from graph_wiki_core.commands.scan_contract import (
+    DriftSectionInput,
+    DriftTask,
+    FillNeeds,
+    FillTask,
+    PropagateTask,
+    ScanWorklist,
+)
 from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.dir_describer import build_dir_describer_prompt, parse_dir_describer_output
 from graph_wiki_core.prompts.drift_judge import (
@@ -883,6 +891,380 @@ def _drift_clear_pass(wiki: Path) -> None:
                 update_frontmatter(page_path, delete=["drift_review"])
         except Exception as exc:  # noqa: BLE001 — non-fatal
             logger.warning("drift clear write failed for %s: %s", page_path, exc)
+
+
+# ---------------------------------------------------------------------------
+# Living Wiki M1.5 (split scan pipeline): emit-half worklist assembly
+# ---------------------------------------------------------------------------
+
+
+def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
+    """Serialize M2e drift candidates into DriftTasks (emit-time ground truth).
+
+    Mirror of _drift_flag_pass's candidate+item assembly minus the LLM judge.
+    Each candidate page becomes one DriftTask carrying its regenerated narrative,
+    file map, and every human section chunk. The uri is read from frontmatter so
+    apply can key verdicts back to the page.
+    """
+    tasks: list[DriftTask] = []
+    for page_path, anchor, narrative, file_map in _drift_candidates(wiki):
+        try:
+            uri = frontmatter.load(str(page_path)).metadata.get("uri")
+        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
+            continue
+        if not uri:
+            continue
+        body = page_path.read_text(encoding="utf-8")
+        sections = [DriftSectionInput(heading=heading, chunk=chunk) for heading, chunk in iter_human_sections(body)]
+        if not sections:
+            continue
+        tasks.append(
+            DriftTask(
+                uri=str(uri),
+                page_path=str(page_path),
+                anchor=anchor,
+                narrative=narrative,
+                file_map=file_map,
+                sections=sections,
+            )
+        )
+    return tasks
+
+
+def _build_propagate_tasks(wiki: Path, repo: Path, conn: Any) -> tuple[list[PropagateTask], dict[str, str]]:
+    return [], {}  # M4 emit — implemented in Task 9
+
+
+async def build_scan_worklist(
+    workspace_path: Path | None = None,
+    *,
+    repo_path: Path | None = None,
+    no_file_map: bool = False,
+    max_depth: int = 3,
+    propagate_drift: bool = False,
+) -> tuple[ScanWorklist, ScanResult]:
+    """Mechanical front-half of a narrated scan + the commit-gated worklist.
+
+    Side effects (identical to run_scan's narrate=True front-half): cg update,
+    write_entities, deterministic file-map injection. Returns the worklist the
+    provider fills plus a ScanResult carrying created/updated/deleted/errors so
+    callers can still report the mechanical pass. The preserved-drop runs
+    unconditionally here (this is always the narrating path).
+    """
+    # Step 1: resolve wiki and repo (lifted from run_scan).
+    wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
+    if repo_path is not None:
+        repo = repo_path.resolve()
+    elif resolved_repo is not None:
+        repo = resolved_repo
+    else:
+        repo = Path.cwd()
+
+    # cg update + open the read-only graph conn (lifted; ScanAbortedError kept).
+    # conn is closed right before return; exceptions propagate (no try/finally).
+    conn = None
+    append_log(
+        wiki,
+        "scan",
+        "cg update (incremental)",
+        detail=None,
+        silent=True,
+        raise_exception=True,
+    )
+    _workspace_root = wiki.parent
+    _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False)
+    _graph_ready = False
+    if _cg_exit == exit_codes.SUCCESS:
+        append_log(
+            wiki,
+            "scan",
+            "cg update complete: exit_code=0",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        _graph_ready = True
+    elif _cg_exit == exit_codes.GENERIC and _is_init_failure_stderr(_cg_stderr):
+        reason = _cg_stderr.strip().splitlines()[-1] if _cg_stderr.strip() else "unknown init failure"
+        sys.stderr.write(
+            f"[NOT_INITIALIZED fallback: graph could not be initialized ({reason}); using path-based slugs]\n"
+        )
+        append_log(
+            wiki,
+            "scan",
+            f"NOT_INITIALIZED fallback: {reason}",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        _graph_ready = False
+    else:
+        append_log(
+            wiki,
+            "scan",
+            f"cg update failed: exit_code={_cg_exit}",
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+        raise ScanAbortedError(exit_code=_cg_exit, stderr=_cg_stderr)
+
+    if _graph_ready:
+        try:
+            conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+        except GraphNotInitializedError as exc:
+            sys.stderr.write(
+                f"[NOT_INITIALIZED fallback: graph could not be initialized ({exc}); using path-based slugs]\n"
+            )
+            append_log(
+                wiki,
+                "scan",
+                f"NOT_INITIALIZED fallback (post-update): {exc}",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+            conn = None
+
+    # Step 8: compute state gate.
+    state_gate = compute_state_gate(repo, workspace=wiki.parent)
+    head = state_gate.get("head_commit")
+    short_head = short_commit(repo, head) if head else head
+
+    entity_write_result = None
+    commit_dirty: dict[str, list[str] | None] = {}
+
+    if conn is not None:
+        # Step 9a: graph-driven entity page writes.
+        entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
+        append_log(
+            wiki,
+            "scan",
+            (
+                f"entities: +{len(entity_write_result.created)} "
+                f"~{len(entity_write_result.updated)} "
+                f"-{len(entity_write_result.deleted)} "
+                f"(needs_narrative: {len(entity_write_result.needs_narrative)})"
+            ),
+            detail=None,
+            silent=True,
+            raise_exception=True,
+        )
+
+        # M2a commit-gate: re-narrate entities whose files changed since their
+        # recorded last_updated_commit. Decision A: the needs_narrative set
+        # (which the worklist consumes) includes this commit_dirty union.
+        commit_dirty = _commit_dirty_changes(
+            wiki,
+            repo,
+            conn,
+            head,
+            _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
+        )
+        if commit_dirty:
+            entity_write_result.needs_narrative.update(commit_dirty.keys())
+            append_log(
+                wiki,
+                "scan",
+                f"commit-gate: {len(commit_dirty)} entity(s) flagged for re-narration",
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+
+    # Step 10b: deterministic File-map injection. Same as run_scan's port, but
+    # the preserved-drop runs UNCONDITIONALLY here (this is always the narrating
+    # front-half) — `if narrate and node_uri in commit_dirty` -> `if node_uri in commit_dirty`.
+    entities_file_mapped: list[str] = []
+    file_map_errors: list[str] = []
+    file_mapped_pages: list[tuple[str, Any, Path]] = []
+    redescribed_uris: set[str] = set()
+    if entity_write_result is not None and conn is not None:
+        refreshed = set(entity_write_result.created) | set(entity_write_result.updated)
+        fm_targets = refreshed | set(commit_dirty)
+        list_fns = _kind_list_fns()
+        fm_collision_set = _compute_collision_set(conn, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
+        fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
+        if fm_targets and any(fm_list_fns) and not no_file_map:
+            fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
+            for node in fm_nodes:
+                if not isinstance(node.attrs, dict):
+                    continue
+                node_uri = node.attrs.get("uri")
+                if not node_uri or node_uri not in fm_targets:
+                    continue
+                node_path = node.path
+                if not node_path:
+                    continue
+                file_map = build_file_map(repo / node_path, max_depth=max_depth)
+                if not file_map:
+                    continue
+                slug = short_filename(node_uri, fm_collision_set)
+                fm_page_path = wiki / "entities" / f"{slug}.md"
+                preserved = dict(_live_file_map_descriptions(fm_page_path))
+                if node_uri in commit_dirty:
+                    changed = commit_dirty[node_uri]
+                    if changed is None:
+                        preserved = {}
+                        redescribed_uris.add(node_uri)
+                    else:
+                        changed_rel = _changed_rel_paths(changed, node_path)
+                        dropped = {p for p in preserved if p in changed_rel}
+                        if dropped:
+                            for p in dropped:
+                                preserved.pop(p, None)
+                            redescribed_uris.add(node_uri)
+                try:
+                    inject_file_map(
+                        fm_page_path,
+                        file_map,
+                        preserved=preserved,
+                    )
+                    entities_file_mapped.append(node_uri)
+                    file_mapped_pages.append((node_uri, node, fm_page_path))
+                except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                    file_map_errors.append(f"{node_uri}: inject_file_map failed: {fm_exc!r}")
+        # Step 10b-ts: test-suite File-map injection (preserved-drop unconditional).
+        if fm_targets and not no_file_map:
+            for node in queries.list_test_suites(conn):
+                if not isinstance(node.attrs, dict):
+                    continue
+                suite_uri = node.attrs.get("uri")
+                if not suite_uri or suite_uri not in fm_targets:
+                    continue
+                suite_path = node.path
+                if not suite_path:
+                    continue
+                block = build_dir_file_map(repo / suite_path, max_depth=max_depth)
+                if not block:
+                    continue
+                ts_page_path = _entity_page_path(
+                    wiki,
+                    "test_suite",
+                    node,
+                    suite_uri,
+                    fm_collision_set,
+                )
+                preserved = dict(_live_file_map_descriptions(ts_page_path))
+                if suite_uri in commit_dirty:
+                    changed = commit_dirty[suite_uri]
+                    if changed is None:
+                        preserved = {}
+                        redescribed_uris.add(suite_uri)
+                    else:
+                        changed_rel = _changed_rel_paths(changed, suite_path)
+                        dropped = {p for p in preserved if p in changed_rel}
+                        if dropped:
+                            for p in dropped:
+                                preserved.pop(p, None)
+                            redescribed_uris.add(suite_uri)
+                try:
+                    inject_file_map(
+                        ts_page_path,
+                        block,
+                        preserved=preserved,
+                    )
+                    entities_file_mapped.append(suite_uri)
+                    file_mapped_pages.append((suite_uri, node, ts_page_path))
+                except Exception as fm_exc:  # noqa: BLE001 — partial-success
+                    file_map_errors.append(f"{suite_uri}: inject_file_map failed: {fm_exc!r}")
+        if entities_file_mapped or file_map_errors:
+            append_log(
+                wiki,
+                "scan",
+                (f"file maps injected: {len(entities_file_mapped)} (errors: {len(file_map_errors)})"),
+                detail=None,
+                silent=True,
+                raise_exception=True,
+            )
+
+    # --- Build the worklist from the in-memory sets ---
+    needs_narr_set: set[str] = set(entity_write_result.needs_narrative) if entity_write_result else set()
+
+    fill_tasks: list[FillTask] = []
+    if conn is not None and entity_write_result is not None:
+        list_fns = _kind_list_fns()
+        page_path_by_uri: dict[str, Path] = {uri: pp for uri, _node, pp in file_mapped_pages}
+        node_by_uri: dict[str, Any] = {uri: node for uri, node, _pp in file_mapped_pages}
+        # Resolve any narrative-needing entity not already in file_mapped_pages
+        # (e.g. agent_plugin / domain — narrative-only, no deterministic file map).
+        if needs_narr_set - page_path_by_uri.keys():
+            collision = _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
+            for kind in sorted(ADMITTED_KINDS):
+                fn = list_fns.get(kind)
+                if fn is None:
+                    continue
+                for node in fn(conn):
+                    if not isinstance(node.attrs, dict):
+                        continue
+                    uri = node.attrs.get("uri")
+                    if uri and uri in needs_narr_set and uri not in page_path_by_uri:
+                        page_path_by_uri[uri] = _entity_page_path(wiki, kind, node, uri, collision)
+                        node_by_uri[uri] = node
+
+        candidate_uris = set(page_path_by_uri.keys()) | needs_narr_set
+        for uri in sorted(candidate_uris):
+            page_path = page_path_by_uri.get(uri)
+            if page_path is None or not page_path.exists():
+                continue
+            node = node_by_uri.get(uri)
+            kind = getattr(node, "kind", "") or ""
+            name = getattr(node, "name", "") or page_path.stem
+            graph_path = getattr(node, "path", "") or ""
+            attrs = node.attrs if (node is not None and isinstance(node.attrs, dict)) else {}
+            language = str(attrs.get("language") or "unknown")
+            page_text = page_path.read_text(encoding="utf-8", errors="replace")
+            todo_sections = find_todo_human_sections(page_text, entity_kind=kind) if kind else []
+            # find_todo_human_sections returns BARE headings (the "## " prefix is
+            # stripped — human_sections.py:52), matching how run_scan's package
+            # reader keys requested_sections on section.heading.
+            todo_headings = {s.heading for s in todo_sections}
+            needs = FillNeeds(
+                # decision A: placeholder OR commit-dirty (uri in needs_narr_set).
+                narrative=(extract_narrative(page_text) is None) or (uri in needs_narr_set),
+                file_todo_paths=file_map_todo_paths(page_path),
+                dir_todo_contexts=dir_section_todo_contexts(page_path),
+                overview=is_overview_unfilled(page_path),
+                purpose="Purpose" in todo_headings,
+                public_api="Public API" in todo_headings,
+            )
+            if not needs.any:
+                continue
+            fill_tasks.append(
+                FillTask(
+                    uri=uri,
+                    kind=kind,
+                    name=name,
+                    page_path=str(page_path),
+                    graph_path=graph_path,
+                    language=language,
+                    needs=needs,
+                )
+            )
+
+    drift_tasks = _build_drift_tasks(wiki)
+    propagate_tasks, propagate_anchors = (
+        _build_propagate_tasks(wiki, repo, conn) if (propagate_drift and conn is not None) else ([], {})
+    )
+
+    worklist = ScanWorklist(
+        head_commit=head,
+        short_head=short_head,
+        fill_tasks=fill_tasks,
+        drift_tasks=drift_tasks,
+        propagate_tasks=propagate_tasks,
+        propagate_anchors=propagate_anchors,
+    )
+    scan_result = ScanResult(
+        state_gate=state_gate,
+        entities_created=sorted(entity_write_result.created) if entity_write_result else [],
+        entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
+        entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
+        entity_errors=[repr(e) for e in entity_write_result.errors] if entity_write_result else [],
+    )
+    if conn is not None:
+        conn.close()
+    return worklist, scan_result
 
 
 # ---------------------------------------------------------------------------

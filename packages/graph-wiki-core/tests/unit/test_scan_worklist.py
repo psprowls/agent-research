@@ -1,0 +1,204 @@
+"""Living Wiki M1.5 (split scan pipeline): build_scan_worklist emit-half tests.
+
+Covers the mechanical front-half: graph build → write_entities → deterministic
+file-map injection → commit-gate → emit a commit-gated ScanWorklist. The fixture
+mirrors test_commit_gated_narrative.py's m2a_workspace (stubbed cg update + state
+gate + deterministic file map over a real one-package graph). The "fully
+populated + stamped" precondition for the unchanged/commit-dirty cases is reached
+by running a full narrated run_scan via the suite's _narrate_all_spy stub, which
+both narrates and fills every — TODO file-map row, so a steady-state re-emit is
+genuinely empty.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import sqlite3
+from pathlib import Path
+from unittest.mock import MagicMock
+
+import frontmatter as _fm
+import graph_wiki_core.commands.scan as scan_mod
+import pytest
+from graph_io import exit_codes
+
+from .test_commit_gated_narrative import _narrate_all_spy
+
+_PKG_A = "pkg:org/repo/pkg-a"
+
+
+def _seed_one_package(db_path: Path) -> None:
+    from graph_io import schema
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\": \"python\"}', "
+            "'pkg:org/repo/pkg-a')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _page_for(wiki: Path):
+    return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == _PKG_A)
+
+
+@pytest.fixture
+def emit_workspace(tmp_path, monkeypatch):
+    """One-package workspace with stubbed cg update, state gate (clean @ head1),
+    and a deterministic single-row file map for pkg-a."""
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    (wiki / ".graph-wiki").mkdir(parents=True)
+    (wiki / "CLAUDE.md").write_text("# Wiki\n")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    repo.mkdir()
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    _seed_one_package(workspace / ".graph-wiki" / "code.db")
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(
+        scan_mod,
+        "build_file_map",
+        lambda path, **kw: (
+            "## File map - pkg-a\nTODO\n\n### pkg-a/\nTODO\n\n"
+            "| Path | Kind | Description |\n|---|---|---|\n"
+            "| `pyproject.toml` | file | — TODO |\n"
+            if str(path).endswith("pkg-a")
+            else None
+        ),
+    )
+    return workspace, repo
+
+
+def test_new_package_emits_fill_task_with_narrative_and_file_todos(emit_workspace) -> None:
+    """A brand-new package page emits a fill_task whose needs.narrative is True
+    (placeholder) and whose needs.file_todo_paths is non-empty (— TODO rows). The
+    page exists on disk with the deterministic file map injected."""
+    workspace, repo = emit_workspace
+
+    worklist, scan_result = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+
+    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    assert alpha.needs.narrative is True
+    assert alpha.needs.file_todo_paths  # at least one — TODO file row
+    # The fresh entity-write template seeds ## Purpose / ## Public API as TODO
+    # placeholders (human-owned). find_todo_human_sections returns BARE headings,
+    # so the worklist must key on "Purpose"/"Public API" — regression guard for
+    # the "## Purpose" prefix bug that dropped both fill signals.
+    assert alpha.needs.purpose is True
+    assert alpha.needs.public_api is True
+    assert Path(alpha.page_path).exists()
+    # The deterministic file map was injected (— TODO Description cell present).
+    assert "| `pyproject.toml` | file | — TODO |" in Path(alpha.page_path).read_text(encoding="utf-8")
+    assert _PKG_A in scan_result.entities_created
+
+
+def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> None:
+    """After a full narrated scan (prose + every row filled + anchor stamped) AND
+    the human-owned ## Purpose / ## Public API sections filled with real prose,
+    a steady-state re-emit (no code change) produces no fill_task and no
+    drift_task — worklist.is_empty."""
+    from wiki_io.human_sections import replace_todo_human_sections
+
+    workspace, repo = emit_workspace
+    wiki = workspace / "wiki"
+
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+    )
+    # Full narrated scan: fills narrative + all — TODO rows + stamps last_updated_commit=head1.
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    page = _page_for(wiki)
+    text = page.read_text(encoding="utf-8")
+    assert "PROSE for pkg:org/repo/pkg-a" in text
+    assert "| `pyproject.toml` | file | — TODO |" not in text  # rows filled
+
+    # The narrated scan does NOT fill the human-owned ## Purpose / ## Public API
+    # placeholders (the package_reader stub returns []), so fill them with real
+    # prose to reach a GENUINE steady state. replace_todo_human_sections keys on
+    # the bare heading (human_sections.py:80-82) and only swaps TODO-like bodies.
+    changed = replace_todo_human_sections(page, {"Purpose": "Real purpose prose.", "Public API": "Real API prose."})
+    assert set(changed) == {"Purpose", "Public API"}
+
+    # Steady-state re-emit: files clean, head unchanged.
+    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    assert worklist.is_empty
+
+
+def test_commit_dirty_unchanged_package_marks_narrative(emit_workspace, monkeypatch) -> None:
+    """A commit-dirty but structurally-unchanged package re-emits a fill_task with
+    needs.narrative True (decision A — the commit_dirty union folds into the
+    in-memory needs_narrative set the worklist consumes)."""
+    workspace, repo = emit_workspace
+    wiki = workspace / "wiki"
+
+    heads = {"v": "head1"}
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
+    )
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+    )
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head1"
+
+    # HEAD moved and pkg-a's source changed since head1 (no structural delta).
+    heads["v"] = "head2"
+    monkeypatch.setattr(
+        scan_mod,
+        "changed_files_since",
+        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
+    )
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    assert alpha.needs.narrative is True  # decision A: commit-dirty re-narrates
+
+
+def test_dirty_state_gate_yields_no_head(emit_workspace, monkeypatch) -> None:
+    """When compute_state_gate disallows stamping (dirty/non-allowed branch ⇒ no
+    head_commit), head_commit and short_head are None in the emitted worklist."""
+    workspace, repo = emit_workspace
+
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": False, "reason": "dirty", "head_commit": None},
+    )
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    assert worklist.head_commit is None
+    assert worklist.short_head is None
