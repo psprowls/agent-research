@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Keep the wiki's single `entities/` folder in sync with the code graph. The scan is mechanical and structural-only — it builds the graph, renders one page per admitted entity, and never calls an LLM.
+Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then fills placeholders (`## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API`) via a commit-gated Claude Task-subagent fan-out. A bare / `--no-narrate` invocation runs the mechanical write only.
 
 ## Inputs
 
@@ -15,8 +15,17 @@ One page per admitted entity into `<workspace>/wiki/entities/`, across the **7 a
 
 ## Step-by-step
 
-### 1. Run the mechanical scan
-`scan_monorepo.py --json` builds the graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps (Description cells `— TODO`), regenerates indexes, and appends to the log. Structural-only: `## Narrative` keeps its `_(scanner will populate on next scan)_` placeholder.
+### 1. Emit → fan-out → apply
+
+The default scan runs as a three-phase pipeline:
+
+**Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`fill_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`.
+
+**Phase 2 — Fan-out**: read-only Task subagents (one per entity in `fill_tasks`/`drift_tasks`) inspect source files and return structured records — narrative, file/dir descriptions, overview, `## Purpose`/`## Public API`, drift judgements. Subagents are strictly read-only (Read/Grep/Glob only); no page writes happen here.
+
+**Phase 3 — Apply** (`--apply-worklist <results.json> --short-head <sha>`): injects all structured results, runs the M2c refill-gated anchor stamp, writes M2e `drift_review` flags, regenerates indexes and backlinks, and appends to `log.md`.
+
+A bare invocation (or `--no-narrate` on `gw scan`) is the mechanical structural-only fast path — no worklist written, no prose generated. `## Narrative` and file-map descriptions keep their placeholders on this path only.
 
 ### 2. Report entities
 From the `ScanResult` JSON: `entities_created`, `entities_updated`, `entities_deleted` (URIs), `entity_errors`.
@@ -39,9 +48,27 @@ Scanner-owned keys (replaced every scan): `uri`, `kind`, `graph_name`, `last_sca
 
 The state gate (`last_updated_commit` stamping on scan/ingest) is configurable per-workspace via the `state_gate:` block in `<workspace>/.graph-wiki.yaml` (`enabled` + allowed `branches`); absent config gates on a clean `main`. See the workspace-io README for the schema.
 
+## Contract
+
+Two JSON files live under `<workspace>/.graph-wiki/` across the emit/apply boundary:
+
+**`worklist.json`** — written by `--emit-worklist`, consumed by the fan-out and `--apply-worklist`:
+- `fill_tasks` — list of per-entity records describing what prose/descriptions need generation.
+- `drift_tasks` — list of per-entity records for human-section drift judging.
+- `propagate_tasks` — list of cross-page drift propagation tasks (M4).
+- `short_head` — abbreviated HEAD SHA at emit time; passed as `--short-head` to apply so anchors are stamped to the correct commit.
+
+**`results.json`** — written by the fan-out (assembled by the scanner agent), consumed by `--apply-worklist`:
+- `fills` — structured fill records (narrative, file/dir descriptions, overview, purpose, public_api) keyed by entity URI.
+- `drift` — per-section drift judgement records (`{section, stale, reason}`).
+- `propagate` — cross-page drift propagation records.
+- `schema: 1` — version sentinel; apply phase validates before writing.
+
+Both files are transient workspace artifacts; they are safe to delete and are overwritten on each scan.
+
 ## Anti-patterns
 
 - Hand-writing `entities/*.md` pages (the graph renders them).
-- Filling `## Narrative` or file-map descriptions during scan (structural-only).
+- Letting fill subagents write pages directly (they are read-only; the apply phase performs all writes).
 - Silently accepting a large deletion set.
 - Expecting `apps/`, `packages/`, or `domains/` page folders — there are none; everything is in `entities/`.
