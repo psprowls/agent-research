@@ -48,6 +48,12 @@ Follow the normal workflow below with these deltas:
   `existing_page_updates[]` entries with the exact edit (steps 6, 8, 9 against
   pages that already exist). Contradiction callouts on pages you don't own go
   here too; callouts on your own source page you write directly.
+- **Red flags and warn-the-user conditions never pause a batch worker.** If a
+  `## Red flags` condition fires or a step says to warn/tell/ask the user
+  (e.g. step 4's drift-detection notice, step 4a's `scripts_dominant` warning),
+  do not ask — fail the unit (`"status": "failed"`, explanation in `notes`)
+  for blocking conditions, or proceed and record the warning in `notes` for
+  advisory ones.
 
 End your final message with exactly ONE fenced ```json block — the orchestrator
 parses it; a missing or malformed report marks your unit failed:
