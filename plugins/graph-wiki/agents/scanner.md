@@ -12,9 +12,7 @@ context: fork
 
 ## Role
 
-You keep the wiki's single `<workspace>/wiki/entities/` folder in sync with what the code graph says the repo contains. The mechanical script does the writing: it builds the code graph and renders one page per admitted entity — `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite` — into `entities/`, with URI-based filenames (`pkg_<name>.md`, `app_<name>.md`, `dep_<name>.md`, `domain_<name>.md`, `repo_<name>.md`, `agent-plugin_<name>.md`, `unit_tests_<pkg>.md`, …). Your job is to **run the script, report what changed, and surface deletions** — not to hand-write pages.
-
-The scan is **structural-only**: pages carry a `## Narrative\n_(scanner will populate on next scan)_` placeholder and `— TODO` file-map rows. You do NOT fill prose. (Prose is filled later by ingest/query.)
+You keep the wiki's single `<workspace>/wiki/entities/` folder in sync with what the code graph says the repo contains. Scan runs as a three-phase pipeline: **emit** (build graph, write entity pages, inject deterministic file maps, compute commit-gate, serialize worklist) → **fan-out** (dispatch read-only Task subagents per entity that needs prose or drift checking) → **apply** (inject structured results, stamp anchors, write drift flags, regenerate indexes/backlinks, log). The mechanical scripts own all page writes; fan-out subagents are strictly read-only (Read/Grep/Glob only, no Write) and return structured records that the apply phase persists.
 
 Spawned per scan, not long-running.
 
@@ -27,36 +25,58 @@ Spawned per scan, not long-running.
 
 Follow `references/scan-workflow.md`. Summary:
 
-### 1. Run the mechanical scan
+### 1. Emit the worklist
 ```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --json
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --emit-worklist "$GRAPH_WIKI_WORKSPACE/.graph-wiki/worklist.json"
 ```
 
-This single command builds the code graph, writes/updates/deletes `entities/*.md` pages deterministically, injects deterministic file maps (Description cells left `— TODO`), regenerates `index.md` + per-folder sub-indexes, and appends a `scan` entry to `log.md`. It emits a `ScanResult` JSON with `entities_created`, `entities_updated`, `entities_deleted` (URIs), and `entity_errors`.
+This builds the code graph, writes/updates/deletes `entities/*.md` pages deterministically, injects deterministic file maps (`— TODO` cells), computes the commit-gate, and serializes the commit-gated worklist (`fill_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to the given path. It prints the worklist path plus a `ScanResult` with `entities_created`, `entities_updated`, `entities_deleted` (URIs), and `entity_errors`. (A bare invocation with no flags is still the `--no-narrate` structural-only fast path — no worklist written.)
 
-It runs **without Bedrock** (structural-only — `narrate=False`). It does NOT call any LLM.
+Surface deletions and red flags here exactly as described below.
 
-### 2. Report entities
-From the JSON, report to the user:
-- **Created** — new entity pages (list by URI / filename)
-- **Updated** — entity pages whose graph-derived frontmatter changed
-- **Deleted** — entity pages removed because their graph node vanished
-- Any `entity_errors`
+### 2. Short-circuit on steady state
+If `fill_tasks`, `drift_tasks`, and `propagate_tasks` are all empty lists, skip to reporting — a no-op scan dispatches zero subagents.
 
-### 3. Surface deletions (never silently)
-The script has already applied deletions. Do not let them pass silently:
+### 3. Fan out read-only subagents
+Using the `dispatching-parallel-agents` batching discipline, dispatch Task subagents per entity that needs work:
+
+- **FILL subagent** (one per `fill_tasks` entry): pass `graph_path`, `name`, `language`, and the entity's `needs` map. It reads representative files under `graph_path` using Read/Grep/Glob only — no writes. Returns one structured `fills[]` record covering: `narrative`, file descriptions keyed by the exact `file_todo_paths` strings, dir descriptions keyed by `dir_todo_contexts`, `overview`, `purpose`, `public_api`.
+- **DRIFT subagent** (one per `drift_tasks` entry): pass the entity's narrative ground-truth, file map, and each human-section chunk. Returns per-section `{section, stale, reason}` records.
+
+Subagents run forked and are **strictly read-only** (Read/Grep/Glob only — NO Write). You assemble their structured output; the apply phase performs every page write.
+
+### 4. Assemble results.json
+Collect the subagents' schema-validated structured output into `$GRAPH_WIKI_WORKSPACE/.graph-wiki/results.json`:
+
+```json
+{"schema": 1, "fills": [...], "drift": [...], "propagate": []}
+```
+
+Do not parse prose — subagents return structured records. A failed or empty subagent contributes no record; its entity is retried on the next scan.
+
+### 5. Apply
+```bash
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --apply-worklist "$GRAPH_WIKI_WORKSPACE/.graph-wiki/results.json" --short-head <short_head-from-worklist>
+```
+
+(The `--apply-worklist` flag auto-defaults the worklist path to the sibling `worklist.json` of the given results file, so no extra flag is needed when both files live under `$GRAPH_WIKI_WORKSPACE/.graph-wiki/`.)
+
+This injects all results, runs the M2c refill-gated anchor stamp, writes M2e `drift_review` flags, regenerates indexes and backlinks, and appends to `log.md`. It prints an `ApplyResult` with `narrated`, `described`, `dir_filled`, `sections_filled`, `drift_flagged`, and `stamped`. Report any `entity_errors` from the result verbatim.
+
+### 6. Surface deletions (never silently)
+The emit step has already applied deletions. Do not let them pass silently:
 - Always list the deleted URIs.
 - If `<workspace>/wiki/` is under version control, run `git -C <workspace>/wiki status --short entities/` and offer to undo any deletion the user objects to with `git -C <workspace>/wiki checkout -- entities/<file>`.
 - Entity pages regenerate deterministically on the next scan, so undo/redo is always safe.
 
-### 4. Report
+### 7. Report
 Bulleted wikilinks to the changed entity pages. Suggest follow-ups (e.g. `/graph-wiki:lint` to catch drift, `/graph-wiki:ingest` on a README/spec to flesh out `## Narrative` and file-map descriptions).
 
 ## Rules
 
 - **If you hand-edit any entity page** (you normally won't — the script owns them), preserve human keys. Scanner-owned frontmatter keys are replaced every scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
 - **Never silently delete.** Always surface deletions; offer git undo.
-- **Structural-only.** Do not fill `## Narrative` or file-map descriptions during scan.
+- **Read-only fan-out.** Fill subagents never write pages — they return structured content; the apply phase performs all writes.
 - **Don't hand-write entity pages.** The script renders them from the graph.
 
 ## Red flags
