@@ -21,9 +21,10 @@ Decisions encoded here (see `.planning/phases/44-scanner-generated-index/44-CONT
   old `## Domains` → `## By Kind` slot) → `## ADRs` → `## Concepts` →
   `## Sources` → `## Work`.
 - D-04: Single-placement rule for entities. An entity placed under a
-  single qualifying domain renders inside that `## Domain: X` section;
-  zero or multiple qualifying domains fall back to `## By Kind`.
-  Plugins always fall to `## By Kind` (no qualifying-domain edges in v1.8).
+  single qualifying domain renders inside that domain's block
+  (`### Domain: X`, within its repository section); zero or multiple
+  qualifying domains render directly under the repository header.
+  Plugins always render direct (no qualifying-domain edges in v1.8).
 - D-09: `BY_KIND_ORDER` is a hard-coded tuple, NOT derived from
   `ADMITTED_KINDS` — guarantees stable section order independent of
   schema evolution.
@@ -76,14 +77,15 @@ from wiki_io.wikilinks import vault_wikilink
 # ============================================================================
 
 # Phase 57 D-01 (the crux): placement kinds are DECOUPLED from render order.
-# `_PLACEABLE_KINDS` drives `_place_entities` iteration AND the by-kind sort key;
-# it MUST include test_suite/dependency or those entities would never be
+# `_PLACEABLE_KINDS` drives `_place_entities` iteration AND the direct-list sort
+# key; it MUST include test_suite/dependency or those entities would never be
 # discovered/placed and could not nest under their packages (breaking IDX-04/05).
-# `BY_KIND_ORDER` (D-03/D-08) drives ONLY the flat `## By Kind` render groups —
-# apps first, then packages, then plugins. test_suites/dependencies are no longer
-# flat groups; they appear exclusively nested under the package/app that uses them
-# (in both domain and By-Kind contexts per D-01), so removing them from the flat
-# render order is safe precisely because every package/app now nests its own items.
+# `BY_KIND_ORDER` (D-03/D-08, kept as the D-R6 kind-major order) drives the
+# kind-major heading order for entities (via `_kind_major`) in any container —
+# direct-under-repo or domain block — apps first, then packages, then plugins.
+# test_suites/dependencies are never headings; they appear exclusively nested
+# under the package/app that uses them (per D-01), which is what makes dropping
+# them from the heading order safe — every package/app nests its own items.
 _PLACEABLE_KINDS: tuple[str, ...] = (
     "app",
     "package",
@@ -847,6 +849,8 @@ def _render_repository_section(
 
     Nested domain blocks first (alphabetical top-level domains of THIS repo
     per `repo_domains`, D-R2), then direct entities kind-major (D-R6).
+    Sub-domain recursion assumes a child domain lives in the same repository
+    as its parent (cross-repo domain_contains_domain edges are not supported).
     Returns (lines, rendered_domain_count, direct_heading_count) —
     ([], 0, 0) when the whole section is empty (D-08).
     """
