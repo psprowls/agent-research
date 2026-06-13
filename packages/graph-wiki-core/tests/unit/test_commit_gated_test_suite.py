@@ -35,6 +35,10 @@ def _seed_one_suite(db_path: Path) -> None:
         schema.apply_schema(conn)
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('test_suite', 'pkg-a-unit-tests', 'packages/pkg-a/tests', NULL, "
             '\'{"suite_kind": "unit", "path": "packages/pkg-a/tests", '
             '"owner_kind": "package"}\', \'test_suite:org/repo/pkg-a/tests\')'

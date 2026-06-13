@@ -57,6 +57,11 @@ def _seed_minimal_graph(db_path: Path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         schema.apply_schema(conn)
+        # Repository node (required by index_generator._place_entities)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
         # Insert two package nodes (uri stored in `nodes.uri` column per upsert.py)
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
@@ -90,8 +95,7 @@ def _seed_app_graph(db_path: Path) -> None:
       app node: app-x  (uri app:org/repo/app-x, path apps/app-x)
 
     Mirrors _seed_minimal_graph but seeds an app instead of packages. The
-    `app:` uri scheme matches graph_io/uri.py:app_uri. No domain/repo nodes
-    are needed — write_entities renders any admitted kind that has nodes.
+    `app:` uri scheme matches graph_io/uri.py:app_uri.
     """
     from graph_io import schema
 
@@ -99,6 +103,10 @@ def _seed_app_graph(db_path: Path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('app', 'app-x', 'apps/app-x', NULL, '{\"language\": \"python\"}', 'app:org/repo/app-x')"
@@ -899,6 +907,10 @@ def _seed_test_suite_graph(db_path: Path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('test_suite', 'pkg-a-unit-tests', 'packages/pkg-a/tests', NULL, "
