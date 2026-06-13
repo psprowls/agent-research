@@ -51,6 +51,7 @@ from graph_io.queries import (
     list_dependencies,
     list_domains,
     list_packages,
+    list_repositories,
     list_test_suites,
 )
 from workspace_io.paths import wiki_dir, work_dir
@@ -379,23 +380,64 @@ def _place_entities(
     conn: sqlite3.Connection,
     wiki_root: Path,
     collision_set: frozenset[str],
-) -> tuple[dict[str, list[PlacedEntity]], list[PlacedEntity], dict[str, PlacedEntity]]:
-    """Walk all placeable kinds. Return (domain_buckets, by_kind, name_to_entity).
+) -> tuple[
+    dict[str, tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]],
+    dict[str, PlacedEntity],
+    dict[str, str],
+]:
+    """Walk all placeable kinds. Return (per_repo, name_to_entity, domain_repo).
 
-    D-04 single-placement rule:
-      qualifying_count == 1 -> domain_buckets[that_domain]
-      qualifying_count != 1 -> by_kind_fallback (covers 0 and >=2 cases)
+    2026-06-12 repository grouping (D-R1/D-R3/D-R7):
+      per_repo[repo_node_name] = (domain_buckets, direct_entities)
 
-    `name_to_entity` maps package/app names → their PlacedEntity so internal
-    dependencies (resolved by name via `internal_dependencies_of`) can be
-    turned into wikilinks to the internal package/app entity page (D-09/D-11).
+    The D-04 single-placement rule is unchanged per entity (D-R3):
+      qualifying_count == 1 -> domain_buckets[that_domain] (in the DOMAIN's repo, D-R2)
+      qualifying_count != 1 -> direct_entities             (in the ENTITY's repo, D-R7)
 
-    Iterates `_PLACEABLE_KINDS` (NOT `BY_KIND_ORDER`) so test_suites and
-    dependencies are discovered and can nest (D-01 crux).
+    Repo resolution: parse `{org}/{repo}` from the URI (`_parse_repo_key`)
+    and match a repository node's own `repo:` URI. Unresolvable URIs
+    (repo-less schemes, malformed, or no matching repository node) fall
+    into the single repository when exactly ONE repository node exists
+    (defensive — matches the single-repo reality); with zero or multiple
+    repository nodes they raise ValueError (all-or-nothing D-19, no silent
+    drops).
+
+    `domain_repo` maps every domain name to its repo (from the domain's own
+    URI, D-R2) so the repository-section renderer can filter top-level
+    domains per repo. `name_to_entity` keeps its global meaning (D-09/D-11).
+
+    Iterates `_PLACEABLE_KINDS` (NOT the heading-kind order) so test_suites
+    and dependencies are discovered and can nest (D-01 crux).
     """
-    domain_buckets: dict[str, list[PlacedEntity]] = {}
-    by_kind: list[PlacedEntity] = []
+    repos = list_repositories(conn)
+    repo_key_to_name: dict[str, str] = {}
+    for r in repos:
+        key = _parse_repo_key(r.attrs.get("uri") or "")
+        if key:
+            repo_key_to_name[key] = r.name
+
+    def _repo_for(uri: str, *, kind: str, name: str) -> str:
+        key = _parse_repo_key(uri)
+        if key and key in repo_key_to_name:
+            return repo_key_to_name[key]
+        if len(repos) == 1:
+            return repos[0].name
+        raise ValueError(
+            f"cannot resolve repository for {kind} {name!r} (uri={uri!r}): "
+            f"{len(repos)} repository nodes and no URI match"
+        )
+
+    domain_repo: dict[str, str] = {}
+    for d in list_domains(conn):
+        domain_repo[d.name] = _repo_for(d.attrs.get("uri") or "", kind="domain", name=d.name)
+
+    per_repo: dict[str, tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]] = {}
     name_to_entity: dict[str, PlacedEntity] = {}
+
+    def _buckets_for(repo_name: str) -> tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]:
+        if repo_name not in per_repo:
+            per_repo[repo_name] = ({}, [])
+        return per_repo[repo_name]
 
     kind_to_list_fn = {
         "app": list_apps,
@@ -411,7 +453,7 @@ def _place_entities(
             qualifying = _compute_qualifying_domains(conn, kind=kind, name=node.name, uri=uri)
             # D-01: populate parent_pkg_names with the DOMAIN-AGNOSTIC consumer
             # set for every dep/test_suite (not only single-domain ones), so a
-            # by-kind-placed dep/suite still nests under its consumer packages.
+            # direct-placed dep/suite still nests under its consumer packages.
             # For test_suite: pass entity_uri (unique, stable); for dependency:
             # pass entity_name (D-08).
             parent_pkgs: tuple[str, ...] = ()
@@ -445,14 +487,17 @@ def _place_entities(
                 name_to_entity[entity.name] = entity
             if len(qualifying) == 1:
                 the_domain = next(iter(qualifying))
+                domain_buckets, _ = _buckets_for(domain_repo[the_domain])
                 domain_buckets.setdefault(the_domain, []).append(entity)
             else:
-                by_kind.append(entity)
+                _, direct = _buckets_for(_repo_for(uri, kind=kind, name=node.name))
+                direct.append(entity)
 
-    for d in domain_buckets:
-        domain_buckets[d].sort(key=lambda e: e.uri)
-    by_kind.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
-    return domain_buckets, by_kind, name_to_entity
+    for domain_buckets, direct in per_repo.values():
+        for d in domain_buckets:
+            domain_buckets[d].sort(key=lambda e: e.uri)
+        direct.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
+    return per_repo, name_to_entity, domain_repo
 
 
 # ============================================================================
@@ -903,7 +948,20 @@ def _render(
     # entity-link derivation so the index agrees with `write_entities`.
     collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
 
-    domain_buckets, by_kind, name_to_entity = _place_entities(conn, wiki_root, collision_set)
+    per_repo, name_to_entity, _domain_repo = _place_entities(conn, wiki_root, collision_set)
+    # TEMPORARY shim (removed by the repository-section render change in the
+    # same feature): flatten per-repo placement back to the old
+    # (domain_buckets, by_kind) shape so the existing `## Domains` /
+    # `## By Kind` render path stays byte-identical for this commit.
+    domain_buckets: dict[str, list[PlacedEntity]] = {}
+    by_kind: list[PlacedEntity] = []
+    for buckets, direct in per_repo.values():
+        for dname, ents in buckets.items():
+            domain_buckets.setdefault(dname, []).extend(ents)
+        by_kind.extend(direct)
+    for dname in domain_buckets:
+        domain_buckets[dname].sort(key=lambda e: e.uri)
+    by_kind.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
     entity_count = sum(len(v) for v in domain_buckets.values()) + len(by_kind)
 
     # D-01/D-10: one global dep/suite-under-package grouping over ALL placed
