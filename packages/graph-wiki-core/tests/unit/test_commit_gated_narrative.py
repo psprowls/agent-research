@@ -101,6 +101,10 @@ def _seed_one_package(db_path: Path) -> None:
         schema.apply_schema(conn)
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\": \"python\"}', "
             "'pkg:org/repo/pkg-a')"
         )
@@ -117,6 +121,10 @@ def _seed_two_packages(db_path: Path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\": \"python\"}', "

@@ -63,6 +63,10 @@ def _emit_plugin(db_path: Path, repo: Path) -> None:
     conn = sqlite3.connect(db_path)
     try:
         schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
         _ap_emit(conn, repo_root=repo, ctx=_CTX)
         conn.commit()
     finally:
