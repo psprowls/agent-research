@@ -29,7 +29,7 @@ Run `python scripts/ingest_source.py --source <path> --json` to get (wiki and re
 - whether a summary page already exists (→ **merge mode**)
 - `last_sync_commit`, `in_repo_doc` flag, and `state_gate` (`allowed`, `reason`, `head_commit`) — use `state_gate.allowed` to decide whether to write drift-detection frontmatter; use `state_gate.head_commit` as the value for `last_sync_commit`
 - `entity_match` — `{ uri: <str|null>, entity_filename: <str|null> }` — the best-matching entity from `entities/` for this source (used to populate `entity_uri:` frontmatter); null when no match is found
-- `is_batch`, `kind_folder`, `unit_count`, `units[]` — when `--source` is a top-level `raw/<kind>` folder (specs, articles, prs, tickets, transcripts, examples, skills); see "Batch ingest (kind-folder roots)" below
+- `is_batch`, `kind_folder`, `unit_count`, `total_count`, `limited`, `units[]` — when `--source` is a top-level `raw/<kind>` folder (specs, articles, prs, tickets, transcripts, examples, skills); see "Batch ingest (kind-folder roots)" below
 
 ### 2. Read the source
 
@@ -280,8 +280,11 @@ them directly; they are the deliverable.
 
 ### Detection & units
 
-The brief carries `is_batch: true`, `kind_folder`, `unit_count`, and `units[]`
-(`{path, rel, unit_type}`). Flat kinds (`specs`, `articles`, `prs`, `tickets`,
+The brief carries `is_batch: true`, `kind_folder`, `unit_count`, `total_count`,
+`limited`, and `units[]` (`{path, rel, unit_type}`). A batch caps to the first
+`--limit N` units (default 10; `--all` ingests every unit), so `unit_count` is
+the number of units in this brief, `total_count` is how many were found, and
+`limited` is true when `total_count > unit_count`. Flat kinds (`specs`, `articles`, `prs`, `tickets`,
 `transcripts`): each file is a unit, recursively. `skills/`: each immediate
 subdirectory is a unit (processed exactly like a single skill ingest); a loose
 file directly in `raw/skills/` is not a unit — ingest it individually.

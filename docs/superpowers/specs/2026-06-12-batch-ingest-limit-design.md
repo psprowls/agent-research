@@ -61,7 +61,7 @@ Invocation: `/graph-wiki:ingest <path> [--limit N] [--all]`
 - **Precedence:** `--all` wins over `--limit` when both are passed (resolves to
   `limit=None`). No error; simplest, least surprising.
 
-The prep script parses both, resolves `limit = None if args.all else args.limit`,
+The prep script parses both, resolves `limit = None if args.all_units else args.limit`,
 and passes it into `build_batch_ingest_brief(..., limit=limit)`.
 
 ### Confirm prompt
@@ -90,7 +90,7 @@ Files touched (4):
 
 2. **`plugins/graph-wiki/skills/graph-wiki/scripts/ingest_source.py`** — argparse
    gains `--limit` (`type=int`, `default=10`) and `--all` (`store_true`). Resolve
-   `limit = None if args.all else args.limit`; pass into
+   `limit = None if args.all_units else args.limit`; pass into
    `build_batch_ingest_brief(..., limit=limit)`. Update the batch print block to
    surface truncation, e.g. `Batch: raw/specs (10 of 30 units, --all for everything)`.
 
