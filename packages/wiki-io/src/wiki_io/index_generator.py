@@ -125,6 +125,35 @@ GENERATED_FILES: frozenset[str] = frozenset(
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
+# 2026-06-12 repository grouping D-R7: schemes that are ecosystem-scoped
+# rather than repo-scoped — they never carry an {org}/{repo} segment.
+_REPO_LESS_SCHEMES: frozenset[str] = frozenset({"dependency", "builtin"})
+
+
+def _parse_repo_key(uri: str) -> str | None:
+    """Extract the '{org}/{repo}' segment from a graph URI (D-R7).
+
+    URI shapes locked since Phase 28 (`graph_io.uri`):
+
+      repo:{org}/{repo}                            -> exactly 2 segments
+      pkg:/app:/agent_plugin:/domain:/test_suite:  -> {org}/{repo}/{...}, >= 3 segments
+      dependency:{ecosystem}/{name}, builtin:{lang}/{module} -> repo-less
+
+    Returns None for repo-less schemes and malformed URIs (no scheme,
+    too few segments).
+    """
+    scheme, sep, rest = uri.partition(":")
+    if not sep or not scheme or not rest:
+        return None
+    if scheme in _REPO_LESS_SCHEMES:
+        return None
+    parts = [p for p in rest.split("/") if p]
+    if scheme == "repo":
+        return "/".join(parts) if len(parts) == 2 else None
+    if len(parts) >= 3:
+        return f"{parts[0]}/{parts[1]}"
+    return None
+
 
 # ============================================================================
 # Public dataclasses
@@ -988,6 +1017,7 @@ __all__ = [
     "_entity_bullet",
     "_infer_title",
     "_parse_frontmatter",
+    "_parse_repo_key",
     "_place_entities",
     "_read_entity_summary",
     "_render",

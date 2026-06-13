@@ -28,6 +28,7 @@ from wiki_io.index_generator import (
     _compute_qualifying_domains,
     _consumer_pkgs,
     _consumer_pkgs_in_domain,
+    _parse_repo_key,
     _place_entities,
     _render,
     _render_concepts_section,
@@ -109,6 +110,51 @@ class TestIndexWriteResult:
 
         assert vault_wikilink("work/foo.md", "Foo") == "[[work/foo|Foo]]"
         assert vault_wikilink("concepts/foo.md", "Foo") == "[[concepts/foo|Foo]]"
+
+
+# ============================================================================
+# Plan 01 / Task 1b — _parse_repo_key (D-R7)
+# ============================================================================
+
+
+class TestParseRepoKey:
+    """D-R7 — extract '{org}/{repo}' from the Phase-28 URI shapes."""
+
+    @pytest.mark.parametrize(
+        "uri",
+        [
+            "pkg:local/agent-research/pkg-a",
+            "app:local/agent-research/myapp",
+            "agent_plugin:local/agent-research/graph-wiki",
+            "domain:local/agent-research/core",
+            "test_suite:local/agent-research/unit",
+            "test_suite:local/agent-research/packages/alpha/tests",
+        ],
+    )
+    def test_repo_scoped_schemes(self, uri):
+        assert _parse_repo_key(uri) == "local/agent-research"
+
+    def test_repo_scheme_exactly_two_segments(self):
+        assert _parse_repo_key("repo:local/agent-research") == "local/agent-research"
+
+    @pytest.mark.parametrize("uri", ["dependency:pypi/boto3", "builtin:python/os"])
+    def test_repo_less_schemes_return_none(self, uri):
+        assert _parse_repo_key(uri) is None
+
+    @pytest.mark.parametrize(
+        "uri",
+        [
+            "",
+            "no-colon",
+            "pkg:",
+            "pkg:pkg-a",  # 1 segment — no org/repo
+            "pkg:agent-research/pkg-a",  # 2 segments — ambiguous, malformed
+            "repo:agent-research",  # repo scheme needs exactly 2
+            "repo:a/b/c",  # repo scheme needs exactly 2
+        ],
+    )
+    def test_malformed_return_none(self, uri):
+        assert _parse_repo_key(uri) is None
 
 
 # ============================================================================
