@@ -15,9 +15,11 @@ Decisions encoded here (see `.planning/phases/44-scanner-generated-index/44-CONT
 - D-02: `generate_index` does a FULL rewrite of `wiki/index.md`. The file
   is fully owned by this module — no HTML-comment markers, no partial
   rewrites, no per-folder `*/index.md` files written.
-- D-03: Rendered section order is:
-  H1 → banner → `## Domains` → `## By Kind` → `## Architecture` →
-  `## ADRs` → `## Concepts` → `## Sources` → `## Work`.
+- D-03 (amended 2026-06-12 — repository grouping): rendered section order is
+  H1 → banner → one `## Repository: <name>` section per repository node
+  (domains nested inside, entities as kind-prefixed headings; replaces the
+  old `## Domains` → `## By Kind` slot) → `## ADRs` → `## Concepts` →
+  `## Sources` → `## Work`.
 - D-04: Single-placement rule for entities. An entity placed under a
   single qualifying domain renders inside that `## Domain: X` section;
   zero or multiple qualifying domains fall back to `## By Kind`.
@@ -92,12 +94,12 @@ _PLACEABLE_KINDS: tuple[str, ...] = (
 
 BY_KIND_ORDER: tuple[str, ...] = ("app", "package", "agent_plugin")
 
-KIND_LABELS: dict[str, str] = {
-    "app": "Apps",
-    "package": "Packages",
-    "test_suite": "Test Suites",
-    "dependency": "Dependencies",
-    "agent_plugin": "Agent Plugins",
+# D-R5: singular kind labels for entity headings. Only heading kinds appear —
+# test_suite/dependency render exclusively as nested sub-list bullets.
+KIND_HEADING_LABELS: dict[str, str] = {
+    "app": "App",
+    "package": "Package",
+    "agent_plugin": "Agent Plugin",
 }
 
 # (stable_id, lane_dir_relative_to_wiki_root, section_label)
@@ -164,7 +166,12 @@ def _parse_repo_key(uri: str) -> str | None:
 
 @dataclass(frozen=True)
 class IndexWriteResult:
-    """Return value of `generate_index` (D-18)."""
+    """Return value of `generate_index` (D-18; fields per 2026-06-12 D-R8).
+
+    `direct_count` = heading entities rendered directly under a repo header
+    (the old `by_kind_count` slot); `repo_count` = rendered `## Repository:`
+    sections; `domain_count` keeps its meaning (rendered top-level domains).
+    """
 
     path: Path
     bytes_written: int
@@ -172,7 +179,8 @@ class IndexWriteResult:
     entity_count: int
     curated_count: int
     domain_count: int
-    by_kind_count: int
+    direct_count: int
+    repo_count: int
 
 
 @dataclass(frozen=True)
@@ -321,10 +329,9 @@ def _consumer_pkgs(
 
     The superset of `_consumer_pkgs_in_domain` across all domains: every
     package/app that uses this dependency (`used_by`) or is tested by this
-    test_suite (`tests`), regardless of domain. `_render_by_kind` uses these
-    names so a by-kind-placed (multi/zero-domain) dependency or test_suite
-    still nests under every package/app that consumes it — the fix that makes
-    flat-section removal safe. Sorted alphabetically for determinism.
+    test_suite (`tests`), regardless of domain. Used by `_render_repository_section`
+    so a direct-placed (multi/zero-domain) dependency or test_suite still nests
+    under every package/app that consumes it. Sorted alphabetically for determinism.
 
     For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
     For dependency: resolved by `dep.name` (dependencies are name-unique)."""
@@ -679,11 +686,10 @@ def _render_pkg_nested(
     name_to_entity: dict[str, PlacedEntity],
     collision_set: frozenset[str],
 ) -> list[str]:
-    """Render the THREE nested sub-lists under one package/app bullet (D-09).
+    """Render the THREE nested sub-lists under one package/app entity heading (D-09).
 
-    Shared by `_render_domain_section` and `_render_by_kind` so both contexts
-    stay byte-identical (D-01 — by-kind packages now nest, making flat-section
-    removal safe). Each sub-list is omitted when empty (D-08):
+    Shared by `_render_domain_section` and `_render_repository_section` so both
+    contexts stay consistent. Each sub-list is omitted when empty (D-08):
 
       1. Test Suites          — test_suites that test this package (`tests`)
       2. Dependencies         — external deps this package uses (`used_by`)
@@ -722,10 +728,10 @@ def _build_sub_for_pkg(
     """Group dependencies/test_suites under each consumer/tested package name
     via their (domain-agnostic) `parent_pkg_names` (Phase 57 D-01/D-10).
 
-    Built ONCE over ALL placed entities (domain buckets + by_kind) in `_render`
-    and shared by `_render_domain_section` and `_render_by_kind`, so a by-kind
-    dep/suite still nests under a package that renders in a domain section, and
-    vice-versa — duplication across packages is expected (D-10)."""
+    Built ONCE over ALL placed entities in `_render` and shared across all
+    repository sections, so a direct-placed dep/suite still nests under a
+    package that renders in a domain section, and vice-versa — duplication
+    across packages is expected (D-10)."""
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]] = {}
     for e in entities:
         if e.kind not in ("test_suite", "dependency"):
@@ -734,6 +740,43 @@ def _build_sub_for_pkg(
             sub_for_pkg.setdefault(parent, {"test_suite": [], "dependency": []})
             sub_for_pkg[parent][e.kind].append(e)
     return sub_for_pkg
+
+
+def _kind_major(entities: list[PlacedEntity]) -> list[PlacedEntity]:
+    """Heading entities in kind-major order (D-R6): apps, then packages, then
+    agent plugins (`BY_KIND_ORDER`), alphabetical by URI within each kind.
+    Non-heading kinds (test_suite/dependency — they only nest) are dropped."""
+    return sorted(
+        (e for e in entities if e.kind in BY_KIND_ORDER),
+        key=lambda e: (BY_KIND_ORDER.index(e.kind), e.uri),
+    )
+
+
+def _render_entity_heading(
+    conn: sqlite3.Connection,
+    entity: PlacedEntity,
+    *,
+    level: int,
+    collision_set: frozenset[str],
+    name_to_entity: dict[str, PlacedEntity],
+    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
+) -> list[str]:
+    """Render one entity as a kind-prefixed heading block (D-R4/D-R5).
+
+    `level` is the markdown heading depth: 3 directly under the repo header,
+    4 inside a `### Domain:` block, one deeper per sub-domain level. Body is
+    the `{summary} — [[entities/<stem>|open page]]` line plus the
+    `_render_pkg_nested` sub-lists (packages/apps only — unchanged shape).
+    """
+    label = KIND_HEADING_LABELS[entity.kind]
+    lines = [f"{'#' * level} {label}: {entity.name}", ""]
+    link = _entity_wikilink(entity, collision_set, label="open page")
+    summary = f"{entity.summary} — " if entity.summary else ""
+    lines.append(f"{summary}{link}")
+    if entity.kind in ("package", "app"):
+        lines.extend(_render_pkg_nested(conn, entity, sub_for_pkg, name_to_entity, collision_set))
+    lines.append("")
+    return lines
 
 
 def _render_domain_section(
@@ -746,65 +789,72 @@ def _render_domain_section(
     name_to_entity: dict[str, PlacedEntity],
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
 ) -> list[str]:
-    """Recursively render one domain section.
+    """Recursively render one domain block inside a repository section (D-R2).
 
-    `depth == 0` -> top-level `## Domain: X`; deeper -> `### Sub-Domain: X`.
-    Returns [] (D-08 fully-empty omission) if the section has zero placed
-    entities AND every sub-domain is also empty.
+    `depth == 0` -> `### Domain: X`; deeper -> `#### Sub-Domain: Y`, ….
+    Entities render as kind-prefixed headings one level below the domain
+    heading (D-R4), kind-major (D-R6). Returns [] (D-08 fully-empty
+    omission) when the block has zero heading entities AND every sub-domain
+    block is also empty.
     """
-    heading_prefix = "##" if depth == 0 else ("##" + "#" * depth)
+    level = 3 + depth
     label = f"Domain: {domain_name}" if depth == 0 else f"Sub-Domain: {domain_name}"
 
-    entities = domain_buckets.get(domain_name, [])
-    # Apps render identically to packages within a domain (Phase 57 D-02/D-04).
-    packages = [e for e in entities if e.kind in ("package", "app")]
+    entity_lines: list[str] = []
+    for e in _kind_major(domain_buckets.get(domain_name, [])):
+        entity_lines.extend(
+            _render_entity_heading(
+                conn,
+                e,
+                level=level + 1,
+                collision_set=collision_set,
+                name_to_entity=name_to_entity,
+                sub_for_pkg=sub_for_pkg,
+            )
+        )
 
-    lines_pkg: list[str] = []
-    for pkg in packages:
-        lines_pkg.append(_entity_bullet(pkg, collision_set, ""))
-        lines_pkg.extend(_render_pkg_nested(conn, pkg, sub_for_pkg, name_to_entity, collision_set))
-
-    # Sub-domain recursion (D-07)
     sub_domain_blocks: list[str] = []
     for sub_name in _list_subdomains(conn, domain_name):
-        sub_lines = _render_domain_section(
-            conn,
-            domain_buckets,
-            domain_name=sub_name,
-            depth=depth + 1,
-            collision_set=collision_set,
-            name_to_entity=name_to_entity,
-            sub_for_pkg=sub_for_pkg,
+        sub_domain_blocks.extend(
+            _render_domain_section(
+                conn,
+                domain_buckets,
+                domain_name=sub_name,
+                depth=depth + 1,
+                collision_set=collision_set,
+                name_to_entity=name_to_entity,
+                sub_for_pkg=sub_for_pkg,
+            )
         )
-        if sub_lines:
-            sub_domain_blocks.extend(sub_lines)
 
-    if not lines_pkg and not sub_domain_blocks:
+    if not entity_lines and not sub_domain_blocks:
         return []  # D-08 fully-empty omission
-
-    block: list[str] = [f"{heading_prefix} {label}", ""]
-    block.extend(lines_pkg)
-    if lines_pkg and sub_domain_blocks:
-        block.append("")
-    block.extend(sub_domain_blocks)
-    block.append("")
-    return block
+    return [f"{'#' * level} {label}", "", *entity_lines, *sub_domain_blocks]
 
 
-def _render_domains(
+def _render_repository_section(
     conn: sqlite3.Connection,
+    *,
+    repo_name: str,
     domain_buckets: dict[str, list[PlacedEntity]],
-    wiki_root: Path,
+    direct: list[PlacedEntity],
+    repo_domains: list[str],
     collision_set: frozenset[str],
     name_to_entity: dict[str, PlacedEntity],
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
-) -> tuple[list[str], int]:
-    """Render the full `## Domains` block. Returns (lines, domain_count)."""
-    all_domains = sorted({n.name for n in list_domains(conn)} | set(domain_buckets.keys()))
-    top_level_domains = [d for d in all_domains if _is_top_level_domain(conn, d)]
+) -> tuple[list[str], int, int]:
+    """Render one `## Repository: <name>` section (D-R1).
+
+    Nested domain blocks first (alphabetical top-level domains of THIS repo
+    per `repo_domains`, D-R2), then direct entities kind-major (D-R6).
+    Returns (lines, rendered_domain_count, direct_heading_count) —
+    ([], 0, 0) when the whole section is empty (D-08).
+    """
     lines: list[str] = []
-    rendered_count = 0
-    for d in top_level_domains:
+    domain_count = 0
+    for d in repo_domains:
+        if not _is_top_level_domain(conn, d):
+            continue
         section = _render_domain_section(
             conn,
             domain_buckets,
@@ -816,60 +866,23 @@ def _render_domains(
         )
         if section:
             lines.extend(section)
-            rendered_count += 1
-    if not lines:
-        return [], 0
-    repo_row = conn.execute("SELECT name FROM nodes WHERE kind='repository' ORDER BY name LIMIT 1").fetchone()
-    repo_label = f" — {repo_row[0]}" if repo_row else ""
-    header = [f"## Domains{repo_label}", ""]
-    return header + lines, rendered_count
-
-
-def _render_by_kind(
-    conn: sqlite3.Connection,
-    by_kind_entities: list[PlacedEntity],
-    collision_set: frozenset[str],
-    name_to_entity: dict[str, PlacedEntity],
-    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
-) -> tuple[list[str], int]:
-    """Render the full `## By Kind` block. Returns (lines, by_kind_count).
-
-    Phase 57 D-01/D-08: flat groups are ONLY app/package/agent_plugin (apps first).
-    test_suites and dependencies are no longer flat groups — they nest under
-    the package/app that uses them via `_render_pkg_nested`, exactly like the
-    domain sections. This is the cross-cutting fix: a multi/zero-domain
-    package placed here still shows its Test Suites / Dependencies / Internal
-    dependencies, so removing the flat sections never loses them. `sub_for_pkg`
-    is the SAME global grouping the domain sections use (built in `_render`).
-    """
-    if not by_kind_entities:
-        return [], 0
-
-    lines: list[str] = ["## By Kind", ""]
-    total = 0
-    for kind in BY_KIND_ORDER:
-        group = sorted(
-            (e for e in by_kind_entities if e.kind == kind),
-            key=lambda x: x.uri,
+            domain_count += 1
+    direct_count = 0
+    for e in _kind_major(direct):
+        lines.extend(
+            _render_entity_heading(
+                conn,
+                e,
+                level=3,
+                collision_set=collision_set,
+                name_to_entity=name_to_entity,
+                sub_for_pkg=sub_for_pkg,
+            )
         )
-        if not group:
-            continue
-        lines.append(f"### {KIND_LABELS[kind]}")
-        lines.append("")
-        for e in group:
-            lines.append(f"#### {e.name}")
-            lines.append("")
-            link = _entity_wikilink(e, collision_set, label="open page")
-            summary = f"{e.summary} — " if e.summary else ""
-            lines.append(f"{summary}{link}")
-            total += 1
-            if e.kind in ("package", "app"):
-                lines.extend(_render_pkg_nested(conn, e, sub_for_pkg, name_to_entity, collision_set))
-            lines.append("")
-        lines.append("")
-    if total == 0:
-        return [], 0
-    return lines, total
+        direct_count += 1
+    if not lines:
+        return [], 0, 0
+    return [f"## Repository: {repo_name}", "", *lines], domain_count, direct_count
 
 
 def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
@@ -936,38 +949,30 @@ def _render_guidance_section(topics: list[tuple[str, int]]) -> list[str]:
 
 def _render(
     conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None
-) -> tuple[str, int, int, int, int]:
+) -> tuple[str, int, int, int, int, int]:
     """Render the full index.
 
     `display_name` titles the index (the wiki's human topic). Falls back to the
     wiki directory name when not supplied.
 
-    Returns (text, entity_count, curated_count, domain_count, by_kind_count).
+    Returns (text, entity_count, curated_count, domain_count, direct_count, repo_count).
     """
     # Phase 53 D-05: one-shot collision pre-pass, threaded through every
     # entity-link derivation so the index agrees with `write_entities`.
     collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
 
-    per_repo, name_to_entity, _domain_repo = _place_entities(conn, wiki_root, collision_set)
-    # TEMPORARY shim (removed by the repository-section render change in the
-    # same feature): flatten per-repo placement back to the old
-    # (domain_buckets, by_kind) shape so the existing `## Domains` /
-    # `## By Kind` render path stays byte-identical for this commit.
-    domain_buckets: dict[str, list[PlacedEntity]] = {}
-    by_kind: list[PlacedEntity] = []
+    per_repo, name_to_entity, domain_repo = _place_entities(conn, wiki_root, collision_set)
+
+    all_placed: list[PlacedEntity] = []
     for buckets, direct in per_repo.values():
-        for dname, ents in buckets.items():
-            domain_buckets.setdefault(dname, []).extend(ents)
-        by_kind.extend(direct)
-    for dname in domain_buckets:
-        domain_buckets[dname].sort(key=lambda e: e.uri)
-    by_kind.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
-    entity_count = sum(len(v) for v in domain_buckets.values()) + len(by_kind)
+        for ents in buckets.values():
+            all_placed.extend(ents)
+        all_placed.extend(direct)
+    entity_count = len(all_placed)
 
     # D-01/D-10: one global dep/suite-under-package grouping over ALL placed
-    # entities, so a by-kind dep/suite nests under a package that renders in a
-    # domain section (and vice-versa). Shared by both render contexts.
-    all_placed = [e for v in domain_buckets.values() for e in v] + by_kind
+    # entities, shared across all repo sections, so nesting behavior is
+    # identical regardless of which repo/domain a consumer renders in.
     sub_for_pkg = _build_sub_for_pkg(all_placed)
 
     workspace_root = wiki_root.parent
@@ -986,24 +991,27 @@ def _render(
         "",
     ]
 
-    domains_lines, domain_count = _render_domains(
-        conn,
-        domain_buckets,
-        wiki_root,
-        collision_set,
-        name_to_entity,
-        sub_for_pkg,
-    )
-    lines.extend(domains_lines)
-
-    by_kind_lines, by_kind_count = _render_by_kind(
-        conn,
-        by_kind,
-        collision_set,
-        name_to_entity,
-        sub_for_pkg,
-    )
-    lines.extend(by_kind_lines)
+    repo_count = 0
+    domain_count = 0
+    direct_count = 0
+    for repo_name in sorted(per_repo):
+        buckets, direct = per_repo[repo_name]
+        repo_domains = sorted(d for d, r in domain_repo.items() if r == repo_name)
+        section, d_count, dir_count = _render_repository_section(
+            conn,
+            repo_name=repo_name,
+            domain_buckets=buckets,
+            direct=direct,
+            repo_domains=repo_domains,
+            collision_set=collision_set,
+            name_to_entity=name_to_entity,
+            sub_for_pkg=sub_for_pkg,
+        )
+        if section:
+            lines.extend(section)
+            repo_count += 1
+            domain_count += d_count
+            direct_count += dir_count
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:
         if stable_id == "concepts":
@@ -1014,7 +1022,7 @@ def _render(
     lines.extend(_render_curated_section("Work", work_entries))
 
     text = "\n".join(lines).rstrip("\n") + "\n"  # POSIX trailing newline
-    return text, entity_count, curated_count, domain_count, by_kind_count
+    return text, entity_count, curated_count, domain_count, direct_count, repo_count
 
 
 def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
@@ -1027,7 +1035,7 @@ def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str 
     bytes differ. D-19: all-or-nothing — exceptions in render/place
     propagate out untouched.
     """
-    text, entity_count, curated_count, domain_count, by_kind_count = _render(conn, wiki_root, display_name)
+    text, entity_count, curated_count, domain_count, direct_count, repo_count = _render(conn, wiki_root, display_name)
     path = wiki_root / "index.md"
     new_bytes = text.encode("utf-8")
     existing_bytes: bytes | None
@@ -1043,7 +1051,8 @@ def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str 
             entity_count=entity_count,
             curated_count=curated_count,
             domain_count=domain_count,
-            by_kind_count=by_kind_count,
+            direct_count=direct_count,
+            repo_count=repo_count,
         )
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
@@ -1056,7 +1065,8 @@ def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str 
         entity_count=entity_count,
         curated_count=curated_count,
         domain_count=domain_count,
-        by_kind_count=by_kind_count,
+        direct_count=direct_count,
+        repo_count=repo_count,
     )
 
 
@@ -1066,7 +1076,7 @@ __all__ = [
     "CURATED_LANES",
     "GENERATED_FILES",
     "IndexWriteResult",
-    "KIND_LABELS",
+    "KIND_HEADING_LABELS",
     "PlacedEntity",
     "_PLACEABLE_KINDS",
     "_build_sub_for_pkg",
@@ -1075,18 +1085,19 @@ __all__ = [
     "_consumer_pkgs_in_domain",
     "_entity_bullet",
     "_infer_title",
+    "_kind_major",
     "_parse_frontmatter",
     "_parse_repo_key",
     "_place_entities",
     "_read_entity_summary",
     "_render",
-    "_render_by_kind",
     "_render_concepts_section",
     "_render_curated_section",
     "_render_domain_section",
-    "_render_domains",
+    "_render_entity_heading",
     "_render_guidance_section",
     "_render_pkg_nested",
+    "_render_repository_section",
     "_scan_curated_lane",
     "_scan_guidance_topics",
     "_scan_work",

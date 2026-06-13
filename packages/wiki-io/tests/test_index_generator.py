@@ -23,7 +23,7 @@ from wiki_io.index_generator import (
     BY_KIND_ORDER,
     CURATED_LANES,
     GENERATED_FILES,
-    KIND_LABELS,
+    KIND_HEADING_LABELS,
     IndexWriteResult,
     _compute_qualifying_domains,
     _consumer_pkgs,
@@ -66,7 +66,8 @@ class TestIndexWriteResult:
             entity_count=10,
             curated_count=5,
             domain_count=2,
-            by_kind_count=3,
+            direct_count=3,
+            repo_count=1,
         )
         assert r.path == Path("/tmp/wiki/index.md")
         assert r.bytes_written == 1234
@@ -74,7 +75,8 @@ class TestIndexWriteResult:
         assert r.entity_count == 10
         assert r.curated_count == 5
         assert r.domain_count == 2
-        assert r.by_kind_count == 3
+        assert r.direct_count == 3
+        assert r.repo_count == 1
 
     def test_frozen(self):
         r = IndexWriteResult(
@@ -84,24 +86,22 @@ class TestIndexWriteResult:
             entity_count=0,
             curated_count=0,
             domain_count=0,
-            by_kind_count=0,
+            direct_count=0,
+            repo_count=0,
         )
         with pytest.raises(dataclasses.FrozenInstanceError):
             r.changed = True  # type: ignore[misc]
 
     def test_module_constants(self):
-        # Phase 57 D-03/D-08: flat By-Kind groups are app/package/agent_plugin only.
+        # D-R6: BY_KIND_ORDER survives as the kind-major heading order.
         assert BY_KIND_ORDER == ("app", "package", "agent_plugin")
+        # D-R5: singular kind heading labels.
+        assert KIND_HEADING_LABELS == {"app": "App", "package": "Package", "agent_plugin": "Agent Plugin"}
         assert len(CURATED_LANES) == 3
         assert CURATED_LANES[0] == ("adrs", "adrs", "ADRs")
         assert CURATED_LANES[1] == ("concepts", "concepts", "Concepts")
         assert CURATED_LANES[2] == ("sources", "sources", "Sources")
         assert "architecture/index.md" not in GENERATED_FILES
-        assert KIND_LABELS["app"] == "Apps"
-        assert KIND_LABELS["package"] == "Packages"
-        assert KIND_LABELS["agent_plugin"] == "Agent Plugins"
-        # test_suite/dependency are no longer flat groups, but their labels
-        # remain as the nested sub-heading strings.
         assert "index.md" in GENERATED_FILES
         assert "concepts/index.md" in GENERATED_FILES
 
@@ -505,6 +505,21 @@ class TestPlacement:
         conn = make_index_fixture_graph({"nodes": [], "edges": []})
         assert _place(conn) == {}
 
+    def test_parseable_uri_unmatched_key_multi_repo_raises(self, make_index_fixture_graph):
+        # Well-formed URI whose {org}/{repo} matches NO repository node —
+        # distinct branch from the malformed-URI case above.
+        spec = {
+            "nodes": [
+                ("repository", "repo-alpha", {"uri": "repo:local/repo-alpha"}),
+                ("repository", "repo-beta", {"uri": "repo:local/repo-beta"}),
+                ("package", "pkg-x", {"uri": "pkg:local/nonexistent/pkg-x"}),
+            ],
+            "edges": [],
+        }
+        conn = make_index_fixture_graph(spec)
+        with pytest.raises(ValueError, match="cannot resolve repository"):
+            _place(conn)
+
 
 # ============================================================================
 # Plan 01 / Task 3 — Curated and work scan
@@ -609,9 +624,11 @@ class TestRenderDomainTree:
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
-        assert "## Domains — agent-research" in text
-        assert "## Domain: core" in text
-        assert "[[entities/pkg_pkg-a|pkg-a]]" in text
+        assert "\n## Repository: agent-research" in text
+        assert "## Domains" not in text
+        assert "\n### Domain: core" in text
+        assert "\n#### Package: pkg-a" in text
+        assert "[[entities/pkg_pkg-a|open page]]" in text
 
     def test_sub_domain_nesting(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -632,9 +649,11 @@ class TestRenderDomainTree:
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
-        assert "## Domain: core" in text
-        assert "### Sub-Domain: billing" in text
-        assert "## Domain: billing\n" not in text
+        assert "\n### Domain: core" in text
+        assert "\n#### Sub-Domain: billing" in text
+        assert "\n### Domain: billing" not in text
+        assert "\n#### Package: pkg-core" in text
+        assert "\n##### Package: pkg-billing" in text
 
     def test_empty_domain_omitted(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -648,14 +667,16 @@ class TestRenderDomainTree:
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
-        assert "## Domain: empty-domain" not in text
+        assert "Domain: empty-domain" not in text
+        # repo has no entities at all -> whole repo section omitted (D-08)
+        assert "## Repository:" not in text
 
 
-class TestRenderByKind:
-    def test_by_kind_section_order(self, tmp_path, make_index_fixture_graph):
-        # Phase 57 D-03/D-08: flat By-Kind groups are app/package/agent_plugin only,
-        # apps first. A dependency used by a by-kind package nests UNDER that
-        # package (no flat `### Dependencies` group).
+class TestRenderDirectEntities:
+    def test_direct_entities_kind_major_order(self, tmp_path, make_index_fixture_graph):
+        # D-R6: apps first, then packages, then agent plugins — as `###`
+        # kind-prefixed headings directly under the repo header. A dependency
+        # used by a direct package nests UNDER that package (no flat groups).
         spec = {
             "nodes": [
                 ("repository", "agent-research", {"uri": "repo:agent-research"}),
@@ -665,7 +686,6 @@ class TestRenderByKind:
                 ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
             ],
             "edges": [
-                # boto3 is used by pkg-cross (which is by-kind: zero domains)
                 ("package", "pkg-cross", "dependency", "boto3", "used_by", {}),
             ],
         }
@@ -673,30 +693,27 @@ class TestRenderByKind:
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
-        app_idx = text.find("### Apps")
-        pkg_idx = text.find("### Packages")
-        plug_idx = text.find("### Agent Plugins")
+        assert "\n## Repository: agent-research" in text
+        app_idx = text.find("\n### App: myapp")
+        pkg_idx = text.find("\n### Package: pkg-cross")
+        plug_idx = text.find("\n### Agent Plugin: graph-wiki")
         assert app_idx > -1 and pkg_idx > -1 and plug_idx > -1
-        # Apps first, then packages, then agent_plugins (D-03).
         assert app_idx < pkg_idx < plug_idx
-        # By-kind entities now render as `#### {name}` headers with an
-        # `open page` link line (header replaces the old name bullet).
-        assert "#### pkg-cross" in text
         assert "[[entities/pkg_pkg-cross|open page]]" in text
-        assert "#### myapp" in text
         assert "[[entities/app_myapp|open page]]" in text
-        assert "#### graph-wiki" in text
         assert "[[entities/agent-plugin_graph-wiki|open page]]" in text
-        # The old bare name bullet for a by-kind entity is gone.
-        assert "[[entities/pkg_pkg-cross|pkg-cross]]" not in text
+        # Removed structure never renders.
+        assert "## By Kind" not in text
+        assert "### Apps" not in text
+        assert "### Packages" not in text
+        assert "### Agent Plugins" not in text
         # No flat dependency group; boto3 still nests under pkg-cross (bullet).
-        assert "### Dependencies" not in text
         assert "  - Dependencies" in text
         assert "[[entities/dep_boto3|boto3]]" in text
 
-    def test_by_kind_entity_summary_renders_before_open_page_link(self, tmp_path, make_index_fixture_graph):
-        """A by-kind entity with a `summary:` renders `{summary} — [[…|open page]]`
-        on the line beneath its `#### {name}` header (summary-first ordering)."""
+    def test_direct_entity_summary_renders_before_open_page_link(self, tmp_path, make_index_fixture_graph):
+        """A direct entity with a `summary:` renders `{summary} — [[…|open page]]`
+        on the line beneath its kind-prefixed heading (summary-first ordering)."""
         spec = {
             "nodes": [
                 ("repository", "agent-research", {"uri": "repo:agent-research"}),
@@ -713,10 +730,12 @@ class TestRenderByKind:
             summary="Cross summary",
         )
         text, *_ = _render(conn, wiki_root)
-        assert "#### pkg-cross" in text
+        assert "\n### Package: pkg-cross" in text
         assert "Cross summary — [[entities/pkg_pkg-cross|open page]]" in text
 
-    def test_empty_by_kind_omitted(self, tmp_path, make_index_fixture_graph):
+    def test_no_direct_entities_no_stray_headings(self, tmp_path, make_index_fixture_graph):
+        # All entities placed in domains -> repo section contains only the
+        # domain block; no level-3 entity headings, no `## By Kind`.
         spec = {
             "nodes": [
                 ("repository", "agent-research", {"uri": "repo:agent-research"}),
@@ -732,6 +751,9 @@ class TestRenderByKind:
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
         assert "## By Kind" not in text
+        assert "\n### Domain: core" in text
+        assert "\n#### Package: pkg-a" in text
+        assert "\n### Package:" not in text
 
     def test_test_suites_subheading(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -754,11 +776,10 @@ class TestRenderByKind:
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
-        # Phase 57 D-08: no flat `### Test Suites` group. The multi-domain suite
-        # nests under both pkg-1 (domain d1) and pkg-2 (domain d2) per D-10.
+        # No flat `### Test Suites` group. The multi-domain suite nests under
+        # both pkg-1 (domain d1) and pkg-2 (domain d2) per D-10.
         assert "### Test Suites" not in text
         assert "  - Test Suites" in text
-        # suite tests pkg-1 and pkg-2 → its link appears under each (duplicated).
         assert text.count("[[entities/tests_suite|suite]]") == 2
 
 
@@ -831,29 +852,41 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
     assert result.entity_count == 6  # 3 pkgs + 1 ts + 1 dep + 1 agent_plugin
     assert result.curated_count == 2
     assert result.domain_count == 2
-    # Phase 57 D-03/D-08: by_kind_count is the flat top-level group count
-    # (app/package/agent_plugin). boto3 (a by-kind dependency) no longer renders as a
-    # flat group — it nests under its consumer packages — so only pkg-cross
-    # (package) + graph-wiki (agent_plugin) remain as flat By-Kind bullets.
-    assert result.by_kind_count == 2
+    assert result.repo_count == 1
+    # D-R8: direct_count = heading entities rendered directly under a repo
+    # header. boto3 (multi-domain dependency) only nests under its consumers,
+    # so pkg-cross (package) + graph-wiki (agent_plugin) remain.
+    assert result.direct_count == 2
 
     text = (wiki_root / "index.md").read_text(encoding="utf-8")
-    assert "## Domains — agent-research" in text
-    assert "## Domain: billing" in text
-    assert "## Domain: core" in text
-    assert "## By Kind" in text
-    assert "### Packages" in text
-    # No flat dependency group; boto3 nests under pkg-a (core) and pkg-b
-    # (billing) as a `  - Dependencies` sub-list (D-08/D-10).
+    assert "\n## Repository: agent-research" in text
+    assert "## Domains" not in text
+    assert "## By Kind" not in text
+    assert "\n### Domain: billing" in text
+    assert "\n### Domain: core" in text
+    # Single-domain entities are `####` headings inside their domain block …
+    assert "\n#### Package: pkg-a" in text
+    assert "\n#### Package: pkg-b" in text
+    # … and zero/multi-domain entities are `###` headings under the repo.
+    assert "\n### Package: pkg-cross" in text
+    assert "\n### Agent Plugin: graph-wiki" in text
+    assert "\n### Package: pkg-a" not in text
+    # Domains render before direct entities (spec section order); billing < core.
+    billing_idx = text.find("\n### Domain: billing")
+    core_idx = text.find("\n### Domain: core")
+    cross_idx = text.find("\n### Package: pkg-cross")
+    assert -1 < billing_idx < core_idx < cross_idx
+    # Flat kind groups are gone.
+    assert "### Apps" not in text
+    assert "### Packages" not in text
+    assert "### Agent Plugins" not in text
     assert "### Dependencies" not in text
+    # boto3 nests under pkg-a (core) and pkg-b (billing) as bullets (D-10).
     assert "  - Dependencies" in text
-    assert "### Agent Plugins" in text
-    # Piped human-readable links (IDX-02/D-05).
-    assert "[[entities/pkg_pkg-a|pkg-a]]" in text
     assert "[[entities/dep_boto3|boto3]]" in text
+    assert "[[entities/pkg_pkg-a|open page]]" in text
     assert "## ADRs" in text
     assert "## Concepts" in text
-    # Empty curated lanes omitted (D-08)
     assert "## Sources" not in text
     assert "## Architecture" not in text
     assert "## Work" not in text
@@ -988,8 +1021,8 @@ def test_atomic_write_no_tmp_remains(tmp_path, make_index_fixture_graph):
 # ============================================================================
 
 
-def test_cross_cutting_in_by_kind_only(tmp_path, make_index_fixture_graph):
-    """INDEX-03 — cross-cutting packages only in by_kind."""
+def test_cross_cutting_renders_direct_under_repo(tmp_path, make_index_fixture_graph):
+    """INDEX-03 — cross-cutting packages render directly under the repo header."""
     spec = _build_realistic_graph_spec()
     conn = make_index_fixture_graph(spec)
     wiki_root = tmp_path / "wiki"
@@ -998,19 +1031,18 @@ def test_cross_cutting_in_by_kind_only(tmp_path, make_index_fixture_graph):
     text, *_ = _render(conn, wiki_root)
     cross_link = "[[entities/pkg_pkg-cross|open page]]"
     assert text.count(cross_link) == 1
-    by_kind_idx = text.find("## By Kind")
-    cross_idx = text.find(cross_link)
-    assert by_kind_idx > -1
-    assert by_kind_idx < cross_idx
-    core_idx = text.find("## Domain: core")
-    billing_idx = text.find("## Domain: billing")
-    assert core_idx > -1 and billing_idx > -1
-    assert core_idx < by_kind_idx
-    assert billing_idx < by_kind_idx
+    assert "\n### Package: pkg-cross" in text
+    core_idx = text.find("\n### Domain: core")
+    billing_idx = text.find("\n### Domain: billing")
+    cross_idx = text.find("\n### Package: pkg-cross")
+    assert core_idx > -1 and billing_idx > -1 and cross_idx > -1
+    # Domain blocks render before direct entities inside the repo section.
+    assert core_idx < cross_idx
+    assert billing_idx < cross_idx
 
 
-def test_multi_domain_entity_in_by_kind(tmp_path, make_index_fixture_graph):
-    """INDEX-04/D-01/D-10 — a multi-domain test_suite is placed in by_kind but
+def test_multi_domain_entity_nests_only_under_consumers(tmp_path, make_index_fixture_graph):
+    """INDEX-04/D-01/D-10 — a multi-domain test_suite is placed direct under the repo but
     nests under each package it tests (in those packages' domain sections),
     appearing once per tested package (duplication is expected, D-10)."""
     spec = _build_realistic_graph_spec()
@@ -1052,11 +1084,13 @@ def test_sub_domain_nesting(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    assert "## Domain: core" in text
-    assert "### Sub-Domain: billing" in text
-    assert "## Domain: billing\n" not in text
-    core_idx = text.find("## Domain: core")
-    sub_idx = text.find("### Sub-Domain: billing")
+    assert "\n### Domain: core" in text
+    assert "\n#### Sub-Domain: billing" in text
+    assert "\n### Domain: billing" not in text
+    assert "\n#### Package: pkg-core" in text
+    assert "\n##### Package: pkg-billing" in text
+    core_idx = text.find("\n### Domain: core")
+    sub_idx = text.find("\n#### Sub-Domain: billing")
     assert core_idx < sub_idx
 
 
@@ -1078,18 +1112,17 @@ def test_empty_sections_omitted(tmp_path, make_index_fixture_graph):
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    assert "## Domain: active-domain" in text
-    assert "[[entities/pkg_pkg-solo|pkg-solo]]" in text
-    active_start = text.find("## Domain: active-domain")
-    next_section = text.find("##", active_start + len("## Domain: active-domain"))
-    active_section = text[active_start : next_section if next_section > -1 else None]
-    assert "Test Suites" not in active_section
-    assert "Dependencies" not in active_section
-    assert "## Domain: empty-domain" not in text
+    assert "\n### Domain: active-domain" in text
+    assert "\n#### Package: pkg-solo" in text
+    assert "[[entities/pkg_pkg-solo|open page]]" in text
+    # pkg-solo has no suites/deps -> no nested sub-lists anywhere (D-08).
+    assert "Test Suites" not in text
+    assert "Dependencies" not in text
+    assert "Domain: empty-domain" not in text
 
 
-def test_agent_plugin_always_by_kind(tmp_path, make_index_fixture_graph):
-    """D-04 — agent_plugins always in by_kind regardless of other state."""
+def test_agent_plugin_always_direct_under_repo(tmp_path, make_index_fixture_graph):
+    """D-04 — agent_plugins always direct under the repo header regardless of other state."""
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
@@ -1108,12 +1141,76 @@ def test_agent_plugin_always_by_kind(tmp_path, make_index_fixture_graph):
     text, *_ = _render(conn, wiki_root)
     agent_plugin_slug = "agent-plugin_graph-wiki"
     assert text.count(agent_plugin_slug) == 1
-    by_kind_idx = text.find("## By Kind")
-    plugins_idx = text.find("### Agent Plugins")
-    plug_link_idx = text.find(agent_plugin_slug)
-    assert by_kind_idx > -1
-    assert plugins_idx > by_kind_idx
-    assert plug_link_idx > plugins_idx
+    assert "\n### Agent Plugin: graph-wiki" in text
+    core_idx = text.find("\n### Domain: core")
+    plug_idx = text.find("\n### Agent Plugin: graph-wiki")
+    assert -1 < core_idx < plug_idx
+
+
+def test_multi_repo_renders_two_alphabetical_sections(tmp_path, make_index_fixture_graph):
+    """D-R1 — two repository nodes render two self-contained, alphabetical
+    `## Repository:` sections with entities split by URI (D-R7), domains
+    nested in their own repo's section (D-R2)."""
+    spec = {
+        "nodes": [
+            ("repository", "repo-alpha", {"uri": "repo:local/repo-alpha"}),
+            ("repository", "repo-beta", {"uri": "repo:local/repo-beta"}),
+            ("domain", "core", {"uri": "domain:local/repo-beta/core"}),
+            ("package", "pkg-one", {"uri": "pkg:local/repo-alpha/pkg-one"}),
+            ("package", "pkg-two", {"uri": "pkg:local/repo-beta/pkg-two"}),
+            ("package", "pkg-three", {"uri": "pkg:local/repo-beta/pkg-three"}),
+        ],
+        "edges": [
+            ("package", "pkg-two", "domain", "core", "belongs_to_domain", {}),
+        ],
+    }
+    conn = make_index_fixture_graph(spec)
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir(parents=True, exist_ok=True)
+    text, *_ = _render(conn, wiki_root)
+    a_idx = text.find("\n## Repository: repo-alpha")
+    b_idx = text.find("\n## Repository: repo-beta")
+    assert -1 < a_idx < b_idx
+    one_idx = text.find("\n### Package: pkg-one")
+    dom_idx = text.find("\n### Domain: core")
+    two_idx = text.find("\n#### Package: pkg-two")
+    three_idx = text.find("\n### Package: pkg-three")
+    # pkg-one inside alpha; beta holds its domain (with pkg-two) then pkg-three.
+    assert a_idx < one_idx < b_idx
+    assert b_idx < dom_idx < two_idx < three_idx
+
+
+def test_empty_repo_section_omitted(tmp_path, make_index_fixture_graph):
+    """D-08 — a repository node with no placed entities renders no section."""
+    spec = {
+        "nodes": [
+            ("repository", "repo-alpha", {"uri": "repo:local/repo-alpha"}),
+            ("repository", "repo-empty", {"uri": "repo:local/repo-empty"}),
+            ("package", "pkg-one", {"uri": "pkg:local/repo-alpha/pkg-one"}),
+        ],
+        "edges": [],
+    }
+    conn = make_index_fixture_graph(spec)
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir(parents=True, exist_ok=True)
+    text, *_ = _render(conn, wiki_root)
+    assert "\n## Repository: repo-alpha" in text
+    assert "Repository: repo-empty" not in text
+
+
+def test_zero_repos_curated_lanes_only(tmp_path, make_index_fixture_graph):
+    """Edge case — zero repository nodes (empty graph): no entity sections,
+    curated lanes still render."""
+    wiki_root = tmp_path / "wiki"
+    _write_curated_page(wiki_root / "concepts" / "foo.md", title="Foo Concept")
+    conn = make_index_fixture_graph({"nodes": [], "edges": []})
+    result = generate_index(conn, wiki_root)
+    text = (wiki_root / "index.md").read_text(encoding="utf-8")
+    assert "## Repository:" not in text
+    assert "## Concepts" in text
+    assert result.repo_count == 0
+    assert result.direct_count == 0
+    assert result.domain_count == 0
 
 
 # ============================================================================
@@ -1182,9 +1279,9 @@ def test_generated_files_excluded(tmp_path, make_index_fixture_graph):
 # ============================================================================
 
 
-def test_app_zero_domain_renders_in_by_kind_apps_first(tmp_path, make_index_fixture_graph):
-    """IDX-01/D-03/D-04 — a zero-domain app renders in `### Apps`, before
-    `### Packages`."""
+def test_app_zero_domain_renders_direct_apps_first(tmp_path, make_index_fixture_graph):
+    """IDX-01/D-R6 — a zero-domain app renders directly under the repo header,
+    before packages (apps first)."""
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
@@ -1197,12 +1294,11 @@ def test_app_zero_domain_renders_in_by_kind_apps_first(tmp_path, make_index_fixt
     wiki_root = tmp_path / "wiki"
     wiki_root.mkdir(parents=True, exist_ok=True)
     text, *_ = _render(conn, wiki_root)
-    apps_idx = text.find("### Apps")
-    pkgs_idx = text.find("### Packages")
-    assert apps_idx > -1
-    assert pkgs_idx > -1
-    assert apps_idx < pkgs_idx  # apps listed first (D-03)
-    assert "#### myapp" in text
+    app_idx = text.find("\n### App: myapp")
+    pkg_idx = text.find("\n### Package: pkg-cross")
+    assert app_idx > -1
+    assert pkg_idx > -1
+    assert app_idx < pkg_idx  # apps listed first (D-R6)
     assert "[[entities/app_myapp|open page]]" in text
 
 
@@ -1223,10 +1319,10 @@ def test_app_single_domain_renders_under_its_domain(tmp_path, make_index_fixture
     wiki_root = tmp_path / "wiki"
     wiki_root.mkdir(parents=True, exist_ok=True)
     text, *_ = _render(conn, wiki_root)
-    assert "## Domain: core" in text
-    # App link present under its domain; no By-Kind section at all (only entity).
-    assert "[[entities/app_myapp|myapp]]" in text
-    assert "### Apps" not in text
+    assert "\n### Domain: core" in text
+    assert "\n#### App: myapp" in text
+    assert "[[entities/app_myapp|open page]]" in text
+    assert "\n### App:" not in text  # not a direct entity
 
 
 def test_internal_dependencies_subsection_distinct_from_dependencies(tmp_path, make_index_fixture_graph):
@@ -1293,11 +1389,13 @@ def test_inline_summary_from_entity_page_frontmatter(tmp_path, make_index_fixtur
         summary="Some summary",
     )
     text, *_ = _render(conn, wiki_root)
-    # pkg-a renders the inline summary suffix (D-07).
-    assert "[[entities/pkg_pkg-a|pkg-a]] — Some summary" in text
-    # pkg-b (no entity page) renders the link with NO ` — ` suffix.
-    assert "[[entities/pkg_pkg-b|pkg-b]]\n" in text
-    assert "[[entities/pkg_pkg-b|pkg-b]] —" not in text
+    # pkg-a renders its summary before the open-page link (D-R4 body shape).
+    assert "\n#### Package: pkg-a" in text
+    assert "Some summary — [[entities/pkg_pkg-a|open page]]" in text
+    # pkg-b (no entity page) renders the bare link with NO summary prefix.
+    assert "\n#### Package: pkg-b" in text
+    assert "[[entities/pkg_pkg-b|open page]]\n" in text
+    assert "— [[entities/pkg_pkg-b|open page]]" not in text
 
 
 # --- Fan-out regression guard (SC#3 / D-07/D-08) ---
