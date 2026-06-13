@@ -136,11 +136,12 @@ def _parse_repo_key(uri: str) -> str | None:
     URI shapes locked since Phase 28 (`graph_io.uri`):
 
       repo:{org}/{repo}                            -> exactly 2 segments
-      pkg:/app:/agent_plugin:/domain:/test_suite:  -> {org}/{repo}/{...}, >= 3 segments
+      pkg: app: agent_plugin: domain: test_suite:           -> {org}/{repo}/{...}, >= 3 segments
       dependency:{ecosystem}/{name}, builtin:{lang}/{module} -> repo-less
 
     Returns None for repo-less schemes and malformed URIs (no scheme,
-    too few segments).
+    too few segments). Unknown repo-scoped schemes with >= 3 segments
+    are treated as repo-scoped.
     """
     scheme, sep, rest = uri.partition(":")
     if not sep or not scheme or not rest:
