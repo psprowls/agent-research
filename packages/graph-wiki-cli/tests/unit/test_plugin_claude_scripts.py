@@ -323,6 +323,120 @@ def test_init_vault_script_claude_branch_calls_init_wiki(
     assert json.loads(capsys.readouterr().out)["status"] == "ok"
 
 
+@pytest.mark.parametrize(
+    "extra_argv, expected_limit",
+    [
+        ([], 10),
+        (["--limit", "25"], 25),
+        (["--all"], None),
+        (["--all", "--limit", "5"], None),
+    ],
+)
+def test_ingest_source_script_batch_limit_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    extra_argv: list[str],
+    expected_limit: int | None,
+) -> None:
+    _install_claude_backend(monkeypatch)
+    workspace = tmp_path / "workspace"
+    _install_fake_wiki_io(monkeypatch, workspace)
+    module = types.ModuleType("wiki_io.ingest_source")
+
+    captured: dict[str, object] = {}
+
+    # The fake always returns limited=True, so every parametrized case asserts the truncated form.
+    def fake_batch(*args, **kwargs):
+        captured["limit"] = kwargs.get("limit", "MISSING")
+        return {
+            "is_batch": True,
+            "kind_folder": "specs",
+            "root": str(kwargs.get("source_path", "")),
+            "unit_count": 2,
+            "total_count": 5,
+            "limited": True,
+            "units": [
+                {"rel": "a.md", "unit_type": "file"},
+                {"rel": "b.md", "unit_type": "file"},
+            ],
+            "state_gate": {},
+        }
+
+    module.build_batch_ingest_brief = fake_batch  # type: ignore[attr-defined]
+    module.build_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # not reached (batch)
+    module.build_folder_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # not reached
+    module.build_skill_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # not reached
+    module.resolve_skill_anchor = lambda path: None  # type: ignore[attr-defined]  # not reached
+    monkeypatch.setitem(sys.modules, "wiki_io.ingest_source", module)
+
+    (workspace / "wiki").mkdir(parents=True)
+    root = workspace / "raw" / "specs"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest_source.py", str(root), "--workspace", str(workspace), *extra_argv],
+    )
+
+    runpy.run_path(str(_SCRIPT_DIR / "ingest_source.py"), run_name="__main__")
+
+    assert captured["limit"] == expected_limit
+    out = capsys.readouterr().out
+    assert "Batch: raw/specs (2 of 5 units, --all for everything)" in out
+
+
+def test_ingest_source_script_batch_non_limited_print(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _install_claude_backend(monkeypatch)
+    workspace = tmp_path / "workspace"
+    _install_fake_wiki_io(monkeypatch, workspace)
+    module = types.ModuleType("wiki_io.ingest_source")
+
+    def fake_batch(*args, **kwargs):
+        return {
+            "is_batch": True,
+            "kind_folder": "specs",
+            "root": str(kwargs.get("source_path", "")),
+            "unit_count": 2,
+            "total_count": 2,
+            "limited": False,
+            "units": [
+                {"rel": "a.md", "unit_type": "file"},
+                {"rel": "b.md", "unit_type": "file"},
+            ],
+            "state_gate": {},
+        }
+
+    module.build_batch_ingest_brief = fake_batch  # type: ignore[attr-defined]
+    module.build_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # not reached (batch)
+    module.build_folder_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # not reached
+    module.build_skill_ingest_brief = lambda *a, **k: {}  # type: ignore[attr-defined]  # not reached
+    module.resolve_skill_anchor = lambda path: None  # type: ignore[attr-defined]  # not reached
+    monkeypatch.setitem(sys.modules, "wiki_io.ingest_source", module)
+
+    (workspace / "wiki").mkdir(parents=True)
+    root = workspace / "raw" / "specs"
+    root.mkdir(parents=True)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["ingest_source.py", str(root), "--workspace", str(workspace)],
+    )
+
+    runpy.run_path(str(_SCRIPT_DIR / "ingest_source.py"), run_name="__main__")
+
+    out = capsys.readouterr().out
+    assert "Batch: raw/specs (2 units)" in out
+    assert "of" not in out
+    assert "--all for everything" not in out
+
+
 def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,

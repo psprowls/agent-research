@@ -52,6 +52,10 @@ def main() -> None:
     parser.add_argument("--source", dest="source_opt", default=None, help="Path to the source (alt form)")
     parser.add_argument("--workspace", default="", help="Workspace path (default: env / git heuristic)")
     parser.add_argument("--json", action="store_true", dest="json_output", help="Emit JSON brief")
+    parser.add_argument("--limit", type=int, default=10, help="Batch: max units to ingest (default 10)")
+    parser.add_argument(
+        "--all", action="store_true", dest="all_units", help="Batch: ingest all units (overrides --limit)"
+    )
     args = parser.parse_args()
 
     source_arg = args.source_opt or args.source
@@ -67,11 +71,13 @@ def main() -> None:
     source_path = Path(source_arg).expanduser()
 
     resolved = _source_for_branch(source_path, repo)
+    limit = None if args.all_units else args.limit
     brief = build_batch_ingest_brief(
         source_path=resolved,
         wiki=wiki,
         repo=repo,
         workspace_root=workspace_root,
+        limit=limit,
     )
     if brief is None:
         anchor = resolve_skill_anchor(resolved)
@@ -100,7 +106,11 @@ def main() -> None:
         return
 
     if brief.get("is_batch"):
-        print(f"Batch: raw/{brief['kind_folder']} ({brief['unit_count']} units)")
+        total = brief.get("total_count", brief["unit_count"])
+        if brief.get("limited"):
+            print(f"Batch: raw/{brief['kind_folder']} ({brief['unit_count']} of {total} units, --all for everything)")
+        else:
+            print(f"Batch: raw/{brief['kind_folder']} ({brief['unit_count']} units)")
         for unit in brief["units"]:
             print(f"  - {unit['rel']} ({unit['unit_type']})")
         return

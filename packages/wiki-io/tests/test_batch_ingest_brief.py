@@ -130,3 +130,53 @@ def test_build_batch_ingest_brief_none_for_non_batch_path(tmp_path: Path) -> Non
         )
         is None
     )
+
+
+def _write_n_specs(root: Path, n: int) -> None:
+    for i in range(n):
+        _write(root / f"s{i:02d}.md")
+
+
+def test_brief_default_limit_truncates_to_ten(tmp_path: Path) -> None:
+    ws = _mk_workspace(tmp_path)
+    root = ws / "raw" / "specs"
+    _write_n_specs(root, 12)  # s00.md .. s11.md
+    brief = build_batch_ingest_brief(source_path=root, wiki=ws / "wiki", repo=ws, workspace_root=ws)
+    assert brief is not None
+    assert brief["total_count"] == 12
+    assert brief["unit_count"] == 10
+    assert brief["limited"] is True
+    assert [u["rel"] for u in brief["units"]] == [f"s{i:02d}.md" for i in range(10)]
+
+
+def test_brief_limit_larger_than_count_is_not_limited(tmp_path: Path) -> None:
+    ws = _mk_workspace(tmp_path)
+    root = ws / "raw" / "specs"
+    _write_n_specs(root, 3)
+    brief = build_batch_ingest_brief(source_path=root, wiki=ws / "wiki", repo=ws, workspace_root=ws, limit=10)
+    assert brief is not None
+    assert brief["total_count"] == 3
+    assert brief["unit_count"] == 3
+    assert brief["limited"] is False
+
+
+def test_brief_limit_none_ingests_all(tmp_path: Path) -> None:
+    ws = _mk_workspace(tmp_path)
+    root = ws / "raw" / "specs"
+    _write_n_specs(root, 12)
+    brief = build_batch_ingest_brief(source_path=root, wiki=ws / "wiki", repo=ws, workspace_root=ws, limit=None)
+    assert brief is not None
+    assert brief["total_count"] == 12
+    assert brief["unit_count"] == 12
+    assert brief["limited"] is False
+
+
+def test_brief_limit_equals_count_is_not_limited(tmp_path: Path) -> None:
+    ws = _mk_workspace(tmp_path)
+    root = ws / "raw" / "specs"
+    _write_n_specs(root, 5)
+    brief = build_batch_ingest_brief(source_path=root, wiki=ws / "wiki", repo=ws, workspace_root=ws, limit=5)
+    assert brief is not None
+    assert brief["total_count"] == 5
+    assert brief["unit_count"] == 5
+    assert brief["limited"] is False

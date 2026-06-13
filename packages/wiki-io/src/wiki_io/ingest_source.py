@@ -223,22 +223,31 @@ def enumerate_batch_units(kind: str, root: Path) -> list[dict]:
     return units
 
 
-def build_batch_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root: Path) -> dict | None:
+def build_batch_ingest_brief(
+    source_path: Path, wiki: Path, repo: Path, workspace_root: Path, limit: int | None = 10
+) -> dict | None:
     """Build the batch brief for a kind-folder root, or None for any other path.
 
-    Returning None keeps the caller's routing a single check; the manifest
-    carries no file contents (workers run the single-source prep per unit).
+    `limit` caps the units to the first N by path sort (None = no cap). The brief
+    reports `total_count` (all discovered) and `limited` so the caller can show an
+    honest "ingesting first N of M" confirm. Returning None keeps the caller's
+    routing a single check; the manifest carries no file contents (workers run the
+    single-source prep per unit).
     """
     source_path = _resolve_source_path(source_path, repo)
     kind = resolve_batch_root(source_path, workspace_root)
     if kind is None:
         return None
-    units = enumerate_batch_units(kind, source_path)
+    all_units = enumerate_batch_units(kind, source_path)
+    total_count = len(all_units)
+    units = all_units if limit is None else all_units[:limit]
     return {
         "is_batch": True,
         "kind_folder": kind,
         "root": str(source_path),
         "unit_count": len(units),
+        "total_count": total_count,
+        "limited": total_count > len(units),
         "units": units,
         "state_gate": compute_state_gate(repo, workspace=workspace_root),
     }
