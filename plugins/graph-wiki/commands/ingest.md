@@ -49,11 +49,21 @@ files; `_archive/`, `assets/`, and dotfiles are excluded. Pass the prep script t
 **absolute path** to the kind folder (resolve `raw/<kind>` against the
 workspace, not the repo cwd).
 
-1. **Detect + one confirm** — run the prep script. If `unit_count` is 0: report
+**Limit (default 10):** a batch ingests at most the first **10** units (by path
+sort) unless told otherwise. Pass `--limit N` to the prep script to cap at N, or
+`--all` to ingest every unit. `--all` overrides `--limit` when both are given.
+The prep script reports `unit_count` (units to ingest), `total_count` (units
+found), and `limited` (whether truncation happened).
+
+1. **Detect + one confirm** — run the prep script. If `total_count` is 0: report
    "nothing to ingest" and stop. Otherwise show the unit list and ask ONCE:
-   _"raw/<kind>: N units. Will ingest all; NEW concept/ADR pages
-   become proposals in `wiki/proposals/`, not real pages. Proceed?"_ After the
-   go-ahead, run autonomously — no further questions.
+   - if `limited` is true: _"raw/<kind>: <total_count> units found, ingesting
+     first <unit_count> (pass `--all` for everything). NEW concept/ADR pages
+     become proposals in `wiki/proposals/`, not real pages. Proceed?"_
+   - else: _"raw/<kind>: <unit_count> units. Will ingest all; NEW concept/ADR
+     pages become proposals in `wiki/proposals/`, not real pages. Proceed?"_
+
+   After the go-ahead, run autonomously — no further questions.
 2. **Fan out** — dispatch one `ingestor` sub-agent per unit, **at most 4
    concurrent**. Each dispatch prompt starts with **BATCH MODE** and includes
    the unit path, the workspace path, and the unit type. Workers follow the
