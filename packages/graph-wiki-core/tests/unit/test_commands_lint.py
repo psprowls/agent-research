@@ -509,3 +509,27 @@ async def test_run_lint_excludes_archived_curated_pages_from_orphans_and_stale(t
     assert all("_archive" not in str(p) for p, _ in result.stale)
     # Still a valid wikilink target → the inbound link is not broken.
     assert not any("0003-old" in t for _, t in result.broken_links)
+
+
+def test_mechanical_pass_flags_stale_raw_source_path(tmp_path: Path) -> None:
+    from graph_wiki_core.commands.lint import _mechanical_pass
+
+    ws = tmp_path
+    wiki = ws / "wiki"
+    (wiki / "sources").mkdir(parents=True)
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    (ws / "raw" / "_archive" / "specs").mkdir(parents=True)
+    (ws / "raw" / "_archive" / "specs" / "live.md").write_text("x", encoding="utf-8")
+
+    def _page(slug: str, source_path: str) -> None:
+        (wiki / "sources" / f"{slug}.md").write_text(
+            f"---\ntitle: {slug}\ncategory: source\nsummary: s\nsource_path: {source_path}\n---\n\nbody\n",
+            encoding="utf-8",
+        )
+
+    _page("stale", "raw/specs/gone.md")  # raw/ path, missing -> flagged
+    _page("archived", "raw/_archive/specs/live.md")  # archived, exists -> not flagged
+    _page("indoc", "docs/architecture.md")  # repo-relative doc -> not flagged
+
+    mech = _mechanical_pass(wiki, stale_days=9999, log_gap_days=9999)
+    assert mech["source_path_drift"] == ["sources/stale"]

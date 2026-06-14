@@ -2,7 +2,7 @@
 title: "<Source Title>"
 category: source
 summary: <one-line summary>
-source_path: raw/<path-to-source>           # raw/<...> for ingested clips, or a repo-relative path for in-repo docs (e.g. docs/architecture.md)
+source_path: raw/_archive/<path-to-source>  # raw/_archive/<...> for archived clips (where the ingested source now lives), or a repo-relative path for in-repo docs (e.g. docs/architecture.md)
 entity_uri:                      # canonical code entity this source primarily documents (e.g. pkg:org/repo/graph-io), or null
 source_type: spec                # spec | article | pr | ticket | transcript | rfc | doc
 source_date: <YYYY-MM or YYYY-MM-DD>

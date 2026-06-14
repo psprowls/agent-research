@@ -93,6 +93,7 @@ class LintResult:
     broken_links: list[tuple[str, str]] = field(default_factory=list)
     stale: list[tuple[str, str]] = field(default_factory=list)
     missing_frontmatter: list[str] = field(default_factory=list)
+    source_path_drift: list[str] = field(default_factory=list)
     duplicate_titles: dict[str, list[str]] = field(default_factory=dict)
     log_gap: dict | None = None
     code_drift: dict = field(default_factory=lambda: _SKIPPED.copy())
@@ -275,12 +276,29 @@ def _mechanical_pass(
         else:
             log_gap = {"last_entry": None, "days_ago": None}
 
+    # source_path drift: a source page whose workspace-relative raw/ source_path
+    # no longer exists on disk (the file was archived). Conservative — skips
+    # absolute paths and repo-relative in-repo doc paths (raw-source-archive
+    # 2026-06-14).
+    workspace_root = wiki.parent
+    source_path_drift = []
+    for key, page in pages.items():
+        if not key.startswith("sources/"):
+            continue
+        sp = page["fm"].get("source_path")
+        if not isinstance(sp, str) or not sp or sp.startswith("/") or not sp.startswith("raw/"):
+            continue
+        if not (workspace_root / sp).exists():
+            source_path_drift.append(key)
+    source_path_drift.sort()
+
     return {
         "pages": pages,
         "orphans": orphans,
         "broken_links": broken_links,
         "stale": stale,
         "missing_frontmatter": sorted(missing_fm),
+        "source_path_drift": source_path_drift,
         "duplicate_titles": duplicate_titles,
         "log_gap": log_gap,
         "total_pages": len(pages),
@@ -538,6 +556,7 @@ async def run_lint(
         broken_links=mech["broken_links"],
         stale=mech["stale"],
         missing_frontmatter=mech["missing_frontmatter"],
+        source_path_drift=mech["source_path_drift"],
         duplicate_titles=mech["duplicate_titles"],
         log_gap=mech["log_gap"],
         code_drift=mod["code_drift"],

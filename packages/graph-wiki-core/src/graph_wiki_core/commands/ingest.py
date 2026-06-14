@@ -51,7 +51,6 @@ from wiki_io.entity_lookup import (
 from wiki_io.ingest_source import (
     PREVIEW_CHARS,
     RAW_FOLDER_TYPE_MAP,
-    RAW_FOLDER_TYPES,
     SOURCE_TYPE_ENUM,
     SkillBundle,
     archive_destination,
@@ -361,6 +360,41 @@ def _set_source_type_in_body(text: str, source_type: str) -> str:
             continue  # drop existing line (idempotence)
         new_lines.append(line)
     new_lines.insert(0, f"source_type: {source_type}")
+    new_fm = "\n".join(new_lines)
+    return f"{leading_ws}---\n{new_fm}{body_and_close}"
+
+
+def _set_source_path_in_body(text: str, source_path: str) -> str:
+    """Insert or replace the `source_path:` line in the YAML frontmatter of `text`.
+
+    Placement: replaces an existing `source_path:` line in place (preserving its
+    indent and position); when absent, inserts as the FIRST field of the
+    frontmatter block. Idempotent. Operates on raw text (preserves comments and
+    field order); returns text unchanged when no `---` block is present.
+    """
+    stripped = text.lstrip()
+    if not stripped.startswith("---"):
+        return text
+    after_open = stripped[3:].lstrip("\n")
+    close_idx = after_open.find("\n---")
+    if close_idx == -1:
+        return text
+    leading_ws = text[: len(text) - len(stripped)]
+    fm_block = after_open[:close_idx]
+    body_and_close = after_open[close_idx:]
+
+    new_lines: list[str] = []
+    replaced = False
+    for line in fm_block.splitlines():
+        stripped_line = line.lstrip()
+        if stripped_line.startswith("source_path:"):
+            indent = line[: len(line) - len(stripped_line)]
+            new_lines.append(f"{indent}source_path: {source_path}")
+            replaced = True
+            continue
+        new_lines.append(line)
+    if not replaced:
+        new_lines.insert(0, f"source_path: {source_path}")
     new_fm = "\n".join(new_lines)
     return f"{leading_ws}---\n{new_fm}{body_and_close}"
 
@@ -1044,6 +1078,16 @@ async def _run_common_tail(
             except Exception:
                 logger.warning("failed to archive ingested source %s; leaving it in place", archive_unit, exc_info=True)
                 archived_to = None
+
+    # Stamp the archive location into the page frontmatter so the source page
+    # records where the source now lives (raw-source-archive 2026-06-14). Only on
+    # a successful move — a no-op move (outside raw/) or a failed move leaves the
+    # page's source_path as written.
+    if archived_to:
+        current_page = target_path.read_text(encoding="utf-8")
+        stamped_page = _set_source_path_in_body(current_page, archived_to)
+        if stamped_page != current_page:
+            target_path.write_text(stamped_page, encoding="utf-8")
 
     detail = f"source: {source_path}"
     if archived_to:
