@@ -328,3 +328,18 @@ def test_all_vault_categories_are_linted(tmp_path):
         assert f"{top}/bad" in mf, f"{top}/bad not linted/flagged: {mf}"
     assert "entities/bad" in mf
     assert "work/bad" in mf
+
+
+def test_proposals_not_orphaned(tmp_path):
+    """proposals/ pages are intentionally unlinked; they must not appear in orphans."""
+    from wiki_io.lint_wiki import scan
+
+    wiki = tmp_path / "wiki"
+    (wiki / "proposals").mkdir(parents=True)
+    (wiki / "proposals" / "adr-my-slug.md").write_text(
+        "---\nkind: adr\nmode: create_new\ntarget_slug: my-slug\n"
+        "title: My Proposal\nstatus: proposed\norigins: []\n---\nbody\n",
+        encoding="utf-8",
+    )
+    result = scan(wiki, stale_days=90, log_gap_days=14)
+    assert "proposals/adr-my-slug" not in result["orphans"]

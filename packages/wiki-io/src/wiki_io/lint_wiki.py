@@ -110,6 +110,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             "text": text,
             "linted": top in LINTED_TOPS,
             "is_work": top == "work",
+            "is_proposal": top == "proposals",
         }
 
     stems = {Path(k).name: k for k in pages}
@@ -181,7 +182,9 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     today = dt.date.today()
     stale_cutoff = today - dt.timedelta(days=stale_days)
 
-    orphans = sorted(k for k, p in pages.items() if p["linted"] and not p["is_work"] and not inbound.get(k))
+    orphans = sorted(
+        k for k, p in pages.items() if p["linted"] and not p["is_work"] and not p["is_proposal"] and not inbound.get(k)
+    )
     broken_links = []
     for src, targets in outbound.items():
         for t in targets:
