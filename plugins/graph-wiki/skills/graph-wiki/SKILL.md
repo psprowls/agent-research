@@ -167,6 +167,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 - `references/page-formats.md` — annotated examples for app, package, domain, concept (all three kinds), dependency, work, source, ADR
 - `references/scan-workflow.md` — how the scanner builds the code graph and renders entity pages
 - `references/ingest-workflow.md` — detailed ingest flow
+- `references/proposal-disposition.md` — review/accept/reject/supersede curated-page proposals; approve only flips status, then fan out one subagent per page to author it
 - `references/query-workflow.md` — query patterns, citation format, re-filing answers
 - `references/lint-workflow.md` — health-check heuristics including code-drift detection
 - `references/obsidian-setup.md` — Obsidian plugins, hotkeys, vault config
