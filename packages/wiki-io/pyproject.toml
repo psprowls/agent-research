@@ -8,6 +8,7 @@ dependencies = [
     "boto3>=1.38",
     "workspace-io",
     "graph-io",
+    "work-io",
 ]
 
 [build-system]
@@ -17,6 +18,7 @@ build-backend = "uv_build"
 [tool.uv.sources]
 workspace-io = { workspace = true }
 graph-io = { workspace = true }
+work-io = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
