@@ -63,6 +63,7 @@ from wiki_io.ingest_source import (
 from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
 from wiki_io.wikilinks import vault_wikilink
+from work_io import doc_pointers
 from workspace_io.paths import graph_dir, raw_dir
 
 from graph_wiki_core.commands.suggest_pages import run_suggest_phase
@@ -1088,6 +1089,12 @@ async def _run_common_tail(
         stamped_page = _set_source_path_in_body(current_page, archived_to)
         if stamped_page != current_page:
             target_path.write_text(stamped_page, encoding="utf-8")
+        # Repoint any work item whose spec_doc/plan_doc pointed at the just-moved
+        # source. Best-effort: housekeeping never poisons a completed ingest.
+        try:
+            doc_pointers.sweep(wiki.parent, dry_run=False)
+        except Exception:
+            logger.warning("failed to repoint work doc pointers after archive", exc_info=True)
 
     detail = f"source: {source_path}"
     if archived_to:
