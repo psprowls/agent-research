@@ -50,6 +50,31 @@ def test_build_sidecar_basic(tmp_path: Path) -> None:
     assert sidecar["counts"]["by_kind"]["bug"] == 1
 
 
+def test_build_sidecar_excludes_index_md(tmp_path: Path) -> None:
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    (work_dir / "index.md").write_text(
+        "---\ntitle: Work Index\ncategory: index\nupdated: 2026-06-01\n---\n# Work Index\n"
+    )
+    _make_work_item(work_dir, "real-item", opened="2026-06-01", updated="2026-06-01")
+
+    sidecar = build_sidecar(work_dir, vault_commit=None)
+    slugs = [i["slug"] for i in sidecar["items"]]
+    assert "index" not in slugs
+    assert len(sidecar["items"]) == 1
+
+
+def test_is_stale_ignores_index_md(tmp_path: Path) -> None:
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    (work_dir / "index.md").write_text(
+        "---\ntitle: Work Index\ncategory: index\nupdated: 2026-12-31\n---\n# Work Index\n"
+    )
+    sidecar = {"generated_at": "2026-06-01T00:00:00+00:00", "items": []}
+
+    assert is_stale(sidecar, work_dir) is False
+
+
 def test_build_sidecar_excludes_archive(tmp_path: Path) -> None:
     work_dir = tmp_path / "work"
     work_dir.mkdir()

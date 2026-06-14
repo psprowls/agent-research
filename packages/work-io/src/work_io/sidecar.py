@@ -17,6 +17,8 @@ def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
 
     items = []
     for md in sorted(work_dir.glob("*.md")):
+        if md.name == "index.md":
+            continue
         try:
             fm, _ = fm_parse(md.read_text(encoding="utf-8"))
         except (ValueError, Exception):
@@ -81,6 +83,8 @@ def is_stale(sidecar: dict, work_dir: Path) -> bool:
         return True
 
     for md in work_dir.glob("*.md"):
+        if md.name == "index.md":
+            continue
         try:
             fm, _ = fm_parse(md.read_text(encoding="utf-8"))
             updated = str(fm.get("updated", ""))[:10]
