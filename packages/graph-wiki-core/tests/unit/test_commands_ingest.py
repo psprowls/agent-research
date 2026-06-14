@@ -2640,3 +2640,38 @@ async def test_run_ingest_source_skill_md_directly_in_kind_folder_moves_only_fil
     assert sibling.exists()
     assert kind_dir.is_dir()
     assert (ws / "raw" / "_archive" / "skill" / "SKILL.md").is_file()
+
+
+# ---------------------------------------------------------------------------
+# test_run_ingest_source_repoints_work_doc_pointer (doc-pointer repair)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_repoints_work_doc_pointer(tmp_path, monkeypatch):
+    """Ingesting a raw/specs source archives it and repoints a work item's spec_doc."""
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+
+    # Source lives under raw/specs so the archive move triggers.
+    src = ws / "raw" / "specs" / "foo.md"
+    src.parent.mkdir(parents=True)
+    src.write_text("# Foo\n\nSpec content.", encoding="utf-8")
+
+    # A resolved work item still points at the pre-archive location.
+    work_item = ws / "wiki" / "work" / "2026-01-01-foo.md"
+    work_item.parent.mkdir(parents=True, exist_ok=True)
+    work_item.write_text(
+        "---\nstatus: resolved\nspec_doc: raw/specs/foo.md\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    _patch_default_branch_llm(monkeypatch, target_slug="foo")
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+
+    # The source moved to the archive, and the work pointer followed it.
+    assert (ws / "raw" / "_archive" / "specs" / "foo.md").exists()
+    assert result.archived_to == "raw/_archive/specs/foo.md"
+    assert "spec_doc: raw/_archive/specs/foo.md" in work_item.read_text(encoding="utf-8")

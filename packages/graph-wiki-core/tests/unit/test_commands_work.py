@@ -4,6 +4,8 @@ import dataclasses
 from datetime import date, timedelta
 from pathlib import Path
 
+import pytest
+
 
 def _make_workspace(tmp_path: Path) -> tuple[Path, Path]:
     """Return (workspace, wiki). Creates wiki/work/ structure."""
@@ -233,3 +235,52 @@ def test_work_result_dataclasses_importable() -> None:
     assert dataclasses.is_dataclass(WorkArchiveResult)
     assert dataclasses.is_dataclass(WorkStatusResult)
     assert dataclasses.is_dataclass(WorkRegenResult)
+
+
+# ---------------------------------------------------------------------------
+# test_run_work_archive_repoints_stale_doc_pointer (backstop)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_repoints_stale_doc_pointer(tmp_path: Path) -> None:
+    """The archive backstop repoints a stale spec_doc whose source was archived."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    (workspace / "raw" / "_archive" / "specs").mkdir(parents=True)
+    (workspace / "raw" / "_archive" / "specs" / "foo.md").write_text("s", encoding="utf-8")
+
+    # An in-progress item (NOT terminal — so it is repointed but not moved).
+    work_item = wiki / "work" / "2026-01-01-foo.md"
+    work_item.write_text(
+        "---\nstatus: in_progress\nspec_doc: raw/specs/foo.md\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert "spec_doc: raw/_archive/specs/foo.md" in work_item.read_text(encoding="utf-8")
+    assert result.repointed == ["wiki/work/2026-01-01-foo.md (spec_doc) -> raw/_archive/specs/foo.md"]
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_dry_run_does_not_write_repoint(tmp_path: Path) -> None:
+    """dry_run reports the would-be repoint but leaves the work item untouched."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    (workspace / "raw" / "_archive" / "specs").mkdir(parents=True)
+    (workspace / "raw" / "_archive" / "specs" / "foo.md").write_text("s", encoding="utf-8")
+
+    work_item = wiki / "work" / "2026-01-01-foo.md"
+    work_item.write_text(
+        "---\nstatus: in_progress\nspec_doc: raw/specs/foo.md\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+    before = work_item.read_text(encoding="utf-8")
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=True)
+
+    assert work_item.read_text(encoding="utf-8") == before
+    assert len(result.repointed) == 1
