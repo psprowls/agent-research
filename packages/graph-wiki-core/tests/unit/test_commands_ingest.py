@@ -1183,6 +1183,31 @@ def test_set_source_type_in_body_inserts_and_is_idempotent() -> None:
     assert _set_source_type_in_body("no frontmatter here", "note") == "no frontmatter here"
 
 
+def test_set_source_path_in_body_replaces_in_place_and_is_idempotent() -> None:
+    from graph_wiki_core.commands.ingest import _set_source_path_in_body
+
+    text = "---\ntitle: X\nsource_path: raw/specs/x.md\nsource_type: spec\n---\n\nBody\n"
+    out = _set_source_path_in_body(text, "raw/_archive/specs/x.md")
+    assert "source_path: raw/_archive/specs/x.md" in out
+    assert "raw/specs/x.md" not in out
+    assert out.index("title:") < out.index("source_path:") < out.index("source_type:")
+    assert _set_source_path_in_body(out, "raw/_archive/specs/x.md") == out
+
+
+def test_set_source_path_in_body_inserts_when_absent() -> None:
+    from graph_wiki_core.commands.ingest import _set_source_path_in_body
+
+    text = "---\ntitle: X\n---\n\nBody\n"
+    out = _set_source_path_in_body(text, "raw/_archive/specs/x.md")
+    assert "source_path: raw/_archive/specs/x.md" in out
+
+
+def test_set_source_path_in_body_no_frontmatter_passthrough() -> None:
+    from graph_wiki_core.commands.ingest import _set_source_path_in_body
+
+    assert _set_source_path_in_body("no frontmatter", "raw/_archive/x.md") == "no frontmatter"
+
+
 # ---------------------------------------------------------------------------
 # M3: always-Source routing even when the LLM claims adr/concept
 # ---------------------------------------------------------------------------
@@ -2427,6 +2452,35 @@ async def test_run_ingest_source_archives_raw_source(tmp_path, monkeypatch):
     # The ingest log records the destination.
     log_text = (ws / "wiki" / "log.md").read_text(encoding="utf-8")
     assert "archived: raw/_archive/specs/auth.md" in log_text
+    # The PAGE frontmatter now records the archive location (2026-06-14).
+    page = (ws / "wiki" / result.page_path).read_text(encoding="utf-8")
+    assert "source_path: raw/_archive/specs/auth.md" in page
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_source_outside_raw_page_keeps_source_path(tmp_path, monkeypatch):
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    ws = _setup_archive_test_workspace(tmp_path, monkeypatch)
+    src = ws / "notes.md"
+    src.write_text("# Loose Note\n\nbody\n", encoding="utf-8")
+    response = "---\ntarget_slug: loose-note\ntitle: Loose Note\nsource_path: notes.md\n---\n\nBody.\n"
+
+    class _LLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = response
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _LLM())
+
+    result = await ingest_mod.run_ingest_source(src, workspace_path=ws)
+    assert result.archived_to is None
+    page = (ws / "wiki" / result.page_path).read_text(encoding="utf-8")
+    assert "source_path: notes.md" in page
+    assert "_archive" not in page
 
 
 @pytest.mark.asyncio
