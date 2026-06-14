@@ -44,11 +44,16 @@ def test_proposals_terminal_set(tmp_path: Path) -> None:
     wiki = tmp_path / "wiki"
     _write(wiki, "proposals", "approved-one", status="approved")
     _write(wiki, "proposals", "rejected-one", status="rejected")
-    _write(wiki, "proposals", "open-one", status="created")
+    _write(wiki, "proposals", "created-one", status="created")
+    _write(wiki, "proposals", "open-one", status="proposed")
 
     plan = plan_wiki_archive(wiki, dirs=["proposals"])
 
-    assert {a.slug for a in plan.actions} == {"proposals/approved-one", "proposals/rejected-one"}
+    assert {a.slug for a in plan.actions} == {
+        "proposals/approved-one",
+        "proposals/rejected-one",
+        "proposals/created-one",
+    }
     assert any(s["slug"] == "proposals/open-one" for s in plan.skipped)
 
 
@@ -123,4 +128,4 @@ def test_index_md_is_never_actioned(tmp_path: Path) -> None:
 def test_terminal_status_map_shape() -> None:
     assert TERMINAL_STATUSES_BY_DIR["adrs"] == frozenset({"superseded", "deprecated"})
     assert TERMINAL_STATUSES_BY_DIR["concepts"] == frozenset({"superseded", "deprecated"})
-    assert TERMINAL_STATUSES_BY_DIR["proposals"] == frozenset({"approved", "rejected"})
+    assert TERMINAL_STATUSES_BY_DIR["proposals"] == frozenset({"approved", "rejected", "created"})

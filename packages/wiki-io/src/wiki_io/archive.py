@@ -17,7 +17,9 @@ import frontmatter
 TERMINAL_STATUSES_BY_DIR: dict[str, frozenset[str]] = {
     "adrs": frozenset({"superseded", "deprecated"}),
     "concepts": frozenset({"superseded", "deprecated"}),
-    "proposals": frozenset({"approved", "rejected"}),
+    # `created` = the curated page was already written from this proposal, so the
+    # note has served its purpose and is as archivable as approved/rejected.
+    "proposals": frozenset({"approved", "rejected", "created"}),
 }
 
 

@@ -58,16 +58,18 @@ def test_run_wiki_archive_targeted(tmp_path: Path) -> None:
 
     workspace, wiki = _make_workspace(tmp_path)
     _write_page(wiki, "proposals", "approved-one", "approved")
-    _write_page(wiki, "proposals", "open-one", "created")
+    _write_page(wiki, "proposals", "created-one", "created")
+    _write_page(wiki, "proposals", "open-one", "proposed")
 
     result = asyncio.run(
         run_wiki_archive(
             workspace_path=workspace,
-            slugs=["proposals/approved-one", "proposals/open-one"],
+            slugs=["proposals/approved-one", "proposals/created-one", "proposals/open-one"],
             dry_run=False,
         )
     )
 
-    assert len(result.moved) == 1
+    assert len(result.moved) == 2
     assert any("not terminal" in s["reason"] for s in result.skipped)
     assert (wiki / "proposals" / "_archive" / "approved-one.md").exists()
+    assert (wiki / "proposals" / "_archive" / "created-one.md").exists()
