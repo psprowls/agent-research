@@ -144,6 +144,37 @@ def test_upsert_node_without_uri_has_null_uri_column(conn: sqlite3.Connection) -
     assert json.loads(row[1]) == {"is_async": False}
 
 
+def test_dependency_reidentified_by_uri_across_path_format_change(conn: sqlite3.Connection) -> None:
+    """Dependency identity anchors to URI, not the synthetic path.
+
+    A path-format change must update the existing dependency row in place rather
+    than forking a second node that shares the live node's URI (the orphan-dup
+    root cause behind the index-page double-listing bug).
+    """
+    uri = "dependency:pypi/deepeval"
+    old = GraphNode(
+        kind="dependency",
+        name="deepeval",
+        path="",
+        line=None,
+        attrs={"uri": uri, "ecosystem": "pypi", "name": "deepeval"},
+    )
+    upsert.upsert_records(conn, _records(nodes=[old]))
+    # same dependency, new synthetic path format, SAME uri
+    new = GraphNode(
+        kind="dependency",
+        name="deepeval",
+        path="dependency:pypi:deepeval",
+        line=None,
+        attrs={"uri": uri, "ecosystem": "pypi", "name": "deepeval"},
+    )
+    upsert.upsert_records(conn, _records(nodes=[new]))
+
+    rows = conn.execute("SELECT path FROM nodes WHERE kind='dependency' AND uri=?", (uri,)).fetchall()
+    assert len(rows) == 1  # today: 2 (forked) → FAILS
+    assert rows[0][0] == "dependency:pypi:deepeval"  # path updated in place
+
+
 def test_upsert_uri_idempotent(conn: sqlite3.Connection) -> None:
     """Re-upserting the same uri-bearing node preserves uri without duplicating."""
     records = _records(

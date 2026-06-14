@@ -50,15 +50,33 @@ def _insert_node(
     return cursor.lastrowid
 
 
+def _dependency_id_by_uri(conn: sqlite3.Connection, uri: str | None) -> int | None:
+    """Resolve an existing dependency row by its stable URI.
+
+    A dependency's `path` is a synthetic 1:1 function of (ecosystem, name) — the
+    same identity the URI already carries. Keying identity on the URI lets a
+    path-format change update the row in place instead of forking a duplicate
+    (orphan) node that shares the live node's URI.
+    """
+    if uri is None:
+        return None
+    row = conn.execute("SELECT id FROM nodes WHERE kind='dependency' AND uri=?", (uri,)).fetchone()
+    return row[0] if row else None
+
+
 def _upsert_node(conn: sqlite3.Connection, node: GraphNode) -> int:
     key: NodeKey = (node.kind, node.name, node.path)
     attrs_for_json = dict(node.attrs)
     uri_value = attrs_for_json.pop("uri", None)
-    nid = _node_id(conn, key)
+    nid = None
+    if node.kind == "dependency":
+        nid = _dependency_id_by_uri(conn, uri_value)
+    if nid is None:
+        nid = _node_id(conn, key)
     if nid is not None:
         conn.execute(
-            "UPDATE nodes SET line=?, attrs_json=?, uri=? WHERE id=?",
-            (node.line, _serialize(attrs_for_json), uri_value, nid),
+            "UPDATE nodes SET name=?, path=?, line=?, attrs_json=?, uri=? WHERE id=?",
+            (node.name, node.path, node.line, _serialize(attrs_for_json), uri_value, nid),
         )
         return nid
     return _insert_node(conn, key, node.line, _serialize(attrs_for_json), uri_value)
