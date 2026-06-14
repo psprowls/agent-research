@@ -63,7 +63,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 
 ### 4. Create / merge the source summary page
 
-Path: `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`. Use the **source summary** template from `references/page-formats.md`. Required frontmatter: `title`, `category: source`, `summary`, `source_path`, `source_type`, `ingested`, `updated`.
+Path: `<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`. Use the **source summary** template from `references/page-formats.md`. Required frontmatter: `title`, `category: source`, `summary`, `source_path`, `source_type`, `ingested`, `updated`. For a source under `raw/`, set `source_path` to the post-archive location `raw/_archive/<rel-path>` (step 12 moves the file there). In-repo docs keep their repo-relative `source_path`.
 
 For in-repo docs (`source_type: doc`), also set `last_sync_commit` (`state_gate.head_commit`) and `last_sync_at` (today) — but only when `state_gate.allowed` is true (working tree clean and HEAD on `main`). Otherwise omit both fields and warn the user that drift detection won't apply until the next clean-on-main ingest. `/graph-wiki:lint` uses these fields to flag drift on subsequent runs.
 
@@ -115,7 +115,7 @@ If you wrote guidance pages manually, also refresh `guidance/index.md` and the a
 Append a `## [YYYY-MM-DD] ingest | <title>` entry with the touched pages.
 
 ### 12. Archive the raw source
-If the source lives under `<workspace>/raw/` (and not already under `raw/_archive/`), `mkdir -p` the mirrored `_archive` parent and `mv` the source there (`raw/specs/x.md` → `raw/_archive/specs/x.md`). Skill directories move wholesale; a bare `SKILL.md` directly in a kind folder moves alone. Replace an existing destination (re-ingest semantics). Sources outside `raw/` are never touched. A failed move is a warning, not a failed ingest.
+If the source lives under `<workspace>/raw/` (and not already under `raw/_archive/`), `mkdir -p` the mirrored `_archive` parent and `mv` the source there (`raw/specs/x.md` → `raw/_archive/specs/x.md`). Skill directories move wholesale; a bare `SKILL.md` directly in a kind folder moves alone. Replace an existing destination (re-ingest semantics). Sources outside `raw/` are never touched. A failed move is a warning, not a failed ingest. The source page's `source_path` (step 4) must match this destination.
 
 ### 13. Report back to the user
 

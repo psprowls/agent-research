@@ -101,7 +101,7 @@ found), and `limited` (whether truncation happened).
 8. **Contradictions** — flags vault↔vault and vault↔code contradictions
 9. **Index** — command-layer ingest updates this automatically; manual plugin edits update relevant sections inline
 10. **Log** — append a `## [YYYY-MM-DD] ingest | <title>` entry for manual plugin edits
-11. **Archive** — moves the raw source to `raw/_archive/<same relative path>` (skill directories move wholesale; an existing destination is replaced; sources outside `raw/` are never touched)
+11. **Archive** — moves the raw source to `raw/_archive/<same relative path>` (skill directories move wholesale; an existing destination is replaced; sources outside `raw/` are never touched) — and the source page's `source_path` frontmatter records that archive destination
 12. **Report** — bulleted wikilinks to every touched page
 
 ## Sub-agent

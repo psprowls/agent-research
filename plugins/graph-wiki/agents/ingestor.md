@@ -127,7 +127,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 ```
 
 ### 4. Write the source summary
-`<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`. Use the source template. Required frontmatter: `title`, `category: source`, `summary`, `source_path`, `source_type`, `ingested`, `updated`.
+`<workspace>/wiki/sources/<YYYY-MM>-<slug>.md`. Use the source template. Required frontmatter: `title`, `category: source`, `summary`, `source_path`, `source_type`, `ingested`, `updated`. For a source under `raw/`, `source_path` records the **post-archive** location `raw/_archive/<rel-path>` (step 12 moves the file there). For in-repo docs and loose files, `source_path` is the path where the file stays (repo-relative for in-repo docs).
 
 `source_type` is a closed enum: `spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`. A source staged under a `raw/<type>/` folder takes its type from that folder (authoritative). For in-repo docs and loose files, classify from the document's content; default to `doc` for in-repo docs and `note` (the catch-all) when unsure. There is no `unknown` and no `rfc`.
 
@@ -188,6 +188,7 @@ mv "<workspace>/raw/<rel-path>" "<workspace>/raw/_archive/<rel-path>"
 - Skill directories move wholesale (e.g. `raw/skills/foo/` → `raw/_archive/skills/foo/`). A bare `SKILL.md` sitting directly in a kind folder (`raw/skills/SKILL.md`) moves alone — never move the kind folder itself.
 - If the destination already exists, replace it (re-ingest semantics; old versions are recoverable via workspace git).
 - Sources outside `raw/` (in-repo docs, loose notes) are never touched.
+- The source page's `source_path` frontmatter (step 4) must equal this archive destination (`raw/_archive/<rel-path>`), so a reader can find the original.
 - If the move fails, note the warning and continue — the ingest still succeeded.
 
 ### 13. Report
