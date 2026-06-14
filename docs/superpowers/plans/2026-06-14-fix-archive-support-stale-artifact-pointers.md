@@ -1,3 +1,8 @@
+> **SUPERSEDED (2026-06-14)** by `docs/superpowers/specs/2026-06-14-fold-doc-pointer-repair-design.md`.
+> The standalone `scripts/fix_stale_spec_doc_pointers.py` was deleted; the rewrite
+> rule now lives in `work_io/doc_pointers.py` and runs automatically on ingest and
+> as a `gw work archive` backstop.
+
 # Fix Stale `spec_doc` Pointers in Archived Work Items — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use graph-wiki:subagent-driven-development (recommended) or graph-wiki:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
