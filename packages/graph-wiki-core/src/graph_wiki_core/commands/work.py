@@ -30,6 +30,7 @@ from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo
 from work_io import archive as _archive
+from work_io import doc_pointers as _doc_pointers
 from work_io import frontmatter as _frontmatter
 from work_io import lifecycle_lint as _lint
 from work_io import plan_table as _plan_table
@@ -82,6 +83,7 @@ class WorkArchiveResult:
     dry_run: bool
     moved: list[dict] = field(default_factory=list)
     skipped: list[dict] = field(default_factory=list)
+    repointed: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -304,12 +306,16 @@ async def run_work_archive(
     plan = _archive.plan_archive(work_dir, slugs=slugs)
     moved = [{"slug": a.slug, "src": str(a.src), "dst": str(a.dst)} for a in plan.actions]
 
+    # Backstop: repoint any stale spec_doc/plan_doc whose source was archived.
+    # Runs before the work-item moves (independent of where the .md itself lands).
+    repoint = _doc_pointers.sweep(wiki.parent, dry_run=dry_run)
+
     if not dry_run and plan.actions:
         for action in plan.actions:
             _move(action)
         await run_work_regen_index(workspace_path=workspace_path)
 
-    return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped)
+    return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped, repointed=repoint.rewrote)
 
 
 # ---------------------------------------------------------------------------

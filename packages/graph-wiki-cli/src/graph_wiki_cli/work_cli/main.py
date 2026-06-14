@@ -129,6 +129,8 @@ def archive(
             typer.echo(f"  moved: {item['src']} -> {item['dst']}")
         for skipped in result.skipped:
             typer.echo(f"  skipped: {skipped['slug']} — {skipped['reason']}")
+        for repointed in result.repointed:
+            typer.echo(f"  repointed: {repointed}")
 
 
 @work_app.command()
