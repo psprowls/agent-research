@@ -204,8 +204,10 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         titles[title].append(key)
         if fm.get("kind") in ADMITTED_KINDS:
             # Graph-derived entities/ pages use the entity frontmatter contract:
-            # title/uri/kind are scanner-owned; they carry no category/summary/tokens.
-            if not {"title", "uri", "kind"}.issubset(fm.keys()):
+            # uri/kind are required. `title` is intentionally absent — the writer
+            # never emits it (the H1 carries the entity name); requiring it here
+            # would falsely flag every entity page as missing_frontmatter.
+            if not {"uri", "kind"}.issubset(fm.keys()):
                 missing_fm.append(key)
         elif page.get("is_proposal"):
             # Proposal contract: machine-written review-queue notes. upsert_proposal

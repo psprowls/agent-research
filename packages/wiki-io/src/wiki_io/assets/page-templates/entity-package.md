@@ -1,5 +1,4 @@
 ---
-title: <Package Name>
 uri: <pkg-uri>
 kind: package
 graph_name: <graph-name>
@@ -10,7 +9,6 @@ test_suites: []
 entry_points: []
 language: ""
 version: ""
-updated: <YYYY-MM-DD>
 ---
 
 # {{package_name}}

@@ -1,5 +1,4 @@
 ---
-title: <Test Suite Name>
 uri: <test-suite-uri>
 kind: test_suite
 graph_name: <graph-name>
@@ -7,7 +6,6 @@ last_scan_at: <YYYY-MM-DD>
 tested_packages: []
 suite_kind: ""
 file_count: 0
-updated: <YYYY-MM-DD>
 ---
 
 # {{test_suite_name}}

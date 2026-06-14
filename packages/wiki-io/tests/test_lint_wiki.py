@@ -274,6 +274,31 @@ def test_entity_pages_use_entity_frontmatter_contract(tmp_path: Path, monkeypatc
     assert "concepts/bad" in result["missing_tokens"]
 
 
+def test_entity_page_without_title_not_flagged_missing_frontmatter(tmp_path: Path, monkeypatch) -> None:
+    """The writer never emits `title` on entity pages (the H1 carries the name);
+    real pages carry uri/kind/summary/last_updated_commit/tokens and no title.
+    Such a page must NOT be flagged missing_frontmatter — only uri/kind are
+    required under the entity contract."""
+    from wiki_io import lint_wiki as lw
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    # Frontmatter as the writer actually emits it: no `title`, no `updated`.
+    (wiki / "entities" / "pkg_alpha.md").write_text(
+        "---\nuri: pkg:org/repo/alpha\nkind: package\nsummary: the alpha package\n"
+        "last_updated_commit: abc123\ntokens: 42\n---\n\n## Narrative\n_(scanner will populate on next scan)_\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(lw, "_scan_discover", lambda repo, pinned_containers=None: [{"name": "alpha"}])
+
+    result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=tmp_path / "repo")
+
+    assert "entities/pkg_alpha" not in result["missing_frontmatter"]
+
+
 def test_wiki_rooted_links_not_broken(tmp_path):
     """[[entities/x]], [[concepts/y]], [[work/z]] all resolve against the
     wiki root → zero broken links."""

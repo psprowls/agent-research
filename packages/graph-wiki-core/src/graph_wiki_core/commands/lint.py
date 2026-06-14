@@ -35,6 +35,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.entity_writer import ADMITTED_KINDS
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
@@ -160,6 +161,7 @@ def _mechanical_pass(
             "text": text,
             "linted": top in LINTED_TOPS,
             "is_work": top == "work",
+            "is_proposal": top == "proposals",
         }
 
     stems = {Path(k).name: k for k in pages}
@@ -244,9 +246,23 @@ def _mechanical_pass(
         fm = page["fm"]
         title = fm.get("title") or Path(key).name
         titles[title].append(key)
-        required = {"title", "category", "summary"}
-        if not required.issubset(fm.keys()):
-            missing_fm.append(key)
+        if fm.get("kind") in ADMITTED_KINDS:
+            # Graph-derived entities/ pages use the entity frontmatter contract:
+            # uri/kind are required. `title` is intentionally absent — the writer
+            # never emits it (the H1 carries the entity name); requiring it here
+            # would falsely flag every entity page as missing_frontmatter.
+            if not {"uri", "kind"}.issubset(fm.keys()):
+                missing_fm.append(key)
+        elif page.get("is_proposal"):
+            # Proposal contract: machine-written review-queue notes. upsert_proposal
+            # always writes kind/mode/target_slug/status; they never carry
+            # category/summary. See proposals.py.
+            if not {"kind", "mode", "target_slug", "status"}.issubset(fm.keys()):
+                missing_fm.append(key)
+        else:
+            required = {"title", "category", "summary"}
+            if not required.issubset(fm.keys()):
+                missing_fm.append(key)
         updated = fm.get("updated")
         if updated:
             try:

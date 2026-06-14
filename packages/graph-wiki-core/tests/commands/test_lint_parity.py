@@ -116,6 +116,44 @@ async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool, tm
 
 
 @pytest.mark.asyncio
+async def test_lint_entity_and_proposal_frontmatter_contracts(no_semantic_pool, tmp_path) -> None:
+    """run_lint must apply the same per-kind frontmatter contracts as
+    lint_wiki.scan(): entity pages need only uri/kind (the writer never emits
+    `title`), and well-formed proposals (kind/mode/target_slug/status) are not
+    flagged. Curated pages still require title/category/summary."""
+    from graph_wiki_core.commands.lint import run_lint
+
+    wiki = tmp_path / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / "proposals").mkdir(parents=True)
+    (wiki / "concepts").mkdir(parents=True)
+
+    # Entity page as the writer actually emits it: no `title`.
+    (wiki / "entities" / "pkg_alpha.md").write_text(
+        "---\nuri: pkg:org/repo/alpha\nkind: package\nsummary: the alpha package\n"
+        "last_updated_commit: abc123\ntokens: 42\n---\n\n## Narrative\n_(scanner will populate)_\n",
+        encoding="utf-8",
+    )
+    # Well-formed proposal: machine-written review-queue note, no category/summary.
+    (wiki / "proposals" / "adr-good.md").write_text(
+        "---\nkind: adr\nmode: create_new\ntarget_slug: good\ntitle: Good\nstatus: proposed\norigins: []\n---\nbody\n",
+        encoding="utf-8",
+    )
+    # Curated page missing category + summary — still flagged (control).
+    (wiki / "concepts" / "bad.md").write_text(
+        "---\ntitle: Bad\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    result = await run_lint(workspace_path=tmp_path)
+    mf = set(result.missing_frontmatter)
+
+    assert "entities/pkg_alpha" not in mf
+    assert "proposals/adr-good" not in mf
+    assert "concepts/bad" in mf
+
+
+@pytest.mark.asyncio
 async def test_lint_no_placeholder_targets_in_broken_links(no_semantic_pool, tmp_path) -> None:
     """No entries in broken_links match placeholder patterns ([[wiki/...]] or [[work/<slug>]]).
 
