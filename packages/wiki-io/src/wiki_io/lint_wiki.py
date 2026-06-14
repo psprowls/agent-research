@@ -110,6 +110,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             "text": text,
             "linted": top in LINTED_TOPS,
             "is_work": top == "work",
+            "is_proposal": top == "proposals",
         }
 
     stems = {Path(k).name: k for k in pages}
@@ -181,7 +182,9 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     today = dt.date.today()
     stale_cutoff = today - dt.timedelta(days=stale_days)
 
-    orphans = sorted(k for k, p in pages.items() if p["linted"] and not p["is_work"] and not inbound.get(k))
+    orphans = sorted(
+        k for k, p in pages.items() if p["linted"] and not p["is_work"] and not p["is_proposal"] and not inbound.get(k)
+    )
     broken_links = []
     for src, targets in outbound.items():
         for t in targets:
@@ -204,6 +207,17 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             # title/uri/kind are scanner-owned; they carry no category/summary/tokens.
             if not {"title", "uri", "kind"}.issubset(fm.keys()):
                 missing_fm.append(key)
+        elif page.get("is_proposal"):
+            # Proposal contract: machine-written review-queue notes. upsert_proposal
+            # always writes kind/mode/target_slug/status; they never carry
+            # category/summary. See proposals.py.
+            required = {"kind", "mode", "target_slug", "status"}
+            if not required.issubset(fm.keys()):
+                missing_fm.append(key)
+            # Proposals accumulate `tokens` from the token pass; flag the gap so
+            # new proposals surface until that pass runs (parity with curated pages).
+            if "tokens" not in fm:
+                missing_tokens.append(key)
         else:
             required = {"title", "category", "summary"}
             if not required.issubset(fm.keys()):
