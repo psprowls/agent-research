@@ -493,3 +493,24 @@ def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
             "non_interactive": False,
         }
     ]
+
+
+def test_reconcile_doc_pointers_shim_delegates(monkeypatch: pytest.MonkeyPatch) -> None:
+    _install_claude_backend(monkeypatch)
+
+    called = {}
+    module = types.ModuleType("wiki_io.reconcile_doc_pointers")
+
+    def fake_main() -> None:
+        called["ran"] = True
+
+    module.main = fake_main  # type: ignore[attr-defined]
+    package = types.ModuleType("wiki_io")
+    package.__path__ = []  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "wiki_io", package)
+    monkeypatch.setitem(sys.modules, "wiki_io.reconcile_doc_pointers", module)
+    monkeypatch.setattr(sys, "argv", ["reconcile_doc_pointers.py"])
+
+    runpy.run_path(str(_SCRIPT_DIR / "reconcile_doc_pointers.py"), run_name="__main__")
+
+    assert called.get("ran") is True

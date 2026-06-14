@@ -185,6 +185,14 @@ mkdir -p "$(dirname "<workspace>/raw/_archive/<rel-path>")"
 mv "<workspace>/raw/<rel-path>" "<workspace>/raw/_archive/<rel-path>"
 ```
 
+After a successful move, reconcile any work-item pointer that referenced the moved source so a work item's `spec_doc`/`plan_doc` follows the source into `_archive/`:
+
+```bash
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/reconcile_doc_pointers.py
+```
+
+Idempotent and best-effort — a failure is a warning, not a failed ingest.
+
 - Skill directories move wholesale (e.g. `raw/skills/foo/` → `raw/_archive/skills/foo/`). A bare `SKILL.md` sitting directly in a kind folder (`raw/skills/SKILL.md`) moves alone — never move the kind folder itself.
 - If the destination already exists, replace it (re-ingest semantics; old versions are recoverable via workspace git).
 - Sources outside `raw/` (in-repo docs, loose notes) are never touched.
