@@ -309,7 +309,7 @@ def test_all_vault_categories_are_linted(tmp_path):
 
     workspace = tmp_path / "workspace"
     wiki = workspace / "wiki"
-    curated_tops = ["concepts", "adrs", "sources", "proposals"]
+    curated_tops = ["concepts", "adrs", "sources"]
     for top in curated_tops:
         (wiki / top).mkdir(parents=True)
         # missing category + summary → flagged under the curated contract
@@ -320,6 +320,18 @@ def test_all_vault_categories_are_linted(tmp_path):
     # work/ page missing category + summary → flagged (work is linted)
     (wiki / "work").mkdir(parents=True)
     (wiki / "work" / "bad.md").write_text("---\ntitle: B\n---\n\nbody\n", encoding="utf-8")
+    # proposals/ use a distinct contract: kind/mode/target_slug/status.
+    # A well-formed proposal is NOT flagged; a malformed one IS.
+    (wiki / "proposals").mkdir(parents=True)
+    (wiki / "proposals" / "adr-good.md").write_text(
+        "---\nkind: adr\nmode: create_new\ntarget_slug: good\n"
+        "title: Good\nstatus: proposed\ntokens: 1\norigins: []\n---\nbody\n",
+        encoding="utf-8",
+    )
+    (wiki / "proposals" / "adr-bad.md").write_text(
+        "---\nkind: adr\nmode: create_new\ntarget_slug: bad\ntitle: Bad\norigins: []\n---\nbody\n",
+        encoding="utf-8",
+    )
 
     result = scan(wiki, stale_days=90, log_gap_days=14)
     mf = set(result["missing_frontmatter"])
@@ -328,6 +340,9 @@ def test_all_vault_categories_are_linted(tmp_path):
         assert f"{top}/bad" in mf, f"{top}/bad not linted/flagged: {mf}"
     assert "entities/bad" in mf
     assert "work/bad" in mf
+    # Proposal contract: malformed flagged, well-formed not flagged.
+    assert "proposals/adr-bad" in mf
+    assert "proposals/adr-good" not in mf
 
 
 def test_proposals_not_orphaned(tmp_path):
@@ -343,3 +358,19 @@ def test_proposals_not_orphaned(tmp_path):
     )
     result = scan(wiki, stale_days=90, log_gap_days=14)
     assert "proposals/adr-my-slug" not in result["orphans"]
+    assert "proposals/adr-my-slug" not in result["missing_frontmatter"]
+
+
+def test_proposals_invalid_schema_flagged(tmp_path):
+    """proposals/ pages missing required proposal fields are flagged."""
+    from wiki_io.lint_wiki import scan
+
+    wiki = tmp_path / "wiki"
+    (wiki / "proposals").mkdir(parents=True)
+    # Missing 'status' — a required proposal field
+    (wiki / "proposals" / "adr-bad.md").write_text(
+        "---\nkind: adr\nmode: create_new\ntarget_slug: bad\ntitle: Bad\norigins: []\n---\nbody\n",
+        encoding="utf-8",
+    )
+    result = scan(wiki, stale_days=90, log_gap_days=14)
+    assert "proposals/adr-bad" in result["missing_frontmatter"]
