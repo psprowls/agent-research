@@ -374,3 +374,5 @@ def test_proposals_invalid_schema_flagged(tmp_path):
     )
     result = scan(wiki, stale_days=90, log_gap_days=14)
     assert "proposals/adr-bad" in result["missing_frontmatter"]
+    # Proposals without a `tokens` field surface in missing_tokens (parity with curated pages).
+    assert "proposals/adr-bad" in result["missing_tokens"]
