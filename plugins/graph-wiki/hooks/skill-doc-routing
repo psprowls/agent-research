@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+# PreToolUse hook on Skill: route superpowers spec/plan docs to the
+# graph-wiki workspace raw inbox. Mirrors hooks/session-start's escaping
+# and 3-way platform JSON branching. Fail-open: never blocks a Skill call.
+set -uo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# plugins/graph-wiki/hooks -> repo root is three levels up. Used as the uv
+# project so workspace_io is importable without relying on AGENT_RESEARCH_ROOT.
+ROOT="${AGENT_RESEARCH_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+
+allow() {
+    if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+        printf '{"additional_context": ""}\n'
+    else
+        printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}\n'
+    fi
+}
+
+# Fail-open on any unexpected error.
+trap 'allow; exit 0' ERR
+
+INPUT=$(cat)
+
+# Fast path: only the two doc-writing skills matter. Cheap match on the raw
+# payload — no jq, no uv spin-up for any other skill.
+# Match is deliberately payload-wide (not name-scoped): trading a rare spurious uv spin-up for independence from the skill-id field name and namespacing.
+if ! printf '%s' "$INPUT" | grep -qE '(brainstorming|writing-plans)'; then
+    allow; exit 0
+fi
+
+# Resolve workspace raw dirs. Prints "specs<TAB>plans" on success, or a line
+# starting with ERR: on failure. Runs in the session cwd so discovery works.
+RESOLVED=$(uv run --project "$ROOT" python -c '
+import sys
+from pathlib import Path
+try:
+    from workspace_io import config, paths
+    raw = paths.raw_dir(config.resolve(Path.cwd()).workspace)
+    specs = raw / "specs"
+    plans = raw / "plans"
+    sys.stdout.write(str(specs) + "\t" + str(plans))
+except Exception as e:
+    sys.stdout.write("ERR:" + str(e).replace("\n", " "))
+' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
+
+escape_for_json() {
+    local s="$1"
+    s="${s//\\/\\\\}"; s="${s//\"/\\\"}"
+    s="${s//$'\n'/\\n}"; s="${s//$'\r'/\\r}"; s="${s//$'\t'/\\t}"
+    printf '%s' "$s"
+}
+
+if [ "${RESOLVED:0:4}" = "ERR:" ]; then
+    warn="graph-wiki: could not resolve a workspace, so brainstorming/writing-plans output will NOT be routed to <workspace>/raw. (${RESOLVED#ERR:})"
+    warn_escaped=$(escape_for_json "$warn")
+    printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}, "systemMessage": "%s"}\n' "$warn_escaped"
+    exit 0
+fi
+
+SPECS_DIR="${RESOLVED%%$'\t'*}"
+PLANS_DIR="${RESOLVED#*$'\t'}"
+
+context="GRAPH-WIKI WORKSPACE ROUTING: Write superpowers artifacts into the graph-wiki workspace, not the repo's docs/superpowers/ directory.\n- brainstorming spec -> ${SPECS_DIR}/YYYY-MM-DD-<topic>-design.md\n- writing-plans plan (and its co-located .tasks.json) -> ${PLANS_DIR}/YYYY-MM-DD-<feature>.md\nKeep the skills' filename conventions; only the directory changes. These directories already exist."
+context_escaped=$(escape_for_json "$context")
+
+# Cursor expects additional_context (snake_case); Claude Code expects nested
+# hookSpecificOutput.additionalContext; Copilot/SDK expect top-level.
+if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
+    printf '{"additional_context": "%s"}\n' "$context_escaped"
+elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
+    printf '{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow", "additionalContext": "%s"}}\n' "$context_escaped"
+else
+    printf '{"additionalContext": "%s"}\n' "$context_escaped"
+fi
+exit 0
