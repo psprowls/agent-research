@@ -80,6 +80,21 @@ def test_missing_with_no_counterpart_is_unfixable(tmp_path):
     assert "spec_doc: raw/specs/gone.md" in item.read_text(encoding="utf-8")  # left as-is
 
 
+def test_items_without_spec_doc_are_skipped(tmp_path):
+    ws = _make_ws(tmp_path)
+    no_key_body = "---\ntitle: No Pointer\nstatus: resolved\n---\nbody\n"
+    no_fm_body = "# Just a heading\n\nsome text\n"
+    no_key = _work(ws, "_archive/no-key.md", no_key_body)
+    no_fm = _work(ws, "_archive/no-fm.md", no_fm_body)
+    report = sweep(ws, dry_run=False)
+    for bucket in ("rewrote", "ok", "unfixable"):
+        joined = " ".join(report[bucket])
+        assert "no-key.md" not in joined
+        assert "no-fm.md" not in joined
+    assert no_key.read_text(encoding="utf-8") == no_key_body  # unchanged on disk
+    assert no_fm.read_text(encoding="utf-8") == no_fm_body  # unchanged on disk
+
+
 def test_dry_run_does_not_write(tmp_path):
     ws = _make_ws(tmp_path)
     (ws / "raw" / "_archive" / "specs" / "a.md").write_text("spec", encoding="utf-8")
