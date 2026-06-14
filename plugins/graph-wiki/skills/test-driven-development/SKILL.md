@@ -13,6 +13,10 @@ Write the test first. Watch it fail. Write minimal code to pass.
 
 **Violating the letter of the rules is violating the spirit of the rules.**
 
+## Code-Change Gate
+
+Before writing the first test or any production code, route through the Code-Change Gate: **REQUIRED SUB-SKILL:** Use `graph-wiki:using-git-worktrees`. It confirms (1) a direct implement directive authorizes writing code, and (2) the change is isolated in a worktree (the main checkout only on explicit request). When this skill is nested under an execution skill that already ran the gate, it is idempotent — isolation is already detected, so it passes through immediately.
+
 ## When to Use
 
 **Always:**
