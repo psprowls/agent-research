@@ -41,6 +41,12 @@ digraph when_to_use {
 
 ## The Process
 
+### Step 0: Code-Change Gate (REQUIRED)
+
+Before reading the plan or dispatching any subagent, run the Code-Change Gate: **REQUIRED SUB-SKILL:** Use `graph-wiki:using-git-worktrees`. It enforces (1) authorization — a direct implement directive must exist, else STOP and stay read-only — and (2) isolation — work happens in an isolated worktree, the main checkout only on explicit user request. No subagent writes code until the gate passes. Implementer subagents inherit your worktree cwd, so the gate is enforced once, here at the orchestrator.
+
+The rest of The Process:
+
 ```dot
 digraph process {
     rankdir=TB;
@@ -243,7 +249,7 @@ Done!
 ## Red Flags
 
 **Never:**
-- Start implementation on main/master branch without explicit user consent
+- Write code or dispatch an implementer without a direct implement directive, or outside an isolated worktree — main checkout only on explicit request (see the Code-Change Gate, Step 0)
 - Skip reviews (spec compliance OR code quality)
 - Proceed with unfixed issues
 - Dispatch multiple implementation subagents in parallel (conflicts)
