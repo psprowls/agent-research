@@ -19,7 +19,15 @@ Load plan, review critically, execute all tasks, report when complete.
 
 ## The Process
 
-### Step 0: Load Persisted Tasks
+### Step 0: Code-Change Gate (REQUIRED)
+
+Before loading tasks, reviewing the plan, or making any Write/Edit, run the Code-Change Gate. **No code is written until it passes.**
+
+1. **REQUIRED SUB-SKILL:** Use `graph-wiki:using-git-worktrees`. It enforces authorization (a direct implement directive must exist — selecting an execution option for this plan counts) and isolation (work happens in an isolated worktree; the main checkout only on explicit request).
+2. Before it creates anything, check whether a worktree already exists: run `git worktree list`. If a worktree for the plan's branch already exists, **cd into it — do NOT create a new one.**
+3. Do not proceed to Step 0.5 until the gate has passed.
+
+### Step 0.5: Load Persisted Tasks
 
 1. Call `TaskList` to check for existing native tasks
 2. **CRITICAL - Locate tasks file:** Try `<plan-path>.tasks.json`, if not found glob for matching `.tasks.json`
@@ -31,14 +39,6 @@ Load plan, review critically, execute all tasks, report when complete.
 5. If neither: proceed to Step 1b to bootstrap from plan
 
 Update `.tasks.json` after every task status change.
-
-### Step 0.5: Verify Workspace (Worktree Check)
-
-Before calling `using-git-worktrees`, check if a worktree already exists:
-
-1. Run `git worktree list` to see all existing worktrees
-2. If a worktree for the plan's branch already exists: **cd into it — do NOT create a new one**
-3. If on main/master with no worktree: **REQUIRED SUB-SKILL:** Use `graph-wiki:using-git-worktrees` to create one
 
 ### Step 1: Load and Review Plan
 1. Read plan file
@@ -105,7 +105,7 @@ After all tasks complete and verified:
 - Don't skip verifications
 - Reference skills when plan says to
 - Stop when blocked, don't guess
-- Never start implementation on main/master branch without explicit user consent
+- Never write code without a direct implement directive, or outside an isolated worktree (main checkout only on explicit request) — the Code-Change Gate (graph-wiki:using-git-worktrees) enforces both
 
 ## Integration
 
