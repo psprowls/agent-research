@@ -54,8 +54,8 @@ The stock skills honor user-preference path overrides; they stay unmodified.
 ### 4. Verify the artifact
 
 When `artifact.path` is set, check the file exists after the stage completes.
-If the skill wrote to its stock location (`docs/superpowers/specs/` or
-`docs/superpowers/plans/` in the repo), move the file (and any `.tasks.json`
+If the skill wrote to its stock location (`<workspace>/raw/specs/` or
+`<workspace>/raw/plans/` in the workspace), move the file (and any `.tasks.json`
 companion) to `artifact.path` and say so.
 
 ### 5. Advance
