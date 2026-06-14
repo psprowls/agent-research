@@ -1,5 +1,4 @@
 ---
-title: <App Name>
 uri: <app-uri>
 kind: app
 graph_name: <graph-name>
@@ -10,7 +9,6 @@ test_suites: []
 entry_points: []
 language: ""
 version: ""
-updated: <YYYY-MM-DD>
 ---
 
 # {{app_name}}

@@ -1,11 +1,9 @@
 ---
-title: <Repository Name>
 uri: <repo-uri>
 kind: repository
 graph_name: <graph-name>
 last_scan_at: <YYYY-MM-DD>
 package_count: 0
-updated: <YYYY-MM-DD>
 ---
 
 # {{repository_name}}

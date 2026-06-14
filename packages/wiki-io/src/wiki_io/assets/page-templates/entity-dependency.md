@@ -1,5 +1,4 @@
 ---
-title: <Dependency Name>
 uri: <dependency-uri>
 kind: dependency
 graph_name: <graph-name>
@@ -7,7 +6,6 @@ last_scan_at: <YYYY-MM-DD>
 ecosystem: ""
 used_by: []
 versions_in_use: []
-updated: <YYYY-MM-DD>
 ---
 
 # {{dependency_name}}

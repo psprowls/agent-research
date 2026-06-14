@@ -1,12 +1,10 @@
 ---
-title: <Agent Plugin Name>
 uri: <agent-plugin-uri>
 kind: agent_plugin
 ecosystem: <ecosystem>
 version: <version>
 graph_name: <graph-name>
 last_scan_at: <YYYY-MM-DD>
-updated: <YYYY-MM-DD>
 ---
 
 # {{agent_plugin_name}}

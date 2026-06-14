@@ -1,5 +1,4 @@
 ---
-title: <Domain Name>
 uri: <domain-uri>
 kind: domain
 graph_name: <graph-name>
@@ -7,7 +6,6 @@ last_scan_at: <YYYY-MM-DD>
 parent_domain: ""
 sub_domains: []
 packages: []
-updated: <YYYY-MM-DD>
 ---
 
 # {{domain_name}}
