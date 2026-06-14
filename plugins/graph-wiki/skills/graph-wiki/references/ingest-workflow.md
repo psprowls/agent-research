@@ -115,7 +115,7 @@ If you wrote guidance pages manually, also refresh `guidance/index.md` and the a
 Append a `## [YYYY-MM-DD] ingest | <title>` entry with the touched pages.
 
 ### 12. Archive the raw source
-If the source lives under `<workspace>/raw/` (and not already under `raw/_archive/`), `mkdir -p` the mirrored `_archive` parent and `mv` the source there (`raw/specs/x.md` → `raw/_archive/specs/x.md`). Skill directories move wholesale; a bare `SKILL.md` directly in a kind folder moves alone. Replace an existing destination (re-ingest semantics). Sources outside `raw/` are never touched. A failed move is a warning, not a failed ingest. The source page's `source_path` (step 4) must match this destination.
+If the source lives under `<workspace>/raw/` (and not already under `raw/_archive/`), `mkdir -p` the mirrored `_archive` parent and `mv` the source there (`raw/specs/x.md` → `raw/_archive/specs/x.md`). Skill directories move wholesale; a bare `SKILL.md` directly in a kind folder moves alone. Replace an existing destination (re-ingest semantics). Sources outside `raw/` are never touched. A failed move is a warning, not a failed ingest. The source page's `source_path` (step 4) must match this destination. After a successful move, run `${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/reconcile_doc_pointers.py` (via `uv run --project "$AGENT_RESEARCH_ROOT" python …`) to repoint any work-item `spec_doc`/`plan_doc` that pointed at the moved source. Idempotent and best-effort; a failure is a warning, not a failed ingest.
 
 ### 13. Report back to the user
 
