@@ -1,4 +1,4 @@
-"""Unit tests for work_io.filing — ported from wiki_io.ingest_work_item.
+"""Unit tests for work_io.filing — ported from the former wiki-io ingest module.
 
 Covers slugify / parse_fields / validate / write_work_item. The
 update_index/append_log side-effect assertions intentionally do NOT live here
