@@ -106,6 +106,22 @@ def _root(
 KNOWN_SCHEMA_VERSION = 1
 
 
+def _json_safe_default(value: object) -> object:
+    """Coerce an option default into a JSON-serializable value.
+
+    Click/Typer option defaults can be non-JSON-native objects — most notably a
+    ``Path`` (e.g. ``--repo`` defaults to ``Path.cwd()``), which crashed
+    ``help <ns> --json`` with ``TypeError: Object of type PosixPath is not JSON
+    serializable``. Keep JSON-native scalars and containers as-is; stringify
+    everything else so every command's help can render.
+    """
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    if isinstance(value, (list, tuple)):
+        return [_json_safe_default(item) for item in value]
+    return str(value)
+
+
 def _command_to_help_entry(command: click.Command, *, name: str) -> dict:
     """Return a stable, JSON-serializable help entry for a Click command."""
     options: list[dict] = []
@@ -119,7 +135,7 @@ def _command_to_help_entry(command: click.Command, *, name: str) -> dict:
                     "secondary_opts": list(param.secondary_opts),
                     "help": param.help or "",
                     "required": param.required,
-                    "default": param.default,
+                    "default": _json_safe_default(param.default),
                     "is_flag": param.is_flag,
                 }
             )
