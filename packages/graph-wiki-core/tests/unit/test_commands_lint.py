@@ -473,7 +473,7 @@ async def test_run_lint_all_vault_categories_linted(tmp_path) -> None:
 @pytest.mark.asyncio
 async def test_run_lint_excludes_archived_curated_pages_from_orphans_and_stale(tmp_path) -> None:
     """Archived adrs/concepts/proposals pages are valid wikilink targets but are
-    NOT flagged as orphans or stale by the live lint path (run_lint -> _mechanical_pass).
+    NOT flagged as orphans or stale by the live lint path (run_lint -> mechanical_scan).
     Regression for the work-only `_archive/` guard that left curated archives linted."""
     from graph_wiki_core.commands.lint import run_lint
     from subagent_runtime.pool import FanOutResult
@@ -534,7 +534,7 @@ async def test_run_lint_surfaces_guidance_findings(tmp_path) -> None:
     assert any("model-adapter/bad" in e for e in result.errors)
 
 
-def test_mechanical_pass_flags_stale_raw_source_path(tmp_path: Path) -> None:
+def test_mechanical_scan_flags_stale_raw_source_path(tmp_path: Path) -> None:
     from wiki_io.lint_wiki import mechanical_scan
 
     ws = tmp_path
