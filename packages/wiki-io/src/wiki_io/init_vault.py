@@ -18,6 +18,7 @@ import datetime as dt
 import json
 import logging
 import sys
+from collections.abc import Sequence
 from pathlib import Path
 
 from workspace_io.init import init as _workspace_init
@@ -96,6 +97,7 @@ def init_wiki(
     force,
     as_json=False,
     non_interactive=False,
+    extra_template_dirs: Sequence[Path] = (),
 ):
     """Bootstrap a Code Wiki at `wiki_path`.
 
@@ -185,19 +187,21 @@ def init_wiki(
 
     tmpl_dest = wiki_path / ".templates"
     tmpl_dest.mkdir(exist_ok=True)
-    src_tmpl = ASSETS_DIR / "page-templates"
     template_count = 0
-    if src_tmpl.exists():
-        for f in src_tmpl.rglob("*"):
-            if f.is_file():
-                rel = f.relative_to(src_tmpl)
-                dest_file = tmpl_dest / rel
-                dest_file.parent.mkdir(parents=True, exist_ok=True)
-                try:
-                    dest_file.write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
-                    template_count += 1
-                except OSError as e:
-                    print(f"[warn] failed to copy template {rel}: {e}", file=sys.stderr)
+    for src_tmpl in [ASSETS_DIR / "page-templates", *extra_template_dirs]:
+        if not src_tmpl.exists():
+            continue
+        for f in src_tmpl.rglob("*.md"):
+            if not f.is_file():
+                continue
+            rel = f.relative_to(src_tmpl)
+            dest_file = tmpl_dest / rel
+            dest_file.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                dest_file.write_text(f.read_text(encoding="utf-8"), encoding="utf-8")
+                template_count += 1
+            except OSError as e:
+                print(f"[warn] failed to copy template {rel}: {e}", file=sys.stderr)
 
     gitignore = wiki_path / ".gitignore"
     gitignore.write_text(
