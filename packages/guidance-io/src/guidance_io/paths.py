@@ -41,3 +41,12 @@ def list_pages(workspace: Path, topic: str) -> list[Path]:
     if not topic_dir.is_dir():
         return []
     return sorted(p for p in topic_dir.glob("*.md") if p.name != "index.md")
+
+
+def list_all_pages(workspace: Path) -> list[Path]:
+    """Sorted .md pages across every topic folder under wiki/guidance/
+    (excluding generated index.md files); empty list if guidance/ is absent."""
+    root = guidance_dir(workspace)
+    if not root.is_dir():
+        return []
+    return sorted(p for p in root.glob("*/*.md") if p.name != "index.md")
