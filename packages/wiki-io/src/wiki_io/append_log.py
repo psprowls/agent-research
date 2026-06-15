@@ -59,7 +59,7 @@ def append_log(wiki, op, title, detail, as_json=False, silent=False, raise_excep
                 to avoid tripping _StdoutGuard. Overrides as_json for output only.
         raise_exception: When True, error paths raise ``ValueError`` instead of
                 calling ``sys.exit(1)``. Library callers (MCP tool handlers,
-                file_work_item) MUST set this — a ``SystemExit`` from inside the
+                work-item filing) MUST set this — a ``SystemExit`` from inside the
                 MCP server's tool boundary would terminate the stdio server.
     """
     if op not in VALID_OPS:

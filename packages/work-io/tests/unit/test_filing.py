@@ -41,6 +41,13 @@ def test_slugify_lowercases() -> None:
     assert result == result.lower()
 
 
+def test_slugify_handles_unicode() -> None:
+    from work_io.filing import slugify
+
+    result = slugify("Résoudre le bug")
+    assert result == result.lower()
+
+
 # ---------------------------------------------------------------------------
 # parse_fields
 # ---------------------------------------------------------------------------
