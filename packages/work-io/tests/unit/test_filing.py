@@ -215,6 +215,17 @@ def test_write_work_item_force_overwrites(tmp_path: Path) -> None:
     assert result["status"] == "ok"
 
 
+def test_write_work_item_appends_trailing_newline(tmp_path: Path) -> None:
+    from work_io.filing import parse_fields, write_work_item
+
+    wiki = _make_wiki(tmp_path)
+    fm = parse_fields(VALID_FM_YAML)
+    result = write_work_item(wiki, fm, "Body without trailing newline", slug="nl")
+    content = Path(result["page_path"]).read_text(encoding="utf-8")
+    assert content.endswith("\n")
+    assert content.endswith("Body without trailing newline\n")
+
+
 def test_filing_module_has_no_wiki_io_import() -> None:
     """work-io must not gain a wiki-io dependency."""
     import importlib.util
