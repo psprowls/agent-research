@@ -52,3 +52,14 @@ def test_write_page_skips_unparseable(tmp_path: Path) -> None:
     )
     assert res.written_rel is None
     assert res.skip_reason
+
+
+def test_write_page_strips_trailing_whitespace(tmp_path: Path) -> None:
+    # Synthesizer output with trailing whitespace/newlines must not leak into the
+    # written file — matches the pre-refactor page_text.strip() behavior.
+    res = write_page(
+        tmp_path, topic_raw="model-adapter", slug_raw="trailer", page_text=_PAGE + "\n\n   \n", stamp="2026-06-15"
+    )
+    assert res.skip_reason is None
+    written = (tmp_path / res.written_rel).read_text(encoding="utf-8")
+    assert written == written.rstrip()  # no trailing whitespace in the file

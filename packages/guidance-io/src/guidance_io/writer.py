@@ -34,7 +34,7 @@ def write_page(
     POSIX path and `skip_reason` is None; on parse/validation failure
     `written_rel` is None and `skip_reason` explains the skip (nothing written).
     """
-    text = page_text.lstrip()
+    text = page_text.strip()
     try:
         fm, body = parse(text)
     except ValueError as exc:
