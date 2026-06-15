@@ -32,11 +32,6 @@ from pathlib import Path
 import yaml
 from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
 from graph_io.store import GraphNotInitializedError, read_only_connect
-from guidance_io.frontmatter import emit as emit_guidance_fm
-from guidance_io.frontmatter import parse as parse_guidance_fm
-from guidance_io.frontmatter import validate as validate_guidance_fm
-from guidance_io.paths import page_path as guidance_page_path
-from guidance_io.paths import slugify as guidance_slugify
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import SubagentPool, TaskResult
@@ -848,35 +843,24 @@ async def _synthesize_guidance_pages(
     # Map entries to their synthesized text (only successes).
     by_id = {id(entry): page_text for entry, page_text in fan.successes}
 
+    from guidance_io.writer import write_page as _write_guidance_page
+
     written: list[str] = []
     for entry in plan:  # preserve plan order, not fan-out completion order
         page_text = by_id.get(id(entry))
         if not page_text:
             continue
-        # Some synthesizer models (e.g. kimi-k2.5) prepend whitespace before the
-        # `---` fence despite the system prompt; strip it so the page parses and
-        # the written file doesn't start with a stray space.
-        page_text = page_text.strip()
-        try:
-            fm, body = parse_guidance_fm(page_text)
-        except ValueError:
-            logger.warning(
-                "skill synthesizer produced unparseable guidance page; skipping chunk %r", entry.get("title")
-            )
+        res = _write_guidance_page(
+            workspace_root,
+            topic_raw=str(entry["topic"]),
+            slug_raw=str(entry.get("slug") or entry["title"]),
+            page_text=page_text,
+            stamp=stamp,
+        )
+        if res.skip_reason is not None:
+            logger.warning("skipping guidance page for %r: %s", entry.get("title"), res.skip_reason)
             continue
-        errors = validate_guidance_fm(fm)
-        if errors:
-            logger.warning("skill guidance page failed validation (%s); skipping chunk %r", errors, entry.get("title"))
-            continue
-        # Don't trust the model's `updated:` (it hallucinates dates); stamp the real one.
-        fm["updated"] = stamp
-        page_text = f"{emit_guidance_fm(fm)}\n{body}"
-        topic = guidance_slugify(str(entry["topic"]))
-        slug = guidance_slugify(str(entry.get("slug") or entry["title"]))
-        page = guidance_page_path(workspace_root, topic, slug)
-        page.parent.mkdir(parents=True, exist_ok=True)
-        page.write_text(page_text, encoding="utf-8")
-        written.append(page.relative_to(workspace_root).as_posix())
+        written.append(res.written_rel)
     return written
 
 
