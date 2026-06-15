@@ -278,7 +278,7 @@ async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
-# test_run_ingest_work_item_writes_to_workspace_work_dir
+# test_run_ingest_work_item_writes_page_sidecar_index_and_log
 # ---------------------------------------------------------------------------
 
 
@@ -328,7 +328,7 @@ async def test_run_ingest_work_item_writes_page_sidecar_index_and_log(tmp_path: 
 
 
 # ---------------------------------------------------------------------------
-# test_run_ingest_work_item_invokes_file_work_item_with_force
+# test_run_ingest_work_item_force_overwrites_existing_page
 # ---------------------------------------------------------------------------
 
 

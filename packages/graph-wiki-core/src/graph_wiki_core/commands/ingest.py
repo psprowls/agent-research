@@ -1412,7 +1412,7 @@ async def run_ingest_work_item(
     # Step 1: resolve wiki
     wiki, _ = resolve_wiki_and_repo(workspace_path)
 
-    # Step 2: parse frontmatter (full YAML via work_io.frontmatter, not a line parser)
+    # Step 2: parse frontmatter (full yaml.safe_load via work_io.filing, not the old line parser)
     fm = filing.parse_fields(frontmatter_text)
 
     # Step 3: validate
