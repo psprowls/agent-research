@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from importlib.resources import files
-
 from guidance_io.frontmatter import parse, validate
+from guidance_io.templates import templates_dir
 
 
 def _template_text() -> str:
-    return files("wiki_io.assets.page-templates").joinpath("guidance.md").read_text(encoding="utf-8")
+    return (templates_dir() / "guidance.md").read_text(encoding="utf-8")
 
 
 def test_shipped_template_parses() -> None:
