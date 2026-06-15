@@ -14,23 +14,26 @@ Public API:
 These are thin async orchestrators: they resolve the wiki/work directory from
 the workspace, drive the pure work-io functions (frontmatter / plan_table /
 sidecar / lifecycle_lint / archive), and shape the results for the CLI/MCP
-surfaces. `run_work_file` delegates to the existing
-`run_ingest_work_item` ingest path so work items are filed identically to the
-`gw ingest --work-item` flow.
+surfaces. `run_work_file` writes the page via `work_io.filing.write_work_item`
+and applies the shared sidecar/index/log side-effects via
+`_apply_work_item_side_effects` (the same post-write path `run_ingest_work_item`
+uses).
 """
 
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io.append_log import append_log
+from wiki_io.update_index import update_index
 from work_io import archive as _archive
 from work_io import doc_pointers as _doc_pointers
+from work_io import filing as _filing
 from work_io import frontmatter as _frontmatter
 from work_io import lifecycle_lint as _lint
 from work_io import plan_table as _plan_table
@@ -181,6 +184,34 @@ def _transition_dict(t: _workflow.Transition | None, current_status: str) -> dic
     if t is None:
         return None
     return {"phase": t.phase, "status": t.status or current_status, "requires": list(t.requires)}
+
+
+async def _apply_work_item_side_effects(
+    wiki: Path,
+    result: dict,
+    *,
+    workspace_path: Path | None,
+) -> None:
+    """Post-write effects shared by both filing paths: sidecar + index + log.
+
+    Lives in core (not work-io) because update_index/append_log are wiki-io
+    functions and work-io must stay free of a wiki-io dependency. index.md /
+    log.md updates are best-effort — skipped when the file is absent — so filing
+    succeeds against an un-bootstrapped wiki (work items predate bootstrap). The
+    sidecar regen always runs (gw work status/next read it).
+    """
+    await run_work_regen_index(workspace_path=workspace_path)
+    if (wiki / "index.md").exists():
+        update_index(wiki)
+    if (wiki / "log.md").exists():
+        append_log(
+            wiki,
+            "create",
+            result["title"],
+            detail=f"work/{Path(result['page_path']).name}",
+            silent=True,
+            raise_exception=True,
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -468,18 +499,15 @@ async def run_work_file(
     """File a new work item into wiki/work/.
 
     Builds the work-item frontmatter (category=work) and writes the page to
-    wiki/work/<opened>-<slug>.md, regenerating the sidecar afterward. This is a
-    direct write — it does not depend on a fully bootstrapped wiki (log.md /
-    index.md), which work items predate, and returns an IngestResult shaped like
-    the ingest work-item path.
+    wiki/work/<opened>-<slug>.md, regenerating the sidecar afterward. index.md /
+    log.md are updated best-effort — only when present — so filing still succeeds
+    against an un-bootstrapped wiki (which work items predate). Returns an
+    IngestResult shaped like the ingest work-item path.
     """
     affects = affects or []
     today = date.today().isoformat()
-    slug = _slugify(title)
 
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
-    work_dir = wiki / "work"
-    work_dir.mkdir(parents=True, exist_ok=True)
 
     # Build frontmatter in wiki-schema.md ("Work pages") key order. Optional
     # scalars are omitted when unset rather than emitted as null placeholders;
@@ -506,33 +534,18 @@ async def run_work_file(
     fm["opened"] = today
     fm["updated"] = today
     fm["tags"] = tags or []
+
     item_body = body or f"## Summary\n{summary}\n"
-    if not item_body.endswith("\n"):
-        item_body += "\n"
-    content = _frontmatter.emit(fm) + "\n\n" + item_body
 
-    page_path = work_dir / f"{today}-{slug}.md"
-    if page_path.exists() and not force:
-        raise FileExistsError(f"page already exists: {page_path}")
-    page_path.write_text(content, encoding="utf-8")
-
-    # Keep the sidecar in sync with the newly filed item.
-    await run_work_regen_index(workspace_path=workspace_path)
+    result = _filing.write_work_item(wiki, fm, item_body, force=force)
+    await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
 
     return IngestResult(
         status="ok",
-        page_path=str(page_path.relative_to(wiki)),
-        slug=slug,
+        page_path=str(Path(result["page_path"]).relative_to(wiki)),
+        slug=result["slug"],
         title=title,
         page_type="work",
         source_path="",
         cross_refs_updated=0,
     )
-
-
-_SLUG_RE = re.compile(r"[^a-z0-9]+")
-
-
-def _slugify(title: str) -> str:
-    s = _SLUG_RE.sub("-", title.lower()).strip("-")
-    return s or "untitled"

@@ -55,10 +55,9 @@ from wiki_io.ingest_source import (
     resolve_skill_anchor,
     slugify,
 )
-from wiki_io.ingest_work_item import _parse_frontmatter, _validate, file_work_item
 from wiki_io.update_index import update_index
 from wiki_io.wikilinks import vault_wikilink
-from work_io import doc_pointers
+from work_io import doc_pointers, filing
 from workspace_io.paths import graph_dir, raw_dir
 
 from graph_wiki_core.commands.suggest_pages import run_suggest_phase
@@ -120,8 +119,8 @@ class IngestResult:
                             always "source" (M3 Part A — every ingested doc lands
                             under sources/; see source_type for the closed-enum
                             classification). From run_ingest_work_item: always
-                            "work" (work items file under <workspace>/work/ via
-                            file_work_item).
+                            "work" (work items file under <workspace>/wiki/work/ via
+                            work_io.filing.write_work_item).
         source_path:        Original source file path (empty for work items).
         cross_refs_updated: Number of cross-reference updates performed (index-only scope).
         entity_uri:         Phase 40 (INGESTOR-01) canonical entity URI when the graph
@@ -1386,13 +1385,15 @@ async def run_ingest_work_item(
 
     Steps:
         1. Resolve wiki path.
-        2. Parse frontmatter YAML.
-        3. Validate required fields — raise ValueError on failure.
-        4. file_work_item() — writes page, calls update_index + append_log internally.
-        5. Return IngestResult.
+        2. Parse frontmatter YAML via work_io.filing.parse_fields.
+        3. Validate required fields via work_io.filing.validate — raise ValueError on failure.
+        4. Write the page via work_io.filing.write_work_item (no side-effects in the primitive).
+        5. Run shared side-effects: sidecar regen + best-effort index.md/log.md via
+           _apply_work_item_side_effects.
+        6. Return IngestResult.
 
-    Note: update_index and append_log are called by file_work_item() per plan-05-03.
-    Cross-ref update is index-only (same scope as run_ingest_source).
+    Note: update_index and append_log are invoked by _apply_work_item_side_effects when
+    index.md/log.md are present. Cross-ref update is index-only (same scope as run_ingest_source).
 
     Args:
         frontmatter_text: YAML string with work item frontmatter.
@@ -1411,28 +1412,30 @@ async def run_ingest_work_item(
     # Step 1: resolve wiki
     wiki, _ = resolve_wiki_and_repo(workspace_path)
 
-    # Step 2: parse frontmatter
-    fm = _parse_frontmatter(frontmatter_text)
+    # Step 2: parse frontmatter (full yaml.safe_load via work_io.filing, not the old line parser)
+    fm = filing.parse_fields(frontmatter_text)
 
     # Step 3: validate
-    issues = _validate(fm)
+    issues = filing.validate(fm)
     if issues:
         raise ValueError("schema validation failed: " + "; ".join(issues))
 
-    # Step 4: file the work item (update_index + append_log called internally)
-    result_dict = file_work_item(
-        wiki,
-        fm,
-        body,
-        slug=slug,
-        force=force,
-    )
+    # Step 4: write the page (no side-effects in the primitive)
+    result = filing.write_work_item(wiki, fm, body, slug=slug, force=force)
 
-    # Step 5: return IngestResult
+    # Step 5: shared side-effects (sidecar + index.md + log.md). Local import:
+    # commands.work imports IngestResult from this module, so importing it at
+    # module scope would create a cycle (mirrors the local-import pattern at
+    # _synthesize_guidance_pages -> guidance_io.writer).
+    from graph_wiki_core.commands.work import _apply_work_item_side_effects
+
+    await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
+
+    # Step 6: return IngestResult
     return IngestResult(
         status="ok",
-        page_path=result_dict["page_path"],
-        slug=result_dict["slug"],
+        page_path=result["page_path"],
+        slug=result["slug"],
         title=str(fm["title"]),
         page_type="work",
         source_path="",

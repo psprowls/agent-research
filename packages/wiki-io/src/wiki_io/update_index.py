@@ -408,7 +408,7 @@ def update_guidance_indexes(wiki: Path) -> None:
 def update_index(wiki: Path) -> None:
     """Regenerate per-folder category sub-indexes from vault frontmatter.
 
-    Library entry point for use by ingest_work_item and other callers.
+    Library entry point for use by work-item filing and other callers.
 
     Phase 45 D-02: the previous `wiki/index.md` write is removed; that file
     is now owned by `wiki_io.index_generator.generate_index`. This function

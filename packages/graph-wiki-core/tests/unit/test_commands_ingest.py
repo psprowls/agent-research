@@ -278,13 +278,14 @@ async def test_run_ingest_work_item_validates_required_fields(tmp_path: Path) ->
 
 
 # ---------------------------------------------------------------------------
-# test_run_ingest_work_item_writes_to_workspace_work_dir
+# test_run_ingest_work_item_writes_page_sidecar_index_and_log
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_work_item_writes_to_workspace_work_dir(tmp_path: Path) -> None:
-    """Valid YAML: page exists at workspace/work/<opened>-<slug>.md; page_type==work."""
+async def test_run_ingest_work_item_writes_page_sidecar_index_and_log(tmp_path: Path) -> None:
+    """Valid YAML: page lands at wiki/work/<opened>-<slug>.md; sidecar regen runs;
+    update_index + append_log invoked because index.md + log.md are present."""
     from graph_wiki_core.commands.ingest import IngestResult, run_ingest_work_item
 
     frontmatter_text = (
@@ -298,44 +299,42 @@ async def test_run_ingest_work_item_writes_to_workspace_work_dir(tmp_path: Path)
         "  - auth-service\n"
     )
 
-    wiki = tmp_path / "wiki"
-    wiki.mkdir()
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "index.md").write_text("", encoding="utf-8")
     (wiki / "log.md").write_text("", encoding="utf-8")
-
-    work_dir = tmp_path / "work"
 
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("graph_wiki_core.commands.ingest.file_work_item") as mock_file_work_item,
+        patch("graph_wiki_core.commands.work.resolve_wiki_and_repo") as mock_resolve_work,
+        patch("graph_wiki_core.commands.work.update_index") as mock_ui,
+        patch("graph_wiki_core.commands.work.append_log") as mock_al,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
-
-        # file_work_item returns the expected dict
-        expected_page_path = str(work_dir / "2026-05-14-fix-auth-bug.md")
-        mock_file_work_item.return_value = {
-            "status": "ok",
-            "page_path": expected_page_path,
-            "slug": "fix-auth-bug",
-            "title": "Fix Auth Bug",
-        }
-
-        result = await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=wiki)
+        mock_resolve_work.return_value = (wiki, tmp_path)
+        result = await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=workspace)
 
     assert isinstance(result, IngestResult)
     assert result.page_type == "work"
     assert result.status == "ok"
     assert result.slug == "fix-auth-bug"
     assert "2026-05-14-fix-auth-bug" in result.page_path
+    assert (wiki / "work" / "2026-05-14-fix-auth-bug.md").exists()
+    # Unified side-effects: sidecar regenerated, index + log invoked.
+    assert (wiki / "work-index.json").exists()
+    mock_ui.assert_called_once_with(wiki)
+    mock_al.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
-# test_run_ingest_work_item_invokes_file_work_item_with_force
+# test_run_ingest_work_item_force_overwrites_existing_page
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: Path) -> None:
-    """force=True propagated to file_work_item()."""
+async def test_run_ingest_work_item_force_overwrites_existing_page(tmp_path: Path) -> None:
+    """force=True overwrites an existing work page; force=False raises FileExistsError."""
     from graph_wiki_core.commands.ingest import run_ingest_work_item
 
     frontmatter_text = (
@@ -349,29 +348,27 @@ async def test_run_ingest_work_item_invokes_file_work_item_with_force(tmp_path: 
         "  - backend\n"
     )
 
-    wiki = tmp_path / "wiki"
-    wiki.mkdir()
-    (wiki / "log.md").write_text("", encoding="utf-8")
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    wiki.mkdir(parents=True)
 
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("graph_wiki_core.commands.ingest.file_work_item") as mock_file_work_item,
+        patch("graph_wiki_core.commands.work.resolve_wiki_and_repo") as mock_resolve_work,
     ):
         mock_resolve.return_value = (wiki, tmp_path)
-        mock_file_work_item.return_value = {
-            "status": "ok",
-            "page_path": str(tmp_path / "work" / "2026-05-14-some-item.md"),
-            "slug": "some-item",
-            "title": "Some Item",
-        }
+        mock_resolve_work.return_value = (wiki, tmp_path)
 
-        await run_ingest_work_item(frontmatter_text, "Body.", force=True, workspace_path=wiki)
+        await run_ingest_work_item(frontmatter_text, "Body one.", workspace_path=workspace)
+        # Without force, a second file of the same slug/date raises.
+        with pytest.raises(FileExistsError):
+            await run_ingest_work_item(frontmatter_text, "Body two.", workspace_path=workspace)
+        # With force, it overwrites.
+        result = await run_ingest_work_item(frontmatter_text, "Body two.", force=True, workspace_path=workspace)
 
-    # Verify force=True was passed to file_work_item
-    call_kwargs = mock_file_work_item.call_args
-    assert call_kwargs.kwargs.get("force") is True or (len(call_kwargs.args) > 3 and call_kwargs.args[3] is True), (
-        f"force=True not found in call: {call_kwargs}"
-    )
+    assert result.status == "ok"
+    page = wiki / "work" / "2026-05-14-some-item.md"
+    assert "Body two." in page.read_text(encoding="utf-8")
 
 
 # ---------------------------------------------------------------------------
