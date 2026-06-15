@@ -9,7 +9,8 @@ Linter system prompts are constructed inline via
 where `project_context` is the rendered output of
 `render_project_context(wiki)` — see CTX-03.
 
-Mechanical checks (ported verbatim from lint_wiki.py:scan()):
+Mechanical checks (delegated to wiki_io.lint_wiki.mechanical_scan, the single
+canonical scanner shared with lint_wiki.scan()):
   - orphans, broken wikilinks (placeholder-filtered), stale pages, missing frontmatter
   - duplicate titles, log gaps, code-drift (packages vs vault)
   - specialized drift modules: dependency, domain, file_map,
@@ -25,9 +26,7 @@ Per D-10: NO write-back to vault. run_lint is read-only.
 
 from __future__ import annotations
 
-import datetime as dt
 import logging
-from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -35,15 +34,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.entity_writer import ADMITTED_KINDS
-from wiki_io.lint.common import (
-    LOG_ENTRY_RE,
-    WIKILINK_RE,
-    _is_placeholder_target,
-    parse_frontmatter,
-    strip_code,
-    strip_frontmatter,
-)
+from wiki_io.lint.common import strip_frontmatter
 from wiki_io.lint.concept_kind import check as check_concept_kind
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
@@ -51,15 +42,11 @@ from wiki_io.lint.file_map import check as check_file_map_drift
 from wiki_io.lint.package_sync import check as check_package_sync_drift
 from wiki_io.lint.scanner_heading import check as check_scanner_heading
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
+from wiki_io.lint_wiki import mechanical_scan
 from wiki_io.proposals import list_proposals
 from workspace_io.paths import graph_dir
 
 logger = logging.getLogger(__name__)
-
-# Every real top-level vault dir under the wiki root. The mechanical pass walks
-# from the wiki (not the workspace), so a page's top path-part is its category
-# dir; LINTED_TOPS must enumerate them all to keep the same pages linted.
-LINTED_TOPS = {"concepts", "adrs", "sources", "entities", "proposals", "work"}
 
 # Sentinel used by upstream for skipped dict checks; preserved for serialization compat
 _SKIPPED: dict = {"skipped": True}
@@ -94,6 +81,7 @@ class LintResult:
     broken_links: list[tuple[str, str]] = field(default_factory=list)
     stale: list[tuple[str, str]] = field(default_factory=list)
     missing_frontmatter: list[str] = field(default_factory=list)
+    missing_tokens: list[str] = field(default_factory=list)
     source_path_drift: list[str] = field(default_factory=list)
     duplicate_titles: dict[str, list[str]] = field(default_factory=dict)
     log_gap: dict | None = None
@@ -110,216 +98,6 @@ class LintResult:
     open_proposals: int = 0
     work_lint_findings: list[dict] = field(default_factory=list)
     guidance_lint_findings: list[dict] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Private: _mechanical_pass — port of lint_wiki.py:scan() lines 77-331
-# ---------------------------------------------------------------------------
-
-
-def _mechanical_pass(
-    wiki: Path,
-    stale_days: int,
-    log_gap_days: int,
-) -> dict:
-    """Port of lint_wiki.py:scan() mechanical section.
-
-    Walks the wiki tree, builds a link graph, detects orphans/broken links/
-    stale pages/missing frontmatter/duplicate titles/log gaps.
-
-    Returns a dict with all mechanical fields matching LintResult field names.
-    Imports swap upstream package -> wiki_io for the linter's internals.
-    Logic ported verbatim from lint_wiki.py:scan() lines 77-331.
-    """
-    pages: dict = {}
-    link_targets: set[str] = set()
-    inbound: dict[str, set] = defaultdict(set)
-    outbound: dict[str, set] = defaultdict(set)
-
-    for md in wiki.rglob("*.md"):
-        rel = md.relative_to(wiki)
-        # Exclude any path that has a dotdir component (.graph/, .obsidian/, etc.)
-        if any(part.startswith(".") for part in rel.parts):
-            continue
-        if rel.name in {"log.md"}:
-            continue
-        top = rel.parts[0] if rel.parts else ""
-        key = str(rel).replace("\\", "/")[:-3]
-        # <dir>/_archive/ items are valid link targets but excluded from orphan/stale checks
-        if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
-            link_targets.add(key)
-            continue
-        # Add to link_targets regardless of whether it's an index page
-        link_targets.add(key)
-        # Skip adding index.md to pages dict for orphan/stale/frontmatter checks
-        if rel.name == "index.md":
-            continue
-        text = md.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
-        pages[key] = {
-            "path": key + ".md",
-            "fm": fm,
-            "text": text,
-            "linted": top in LINTED_TOPS,
-            "is_work": top == "work",
-            "is_proposal": top == "proposals",
-        }
-
-    stems = {Path(k).name: k for k in pages}
-    for key, page in pages.items():
-        scan_text = strip_code(strip_frontmatter(page["text"]))
-        for m in WIKILINK_RE.finditer(scan_text):
-            target = m.group(1).strip()
-            if target.endswith(".md"):
-                target = target[:-3]
-            if target in link_targets:
-                outbound[key].add(target)
-                inbound[target].add(key)
-            elif (target + "/overview") in link_targets:
-                # [[<container>/<name>]] resolves to <container>/<name>/overview.md
-                resolved = target + "/overview"
-                outbound[key].add(resolved)
-                inbound[resolved].add(key)
-            elif (target + "/" + Path(target).name) in link_targets:
-                # Legacy: [[<container>/<name>]] resolves to <container>/<name>/<name>.md
-                # (old naming convention — kept for backwards compat with existing links)
-                resolved = target + "/" + Path(target).name
-                outbound[key].add(resolved)
-                inbound[resolved].add(key)
-            elif "/" not in target and Path(target).name in stems:
-                # Bare-filename shorthand: [[my-pkg]] resolves to any page named my-pkg.
-                resolved = stems[Path(target).name]
-                outbound[key].add(resolved)
-                inbound[resolved].add(key)
-            else:
-                if not _is_placeholder_target(target):
-                    outbound[key].add(f"__BROKEN__:{target}")
-
-    # Parse outbound links from index.md files so that:
-    # (a) pages only linked from an index are not flagged as orphans, and
-    # (b) broken links inside index.md files are reported.
-    for md in wiki.rglob("*.md"):
-        rel = md.relative_to(wiki)
-        if rel.name != "index.md":
-            continue
-        if any(part.startswith(".") for part in rel.parts):
-            continue
-        if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
-            continue
-        idx_key = str(rel).replace("\\", "/")[:-3]
-        text = md.read_text(encoding="utf-8", errors="replace")
-        scan_text = strip_code(strip_frontmatter(text))
-        for m in WIKILINK_RE.finditer(scan_text):
-            target = m.group(1).strip()
-            if target.endswith(".md"):
-                target = target[:-3]
-            if target in link_targets:
-                if target in pages:
-                    inbound[target].add(idx_key)
-            elif (target + "/" + Path(target).name) in link_targets:
-                resolved = target + "/" + Path(target).name
-                if resolved in pages:
-                    inbound[resolved].add(idx_key)
-            elif "/" not in target and Path(target).name in stems:
-                resolved = stems[Path(target).name]
-                inbound[resolved].add(idx_key)
-            else:
-                if not _is_placeholder_target(target):
-                    outbound[idx_key].add(f"__BROKEN__:{target}")
-
-    today = dt.date.today()
-    stale_cutoff = today - dt.timedelta(days=stale_days)
-
-    orphans = sorted(k for k, p in pages.items() if p["linted"] and not p["is_work"] and not inbound.get(k))
-    broken_links = []
-    for src, targets in outbound.items():
-        for t in targets:
-            if t.startswith("__BROKEN__:"):
-                broken_links.append((src, t.split(":", 1)[1]))
-    broken_links.sort()
-
-    stale = []
-    missing_fm = []
-    titles: dict[str, list[str]] = defaultdict(list)
-    for key, page in pages.items():
-        if not page["linted"]:
-            continue
-        fm = page["fm"]
-        title = fm.get("title") or Path(key).name
-        titles[title].append(key)
-        if fm.get("kind") in ADMITTED_KINDS:
-            # Graph-derived entities/ pages use the entity frontmatter contract:
-            # uri/kind are required. `title` is intentionally absent — the writer
-            # never emits it (the H1 carries the entity name); requiring it here
-            # would falsely flag every entity page as missing_frontmatter.
-            if not {"uri", "kind"}.issubset(fm.keys()):
-                missing_fm.append(key)
-        elif page.get("is_proposal"):
-            # Proposal contract: machine-written review-queue notes. upsert_proposal
-            # always writes kind/mode/target_slug/status; they never carry
-            # category/summary. See proposals.py.
-            if not {"kind", "mode", "target_slug", "status"}.issubset(fm.keys()):
-                missing_fm.append(key)
-        else:
-            required = {"title", "category", "summary"}
-            if not required.issubset(fm.keys()):
-                missing_fm.append(key)
-        updated = fm.get("updated")
-        if updated:
-            try:
-                d = dt.date.fromisoformat(updated)
-                if d < stale_cutoff:
-                    stale.append((key, updated))
-            except ValueError:
-                pass
-    duplicate_titles = {t: ks for t, ks in titles.items() if len(ks) > 1}
-
-    # Log gap detection
-    log_path = wiki / "log.md"
-    log_gap = None
-    if log_path.exists():
-        log_text = log_path.read_text(encoding="utf-8", errors="replace")
-        dates = []
-        for m in LOG_ENTRY_RE.findall(log_text):
-            try:
-                dates.append(dt.date.fromisoformat(m))
-            except ValueError:
-                pass  # malformed date in log header — skip
-        if dates:
-            last = max(dates)
-            gap = (today - last).days
-            if gap > log_gap_days:
-                log_gap = {"last_entry": last.isoformat(), "days_ago": gap}
-        else:
-            log_gap = {"last_entry": None, "days_ago": None}
-
-    # source_path drift: a source page whose workspace-relative raw/ source_path
-    # no longer exists on disk (the file was archived). Conservative — skips
-    # absolute paths and repo-relative in-repo doc paths (raw-source-archive
-    # 2026-06-14).
-    workspace_root = wiki.parent
-    source_path_drift = []
-    for key, page in pages.items():
-        if not key.startswith("sources/"):
-            continue
-        sp = page["fm"].get("source_path")
-        if not isinstance(sp, str) or not sp or sp.startswith("/") or not sp.startswith("raw/"):
-            continue
-        if not (workspace_root / sp).exists():
-            source_path_drift.append(key)
-    source_path_drift.sort()
-
-    return {
-        "pages": pages,
-        "orphans": orphans,
-        "broken_links": broken_links,
-        "stale": stale,
-        "missing_frontmatter": sorted(missing_fm),
-        "source_path_drift": source_path_drift,
-        "duplicate_titles": duplicate_titles,
-        "log_gap": log_gap,
-        "total_pages": len(pages),
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -515,11 +293,11 @@ async def run_lint(
     log_gap_days: int = 14,
     model_override: str | None = None,
 ) -> LintResult:
-    """End-to-end lint: mechanical pass (inline scan port) + module checks + semantic fan-out.
+    """End-to-end lint: mechanical pass (wiki_io.mechanical_scan) + module checks + semantic fan-out.
 
     Steps:
         1. Resolve wiki and repo from workspace_path.
-        2. MECHANICAL inline pass — port of lint_wiki.py:scan() lines 77-331.
+        2. MECHANICAL pass — wiki_io.lint_wiki.mechanical_scan (canonical scanner).
         3. MECHANICAL module pass — call all drift-check modules.
         4. SEMANTIC pass — 3-group linter fan-out via SubagentPool.
         5. Return LintResult (NO write-back to vault — D-10).
@@ -543,8 +321,8 @@ async def run_lint(
         repo = Path.cwd()
     workspace = wiki.parent
 
-    # Step 2: mechanical inline pass
-    mech = _mechanical_pass(wiki, stale_days, log_gap_days)
+    # Step 2: mechanical pass — canonical scanner owned by wiki_io.lint_wiki
+    mech = mechanical_scan(wiki, stale_days, log_gap_days)
     pages = mech["pages"]
 
     # Step 3: module checks
@@ -584,6 +362,7 @@ async def run_lint(
         broken_links=mech["broken_links"],
         stale=mech["stale"],
         missing_frontmatter=mech["missing_frontmatter"],
+        missing_tokens=mech["missing_tokens"],
         source_path_drift=mech["source_path_drift"],
         duplicate_titles=mech["duplicate_titles"],
         log_gap=mech["log_gap"],

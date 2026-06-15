@@ -652,7 +652,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
             return_value=(vault, None),
         ),
         patch(
-            "graph_wiki_core.commands.lint._mechanical_pass",
+            "graph_wiki_core.commands.lint.mechanical_scan",
             return_value={
                 "pages": non_empty_pages,
                 "total_pages": 1,
@@ -660,6 +660,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
                 "broken_links": [],
                 "stale": [],
                 "missing_frontmatter": [],
+                "missing_tokens": [],
                 "source_path_drift": [],
                 "duplicate_titles": [],
                 "log_gap": False,

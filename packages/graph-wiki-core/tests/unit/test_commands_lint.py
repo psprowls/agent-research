@@ -535,7 +535,7 @@ async def test_run_lint_surfaces_guidance_findings(tmp_path) -> None:
 
 
 def test_mechanical_pass_flags_stale_raw_source_path(tmp_path: Path) -> None:
-    from graph_wiki_core.commands.lint import _mechanical_pass
+    from wiki_io.lint_wiki import mechanical_scan
 
     ws = tmp_path
     wiki = ws / "wiki"
@@ -554,5 +554,5 @@ def test_mechanical_pass_flags_stale_raw_source_path(tmp_path: Path) -> None:
     _page("archived", "raw/_archive/specs/live.md")  # archived, exists -> not flagged
     _page("indoc", "docs/architecture.md")  # repo-relative doc -> not flagged
 
-    mech = _mechanical_pass(wiki, stale_days=9999, log_gap_days=9999)
+    mech = mechanical_scan(wiki, stale_days=9999, log_gap_days=9999)
     assert mech["source_path_drift"] == ["sources/stale"]

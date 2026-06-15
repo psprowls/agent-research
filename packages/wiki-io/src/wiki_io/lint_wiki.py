@@ -70,15 +70,22 @@ def _is_placeholder_target(target: str) -> bool:
     return "..." in target or "<" in target or ">" in target
 
 
-def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
-    if not wiki.exists():
-        raise SystemExit(f"[error] {wiki} not found")
-    workspace = wiki.parent
+def mechanical_scan(wiki, stale_days, log_gap_days):
+    """Canonical mechanical lint pass shared by scan() and graph-wiki-core run_lint().
 
-    pages = {}
-    link_targets = set()
-    inbound = defaultdict(set)
-    outbound = defaultdict(set)
+    Walks the wiki tree, builds the wikilink graph, and detects orphans, broken
+    links, stale pages, missing frontmatter, missing tokens, source-path drift,
+    duplicate titles, and log gaps. This is the single source of truth for the
+    mechanical findings; both delivery surfaces consume its return dict.
+
+    Returns a dict with keys: pages, orphans, broken_links, stale,
+    missing_frontmatter, missing_tokens, source_path_drift, duplicate_titles,
+    log_gap, total_pages.
+    """
+    pages: dict = {}
+    link_targets: set[str] = set()
+    inbound: dict[str, set] = defaultdict(set)
+    outbound: dict[str, set] = defaultdict(set)
 
     for md in wiki.rglob("*.md"):
         rel = md.relative_to(wiki)
@@ -123,9 +130,14 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
             if target in link_targets:
                 outbound[key].add(target)
                 inbound[target].add(key)
+            elif (target + "/overview") in link_targets:
+                # [[<container>/<name>]] resolves to <container>/<name>/overview.md
+                resolved = target + "/overview"
+                outbound[key].add(resolved)
+                inbound[resolved].add(key)
             elif (target + "/" + Path(target).name) in link_targets:
-                # [[<container>/<name>]] resolves to <container>/<name>/<name>.md
-                # (the folder-shorthand form for apps, packages, domains).
+                # Legacy: [[<container>/<name>]] resolves to <container>/<name>/<name>.md
+                # (old naming convention — kept for backwards compat with existing links).
                 resolved = target + "/" + Path(target).name
                 outbound[key].add(resolved)
                 inbound[resolved].add(key)
@@ -167,6 +179,10 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
                 # (so index-to-index links don't prevent orphan detection)
                 if target in pages:
                     inbound[target].add(idx_key)
+            elif (target + "/overview") in link_targets:
+                resolved = target + "/overview"
+                if resolved in pages:
+                    inbound[resolved].add(idx_key)
             elif (target + "/" + Path(target).name) in link_targets:
                 resolved = target + "/" + Path(target).name
                 # Only count inbound from index if target is in pages dict
@@ -195,7 +211,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     stale = []
     missing_fm = []
     missing_tokens = []
-    titles = defaultdict(list)
+    titles: dict[str, list[str]] = defaultdict(list)
     for key, page in pages.items():
         if not page["linted"]:
             continue
@@ -240,7 +256,12 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     log_gap = None
     if log_path.exists():
         log_text = log_path.read_text(encoding="utf-8", errors="replace")
-        dates = [dt.date.fromisoformat(m) for m in LOG_ENTRY_RE.findall(log_text)]
+        dates = []
+        for m in LOG_ENTRY_RE.findall(log_text):
+            try:
+                dates.append(dt.date.fromisoformat(m))
+            except ValueError:
+                pass  # malformed date in log header — skip
         if dates:
             last = max(dates)
             gap = (today - last).days
@@ -248,6 +269,44 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
                 log_gap = {"last_entry": last.isoformat(), "days_ago": gap}
         else:
             log_gap = {"last_entry": None, "days_ago": None}
+
+    # source_path drift: a source page whose workspace-relative raw/ source_path
+    # no longer exists on disk (the file was archived). Conservative — skips
+    # absolute paths and repo-relative in-repo doc paths (raw-source-archive
+    # 2026-06-14).
+    workspace_root = wiki.parent
+    source_path_drift = []
+    for key, page in pages.items():
+        if not key.startswith("sources/"):
+            continue
+        sp = page["fm"].get("source_path")
+        if not isinstance(sp, str) or not sp or sp.startswith("/") or not sp.startswith("raw/"):
+            continue
+        if not (workspace_root / sp).exists():
+            source_path_drift.append(key)
+    source_path_drift.sort()
+
+    return {
+        "pages": pages,
+        "orphans": orphans,
+        "broken_links": broken_links,
+        "stale": stale,
+        "missing_frontmatter": sorted(missing_fm),
+        "missing_tokens": sorted(missing_tokens),
+        "source_path_drift": source_path_drift,
+        "duplicate_titles": duplicate_titles,
+        "log_gap": log_gap,
+        "total_pages": len(pages),
+    }
+
+
+def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
+    if not wiki.exists():
+        raise SystemExit(f"[error] {wiki} not found")
+    workspace = wiki.parent
+
+    mech = mechanical_scan(wiki, stale_days, log_gap_days)
+    pages = mech["pages"]
 
     # Code-drift check
     code_drift = _SKIPPED
@@ -378,14 +437,14 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
 
     return {
         "wiki": str(wiki),
-        "total_pages": len(pages),
-        "orphans": orphans,
-        "broken_links": broken_links,
-        "stale": stale,
-        "missing_frontmatter": sorted(missing_fm),
-        "missing_tokens": sorted(missing_tokens),
-        "duplicate_titles": duplicate_titles,
-        "log_gap": log_gap,
+        "total_pages": mech["total_pages"],
+        "orphans": mech["orphans"],
+        "broken_links": mech["broken_links"],
+        "stale": mech["stale"],
+        "missing_frontmatter": mech["missing_frontmatter"],
+        "missing_tokens": mech["missing_tokens"],
+        "duplicate_titles": mech["duplicate_titles"],
+        "log_gap": mech["log_gap"],
         "code_drift": code_drift,
         "file_map_drift": file_map_drift,
         "package_sync_drift": package_sync_drift,

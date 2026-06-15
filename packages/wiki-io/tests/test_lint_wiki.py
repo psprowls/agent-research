@@ -386,6 +386,59 @@ def test_proposals_not_orphaned(tmp_path):
     assert "proposals/adr-my-slug" not in result["missing_frontmatter"]
 
 
+def test_mechanical_scan_returns_pages_and_inline_fields(tmp_path):
+    from wiki_io.lint_wiki import mechanical_scan
+
+    wiki = tmp_path / "wiki"
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "proposals").mkdir(parents=True)
+    (wiki / "concepts" / "a.md").write_text(
+        "---\ntitle: A\ncategory: concept\nsummary: s\ntokens: 1\n---\n\nbody\n", encoding="utf-8"
+    )
+    # Proposal with no inbound links must NOT be flagged as an orphan.
+    (wiki / "proposals" / "p.md").write_text(
+        "---\nkind: adr\nmode: create_new\ntarget_slug: t\nstatus: proposed\ntokens: 1\n---\nbody\n",
+        encoding="utf-8",
+    )
+    # Schema file must be ignored entirely.
+    (wiki / "CLAUDE.md").write_text("schema\n", encoding="utf-8")
+
+    r = mechanical_scan(wiki, stale_days=90, log_gap_days=14)
+
+    assert set(r) >= {
+        "pages",
+        "orphans",
+        "broken_links",
+        "stale",
+        "missing_frontmatter",
+        "missing_tokens",
+        "source_path_drift",
+        "duplicate_titles",
+        "log_gap",
+        "total_pages",
+    }
+    assert "proposals/p" not in r["orphans"]
+    assert "CLAUDE" not in {k.split("/")[-1] for k in r["pages"]}
+
+
+def test_mechanical_scan_resolves_overview_shorthand(tmp_path):
+    from wiki_io.lint_wiki import mechanical_scan
+
+    wiki = tmp_path / "wiki"
+    (wiki / "entities" / "alpha").mkdir(parents=True)
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "entities" / "alpha" / "overview.md").write_text(
+        "---\nuri: pkg:o/r/alpha\nkind: package\ntokens: 1\n---\n\nbody\n", encoding="utf-8"
+    )
+    (wiki / "concepts" / "ref.md").write_text(
+        "---\ntitle: Ref\ncategory: concept\nsummary: s\ntokens: 1\n---\n\nSee [[entities/alpha]].\n",
+        encoding="utf-8",
+    )
+    r = mechanical_scan(wiki, stale_days=90, log_gap_days=14)
+    # [[entities/alpha]] resolves to entities/alpha/overview — NOT a broken link.
+    assert all("entities/alpha" != t for _s, t in r["broken_links"])
+
+
 def test_proposals_invalid_schema_flagged(tmp_path):
     """proposals/ pages missing required proposal fields are flagged."""
     from wiki_io.lint_wiki import scan
