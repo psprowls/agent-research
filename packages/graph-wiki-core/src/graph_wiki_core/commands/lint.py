@@ -109,6 +109,7 @@ class LintResult:
     errors: list[str] = field(default_factory=list)
     open_proposals: int = 0
     work_lint_findings: list[dict] = field(default_factory=list)
+    guidance_lint_findings: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -565,6 +566,17 @@ async def run_lint(
         if f["severity"] == "error":
             errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
 
+    # Guidance-layer mechanical lint (owned by guidance-io)
+    from guidance_io.lint import run_lint as _run_guidance_lint
+
+    guidance_findings = [
+        {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
+        for f in _run_guidance_lint(workspace)
+    ]
+    for f in guidance_findings:
+        if f["severity"] == "error":
+            errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
+
     return LintResult(
         wiki=str(wiki),
         total_pages=mech["total_pages"],
@@ -587,4 +599,5 @@ async def run_lint(
         errors=errors,
         open_proposals=open_proposals,
         work_lint_findings=work_findings,
+        guidance_lint_findings=guidance_findings,
     )

@@ -173,6 +173,14 @@ def lint(
         else:
             typer.echo("[OK] Work lifecycle: 0\n")
 
+        if result.guidance_lint_findings:
+            guidance_items = [
+                f"[{f['severity']}] {f['slug']}: {f['rule_id']} — {f['message']}" for f in result.guidance_lint_findings
+            ]
+            _section("Guidance frontmatter", guidance_items)
+        else:
+            typer.echo("[OK] Guidance frontmatter: 0\n")
+
     if result.errors:
         for err in result.errors:
             typer.echo(f"  error: {err}", err=True)

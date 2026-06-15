@@ -511,6 +511,29 @@ async def test_run_lint_excludes_archived_curated_pages_from_orphans_and_stale(t
     assert not any("0003-old" in t for _, t in result.broken_links)
 
 
+@pytest.mark.asyncio
+async def test_run_lint_surfaces_guidance_findings(tmp_path) -> None:
+    """An invalid guidance page is reported in LintResult.guidance_lint_findings."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    g = tmp_path / "wiki" / "guidance" / "model-adapter"
+    g.mkdir(parents=True)
+    # Missing required keys + wrong category -> guidance-invalid-frontmatter.
+    (g / "bad.md").write_text("---\ntitle: X\ncategory: concept\n---\n\nbody\n", encoding="utf-8")
+
+    with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        result = await run_lint(workspace_path=tmp_path)
+
+    rule_ids = {f["rule_id"] for f in result.guidance_lint_findings}
+    assert "guidance-invalid-frontmatter" in rule_ids
+    # error-severity guidance findings escalate into result.errors
+    assert any("model-adapter/bad" in e for e in result.errors)
+
+
 def test_mechanical_pass_flags_stale_raw_source_path(tmp_path: Path) -> None:
     from graph_wiki_core.commands.lint import _mechanical_pass
 
