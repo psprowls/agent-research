@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import subprocess
+
+import pytest
 
 # load-bearing: 260521-ans — strip ANSI so Typer --help output is parseable.
 # Disable Rich's ANSI rendering so help output is plain text — otherwise
@@ -67,3 +70,25 @@ def test_cli_help_init_subcommand_removed() -> None:
         f"`init` must NOT appear as a Typer subcommand row after Phase 18 rename.\n"
         f"Commands section:\n{commands_section}"
     )
+
+
+@pytest.mark.parametrize("namespace", ["graph", "wiki", "work"])
+def test_help_json_serializes_every_namespace(namespace: str) -> None:
+    """`gw help <namespace> --json` emits valid JSON for all subapps.
+
+    Regression: `graph` carries an option with a `Path` default
+    (`--repo`, defaulting to `Path.cwd()`), which crashed the help serializer
+    with `TypeError: Object of type PosixPath is not JSON serializable` because
+    `_command_to_help_entry` dumped `param.default` raw. The serializer must
+    coerce non-JSON-native defaults so every command's help renders.
+    """
+    result = subprocess.run(
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "help", namespace, "--json"],
+        capture_output=True,
+        text=True,
+        env=_PLAIN_HELP_ENV,
+    )
+    assert result.returncode == 0, f"help {namespace} --json exited {result.returncode}\n{result.stderr}"
+    payload = json.loads(result.stdout)
+    assert payload["path"] == [namespace]
+    assert isinstance(payload["commands"], list) and payload["commands"]
