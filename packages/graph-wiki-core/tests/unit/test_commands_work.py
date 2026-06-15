@@ -223,6 +223,64 @@ def test_run_work_file_omits_optional_scalars_when_unset(tmp_path: Path) -> None
         assert k not in fm
 
 
+def test_run_work_file_best_effort_skips_missing_index_and_log(tmp_path: Path) -> None:
+    """Filing into a wiki with no index.md/log.md still writes page + sidecar."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)  # no index.md / log.md
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="No bootstrap item",
+            kind="bug",
+            summary="Filed against an un-bootstrapped wiki",
+        )
+    )
+
+    assert result.status == "ok"
+    assert (wiki / result.page_path).exists()
+    # Sidecar regen runs regardless of bootstrap state.
+    assert (wiki / "work-index.json").exists()
+
+
+def test_run_work_file_updates_index_and_log_when_present(tmp_path: Path) -> None:
+    """When index.md + log.md exist, run_work_file invokes both (the file path
+    gains the side-effects the ingest path already had)."""
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    (wiki / "index.md").write_text("", encoding="utf-8")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+
+    with (
+        patch("graph_wiki_core.commands.work.update_index") as mock_ui,
+        patch("graph_wiki_core.commands.work.append_log") as mock_al,
+    ):
+        result = asyncio.run(
+            run_work_file(
+                workspace_path=workspace,
+                title="Bootstrapped item",
+                kind="task",
+                summary="Filed against a bootstrapped wiki",
+            )
+        )
+
+    assert result.status == "ok"
+    mock_ui.assert_called_once_with(wiki)
+    mock_al.assert_called_once()
+    call = mock_al.call_args
+    assert call.args[0] == wiki
+    assert call.args[1] == "create"
+    assert call.args[2] == "Bootstrapped item"
+    assert "work/" in call.kwargs.get("detail", "")
+
+
 def test_work_result_dataclasses_importable() -> None:
     from graph_wiki_core.commands.work import (
         WorkArchiveResult,
