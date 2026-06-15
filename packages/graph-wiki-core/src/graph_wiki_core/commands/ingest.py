@@ -857,7 +857,7 @@ async def _synthesize_guidance_pages(
             page_text=page_text,
             stamp=stamp,
         )
-        if res.skip_reason is not None:
+        if res.written_rel is None:
             logger.warning("skipping guidance page for %r: %s", entry.get("title"), res.skip_reason)
             continue
         written.append(res.written_rel)
