@@ -14,9 +14,10 @@ Public API:
 These are thin async orchestrators: they resolve the wiki/work directory from
 the workspace, drive the pure work-io functions (frontmatter / plan_table /
 sidecar / lifecycle_lint / archive), and shape the results for the CLI/MCP
-surfaces. `run_work_file` delegates to the existing
-`run_ingest_work_item` ingest path so work items are filed identically to the
-`gw ingest --work-item` flow.
+surfaces. `run_work_file` writes the page via `work_io.filing.write_work_item`
+and applies the shared sidecar/index/log side-effects via
+`_apply_work_item_side_effects` (the same post-write path `run_ingest_work_item`
+uses).
 """
 
 from __future__ import annotations
@@ -498,10 +499,10 @@ async def run_work_file(
     """File a new work item into wiki/work/.
 
     Builds the work-item frontmatter (category=work) and writes the page to
-    wiki/work/<opened>-<slug>.md, regenerating the sidecar afterward. This is a
-    direct write — it does not depend on a fully bootstrapped wiki (log.md /
-    index.md), which work items predate, and returns an IngestResult shaped like
-    the ingest work-item path.
+    wiki/work/<opened>-<slug>.md, regenerating the sidecar afterward. index.md /
+    log.md are updated best-effort — only when present — so filing still succeeds
+    against an un-bootstrapped wiki (which work items predate). Returns an
+    IngestResult shaped like the ingest work-item path.
     """
     affects = affects or []
     today = date.today().isoformat()
