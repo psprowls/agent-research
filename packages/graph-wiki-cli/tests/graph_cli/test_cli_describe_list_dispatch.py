@@ -234,3 +234,84 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
     from graph_io import exit_codes
 
     assert result == exit_codes.AMBIGUOUS, f"expected AMBIGUOUS (7), got {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# Symbol describe: explicit --kind function/class/method/type + --in-package
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def repo_with_symbols(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
+            "src/demo/__init__.py": "__all__ = ['process']\nfrom .a import process\n",
+            "src/demo/a.py": ("def process():\n    return validate()\n\ndef validate():\n    return 1\n"),
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_symbol_explicit_kind(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "process", "--kind", "function"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function process" in res.stdout
+    assert "callees (depth 1): validate" in res.stdout
+
+
+def test_describe_symbol_explicit_kind_json(repo_with_symbols: Path) -> None:
+    res = _cg(["--fmt", "json", "describe", "process", "--kind", "function"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert json.loads(res.stdout)["name"] == "process"
+
+
+def test_describe_symbol_in_package_narrows(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "process", "--kind", "function", "--in-package", "demo"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function process" in res.stdout
+
+
+def test_describe_help_lists_code_kinds(tmp_path: Path) -> None:
+    init_repo(tmp_path)
+    res = _cg(["describe", "--help"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    for k in ("function", "class", "method", "type"):
+        assert k in res.stdout
+
+
+# ---------------------------------------------------------------------------
+# --in-package actually selects: two packages with the same function name
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def repo_two_pkgs_same_fn(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pkga/pyproject.toml": '[project]\nname = "pkga"\nversion = "0.1.0"\n',
+            "pkga/src/pkga/__init__.py": "def shared_fn():\n    return 1\n",
+            "pkgb/pyproject.toml": '[project]\nname = "pkgb"\nversion = "0.1.0"\n',
+            "pkgb/src/pkgb/__init__.py": "def shared_fn():\n    return 2\n",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_symbol_in_package_selects_right_package(repo_two_pkgs_same_fn: Path) -> None:
+    a = _cg(["describe", "shared_fn", "--kind", "function", "--in-package", "pkga"], repo_two_pkgs_same_fn)
+    assert a.returncode == 0, a.stderr
+    assert "pkga" in a.stdout and "pkgb" not in a.stdout
+    b = _cg(["describe", "shared_fn", "--kind", "function", "--in-package", "pkgb"], repo_two_pkgs_same_fn)
+    assert b.returncode == 0, b.stderr
+    assert "pkgb" in b.stdout and "pkga" not in b.stdout

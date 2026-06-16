@@ -25,6 +25,7 @@ from graph_wiki_cli.graph_cli import (
     q_describe_path,
     q_describe_repo,
     q_describe_suite,
+    q_describe_symbol,
 )
 from graph_wiki_cli.graph_cli._args import AnyRunModule, MutableDescribeArgs
 
@@ -42,6 +43,10 @@ _DISPATCH: dict[str, tuple[AnyRunModule, str | None]] = {
     "repo": (q_describe_repo, None),
 }
 DESCRIBE_KINDS = tuple(_DISPATCH)
+
+# Code-symbol CLI kinds dispatch to the symbol describer (DB kind == CLI value).
+CODE_KINDS = q_describe_symbol.CODE_KINDS
+DESCRIBE_KINDS = (*DESCRIBE_KINDS, *CODE_KINDS)
 
 # Bare-name CLI kinds eligible for inference -> their DB node kind.
 _INFER_DB_KIND = {
@@ -116,6 +121,9 @@ def _resolve_kind(args: MutableDescribeArgs) -> str | int:
 
 def run(args: MutableDescribeArgs) -> int:
     kind = args.kind
+    if kind in CODE_KINDS:
+        # Explicit code kind: describe_symbol owns single-node resolution.
+        return q_describe_symbol.run(args)
     if kind is None:
         kind = _resolve_kind(args)
         if isinstance(kind, int):
