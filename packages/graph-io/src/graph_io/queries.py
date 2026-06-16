@@ -6,6 +6,25 @@ import json
 import sqlite3
 from dataclasses import dataclass, field
 
+# DB node kind -> the value accepted by `gw graph describe --kind`.
+# Entity kinds whose CLI value differs from the DB kind, plus the code kinds
+# (identity) and file -> path. Kinds absent here have no describer and fall
+# through to a bare-name menu command.
+_CLI_KIND = {
+    "package": "package",
+    "app": "app",
+    "domain": "domain",
+    "dependency": "dependency",
+    "test_suite": "suite",
+    "agent_plugin": "agent-plugin",
+    "entry_point": "entry-point",
+    "function": "function",
+    "class": "class",
+    "method": "method",
+    "type": "type",
+    "file": "path",
+}
+
 _VALID_KINDS = frozenset(
     {
         "function",
@@ -64,6 +83,13 @@ class NodeRecord:
     path: str | None
     line: int | None
     attrs: dict
+
+
+@dataclass(frozen=True)
+class MatchRecord:
+    kind: str  # DB node kind, shown as the menu label
+    address: str  # "<path>:<line>" or "" when the node has no path
+    command: str  # full "gw graph describe ..." copy-paste suggestion
 
 
 @dataclass(frozen=True)
@@ -368,6 +394,43 @@ def resolve_selector(
         ).fetchall()
         return [_row_to_node(r) for r in rows]
     return find(conn, name=selector, in_package=in_package)
+
+
+def build_menu(conn: sqlite3.Connection, matches: list[NodeRecord]) -> list[MatchRecord]:
+    """Enrich resolve_selector matches into copy-paste disambiguation entries.
+
+    For each match: compute the containing package, detect same-name/same-kind/
+    same-package collisions (which `--in-package` cannot break), and synthesize a
+    `gw graph describe` command:
+      * collision (path present)  -> `gw graph describe <path>:<line>`
+      * path present              -> `... <name> --kind <cli> --in-package <pkg>`
+      * dependency (no path)      -> `... <name> --kind dependency --ecosystem <eco>`
+      * other path-less           -> `... <name> --kind <cli>`
+    `conn` read-only.
+    """
+    packages = [containing_package(conn, path=m.path) if m.path else None for m in matches]
+    # Group key (kind, name, package) -> count, to flag collisions.
+    counts: dict[tuple[str, str, str | None], int] = {}
+    for m, pkg in zip(matches, packages):
+        key = (m.kind, m.name, pkg)
+        counts[key] = counts.get(key, 0) + 1
+
+    out: list[MatchRecord] = []
+    for m, pkg in zip(matches, packages):
+        address = f"{m.path}:{m.line}" if m.path is not None else ""
+        cli_kind = _CLI_KIND.get(m.kind, m.kind)
+        collides = counts[(m.kind, m.name, pkg)] > 1
+        if collides and m.path is not None:
+            command = f"gw graph describe {m.path}:{m.line}"
+        elif m.path is not None:
+            command = f"gw graph describe {m.name} --kind {cli_kind} --in-package {pkg}"
+        elif m.kind == "dependency":
+            eco = m.attrs.get("ecosystem", "")
+            command = f"gw graph describe {m.name} --kind dependency --ecosystem {eco}"
+        else:
+            command = f"gw graph describe {m.name} --kind {cli_kind}"
+        out.append(MatchRecord(kind=m.kind, address=address, command=command))
+    return out
 
 
 def containing_package(conn: sqlite3.Connection, *, path: str) -> str | None:

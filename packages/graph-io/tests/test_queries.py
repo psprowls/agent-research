@@ -1819,3 +1819,84 @@ def test_describe_symbol_unexported_no_callees(conn: sqlite3.Connection) -> None
 
 def test_describe_symbol_not_found(conn: sqlite3.Connection) -> None:
     assert queries.describe_symbol(conn, kind="function", name="ghost") is None
+
+
+# ============================================================================
+# Task 3: MatchRecord / build_menu
+# ============================================================================
+
+
+def test_build_menu_in_package_form(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="function", name="run", path="foo/a.py", line=10, attrs={}),
+                GraphNode(kind="class", name="run", path="foo/a.py", line=20, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    matches = queries.resolve_selector(conn, selector="run")
+    menu = queries.build_menu(conn, matches)
+    cmds = {m.kind: m.command for m in menu}
+    assert cmds["function"] == "gw graph describe run --kind function --in-package foo"
+    assert cmds["class"] == "gw graph describe run --kind class --in-package foo"
+    assert {m.address for m in menu} == {"foo/a.py:10", "foo/a.py:20"}
+
+
+def test_build_menu_collision_uses_path_line(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="file", name="b.py", path="foo/b.py", line=None, attrs={}),
+                GraphNode(kind="method", name="save", path="foo/a.py", line=10, attrs={}),
+                GraphNode(kind="method", name="save", path="foo/b.py", line=30, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+                GraphEdge(src=("package", "foo", None), dst=("file", "b.py", "foo/b.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    matches = queries.resolve_selector(conn, selector="save")
+    menu = queries.build_menu(conn, matches)
+    assert {m.command for m in menu} == {
+        "gw graph describe foo/a.py:10",
+        "gw graph describe foo/b.py:30",
+    }
+
+
+def test_build_menu_dependency_form(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="dependency", name="boto3", path=None, line=None, attrs={"ecosystem": "pypi"}),
+            ],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="boto3"))
+    assert menu[0].kind == "dependency"
+    assert menu[0].address == ""
+    assert menu[0].command == "gw graph describe boto3 --kind dependency --ecosystem pypi"
+
+
+def test_build_menu_test_suite_kind_maps_to_suite(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[GraphNode(kind="test_suite", name="core_tests", path=None, line=None, attrs={})],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="core_tests"))
+    assert menu[0].command == "gw graph describe core_tests --kind suite"
