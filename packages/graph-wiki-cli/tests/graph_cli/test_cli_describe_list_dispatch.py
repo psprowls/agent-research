@@ -88,12 +88,9 @@ def test_describe_falls_back_to_path_for_unknown_name(repo: Path) -> None:
     assert res.returncode == 0, res.stderr
 
 
-def test_describe_ambiguous_selector_errors(tmp_path: Path) -> None:
-    """A name matching two kinds (package + domain) reports AMBIGUOUS (exit 7)."""
+def test_describe_ambiguous_selector_emits_menu(tmp_path: Path) -> None:
+    """A name matching two kinds (package + domain) prints a copy-paste menu (exit 0)."""
     init_repo(tmp_path)
-    # A package literally named 'shared' plus a domain 'shared' in domains.yaml.
-    # domains.yaml lives at <repo_root>/domains.yaml (top-level YAML mapping of
-    # domain_name -> {packages: [...]}; format confirmed from graph_io/domains.py).
     write_and_commit(
         tmp_path,
         {
@@ -105,9 +102,9 @@ def test_describe_ambiguous_selector_errors(tmp_path: Path) -> None:
     )
     assert _cg(["update", "--full"], tmp_path).returncode == 0
     res = _cg(["describe", "shared"], tmp_path)
-    assert res.returncode == 7
-    assert "ambiguous" in res.stderr.lower()
-    assert "--kind" in res.stderr
+    assert res.returncode == 0, res.stderr
+    assert "gw graph describe shared --kind package" in res.stdout
+    assert "gw graph describe shared --kind domain" in res.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -160,18 +157,16 @@ def test_describe_infers_dependency_and_autofills_ecosystem(repo_with_pypi_dep: 
 
 
 def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None:
-    """Bare 'describe lodash' when lodash exists in both pypi and npm → exit 7.
+    """Bare 'describe lodash' when lodash exists in both pypi and npm → menu (exit 0).
 
     The current scanner collapses same-(kind,name,path) rows via UPSERT, so two
     ecosystems for the same dep name cannot coexist through a normal scan. This
-    test reaches the ambiguous branch by seeding the graph DB directly with two
-    dependency rows, then calling _resolve_kind as a unit test.
+    test reaches the multi-match branch by seeding the graph DB directly with two
+    dependency rows, then calling q_describe.run as a unit test.
     """
     import json as _json
     import sqlite3
-    import types
 
-    from graph_wiki_cli.graph_cli.q_describe import _resolve_kind
     from workspace_io.paths import graph_dir
 
     # Build a minimal repo + workspace so graph_dir resolves.
@@ -224,13 +219,197 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
     finally:
         conn.close()
 
-    # Call _resolve_kind directly with a SimpleNamespace that has ecosystem=None.
+    import io
+    import types
+    from contextlib import redirect_stdout
+
+    from graph_wiki_cli.graph_cli import q_describe
+
     args = types.SimpleNamespace(
         selector="lodash",
+        kind=None,
         ecosystem=None,
+        in_package=None,
         workspace=ws,
+        fmt="human",
     )
-    result = _resolve_kind(args)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        result = q_describe.run(args)
     from graph_io import exit_codes
 
-    assert result == exit_codes.AMBIGUOUS, f"expected AMBIGUOUS (7), got {result!r}"
+    assert result == exit_codes.SUCCESS, f"expected SUCCESS (0), got {result!r}"
+    out = buf.getvalue()
+    assert "gw graph describe lodash --kind dependency --ecosystem pypi" in out
+    assert "gw graph describe lodash --kind dependency --ecosystem npm" in out
+
+
+# ---------------------------------------------------------------------------
+# Symbol describe: explicit --kind function/class/method/type + --in-package
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def repo_with_symbols(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
+            "src/demo/__init__.py": "__all__ = ['process']\nfrom .a import process\n",
+            "src/demo/a.py": ("def process():\n    return validate()\n\ndef validate():\n    return 1\n"),
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_symbol_explicit_kind(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "process", "--kind", "function"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function process" in res.stdout
+    assert "callees (depth 1): validate" in res.stdout
+
+
+def test_describe_symbol_explicit_kind_json(repo_with_symbols: Path) -> None:
+    res = _cg(["--fmt", "json", "describe", "process", "--kind", "function"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert json.loads(res.stdout)["name"] == "process"
+
+
+def test_describe_symbol_in_package_narrows(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "process", "--kind", "function", "--in-package", "demo"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function process" in res.stdout
+
+
+def test_describe_infers_symbol_from_bare_name(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "validate"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function validate" in res.stdout
+
+
+def test_describe_zero_match_exits_one(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "no_such_symbol_anywhere"], repo_with_symbols)
+    assert res.returncode == 1
+    assert "not found" in res.stderr.lower()
+
+
+def test_describe_help_lists_code_kinds(tmp_path: Path) -> None:
+    init_repo(tmp_path)
+    res = _cg(["describe", "--help"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    for k in ("function", "class", "method", "type"):
+        assert k in res.stdout
+
+
+# ---------------------------------------------------------------------------
+# --in-package actually selects: two packages with the same function name
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture()
+def repo_two_pkgs_same_fn(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pkga/pyproject.toml": '[project]\nname = "pkga"\nversion = "0.1.0"\n',
+            "pkga/src/pkga/__init__.py": "def shared_fn():\n    return 1\n",
+            "pkgb/pyproject.toml": '[project]\nname = "pkgb"\nversion = "0.1.0"\n',
+            "pkgb/src/pkgb/__init__.py": "def shared_fn():\n    return 2\n",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_symbol_in_package_selects_right_package(repo_two_pkgs_same_fn: Path) -> None:
+    a = _cg(["describe", "shared_fn", "--kind", "function", "--in-package", "pkga"], repo_two_pkgs_same_fn)
+    assert a.returncode == 0, a.stderr
+    assert "pkga" in a.stdout and "pkgb" not in a.stdout
+    b = _cg(["describe", "shared_fn", "--kind", "function", "--in-package", "pkgb"], repo_two_pkgs_same_fn)
+    assert b.returncode == 0, b.stderr
+    assert "pkgb" in b.stdout and "pkga" not in b.stdout
+
+
+# ---------------------------------------------------------------------------
+# Menu round-trip: every emitted command must resolve when pasted back.
+# ---------------------------------------------------------------------------
+
+
+def test_describe_path_line_resolves_symbol(repo_with_symbols: Path) -> None:
+    """`describe <path>:<line>` resolves the code symbol at that location.
+
+    Reproduces the bug the final reviewer found: a path:line selector reached
+    the symbol describer but re-resolved by the literal "src/x.py:42" string
+    (a non-existent name) instead of the matched node.
+    """
+    # Discover the line of `process` from its JSON dossier.
+    probe = _cg(["--fmt", "json", "describe", "process", "--kind", "function"], repo_with_symbols)
+    assert probe.returncode == 0, probe.stderr
+    line = json.loads(probe.stdout)["line"]
+    assert isinstance(line, int)
+
+    res = _cg(["describe", f"src/demo/a.py:{line}"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function process" in res.stdout
+
+
+def test_describe_menu_commands_round_trip(repo_two_pkgs_same_fn: Path) -> None:
+    """Every `gw graph describe …` command the menu emits resolves (exit 0)."""
+    import shlex
+
+    res = _cg(["describe", "shared_fn"], repo_two_pkgs_same_fn)
+    assert res.returncode == 0, res.stderr
+    menu_lines = [ln for ln in res.stdout.splitlines() if "gw graph describe" in ln]
+    assert len(menu_lines) >= 2, f"expected a multi-line menu, got: {res.stdout!r}"
+
+    for ln in menu_lines:
+        # Each menu line is "<kind>  <addr>  → gw graph describe <args...>".
+        command = ln.split("→", 1)[1].strip()
+        assert command.startswith("gw graph describe "), command
+        cli_args = shlex.split(command[len("gw graph describe ") :])
+        rt = _cg(["describe", *cli_args], repo_two_pkgs_same_fn)
+        assert rt.returncode == 0, f"command did not round-trip: {command!r}\nstderr={rt.stderr}"
+
+
+@pytest.fixture()
+def repo_pkg_and_app_same_fn(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "lib/pyproject.toml": '[project]\nname = "lib"\nversion = "0.1.0"\n',
+            "lib/src/lib/__init__.py": "def shared_fn():\n    return 1\n",
+            # [project.scripts] -> classified as an app, not a package
+            "cli/pyproject.toml": (
+                '[project]\nname = "cli"\nversion = "0.1.0"\n[project.scripts]\ncli = "cli:shared_fn"\n'
+            ),
+            "cli/src/cli/__init__.py": "def shared_fn():\n    return 2\n",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_menu_round_trip_includes_app(repo_pkg_and_app_same_fn: Path) -> None:
+    res = _cg(["describe", "shared_fn"], repo_pkg_and_app_same_fn)
+    assert res.returncode == 0, res.stderr
+    menu_lines = [ln for ln in res.stdout.splitlines() if "gw graph describe" in ln]
+    assert len(menu_lines) >= 2, res.stdout
+    # No literal "None" anywhere (the app bug emitted `--in-package None`).
+    assert " None" not in res.stdout
+    import shlex
+
+    for line in menu_lines:
+        cmd = line.split("gw graph describe", 1)[1].strip()
+        argv = shlex.split(cmd)
+        rt = _cg(["describe", *argv], repo_pkg_and_app_same_fn)
+        assert rt.returncode == 0, f"menu command did not round-trip: {cmd!r}\nstderr={rt.stderr}"

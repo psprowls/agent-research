@@ -248,3 +248,42 @@ def format_suite(desc: Any, fmt: str) -> str:
         f"files:  {desc.file_count}",
     ]
     return "\n".join(lines)
+
+
+def format_symbol(desc: Any, fmt: str) -> str:
+    """Format a SymbolDescription (graph_io.queries) as human text or JSON."""
+    if fmt == "json":
+        return _json.dumps(dataclasses.asdict(desc), default=str)
+    if fmt != "human":
+        raise ValueError(f"unknown format: {fmt!r}")
+    loc = f"{desc.path}:{desc.line}" if desc.line is not None else (desc.path or "(unknown)")
+    lines = [f"{desc.kind} {desc.name}", f"  path: {loc}"]
+    if desc.package:
+        pkg_line = f"  package: {desc.package}"
+        if desc.domain:
+            pkg_line += f"   domain: {desc.domain}"
+        lines.append(pkg_line)
+    if desc.exported_from:
+        lines.append(f"  exported: yes (from {desc.exported_from})")
+    else:
+        lines.append("  exported: no")
+    if desc.callers:
+        lines.append(f"  callers (depth 1): {', '.join(c.name for c in desc.callers)}")
+    if desc.callees:
+        lines.append(f"  callees (depth 1): {', '.join(c.name for c in desc.callees)}")
+    lines.append(f"  → deeper: gw graph callers {desc.name} --depth 3")
+    return "\n".join(lines)
+
+
+def format_matches(records: Iterable[Any], fmt: str) -> str:
+    """Format MatchRecord disambiguation entries as human text or JSON."""
+    rows = list(records)
+    if fmt == "json":
+        return _json.dumps([dataclasses.asdict(r) for r in rows], default=str)
+    if fmt == "human":
+        lines = []
+        for r in rows:
+            mid = f"  {r.address}" if r.address else ""
+            lines.append(f"{r.kind}{mid}  → {r.command}")
+        return "\n".join(lines)
+    raise ValueError(f"unknown format: {fmt!r}")

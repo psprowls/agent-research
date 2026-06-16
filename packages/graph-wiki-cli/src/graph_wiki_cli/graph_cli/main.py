@@ -181,11 +181,14 @@ def describe_cmd(
     ecosystem: Optional[str] = typer.Option(
         None, "--ecosystem", help="Dependency ecosystem (use with --kind dependency)."
     ),
+    in_package: Optional[str] = typer.Option(
+        None, "--in-package", help="Narrow resolution to a containing package (mirrors find)."
+    ),
 ) -> None:
     """Describe a graph entity. Kind is inferred from the selector when --kind is omitted."""
     if kind is not None and kind not in q_describe.DESCRIBE_KINDS:
         raise typer.BadParameter(f"kind must be one of: {', '.join(q_describe.DESCRIBE_KINDS)}")
-    _run(q_describe, ctx, selector=selector, kind=kind, ecosystem=ecosystem)
+    _run(q_describe, ctx, selector=selector, kind=kind, ecosystem=ecosystem, in_package=in_package)
 
 
 @graph_app.command(name="list")

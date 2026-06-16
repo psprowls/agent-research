@@ -120,3 +120,94 @@ def test_format_domain_json_merges_packages_subdomains() -> None:
     assert parsed["packages"] == ["pkgA", "pkgB"]
     assert parsed["subdomains"] == ["sub"]
     assert parsed["name"] == "core"
+
+
+# ============================================================================
+# Task 3: format_symbol / format_matches
+# ============================================================================
+
+
+def test_format_symbol_human() -> None:
+    from graph_io.queries import CallRecord, SymbolDescription
+
+    desc = SymbolDescription(
+        kind="function",
+        name="process",
+        path="foo/a.py",
+        line=42,
+        package="foo",
+        domain="ingest",
+        exported_from="foo/__init__.py",
+        callers=[CallRecord(name="run_scan", path="foo/a.py", line=1, depth=1)],
+        callees=[CallRecord(name="validate", path="foo/a.py", line=80, depth=1)],
+    )
+    out = render.format_symbol(desc, "human")
+    assert "function process" in out
+    assert "path: foo/a.py:42" in out
+    assert "package: foo" in out
+    assert "domain: ingest" in out
+    assert "exported: yes (from foo/__init__.py)" in out
+    assert "callers (depth 1): run_scan" in out
+    assert "callees (depth 1): validate" in out
+    assert "gw graph callers process --depth 3" in out
+
+
+def test_format_symbol_graceful_omissions() -> None:
+    from graph_io.queries import SymbolDescription
+
+    desc = SymbolDescription(
+        kind="class",
+        name="Widget",
+        path="foo/a.py",
+        line=5,
+        package=None,
+        domain=None,
+        exported_from=None,
+        callers=[],
+        callees=[],
+    )
+    out = render.format_symbol(desc, "human")
+    assert "class Widget" in out
+    assert "exported: no" in out
+    assert "callees" not in out  # omitted gracefully
+    assert "domain:" not in out
+
+
+def test_format_symbol_json() -> None:
+    import json
+
+    from graph_io.queries import SymbolDescription
+
+    desc = SymbolDescription(
+        kind="type",
+        name="Foo",
+        path="a.ts",
+        line=3,
+        package="p",
+        domain=None,
+        exported_from=None,
+        callers=[],
+        callees=[],
+    )
+    parsed = json.loads(render.format_symbol(desc, "json"))
+    assert parsed["kind"] == "type"
+    assert parsed["name"] == "Foo"
+    assert parsed["callees"] == []
+
+
+def test_format_matches_human_and_json() -> None:
+    import json
+
+    from graph_io.queries import MatchRecord
+
+    rows = [
+        MatchRecord(
+            kind="function", address="foo/a.py:10", command="gw graph describe run --kind function --in-package foo"
+        ),
+        MatchRecord(kind="class", address="foo/a.py:20", command="gw graph describe run --kind class --in-package foo"),
+    ]
+    human = render.format_matches(rows, "human")
+    assert "function" in human and "foo/a.py:10" in human
+    assert "gw graph describe run --kind class --in-package foo" in human
+    parsed = json.loads(render.format_matches(rows, "json"))
+    assert [r["kind"] for r in parsed] == ["function", "class"]

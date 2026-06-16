@@ -1673,3 +1673,311 @@ def test_list_agent_plugins_alphabetical(conn: sqlite3.Connection) -> None:
         ),
     )
     assert [n.name for n in queries.list_agent_plugins(conn)] == ["alpha", "zeta"]
+
+
+def test_resolve_selector_multi_kind(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="function", name="shared", path="a.py", line=1, attrs={}),
+                GraphNode(kind="class", name="shared", path="b.py", line=2, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="shared")
+    assert {(r.kind, r.path) for r in rows} == {("function", "a.py"), ("class", "b.py")}
+
+
+def test_resolve_selector_path_line(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="function", name="alpha", path="a.py", line=42, attrs={}),
+                GraphNode(kind="function", name="beta", path="a.py", line=9, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="a.py:42")
+    assert [(r.name, r.line) for r in rows] == [("alpha", 42)]
+
+
+def test_resolve_selector_path_line_ignores_in_package(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[GraphNode(kind="function", name="alpha", path="a.py", line=42, attrs={})],
+            edges=[],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="a.py:42", in_package="nonexistent")
+    assert [r.name for r in rows] == ["alpha"]
+
+
+def test_resolve_selector_zero_match(conn: sqlite3.Connection) -> None:
+    assert queries.resolve_selector(conn, selector="ghost") == []
+
+
+def test_resolve_selector_in_package_narrows(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="pkg", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="x.py", path="pkg/x.py", line=None, attrs={}),
+                GraphNode(kind="function", name="target", path="pkg/x.py", line=1, attrs={}),
+                GraphNode(kind="function", name="target", path="other/y.py", line=1, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "pkg", None), dst=("file", "x.py", "pkg/x.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="target", in_package="pkg")
+    assert [r.path for r in rows] == ["pkg/x.py"]
+
+
+def test_containing_package(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="pkg", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="x.py", path="pkg/x.py", line=None, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "pkg", None), dst=("file", "x.py", "pkg/x.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    assert queries.containing_package(conn, path="pkg/x.py") == "pkg"
+    assert queries.containing_package(conn, path="nowhere.py") is None
+
+
+def test_describe_symbol_dossier(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="domain", name="ingest", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="file", name="init", path="foo/__init__.py", line=None, attrs={}),
+                GraphNode(kind="function", name="process", path="foo/a.py", line=42, attrs={}),
+                GraphNode(kind="function", name="run_scan", path="foo/a.py", line=1, attrs={}),
+                GraphNode(kind="function", name="validate", path="foo/a.py", line=80, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+                GraphEdge(
+                    src=("package", "foo", None), dst=("domain", "ingest", None), kind="belongs_to_domain", attrs={}
+                ),
+                GraphEdge(
+                    src=("function", "run_scan", "foo/a.py"), dst=("function", "process", None), kind="calls", attrs={}
+                ),
+                GraphEdge(
+                    src=("function", "process", "foo/a.py"), dst=("function", "validate", None), kind="calls", attrs={}
+                ),
+                GraphEdge(
+                    src=("file", "init", "foo/__init__.py"), dst=("function", "process", None), kind="exports", attrs={}
+                ),
+            ],
+        ),
+    )
+    resolve.sweep(conn)
+    desc = queries.describe_symbol(conn, kind="function", name="process", path="foo/a.py", line=42)
+    assert desc is not None
+    assert (desc.kind, desc.name, desc.path, desc.line) == ("function", "process", "foo/a.py", 42)
+    assert desc.package == "foo"
+    assert desc.domain == "ingest"
+    assert desc.exported_from == "foo/__init__.py"
+    assert {c.name for c in desc.callers} == {"run_scan"}
+    assert {c.name for c in desc.callees} == {"validate"}
+
+
+def test_describe_symbol_unexported_no_callees(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="class", name="Widget", path="foo/a.py", line=5, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    desc = queries.describe_symbol(conn, kind="class", name="Widget", path="foo/a.py", line=5)
+    assert desc is not None
+    assert desc.exported_from is None
+    assert desc.callees == []
+    assert desc.callers == []
+    assert desc.package is None
+    assert desc.domain is None
+
+
+def test_describe_symbol_not_found(conn: sqlite3.Connection) -> None:
+    assert queries.describe_symbol(conn, kind="function", name="ghost") is None
+
+
+# ============================================================================
+# Task 3: MatchRecord / build_menu
+# ============================================================================
+
+
+def test_build_menu_in_package_form(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="function", name="run", path="foo/a.py", line=10, attrs={}),
+                GraphNode(kind="class", name="run", path="foo/a.py", line=20, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    matches = queries.resolve_selector(conn, selector="run")
+    menu = queries.build_menu(conn, matches)
+    cmds = {m.kind: m.command for m in menu}
+    assert cmds["function"] == "gw graph describe run --kind function --in-package foo"
+    assert cmds["class"] == "gw graph describe run --kind class --in-package foo"
+    assert {m.address for m in menu} == {"foo/a.py:10", "foo/a.py:20"}
+
+
+def test_build_menu_collision_uses_path_line(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="file", name="b.py", path="foo/b.py", line=None, attrs={}),
+                GraphNode(kind="method", name="save", path="foo/a.py", line=10, attrs={}),
+                GraphNode(kind="method", name="save", path="foo/b.py", line=30, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+                GraphEdge(src=("package", "foo", None), dst=("file", "b.py", "foo/b.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    matches = queries.resolve_selector(conn, selector="save")
+    menu = queries.build_menu(conn, matches)
+    assert {m.command for m in menu} == {
+        "gw graph describe foo/a.py:10",
+        "gw graph describe foo/b.py:30",
+    }
+
+
+def test_build_menu_dependency_form(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="dependency", name="boto3", path=None, line=None, attrs={"ecosystem": "pypi"}),
+            ],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="boto3"))
+    assert menu[0].kind == "dependency"
+    assert menu[0].address == ""
+    assert menu[0].command == "gw graph describe boto3 --kind dependency --ecosystem pypi"
+
+
+def test_build_menu_test_suite_kind_maps_to_suite(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[GraphNode(kind="test_suite", name="core_tests", path=None, line=None, attrs={})],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="core_tests"))
+    assert menu[0].command == "gw graph describe core_tests --kind suite"
+
+
+def test_build_menu_dependency_with_synthetic_path(conn: sqlite3.Connection) -> None:
+    """A dependency node carrying a synthetic path/None line is addressed by
+    ecosystem (not --in-package None) with a blank address (not ":None")."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="dependency",
+                    name="boto3",
+                    path="dependency:pypi:boto3",
+                    line=None,
+                    attrs={"ecosystem": "pypi"},
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="boto3"))
+    assert len(menu) == 1
+    assert menu[0].kind == "dependency"
+    assert menu[0].command == "gw graph describe boto3 --kind dependency --ecosystem pypi"
+    assert menu[0].address == ""
+
+
+def test_build_menu_code_symbol_no_package_uses_path_line(conn: sqlite3.Connection) -> None:
+    """A code symbol with a path but no containing package/app falls back to the
+    unambiguous path:line command (there is no package name to narrow by)."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="function", name="orphan", path="loose/a.py", line=7, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="orphan"))
+    assert len(menu) == 1
+    assert menu[0].command == "gw graph describe loose/a.py:7"
+    assert menu[0].address == "loose/a.py:7"
+
+
+def test_containing_package_app(conn: sqlite3.Connection) -> None:
+    """containing_package returns the owning app name for an app-resident file."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="webapp", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="x.py", path="webapp/x.py", line=None, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("app", "webapp", None), dst=("file", "x.py", "webapp/x.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    assert queries.containing_package(conn, path="webapp/x.py") == "webapp"
+
+
+def test_describe_symbol_in_package_app(conn: sqlite3.Connection) -> None:
+    """describe_symbol narrows by an app name (in_package filter spans package+app)."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="webapp", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="webapp/a.py", line=None, attrs={}),
+                GraphNode(kind="function", name="handler", path="webapp/a.py", line=3, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("app", "webapp", None), dst=("file", "a.py", "webapp/a.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    desc = queries.describe_symbol(conn, kind="function", name="handler", in_package="webapp")
+    assert desc is not None
+    assert (desc.kind, desc.name, desc.path, desc.line) == ("function", "handler", "webapp/a.py", 3)
+    assert desc.package == "webapp"

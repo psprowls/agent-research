@@ -44,12 +44,14 @@ class DescribeArgs(FormatArgs, Protocol):
     selector: str | None
     kind: str | None
     ecosystem: str | None
+    in_package: str | None
 
 
 class MutableDescribeArgs(DescribeArgs, Protocol):
     name: str
     uri: str
     path: str
+    line: int | None
 
 
 class DependencyDescribeArgs(NameArgs, Protocol):
