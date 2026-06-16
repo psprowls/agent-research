@@ -64,6 +64,7 @@ _ensure_uv_workspace()
 
 # Imports below run after the uv re-exec bootstrap above, so they cannot move to
 # the top of the module.
+from graph_wiki_core.commands.archive_all import run_archive_all  # noqa: E402
 from graph_wiki_core.commands.init import run_init  # noqa: E402
 from graph_wiki_core.commands.scan import run_scan  # noqa: E402
 from subagent_runtime.trace_io import render_trace_record  # noqa: E402
@@ -654,6 +655,41 @@ def scan(
 
     if result.entity_errors:
         raise typer.Exit(code=3)
+
+
+@app.command()
+def archive(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Show plan without moving files"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json", help="Emit ArchiveAllResult as JSON"),
+) -> None:
+    """Sweep-archive curated pages and work items in one pass (wiki + work)."""
+    workspace_path = Path(workspace) if workspace else None
+    result = asyncio.run(run_archive_all(workspace_path=workspace_path, dry_run=dry_run))
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        label = "[dry-run]" if result.dry_run else "[ok]"
+        if result.wiki is not None:
+            typer.echo(f"wiki: {label} archived {len(result.wiki.moved)} page(s).")
+            for item in result.wiki.moved:
+                typer.echo(f"  moved: {item['src']} -> {item['dst']}")
+            for skipped in result.wiki.skipped:
+                typer.echo(f"  skipped: {skipped['slug']} — {skipped['reason']}")
+        if result.work is not None:
+            typer.echo(f"work: {label} archived {len(result.work.moved)} item(s).")
+            for item in result.work.moved:
+                typer.echo(f"  moved: {item['src']} -> {item['dst']}")
+            for skipped in result.work.skipped:
+                typer.echo(f"  skipped: {skipped['slug']} — {skipped['reason']}")
+            for repointed in result.work.repointed:
+                typer.echo(f"  repointed: {repointed}")
+        for err in result.errors:
+            typer.echo(f"  error: {err['command']}: {err['error']}", err=True)
+
+    if result.errors:
+        raise typer.Exit(code=1)
 
 
 # graph command namespace: native Typer subapp for code-graph operations.
