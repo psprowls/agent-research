@@ -96,7 +96,6 @@ class LintResult:
     semantic_findings: dict[str, list[str]] = field(default_factory=dict)
     errors: list[str] = field(default_factory=list)
     open_proposals: int = 0
-    work_lint_findings: list[dict] = field(default_factory=list)
     guidance_lint_findings: list[dict] = field(default_factory=list)
 
 
@@ -335,15 +334,6 @@ async def run_lint(
         wiki, pages, pool, cfg, model_override=model_override, project_context=project_ctx
     )
 
-    # Work-layer lifecycle lint
-    from graph_wiki_core.commands.work import run_work_lint as _run_work_lint
-
-    work_lint = await _run_work_lint(workspace_path=workspace_path)
-    work_findings = work_lint.findings
-    for f in work_findings:
-        if f["severity"] == "error":
-            errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
-
     # Guidance-layer mechanical lint (owned by guidance-io)
     from guidance_io.lint import run_lint as _run_guidance_lint
 
@@ -377,6 +367,5 @@ async def run_lint(
         semantic_findings=semantic_findings,
         errors=errors,
         open_proposals=open_proposals,
-        work_lint_findings=work_findings,
         guidance_lint_findings=guidance_findings,
     )

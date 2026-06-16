@@ -59,7 +59,6 @@ def test_lint_result_dataclass_shape() -> None:
         "semantic_findings",
         "errors",
         "dependency_layer",
-        "work_lint_findings",
     }
     field_names = {f.name for f in dataclasses.fields(LintResult)}
     for name in required_fields:
@@ -556,3 +555,37 @@ def test_mechanical_scan_flags_stale_raw_source_path(tmp_path: Path) -> None:
 
     mech = mechanical_scan(wiki, stale_days=9999, log_gap_days=9999)
     assert mech["source_path_drift"] == ["sources/stale"]
+
+
+# ---------------------------------------------------------------------------
+# Test: LintResult has no work_lint_findings field (decoupling)
+# ---------------------------------------------------------------------------
+
+
+def test_lint_result_has_no_work_lint_findings_field() -> None:
+    """run_lint is decoupled from work lint — the field is gone."""
+    import dataclasses as _dc
+
+    from graph_wiki_core.commands.lint import LintResult
+
+    field_names = {f.name for f in _dc.fields(LintResult)}
+    assert "work_lint_findings" not in field_names
+    assert "guidance_lint_findings" in field_names
+
+
+@pytest.mark.asyncio
+async def test_run_lint_does_not_invoke_work_lint(tmp_path) -> None:
+    """run_lint must not call run_work_lint internally (decoupled)."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    with (
+        patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool,
+        patch("graph_wiki_core.commands.work.run_work_lint", new=AsyncMock()) as mock_work_lint,
+    ):
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
+
+    mock_work_lint.assert_not_called()
