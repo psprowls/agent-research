@@ -316,6 +316,64 @@ def find(
     return [_row_to_node(r) for r in rows]
 
 
+def _parse_path_line(selector: str) -> tuple[str, int] | None:
+    """Parse a `path:line` selector. Returns (path, line) when the part after
+    the final colon is all digits, else None (treat selector as a name).
+
+    `builtin:`-prefixed selectors are handled by the CLI fast path before
+    resolve_selector is reached, so a non-digit suffix here is always a name.
+    """
+    if ":" not in selector:
+        return None
+    path, _, tail = selector.rpartition(":")
+    if path and tail.isdigit():
+        return path, int(tail)
+    return None
+
+
+def resolve_selector(
+    conn: sqlite3.Connection,
+    *,
+    selector: str,
+    in_package: str | None = None,
+) -> list[NodeRecord]:
+    """find-style resolution of a describe selector across all node kinds.
+
+    A `path:line` selector returns exactly the node(s) at that file location
+    (and ignores `in_package`, since path:line is already a unique address).
+    Otherwise delegates to `find(name=selector, in_package=in_package)`, which
+    searches every kind by name. `conn` must be opened read-only.
+    """
+    parsed = _parse_path_line(selector)
+    if parsed is not None:
+        path, line = parsed
+        rows = conn.execute(
+            "SELECT kind, name, path, line, attrs_json FROM nodes WHERE path = ? AND line = ?",
+            (path, line),
+        ).fetchall()
+        return [_row_to_node(r) for r in rows]
+    return find(conn, name=selector, in_package=in_package)
+
+
+def containing_package(conn: sqlite3.Connection, *, path: str) -> str | None:
+    """Return the name of the package whose `contains`-edge owns `path`, or None.
+
+    Reverse of find's `--in-package` join (package -> file). Path must match
+    the stored form exactly — no normalisation/casing is applied (unlike find's
+    `in_package`, which lowercases the package name). `conn` must be opened
+    read-only.
+    """
+    row = conn.execute(
+        "SELECT p.name FROM nodes p "
+        "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
+        "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
+        "WHERE p.kind='package' AND f.path = ? "
+        "LIMIT 1",
+        (path,),
+    ).fetchone()
+    return row[0] if row else None
+
+
 def callers(conn: sqlite3.Connection, *, name: str, depth: int = 3) -> list[CallRecord]:
     rows = conn.execute(
         f"""

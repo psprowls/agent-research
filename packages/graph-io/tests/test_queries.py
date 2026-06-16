@@ -1673,3 +1673,85 @@ def test_list_agent_plugins_alphabetical(conn: sqlite3.Connection) -> None:
         ),
     )
     assert [n.name for n in queries.list_agent_plugins(conn)] == ["alpha", "zeta"]
+
+
+def test_resolve_selector_multi_kind(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="function", name="shared", path="a.py", line=1, attrs={}),
+                GraphNode(kind="class", name="shared", path="b.py", line=2, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="shared")
+    assert {(r.kind, r.path) for r in rows} == {("function", "a.py"), ("class", "b.py")}
+
+
+def test_resolve_selector_path_line(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="function", name="alpha", path="a.py", line=42, attrs={}),
+                GraphNode(kind="function", name="beta", path="a.py", line=9, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="a.py:42")
+    assert [(r.name, r.line) for r in rows] == [("alpha", 42)]
+
+
+def test_resolve_selector_path_line_ignores_in_package(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[GraphNode(kind="function", name="alpha", path="a.py", line=42, attrs={})],
+            edges=[],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="a.py:42", in_package="nonexistent")
+    assert [r.name for r in rows] == ["alpha"]
+
+
+def test_resolve_selector_zero_match(conn: sqlite3.Connection) -> None:
+    assert queries.resolve_selector(conn, selector="ghost") == []
+
+
+def test_resolve_selector_in_package_narrows(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="pkg", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="x.py", path="pkg/x.py", line=None, attrs={}),
+                GraphNode(kind="function", name="target", path="pkg/x.py", line=1, attrs={}),
+                GraphNode(kind="function", name="target", path="other/y.py", line=1, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "pkg", None), dst=("file", "x.py", "pkg/x.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    rows = queries.resolve_selector(conn, selector="target", in_package="pkg")
+    assert [r.path for r in rows] == ["pkg/x.py"]
+
+
+def test_containing_package(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="pkg", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="x.py", path="pkg/x.py", line=None, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "pkg", None), dst=("file", "x.py", "pkg/x.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    assert queries.containing_package(conn, path="pkg/x.py") == "pkg"
+    assert queries.containing_package(conn, path="nowhere.py") is None
