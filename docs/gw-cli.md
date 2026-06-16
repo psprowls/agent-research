@@ -62,7 +62,7 @@ Two flags recur on almost every command but are **per-command**, not root-global
   details and when it is optional are in the next section.
 
 Many mutating commands also accept `--dry-run` (plan/report without writing):
-`scan` has no dry-run, but `wiki archive`, `wiki propagate-drift`, `tokens`,
+`scan` has no dry-run, but `wiki archive`, `wiki propagate-drift`, `util tokens`,
 and `work archive` do.
 
 ## Workspace & repo resolution (when `--workspace` / `--repo` are needed)
@@ -182,34 +182,6 @@ command, not a group** — work items are filed via `gw work file`, not here.
 
 - Argument: `<path>` **(required)** — source file to ingest.
 - plus `--workspace`, `--json`.
-
-### `gw log`
-
-Append a timestamped event to the wiki `log.md`.
-
-- `--op TEXT` **(required)** — operation type: `scan`/`ingest`/`lint`/`create`/
-  `update`/`delete`/`note`/`query`.
-- `--title TEXT` **(required)** — short title for the entry.
-- `--detail TEXT` — optional extended detail text.
-- plus `--workspace`, `--json`.
-
-### `gw tokens`
-
-Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens.
-
-- `--dry-run` — count without writing the `tokens` field.
-- `--model-id TEXT` (default `anthropic.claude-3-5-haiku-20241022-v1:0`) — Bedrock
-  model ID for token counting.
-- `--region TEXT` (default `us-east-1`) — AWS region for Bedrock.
-- plus `--workspace`, `--json`.
-
-### `gw trace <file>`
-
-Render a JSONL trace file as a human-readable timeline plus a token/cost summary.
-
-- Argument: `<file>` **(required)** — path to the JSONL trace file.
-- `--expand` — disable consecutive-same-role collapsing; render every record as a
-  full line.
 
 ## `gw graph` — code graph commands
 
@@ -452,6 +424,40 @@ point).
 - `--owner TEXT` — owner handle.
 - `--resolved-in TEXT` — PR/commit reference.
 - plus `--workspace`, `--json`.
+
+## `gw util` — utility & diagnostic commands
+
+Secondary commands kept out of the primary scan → ingest → query → lint surface.
+`gw util log` and `gw util tokens` accept `--workspace` and `--json`; `gw util trace`
+does not (it is read-only and workspace-independent).
+
+### `gw util log`
+
+Append a timestamped event to the wiki `log.md`.
+
+- `--op TEXT` **(required)** — operation type: `scan`/`ingest`/`lint`/`create`/
+  `update`/`delete`/`note`/`query`.
+- `--title TEXT` **(required)** — short title for the entry.
+- `--detail TEXT` — optional extended detail text.
+- plus `--workspace`, `--json`.
+
+### `gw util tokens`
+
+Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens.
+
+- `--dry-run` — count without writing the `tokens` field.
+- `--model-id TEXT` (default `anthropic.claude-3-5-haiku-20241022-v1:0`) — Bedrock
+  model ID for token counting.
+- `--region TEXT` (default `us-east-1`) — AWS region for Bedrock.
+- plus `--workspace`, `--json`.
+
+### `gw util trace <file>`
+
+Render a JSONL trace file as a human-readable timeline plus a token/cost summary.
+
+- Argument: `<file>` **(required)** — path to the JSONL trace file.
+- `--expand` — disable consecutive-same-role collapsing; render every record as a
+  full line.
 
 ---
 
