@@ -1755,3 +1755,67 @@ def test_containing_package(conn: sqlite3.Connection) -> None:
     )
     assert queries.containing_package(conn, path="pkg/x.py") == "pkg"
     assert queries.containing_package(conn, path="nowhere.py") is None
+
+
+def test_describe_symbol_dossier(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="domain", name="ingest", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="file", name="init", path="foo/__init__.py", line=None, attrs={}),
+                GraphNode(kind="function", name="process", path="foo/a.py", line=42, attrs={}),
+                GraphNode(kind="function", name="run_scan", path="foo/a.py", line=1, attrs={}),
+                GraphNode(kind="function", name="validate", path="foo/a.py", line=80, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+                GraphEdge(
+                    src=("package", "foo", None), dst=("domain", "ingest", None), kind="belongs_to_domain", attrs={}
+                ),
+                GraphEdge(
+                    src=("function", "run_scan", "foo/a.py"), dst=("function", "process", None), kind="calls", attrs={}
+                ),
+                GraphEdge(
+                    src=("function", "process", "foo/a.py"), dst=("function", "validate", None), kind="calls", attrs={}
+                ),
+                GraphEdge(
+                    src=("file", "init", "foo/__init__.py"), dst=("function", "process", None), kind="exports", attrs={}
+                ),
+            ],
+        ),
+    )
+    resolve.sweep(conn)
+    desc = queries.describe_symbol(conn, kind="function", name="process", path="foo/a.py", line=42)
+    assert desc is not None
+    assert (desc.kind, desc.name, desc.path, desc.line) == ("function", "process", "foo/a.py", 42)
+    assert desc.package == "foo"
+    assert desc.domain == "ingest"
+    assert desc.exported_from == "foo/__init__.py"
+    assert {c.name for c in desc.callers} == {"run_scan"}
+    assert {c.name for c in desc.callees} == {"validate"}
+
+
+def test_describe_symbol_unexported_no_callees(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="class", name="Widget", path="foo/a.py", line=5, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    desc = queries.describe_symbol(conn, kind="class", name="Widget", path="foo/a.py", line=5)
+    assert desc is not None
+    assert desc.exported_from is None
+    assert desc.callees == []
+    assert desc.callers == []
+    assert desc.package is None
+    assert desc.domain is None
+
+
+def test_describe_symbol_not_found(conn: sqlite3.Connection) -> None:
+    assert queries.describe_symbol(conn, kind="function", name="ghost") is None

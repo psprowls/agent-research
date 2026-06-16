@@ -75,6 +75,21 @@ class CallRecord:
 
 
 @dataclass(frozen=True)
+class SymbolDescription:
+    """Fixed-depth-1 dossier for a code symbol (function/class/method/type)."""
+
+    kind: str
+    name: str
+    path: str | None
+    line: int | None
+    package: str | None
+    domain: str | None
+    exported_from: str | None
+    callers: list[CallRecord] = field(default_factory=list)
+    callees: list[CallRecord] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class ImportRecord:
     name: str
     path: str | None
@@ -372,6 +387,76 @@ def containing_package(conn: sqlite3.Connection, *, path: str) -> str | None:
         (path,),
     ).fetchone()
     return row[0] if row else None
+
+
+def _first_domain_of_package(conn: sqlite3.Connection, *, package: str) -> str | None:
+    row = conn.execute(
+        "SELECT d.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "JOIN nodes d ON e.dst = d.id "
+        "WHERE e.kind='belongs_to_domain' AND p.kind='package' AND p.name = ? "
+        "ORDER BY d.name LIMIT 1",
+        (package,),
+    ).fetchone()
+    return row[0] if row else None
+
+
+def describe_symbol(
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    name: str,
+    in_package: str | None = None,
+    path: str | None = None,
+    line: int | None = None,
+) -> SymbolDescription | None:
+    """Locate the first matching node (ORDER BY path, line) and assemble a fixed-depth-1 dossier.
+
+    Returns None if no node matches. Supply `path` and `line` to pin an exact
+    node; omit them to accept the first match. `kind` is the DB node kind
+    (function/class/method/type). `conn` must be opened read-only.
+    """
+    where = ["kind = ?", "name = ?"]
+    params: list = [kind, name]
+    if path is not None:
+        where.append("path = ?")
+        params.append(path)
+    if line is not None:
+        where.append("line = ?")
+        params.append(line)
+    if in_package is not None:
+        where.append(
+            "path IN ("
+            "SELECT f.path FROM nodes p "
+            "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
+            "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
+            "WHERE p.kind='package' AND LOWER(p.name) = LOWER(?)"
+            ")"
+        )
+        params.append(in_package)
+    row = conn.execute(
+        "SELECT kind, name, path, line FROM nodes WHERE " + " AND ".join(where) + " ORDER BY path, line LIMIT 1",
+        params,
+    ).fetchone()
+    if row is None:
+        return None
+    db_kind, db_name, node_path, node_line = row
+
+    package = containing_package(conn, path=node_path) if node_path else None
+    domain = _first_domain_of_package(conn, package=package) if package else None
+    exporters = exported_by(conn, name=db_name)
+    exported_from = exporters[0].path if exporters else None
+    return SymbolDescription(
+        kind=db_kind,
+        name=db_name,
+        path=node_path,
+        line=node_line,
+        package=package,
+        domain=domain,
+        exported_from=exported_from,
+        callers=callers(conn, name=db_name, depth=1),
+        callees=callees(conn, name=db_name, depth=1),
+    )
 
 
 def callers(conn: sqlite3.Connection, *, name: str, depth: int = 3) -> list[CallRecord]:
