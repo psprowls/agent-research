@@ -35,6 +35,8 @@ def run(args: MutableDescribeArgs) -> int:
             kind=cast(str, args.kind),
             name=cast(str, args.selector),
             in_package=args.in_package,
+            path=getattr(args, "path", None),
+            line=getattr(args, "line", None),
         )
     finally:
         conn.close()

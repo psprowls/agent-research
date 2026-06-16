@@ -1900,3 +1900,84 @@ def test_build_menu_test_suite_kind_maps_to_suite(conn: sqlite3.Connection) -> N
     )
     menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="core_tests"))
     assert menu[0].command == "gw graph describe core_tests --kind suite"
+
+
+def test_build_menu_dependency_with_synthetic_path(conn: sqlite3.Connection) -> None:
+    """A dependency node carrying a synthetic path/None line is addressed by
+    ecosystem (not --in-package None) with a blank address (not ":None")."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(
+                    kind="dependency",
+                    name="boto3",
+                    path="dependency:pypi:boto3",
+                    line=None,
+                    attrs={"ecosystem": "pypi"},
+                ),
+            ],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="boto3"))
+    assert len(menu) == 1
+    assert menu[0].kind == "dependency"
+    assert menu[0].command == "gw graph describe boto3 --kind dependency --ecosystem pypi"
+    assert menu[0].address == ""
+
+
+def test_build_menu_code_symbol_no_package_uses_path_line(conn: sqlite3.Connection) -> None:
+    """A code symbol with a path but no containing package/app falls back to the
+    unambiguous path:line command (there is no package name to narrow by)."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="function", name="orphan", path="loose/a.py", line=7, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="orphan"))
+    assert len(menu) == 1
+    assert menu[0].command == "gw graph describe loose/a.py:7"
+    assert menu[0].address == "loose/a.py:7"
+
+
+def test_containing_package_app(conn: sqlite3.Connection) -> None:
+    """containing_package returns the owning app name for an app-resident file."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="webapp", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="x.py", path="webapp/x.py", line=None, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("app", "webapp", None), dst=("file", "x.py", "webapp/x.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    assert queries.containing_package(conn, path="webapp/x.py") == "webapp"
+
+
+def test_describe_symbol_in_package_app(conn: sqlite3.Connection) -> None:
+    """describe_symbol narrows by an app name (in_package filter spans package+app)."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="webapp", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="webapp/a.py", line=None, attrs={}),
+                GraphNode(kind="function", name="handler", path="webapp/a.py", line=3, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("app", "webapp", None), dst=("file", "a.py", "webapp/a.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    desc = queries.describe_symbol(conn, kind="function", name="handler", in_package="webapp")
+    assert desc is not None
+    assert (desc.kind, desc.name, desc.path, desc.line) == ("function", "handler", "webapp/a.py", 3)
+    assert desc.package == "webapp"

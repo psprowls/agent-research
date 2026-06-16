@@ -51,6 +51,7 @@ class MutableDescribeArgs(DescribeArgs, Protocol):
     name: str
     uri: str
     path: str
+    line: int | None
 
 
 class DependencyDescribeArgs(NameArgs, Protocol):

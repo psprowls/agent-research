@@ -71,6 +71,12 @@ def _describe_one(match: queries.NodeRecord, args: MutableDescribeArgs) -> int:
     """Dispatch a single resolved match to the right describer."""
     if match.kind in CODE_KINDS:
         args.kind = match.kind
+        # Pin the exact resolved node so a path:line selector (or any resolved
+        # match) describes THIS node rather than re-resolving by the raw selector.
+        args.selector = match.name
+        if match.path is not None:
+            args.path = match.path
+        args.line = match.line
         return q_describe_symbol.run(args)
     dispatch_key = _DB_KIND_TO_DISPATCH.get(match.kind)
     if dispatch_key is None:

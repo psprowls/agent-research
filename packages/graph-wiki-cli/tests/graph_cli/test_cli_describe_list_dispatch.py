@@ -335,3 +335,81 @@ def test_describe_symbol_in_package_selects_right_package(repo_two_pkgs_same_fn:
     b = _cg(["describe", "shared_fn", "--kind", "function", "--in-package", "pkgb"], repo_two_pkgs_same_fn)
     assert b.returncode == 0, b.stderr
     assert "pkgb" in b.stdout and "pkga" not in b.stdout
+
+
+# ---------------------------------------------------------------------------
+# Menu round-trip: every emitted command must resolve when pasted back.
+# ---------------------------------------------------------------------------
+
+
+def test_describe_path_line_resolves_symbol(repo_with_symbols: Path) -> None:
+    """`describe <path>:<line>` resolves the code symbol at that location.
+
+    Reproduces the bug the final reviewer found: a path:line selector reached
+    the symbol describer but re-resolved by the literal "src/x.py:42" string
+    (a non-existent name) instead of the matched node.
+    """
+    # Discover the line of `process` from its JSON dossier.
+    probe = _cg(["--fmt", "json", "describe", "process", "--kind", "function"], repo_with_symbols)
+    assert probe.returncode == 0, probe.stderr
+    line = json.loads(probe.stdout)["line"]
+    assert isinstance(line, int)
+
+    res = _cg(["describe", f"src/demo/a.py:{line}"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function process" in res.stdout
+
+
+def test_describe_menu_commands_round_trip(repo_two_pkgs_same_fn: Path) -> None:
+    """Every `gw graph describe …` command the menu emits resolves (exit 0)."""
+    import shlex
+
+    res = _cg(["describe", "shared_fn"], repo_two_pkgs_same_fn)
+    assert res.returncode == 0, res.stderr
+    menu_lines = [ln for ln in res.stdout.splitlines() if "gw graph describe" in ln]
+    assert len(menu_lines) >= 2, f"expected a multi-line menu, got: {res.stdout!r}"
+
+    for ln in menu_lines:
+        # Each menu line is "<kind>  <addr>  → gw graph describe <args...>".
+        command = ln.split("→", 1)[1].strip()
+        assert command.startswith("gw graph describe "), command
+        cli_args = shlex.split(command[len("gw graph describe ") :])
+        rt = _cg(["describe", *cli_args], repo_two_pkgs_same_fn)
+        assert rt.returncode == 0, f"command did not round-trip: {command!r}\nstderr={rt.stderr}"
+
+
+@pytest.fixture()
+def repo_pkg_and_app_same_fn(tmp_path: Path) -> Path:
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "lib/pyproject.toml": '[project]\nname = "lib"\nversion = "0.1.0"\n',
+            "lib/src/lib/__init__.py": "def shared_fn():\n    return 1\n",
+            # [project.scripts] -> classified as an app, not a package
+            "cli/pyproject.toml": (
+                '[project]\nname = "cli"\nversion = "0.1.0"\n[project.scripts]\ncli = "cli:shared_fn"\n'
+            ),
+            "cli/src/cli/__init__.py": "def shared_fn():\n    return 2\n",
+        },
+        "init",
+    )
+    res = _cg(["update", "--full"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_describe_menu_round_trip_includes_app(repo_pkg_and_app_same_fn: Path) -> None:
+    res = _cg(["describe", "shared_fn"], repo_pkg_and_app_same_fn)
+    assert res.returncode == 0, res.stderr
+    menu_lines = [ln for ln in res.stdout.splitlines() if "gw graph describe" in ln]
+    assert len(menu_lines) >= 2, res.stdout
+    # No literal "None" anywhere (the app bug emitted `--in-package None`).
+    assert " None" not in res.stdout
+    import shlex
+
+    for line in menu_lines:
+        cmd = line.split("gw graph describe", 1)[1].strip()
+        argv = shlex.split(cmd)
+        rt = _cg(["describe", *argv], repo_pkg_and_app_same_fn)
+        assert rt.returncode == 0, f"menu command did not round-trip: {cmd!r}\nstderr={rt.stderr}"

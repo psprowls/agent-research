@@ -25,6 +25,9 @@ _CLI_KIND = {
     "file": "path",
 }
 
+# DB node kinds that carry a path:line and dispatch to the symbol describer.
+_CODE_KINDS = frozenset({"function", "class", "method", "type"})
+
 _VALID_KINDS = frozenset(
     {
         "function",
@@ -337,6 +340,10 @@ def find(
         where_parts.append("n.kind = ?")
         params.append(kind)
     if in_package is not None:
+        # NOTE: this join stays `p.kind='package'` (unlike containing_package /
+        # describe_symbol, which broadened to ('package','app')); find's
+        # --in-package is out of scope for the menu round-trip fix. Residual
+        # inconsistency: find cannot narrow by an app name.
         where_parts.append(
             "n.path IN ("
             "SELECT f.path FROM nodes p "
@@ -399,13 +406,16 @@ def resolve_selector(
 def build_menu(conn: sqlite3.Connection, matches: list[NodeRecord]) -> list[MatchRecord]:
     """Enrich resolve_selector matches into copy-paste disambiguation entries.
 
-    For each match: compute the containing package, detect same-name/same-kind/
-    same-package collisions (which `--in-package` cannot break), and synthesize a
-    `gw graph describe` command:
-      * collision (path present)  -> `gw graph describe <path>:<line>`
-      * path present              -> `... <name> --kind <cli> --in-package <pkg>`
-      * dependency (no path)      -> `... <name> --kind dependency --ecosystem <eco>`
-      * other path-less           -> `... <name> --kind <cli>`
+    Keys command synthesis on node KIND so every emitted `gw graph describe`
+    command round-trips (resolves when pasted back):
+      * code symbol      -> `... <path>:<line>` on a same-package collision or
+                            when there is no containing package/app to narrow by;
+                            otherwise `... <name> --kind <cli> --in-package <pkg>`
+      * file             -> `... <path>` (resolves via the path describer)
+      * dependency       -> `... <name> --kind dependency --ecosystem <eco>`
+                            (dependency nodes carry a synthetic path; never
+                            address them by `--in-package`)
+      * other path-less  -> `... <name> --kind <cli>`
     `conn` read-only.
     """
     packages = [containing_package(conn, path=m.path) if m.path else None for m in matches]
@@ -417,27 +427,42 @@ def build_menu(conn: sqlite3.Connection, matches: list[NodeRecord]) -> list[Matc
 
     out: list[MatchRecord] = []
     for m, pkg in zip(matches, packages):
-        address = f"{m.path}:{m.line}" if m.path is not None else ""
+        # Menu label location: only code symbols have a line; line-less nodes
+        # (packages, deps, files, …) render a blank address (no ":None").
+        address = f"{m.path}:{m.line}" if m.line is not None else ""
         cli_kind = _CLI_KIND.get(m.kind, m.kind)
         collides = counts[(m.kind, m.name, pkg)] > 1
-        if collides and m.path is not None:
-            command = f"gw graph describe {m.path}:{m.line}"
-        elif m.path is not None:
-            command = f"gw graph describe {m.name} --kind {cli_kind} --in-package {pkg}"
+        if m.kind in _CODE_KINDS:
+            # Unambiguous path:line when a same-name/kind/package collision can't
+            # be broken by --in-package, or when the symbol has no containing
+            # package/app to narrow by; otherwise name + --in-package.
+            if collides or pkg is None:
+                command = f"gw graph describe {m.path}:{m.line}"
+            else:
+                command = f"gw graph describe {m.name} --kind {cli_kind} --in-package {pkg}"
+        elif m.kind == "file":
+            # A bare file path resolves via q_describe.run's path-describer fallback.
+            command = f"gw graph describe {m.path}"
         elif m.kind == "dependency":
+            # Dependency nodes carry a synthetic path; address them by ecosystem,
+            # never --in-package.
             eco = m.attrs.get("ecosystem", "")
             command = f"gw graph describe {m.name} --kind dependency --ecosystem {eco}"
         else:
+            # Path-less entities (package, app, domain, suite, agent_plugin,
+            # entry_point) resolve by name under their explicit kind.
             command = f"gw graph describe {m.name} --kind {cli_kind}"
         out.append(MatchRecord(kind=m.kind, address=address, command=command))
     return out
 
 
 def containing_package(conn: sqlite3.Connection, *, path: str) -> str | None:
-    """Return the name of the package whose `contains`-edge owns `path`, or None.
+    """Return the name of the package OR app whose `contains`-edge owns `path`, or None.
 
-    Reverse of find's `--in-package` join (package -> file). Path must match
-    the stored form exactly — no normalisation/casing is applied (unlike find's
+    Reverse of find's `--in-package` join (package -> file), broadened to also
+    match `app` nodes so app-resident symbols resolve to their owning app
+    (otherwise build_menu would emit `--in-package None`). Path must match the
+    stored form exactly — no normalisation/casing is applied (unlike find's
     `in_package`, which lowercases the package name). `conn` must be opened
     read-only.
     """
@@ -445,7 +470,7 @@ def containing_package(conn: sqlite3.Connection, *, path: str) -> str | None:
         "SELECT p.name FROM nodes p "
         "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
         "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
-        "WHERE p.kind='package' AND f.path = ? "
+        "WHERE p.kind IN ('package', 'app') AND f.path = ? "
         "LIMIT 1",
         (path,),
     ).fetchone()
@@ -493,7 +518,7 @@ def describe_symbol(
             "SELECT f.path FROM nodes p "
             "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
             "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
-            "WHERE p.kind='package' AND LOWER(p.name) = LOWER(?)"
+            "WHERE p.kind IN ('package', 'app') AND LOWER(p.name) = LOWER(?)"
             ")"
         )
         params.append(in_package)
