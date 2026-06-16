@@ -31,11 +31,15 @@ def test_root_app_mounts_wiki_group_with_subcommands() -> None:
 
 
 def test_moved_commands_no_longer_top_level() -> None:
-    """query/log/lint/ingest are no longer registered at the root."""
+    """query/log/ingest are no longer registered at the root.
+
+    `lint` is excluded: a distinct top-level `gw lint` (aggregated wiki + work)
+    is reintroduced at the root, separate from the wiki-only `gw wiki lint`.
+    """
     from graph_wiki_cli.cli import app
 
     root_command = typer.main.get_command(app)
-    for name in ("query", "log", "lint", "ingest"):
+    for name in ("query", "log", "ingest"):
         assert name not in root_command.commands
 
 

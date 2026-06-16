@@ -19,6 +19,8 @@ from graph_wiki_core.commands.work import (
     run_work_status,
 )
 
+from graph_wiki_cli.lint_format import format_work_lint
+
 work_app = typer.Typer(name="work", help="Work item management.", no_args_is_help=True)
 
 
@@ -89,11 +91,8 @@ def lint(
     if json_output:
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
-        typer.echo(f"Items checked: {result.total_items}")
-        for f in result.findings:
-            typer.echo(f"  [{f['severity']}] {f['slug']}: {f['rule_id']} — {f['message']}")
-        if not result.findings:
-            typer.echo("  [ok] No findings.")
+        for line in format_work_lint(result):
+            typer.echo(line)
 
     if any(f["severity"] == "error" for f in result.findings):
         raise typer.Exit(code=1)
