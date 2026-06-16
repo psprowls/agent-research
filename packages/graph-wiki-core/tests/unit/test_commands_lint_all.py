@@ -46,3 +46,23 @@ def test_run_lint_all_continues_when_work_raises() -> None:
     assert result.wiki is wiki_res
     assert result.work is None
     assert result.errors == [{"command": "work", "error": "nope"}]
+
+
+def test_run_lint_all_continues_when_wiki_raises() -> None:
+    from graph_wiki_core.commands.lint_all import run_lint_all
+    from graph_wiki_core.commands.work import WorkLintResult
+
+    work_res = WorkLintResult(total_items=0, findings=[])
+
+    with (
+        patch("graph_wiki_core.commands.lint_all.run_lint", new=AsyncMock(side_effect=RuntimeError("boom"))),
+        patch(
+            "graph_wiki_core.commands.lint_all.run_work_lint",
+            new=AsyncMock(return_value=work_res),
+        ),
+    ):
+        result = asyncio.run(run_lint_all())
+
+    assert result.wiki is None
+    assert result.work is work_res
+    assert result.errors == [{"command": "wiki", "error": "boom"}]

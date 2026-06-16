@@ -53,3 +53,26 @@ def test_run_archive_all_continues_when_wiki_raises() -> None:
     assert result.wiki is None
     assert result.work is work_res
     assert result.errors == [{"command": "wiki", "error": "boom"}]
+
+
+def test_run_archive_all_continues_when_work_raises() -> None:
+    from graph_wiki_core.commands.archive_all import run_archive_all
+    from graph_wiki_core.commands.wiki_archive import WikiArchiveResult
+
+    wiki_res = WikiArchiveResult(dry_run=False, moved=[], skipped=[])
+
+    with (
+        patch(
+            "graph_wiki_core.commands.archive_all.run_wiki_archive",
+            new=AsyncMock(return_value=wiki_res),
+        ),
+        patch(
+            "graph_wiki_core.commands.archive_all.run_work_archive",
+            new=AsyncMock(side_effect=FileNotFoundError("missing")),
+        ),
+    ):
+        result = asyncio.run(run_archive_all())
+
+    assert result.wiki is wiki_res
+    assert result.work is None
+    assert result.errors == [{"command": "work", "error": "missing"}]
