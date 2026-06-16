@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Plugin shim for reconciling stale work-item doc pointers after a source archive.
 
-Pure local IO — no Bedrock backend branch (gw wiki ingest already reconciles).
+Pure local IO — no Bedrock backend branch (gw ingest already reconciles).
 """
 
 from __future__ import annotations

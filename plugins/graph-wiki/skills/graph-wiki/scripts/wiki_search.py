@@ -22,7 +22,7 @@ def _backend_for(command: str) -> str:
 
 
 def _run_bedrock() -> None:
-    result = subprocess.run(["gw", "wiki", "query"] + sys.argv[1:], check=True)
+    result = subprocess.run(["gw", "query"] + sys.argv[1:], check=True)
     sys.exit(result.returncode)
 
 

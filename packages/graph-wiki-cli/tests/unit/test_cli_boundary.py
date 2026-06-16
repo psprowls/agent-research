@@ -37,7 +37,10 @@ def test_cli_module_imports_core_commands_not_agent_cli_shim() -> None:
     cli_source = inspect.getsource(cli_module)
     wiki_source = inspect.getsource(wiki_module)
 
-    assert "from graph_wiki_core.commands.query import run_query" in wiki_source
+    # query was promoted to a top-level `gw query` command, so its core import
+    # now lives in cli.py; wiki_cli/main.py still delegates its remaining
+    # commands (lint, ack-drift, proposals, …) to graph_wiki_core.commands.
+    assert "from graph_wiki_core.commands.query import run_query" in cli_source
     assert "from graph_wiki_core.commands" in wiki_source
     for source in (cli_source, wiki_source):
         assert "graph_wiki_agent.cli" not in source

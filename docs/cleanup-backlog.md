@@ -414,9 +414,11 @@ by graph-wiki-cli / graph-wiki-mcp):
 - **Console script:** `gw = graph_wiki_cli.cli:app` (`pyproject.toml`).
 - **Root Typer app** (`cli.py:71`) mounts two sub-apps: `graph_app` (`graph_cli/main.py`, `gw graph …`,
   33 subcommands each delegating to a `q_*`/`ops_*` module's `run(args)`) and `wiki_app`
-  (`wiki_cli/main.py`, `gw wiki …`: `query`/`log`/`lint`/`ack-drift` + nested `gw wiki ingest`).
+  (`wiki_cli/main.py`, `gw wiki …`: `lint`/`ack-drift`/`proposals`/`archive`/`propagate-drift`).
 - **Root commands on `app`:** `help`, `version`, `trace <file>`, `bootstrap` (→ `run_init`),
-  `scan` (→ `run_scan`), plus the `_root` `--verbose` callback. `cli.py:616` `app()` under `__main__`.
+  `scan` (→ `run_scan`), `query` (→ `run_query`), `log` (→ `run_log`), `ingest` (→ `run_ingest_source`),
+  `tokens` (→ `update_vault`), `archive`, `lint`, plus the `_root` `--verbose` callback.
+  `cli.py` `app()` under `__main__`.
 - **Unwired convenience shims:** `graph_cli/main.py:334 main()` + `:338 __main__` and
   `wiki_cli/main.py:252 main()` + `:256 __main__` are NOT referenced by any console script or test
   (only reachable via `python -m …`). See dead-code below.

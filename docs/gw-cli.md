@@ -47,7 +47,7 @@ These live on the root `gw` callback and may be passed before any command:
 
 - `-v` / `--verbose` — stream a live execution log to **stderr** (`-v` = INFO,
   `-vv` = DEBUG). stderr only — stdout stays clean, so
-  `gw -v wiki query ... --json | jq` still works. Independent of a command's own
+  `gw -v query ... --json | jq` still works. Independent of a command's own
   `--quiet`. Example: `gw -vv scan`.
 - `--install-completion` — install shell completion for the current shell.
 - `--show-completion` — print the completion script to copy/customize.
@@ -62,7 +62,7 @@ Two flags recur on almost every command but are **per-command**, not root-global
   details and when it is optional are in the next section.
 
 Many mutating commands also accept `--dry-run` (plan/report without writing):
-`scan` has no dry-run, but `wiki archive`, `wiki propagate-drift`, `wiki tokens`,
+`scan` has no dry-run, but `wiki archive`, `wiki propagate-drift`, `tokens`,
 and `work archive` do.
 
 ## Workspace & repo resolution (when `--workspace` / `--repo` are needed)
@@ -164,6 +164,44 @@ Build the code graph and write one page per graph entity into `wiki/entities/`.
 - `--short-head TEXT` — stamp value (short HEAD sha) for `--apply-worklist`.
 
 Exit code `3` indicates per-entity errors occurred during the scan.
+
+### `gw query <query_text>`
+
+Query the wiki with agentic retrieval over wiki and code evidence.
+
+- Argument: `<query_text>` **(required)** — the question.
+- `--top-k INT` (default `5`, range 3–10) — pages to drill into.
+- `--quiet` — suppress progress output (headless mode).
+- `--no-state-gate` — no-op; query is read-only.
+- plus `--workspace`, `--json`.
+
+### `gw ingest <path>`
+
+Ingest a source file into the wiki via the ingestor LLM. **This is a single
+command, not a group** — work items are filed via `gw work file`, not here.
+
+- Argument: `<path>` **(required)** — source file to ingest.
+- plus `--workspace`, `--json`.
+
+### `gw log`
+
+Append a timestamped event to the wiki `log.md`.
+
+- `--op TEXT` **(required)** — operation type: `scan`/`ingest`/`lint`/`create`/
+  `update`/`delete`/`note`/`query`.
+- `--title TEXT` **(required)** — short title for the entry.
+- `--detail TEXT` — optional extended detail text.
+- plus `--workspace`, `--json`.
+
+### `gw tokens`
+
+Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens.
+
+- `--dry-run` — count without writing the `tokens` field.
+- `--model-id TEXT` (default `anthropic.claude-3-5-haiku-20241022-v1:0`) — Bedrock
+  model ID for token counting.
+- `--region TEXT` (default `us-east-1`) — AWS region for Bedrock.
+- plus `--workspace`, `--json`.
 
 ### `gw trace <file>`
 
@@ -303,34 +341,6 @@ Every `gw wiki` subcommand accepts `--workspace` and `--json` (see
 [Common command flags](#common-command-flags-convention-not-global)); only the
 distinctive flags are called out below.
 
-### `gw wiki query <query_text>`
-
-Query the wiki with agentic retrieval over wiki and code evidence.
-
-- Argument: `<query_text>` **(required)** — the question.
-- `--top-k INT` (default `5`, range 3–10) — pages to drill into.
-- `--quiet` — suppress progress output (headless mode).
-- `--no-state-gate` — no-op; query is read-only.
-- plus `--workspace`, `--json`.
-
-### `gw wiki ingest <path>`
-
-Ingest a source file into the wiki via the ingestor LLM. **This is a single
-command, not a group** — work items are filed via `gw work file`, not here.
-
-- Argument: `<path>` **(required)** — source file to ingest.
-- plus `--workspace`, `--json`.
-
-### `gw wiki log`
-
-Append a timestamped event to the wiki `log.md`.
-
-- `--op TEXT` **(required)** — operation type: `scan`/`ingest`/`lint`/`create`/
-  `update`/`delete`/`note`/`query`.
-- `--title TEXT` **(required)** — short title for the entry.
-- `--detail TEXT` — optional extended detail text.
-- plus `--workspace`, `--json`.
-
 ### `gw wiki lint`
 
 Run a mechanical + semantic lint pass over the wiki and report findings.
@@ -379,16 +389,6 @@ no slugs given, otherwise targeted).
 
 - Argument: `[slugs ...]` (optional) — specific page slugs.
 - `--dry-run` — show the plan without moving files.
-- plus `--workspace`, `--json`.
-
-### `gw wiki tokens`
-
-Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens.
-
-- `--dry-run` — count without writing the `tokens` field.
-- `--model-id TEXT` (default `anthropic.claude-3-5-haiku-20241022-v1:0`) — Bedrock
-  model ID for token counting.
-- `--region TEXT` (default `us-east-1`) — AWS region for Bedrock.
 - plus `--workspace`, `--json`.
 
 ## `gw work` — work-item lifecycle commands

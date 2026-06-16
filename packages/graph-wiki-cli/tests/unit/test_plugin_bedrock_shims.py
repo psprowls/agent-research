@@ -27,7 +27,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parents[4] / "plugins" / "graph-wiki" / "
         (
             "ingest_source.py",
             ["docs/example.md", "--workspace", "/tmp/wiki"],
-            ["gw", "wiki", "ingest", "source", "docs/example.md", "--workspace", "/tmp/wiki"],
+            ["gw", "ingest", "docs/example.md", "--workspace", "/tmp/wiki"],
         ),
         (
             "lint_wiki.py",
@@ -37,7 +37,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parents[4] / "plugins" / "graph-wiki" / "
         (
             "wiki_search.py",
             ["Where is auth documented?", "--top-k", "5"],
-            ["gw", "wiki", "query", "Where is auth documented?", "--top-k", "5"],
+            ["gw", "query", "Where is auth documented?", "--top-k", "5"],
         ),
         (
             "scan_monorepo.py",

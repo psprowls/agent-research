@@ -1,8 +1,9 @@
 """Native Typer command surface for `gw wiki`.
 
-Wiki-maintenance commands (query, log, lint, ingest) relocated from cli.py so
-the `gw wiki` group mirrors the `gw graph` group structurally. Command bodies
+Wiki-maintenance commands (lint, ack-drift, proposals, archive, propagate-drift)
 delegate to graph_wiki_core.commands.*; this module owns only presentation.
+query, log, ingest, and tokens were promoted to top-level `gw` commands
+(see cli.py).
 """
 
 from __future__ import annotations
@@ -10,26 +11,17 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import json
-import sys
 from pathlib import Path
 from typing import Optional
 
 import typer
-from graph_io import exit_codes as _gio_exit_codes
 from graph_io.store import read_only_connect
 from graph_wiki_core.commands.ack_drift import run_ack_drift
-from graph_wiki_core.commands.ingest import (
-    IngestorGraphNotInitializedError,
-    run_ingest_source,
-)
 from graph_wiki_core.commands.lint import run_lint
-from graph_wiki_core.commands.log import run_log
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
-from graph_wiki_core.commands.query import run_query
 from graph_wiki_core.commands.wiki_archive import run_wiki_archive
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.update_tokens import DEFAULT_MODEL_ID, DEFAULT_REGION, update_vault
 from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.lint_format import format_wiki_lint
@@ -39,65 +31,6 @@ wiki_app = typer.Typer(
     help="Wiki maintenance operations.",
     no_args_is_help=True,
 )
-
-
-@wiki_app.command()
-def query(
-    query_text: str = typer.Argument(..., help="Natural language query"),
-    top_k: int = typer.Option(5, "--top-k", help="Pages to drill (3-10)", min=3, max=10),
-    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
-    json_output: bool = typer.Option(False, "--json", help="Emit QueryResult as JSON"),
-    no_state_gate: bool = typer.Option(False, "--no-state-gate", help="No-op; query is read-only"),
-    quiet: bool = typer.Option(False, "--quiet", help="Suppress progress output (headless mode)"),
-) -> None:
-    """Query the wiki with agentic retrieval orchestration over wiki and code evidence."""
-    # state gate is a no-op for query (read-only) — D-08
-    workspace_path = Path(workspace) if workspace else None
-    try:
-        result = asyncio.run(run_query(query_text, workspace_path, top_k=top_k))
-    except RuntimeError as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    partial = result.pages_drilled < top_k
-
-    if json_output:
-        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
-    else:
-        typer.echo(result.answer)
-        if result.citations:
-            typer.echo(f"\nCitations: {', '.join(result.citations)}")
-        if not quiet:
-            # Non-TTY mode: route meta line to stderr so stdout is clean for piping
-            typer.echo(
-                f"Pages drilled: {result.pages_drilled}",
-                err=not sys.stdout.isatty(),
-            )
-
-    if partial:
-        raise typer.Exit(code=3)
-
-
-@wiki_app.command()
-def log(
-    op: str = typer.Option(..., "--op", help="Log operation type (scan/ingest/lint/create/update/delete/note/query)"),
-    title: str = typer.Option(..., "--title", help="Short title for the log entry"),
-    detail: Optional[str] = typer.Option(None, "--detail", help="Optional extended detail text"),
-    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
-    json_output: bool = typer.Option(False, "--json", help="Emit LogResult as JSON"),
-) -> None:
-    """Append a timestamped event to the wiki log.md."""
-    workspace_path = Path(workspace) if workspace else None
-    try:
-        result = asyncio.run(run_log(op=op, title=title, detail=detail, workspace_path=workspace_path))
-    except (RuntimeError, FileNotFoundError, SystemExit) as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    if json_output:
-        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
-    else:
-        typer.echo(f"[{result.date}] {result.op}: {result.title}")
 
 
 @wiki_app.command()
@@ -288,93 +221,6 @@ def propagate_drift(
         for row in result.proposals:
             refs = ", ".join(o["ref"] for o in row["origins"])
             typer.echo(f"  {row['kind']}-{row['target_slug']}  <- {refs}")
-
-
-# ---------------------------------------------------------------------------
-# ingest command
-# ---------------------------------------------------------------------------
-
-
-@wiki_app.command(name="ingest")
-def ingest_source(
-    path: Path = typer.Argument(..., help="Path to the source file to ingest"),
-    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
-    json_output: bool = typer.Option(False, "--json", help="Emit IngestResult as JSON"),
-) -> None:
-    """Ingest a source file into the wiki via the ingestor LLM."""
-    workspace_path = Path(workspace) if workspace else None
-    try:
-        result = asyncio.run(run_ingest_source(path, workspace_path))
-    except IngestorGraphNotInitializedError as e:
-        # Phase 40 / INGESTOR-02 / D-01: NOT_INITIALIZED has its own exit code
-        # so script consumers can branch on it (3 vs generic 1).
-        typer.echo(str(e), err=True)
-        raise typer.Exit(code=_gio_exit_codes.NOT_INITIALIZED)
-    except (RuntimeError, ValueError) as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    if json_output:
-        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
-    else:
-        typer.echo(f"[ok] Ingested: {result.page_path}")
-        typer.echo(f"     source_type: {result.source_type}, slug: {result.slug}")
-        if result.archived_to:
-            typer.echo(f"[ok] Archived source → {result.archived_to}")
-        if not result.frontmatter_parsed:
-            typer.echo(
-                "⚠ frontmatter did not parse — wrote Source page using the path-guess source_type",
-                err=True,
-            )
-        if result.stripped_wikilinks:
-            typer.echo(
-                f"⚠ stripped {len(result.stripped_wikilinks)} unresolved wikilink(s): {result.stripped_wikilinks}",
-                err=True,
-            )
-        if result.suggested_pages:
-            typer.echo(f"     suggested {len(result.suggested_pages)} page(s):")
-            for s in result.suggested_pages:
-                mode = "update" if s.get("mode") == "update_existing" else "new"
-                typer.echo(
-                    f'       - {s.get("kind")} "{s.get("title")}" ({mode}, {s.get("status")}) -> {s.get("slug")}'
-                )
-        if result.guidance_pages_written:
-            typer.echo(f"     wrote {len(result.guidance_pages_written)} guidance page(s):")
-            for g in result.guidance_pages_written:
-                typer.echo(f"       - {g}")
-        if not result.suggestions_parsed:
-            typer.echo("⚠ suggestion pass degraded — wrote 0 suggestions", err=True)
-
-
-@wiki_app.command(name="tokens")
-def tokens(
-    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
-    dry_run: bool = typer.Option(False, "--dry-run", help="Count without writing the tokens field"),
-    json_output: bool = typer.Option(False, "--json", help="Emit the {updated, unchanged, skipped} buckets as JSON"),
-    model_id: str = typer.Option(DEFAULT_MODEL_ID, "--model-id", help="Bedrock model ID for token counting"),
-    region: str = typer.Option(DEFAULT_REGION, "--region", help="AWS region for Bedrock"),
-) -> None:
-    """Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens."""
-    workspace_path = Path(workspace) if workspace else None
-    try:
-        wiki, _ = resolve_wiki_and_repo(workspace_path)
-    except (RuntimeError, FileNotFoundError) as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    result = update_vault(wiki, dry_run=dry_run, model_id=model_id, region=region)
-
-    if json_output:
-        typer.echo(json.dumps(result, indent=2))
-        return
-
-    label = "Would update" if dry_run else "Updated"
-    typer.echo(
-        f"{label} {len(result['updated'])} • Unchanged {len(result['unchanged'])} • Skipped {len(result['skipped'])}"
-    )
-    for kind in ("updated", "skipped"):
-        for rel in result[kind][:20]:
-            typer.echo(f"  [{kind}] {rel}")
 
 
 def main() -> None:
