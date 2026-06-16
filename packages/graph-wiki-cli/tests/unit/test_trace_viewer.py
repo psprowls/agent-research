@@ -60,7 +60,7 @@ _PROJECT_ROOT = Path(__file__).parent.parent.parent.parent.parent
 
 def _run_trace_cmd(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "trace"] + args,
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "util", "trace"] + args,
         capture_output=True,
         text=True,
         cwd=_PROJECT_ROOT,
@@ -171,7 +171,7 @@ def test_live_render_matches_trace_expand(tmp_path: Path) -> None:
     expected_line = render_trace_record(record)
 
     runner = CliRunner()
-    result = runner.invoke(app, ["trace", str(trace_file), "--expand"])
+    result = runner.invoke(app, ["util", "trace", str(trace_file), "--expand"])
     assert result.exit_code == 0
     assert expected_line in result.stdout
 
@@ -183,7 +183,7 @@ def test_aggregate_trace_by_role_model_groups_and_costs() -> None:
     - counts null-cost records into unknown_cost_count
     - excludes records carrying an 'event' or 'kind' key
     """
-    from graph_wiki_cli.cli import _aggregate_trace
+    from graph_wiki_cli.util_cli.main import _aggregate_trace
 
     records = [
         # (a) two scanner records on haiku
@@ -483,7 +483,7 @@ def _trace_supports_expand_flag() -> bool:
     """
     try:
         help_result = subprocess.run(
-            ["uv", "run", "--package", "graph-wiki-cli", "gw", "trace", "--help"],
+            ["uv", "run", "--package", "graph-wiki-cli", "gw", "util", "trace", "--help"],
             capture_output=True,
             text=True,
             cwd=_PROJECT_ROOT,
@@ -551,7 +551,7 @@ def _write_fan_out_fixture(
 def test_trace_command_has_expand_flag() -> None:
     """`gw trace --help` advertises the --expand flag (Task 1, D-14)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "trace", "--help"],
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "util", "trace", "--help"],
         capture_output=True,
         text=True,
         cwd=_PROJECT_ROOT,
