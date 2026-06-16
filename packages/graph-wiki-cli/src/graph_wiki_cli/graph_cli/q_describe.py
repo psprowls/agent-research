@@ -1,9 +1,12 @@
 """gw graph describe <selector> [--kind] — dispatch to the per-kind describe modules.
 
-The per-kind ``q_describe_*`` modules are kept as library helpers; this router
-selects which one's ``run(args)`` to call, copies the single ``selector`` onto
-the attribute that module expects (``name`` / ``uri`` / ``path``), and — when
-``--kind`` is omitted — infers the kind (see ``_resolve_kind``).
+The per-kind ``q_describe_*`` modules are library helpers; this router selects
+which one's ``run(args)`` to call. With an explicit ``--kind`` it dispatches
+straight to that describer (symbol describer for the code kinds). Without
+``--kind`` it resolves the selector across all node kinds via
+``queries.resolve_selector``: a unique match is described, multiple matches
+produce a copy-paste disambiguation menu (stdout, exit 0), zero matches fall
+back to the path describer.
 """
 
 from __future__ import annotations
@@ -11,7 +14,8 @@ from __future__ import annotations
 import sys
 from typing import cast
 
-from graph_io import exit_codes, store
+from graph_io import exit_codes, queries, store
+from graph_io import render as _render
 from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli import (
@@ -48,30 +52,62 @@ DESCRIBE_KINDS = tuple(_DISPATCH)
 CODE_KINDS = q_describe_symbol.CODE_KINDS
 DESCRIBE_KINDS = (*DESCRIBE_KINDS, *CODE_KINDS)
 
-# Bare-name CLI kinds eligible for inference -> their DB node kind.
-_INFER_DB_KIND = {
+# DB node kind -> the dispatch key in _DISPATCH used to describe it.
+# Keep in sync with queries._CLI_KIND (the inverse map used to build menu
+# commands): a new entity kind needs adding to both.
+_DB_KIND_TO_DISPATCH = {
     "package": "package",
     "app": "app",
     "domain": "domain",
     "dependency": "dependency",
-    "suite": "test_suite",
-    "agent-plugin": "agent_plugin",
-    "entry-point": "entry_point",
+    "test_suite": "suite",
+    "agent_plugin": "agent-plugin",
+    "entry_point": "entry-point",
+    "file": "path",
 }
-_DB_KIND_TO_CLI = {db: cli for cli, db in _INFER_DB_KIND.items()}
 
 
-def _resolve_kind(args: MutableDescribeArgs) -> str | int:
-    """Infer the describe kind from ``args.selector``.
+def _describe_one(match: queries.NodeRecord, args: MutableDescribeArgs) -> int:
+    """Dispatch a single resolved match to the right describer."""
+    if match.kind in CODE_KINDS:
+        args.kind = match.kind
+        return q_describe_symbol.run(args)
+    dispatch_key = _DB_KIND_TO_DISPATCH.get(match.kind)
+    if dispatch_key is None:
+        # Kinds absent from _DB_KIND_TO_DISPATCH (repository, builtin, subpackage,
+        # unresolved_symbol) intentionally land here: repository is reached via the
+        # no-selector fast path and builtins via the `builtin:` prefix, so bare-name
+        # describe of those is not supported.
+        print(f"error: cannot describe {match.kind}: {args.selector}", file=sys.stderr)
+        return exit_codes.GENERIC
+    if match.kind == "dependency" and args.ecosystem is None:
+        args.ecosystem = match.attrs.get("ecosystem")
+    module, selector_attr = _DISPATCH[dispatch_key]
+    if selector_attr is not None:
+        setattr(args, selector_attr, args.selector)
+    return cast(AnyRunModule, module).run(args)
 
-    Returns a CLI kind string, or an int exit code on DB/ambiguity error
-    (the error message is already printed to stderr).
-    """
+
+def run(args: MutableDescribeArgs) -> int:
+    kind = args.kind
     selector = args.selector
+
+    # Fast paths: explicit code kind, explicit entity kind, no-selector repo,
+    # builtin: prefix.
+    if kind in CODE_KINDS:
+        return q_describe_symbol.run(args)
+    if kind is not None:
+        module, selector_attr = _DISPATCH[kind]
+        if selector_attr is not None:
+            setattr(args, selector_attr, args.selector)
+        return cast(AnyRunModule, module).run(args)
     if selector is None:
-        return "repo"
+        return _DISPATCH["repo"][0].run(args)
     if selector.startswith("builtin:"):
-        return "builtin"
+        args.uri = selector
+        return _DISPATCH["builtin"][0].run(args)
+
+    # Inference across all kinds via resolve_selector.
     db = graph_dir(args.workspace) / "code.db"
     try:
         conn = store.read_only_connect(db)
@@ -82,54 +118,21 @@ def _resolve_kind(args: MutableDescribeArgs) -> str | int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        rows = conn.execute(
-            "SELECT DISTINCT kind FROM nodes WHERE name = ? AND kind IN "
-            "('package','app','domain','dependency','test_suite','agent_plugin','entry_point')",
-            (selector,),
-        ).fetchall()
-        cli_kinds = sorted({_DB_KIND_TO_CLI[r[0]] for r in rows})
-        if len(cli_kinds) == 1 and cli_kinds[0] == "dependency" and getattr(args, "ecosystem", None) is None:
-            eco_rows = conn.execute(
-                "SELECT DISTINCT json_extract(attrs_json, '$.ecosystem') FROM nodes "
-                "WHERE kind='dependency' AND name = ?",
-                (selector,),
-            ).fetchall()
-            ecosystems = sorted(r[0] for r in eco_rows if r[0] is not None)
-            if len(ecosystems) > 1:
-                print(
-                    f"error: ambiguous dependency {selector!r} across ecosystems: "
-                    f"{', '.join(ecosystems)}; pass --ecosystem",
-                    file=sys.stderr,
-                )
-                return exit_codes.AMBIGUOUS
-            if ecosystems:
-                args.ecosystem = ecosystems[0]
+        matches = queries.resolve_selector(conn, selector=selector, in_package=args.in_package)
+        if not matches:
+            # Historical fallback: a bare selector matching no node name may still
+            # be a file path — hand it to the path describer, which renders the
+            # file or reports "path not found in graph" (GENERIC) for a miss.
+            args.path = selector
+            return _DISPATCH["path"][0].run(args)
+        if len(matches) == 1:
+            return _describe_one(matches[0], args)
+        capped = matches[:50]
+        menu = queries.build_menu(conn, capped)
     finally:
         conn.close()
-    if not cli_kinds:
-        # Not a known entity name — fall back to a path lookup; describe_path
-        # reports "path not found in graph" if it is not one.
-        return "path"
-    if len(cli_kinds) > 1:
-        print(
-            f"error: ambiguous selector {selector!r} matches kinds: {', '.join(cli_kinds)}; disambiguate with --kind",
-            file=sys.stderr,
-        )
-        return exit_codes.AMBIGUOUS
-    return cli_kinds[0]
 
-
-def run(args: MutableDescribeArgs) -> int:
-    kind = args.kind
-    if kind in CODE_KINDS:
-        # Explicit code kind: describe_symbol owns single-node resolution.
-        return q_describe_symbol.run(args)
-    if kind is None:
-        kind = _resolve_kind(args)
-        if isinstance(kind, int):
-            return kind
-    module, selector_attr = _DISPATCH[kind]
-    if selector_attr is not None:
-        setattr(args, selector_attr, args.selector)
-    module = cast(AnyRunModule, module)
-    return module.run(args)
+    print(_render.format_matches(menu, fmt=args.fmt))
+    if len(matches) > 50:
+        print(f"... showing 50 of {len(matches)} (truncated)", file=sys.stderr)
+    return exit_codes.SUCCESS

@@ -88,12 +88,9 @@ def test_describe_falls_back_to_path_for_unknown_name(repo: Path) -> None:
     assert res.returncode == 0, res.stderr
 
 
-def test_describe_ambiguous_selector_errors(tmp_path: Path) -> None:
-    """A name matching two kinds (package + domain) reports AMBIGUOUS (exit 7)."""
+def test_describe_ambiguous_selector_emits_menu(tmp_path: Path) -> None:
+    """A name matching two kinds (package + domain) prints a copy-paste menu (exit 0)."""
     init_repo(tmp_path)
-    # A package literally named 'shared' plus a domain 'shared' in domains.yaml.
-    # domains.yaml lives at <repo_root>/domains.yaml (top-level YAML mapping of
-    # domain_name -> {packages: [...]}; format confirmed from graph_io/domains.py).
     write_and_commit(
         tmp_path,
         {
@@ -105,9 +102,9 @@ def test_describe_ambiguous_selector_errors(tmp_path: Path) -> None:
     )
     assert _cg(["update", "--full"], tmp_path).returncode == 0
     res = _cg(["describe", "shared"], tmp_path)
-    assert res.returncode == 7
-    assert "ambiguous" in res.stderr.lower()
-    assert "--kind" in res.stderr
+    assert res.returncode == 0, res.stderr
+    assert "gw graph describe shared --kind package" in res.stdout
+    assert "gw graph describe shared --kind domain" in res.stdout
 
 
 # ---------------------------------------------------------------------------
@@ -160,18 +157,16 @@ def test_describe_infers_dependency_and_autofills_ecosystem(repo_with_pypi_dep: 
 
 
 def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None:
-    """Bare 'describe lodash' when lodash exists in both pypi and npm → exit 7.
+    """Bare 'describe lodash' when lodash exists in both pypi and npm → menu (exit 0).
 
     The current scanner collapses same-(kind,name,path) rows via UPSERT, so two
     ecosystems for the same dep name cannot coexist through a normal scan. This
-    test reaches the ambiguous branch by seeding the graph DB directly with two
-    dependency rows, then calling _resolve_kind as a unit test.
+    test reaches the multi-match branch by seeding the graph DB directly with two
+    dependency rows, then calling q_describe.run as a unit test.
     """
     import json as _json
     import sqlite3
-    import types
 
-    from graph_wiki_cli.graph_cli.q_describe import _resolve_kind
     from workspace_io.paths import graph_dir
 
     # Build a minimal repo + workspace so graph_dir resolves.
@@ -224,16 +219,29 @@ def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None
     finally:
         conn.close()
 
-    # Call _resolve_kind directly with a SimpleNamespace that has ecosystem=None.
+    import io
+    import types
+    from contextlib import redirect_stdout
+
+    from graph_wiki_cli.graph_cli import q_describe
+
     args = types.SimpleNamespace(
         selector="lodash",
+        kind=None,
         ecosystem=None,
+        in_package=None,
         workspace=ws,
+        fmt="human",
     )
-    result = _resolve_kind(args)
+    buf = io.StringIO()
+    with redirect_stdout(buf):
+        result = q_describe.run(args)
     from graph_io import exit_codes
 
-    assert result == exit_codes.AMBIGUOUS, f"expected AMBIGUOUS (7), got {result!r}"
+    assert result == exit_codes.SUCCESS, f"expected SUCCESS (0), got {result!r}"
+    out = buf.getvalue()
+    assert "gw graph describe lodash --kind dependency --ecosystem pypi" in out
+    assert "gw graph describe lodash --kind dependency --ecosystem npm" in out
 
 
 # ---------------------------------------------------------------------------
@@ -275,6 +283,18 @@ def test_describe_symbol_in_package_narrows(repo_with_symbols: Path) -> None:
     res = _cg(["describe", "process", "--kind", "function", "--in-package", "demo"], repo_with_symbols)
     assert res.returncode == 0, res.stderr
     assert "function process" in res.stdout
+
+
+def test_describe_infers_symbol_from_bare_name(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "validate"], repo_with_symbols)
+    assert res.returncode == 0, res.stderr
+    assert "function validate" in res.stdout
+
+
+def test_describe_zero_match_exits_one(repo_with_symbols: Path) -> None:
+    res = _cg(["describe", "no_such_symbol_anywhere"], repo_with_symbols)
+    assert res.returncode == 1
+    assert "not found" in res.stderr.lower()
 
 
 def test_describe_help_lists_code_kinds(tmp_path: Path) -> None:
