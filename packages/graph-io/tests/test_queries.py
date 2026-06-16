@@ -1981,3 +1981,24 @@ def test_describe_symbol_in_package_app(conn: sqlite3.Connection) -> None:
     assert desc is not None
     assert (desc.kind, desc.name, desc.path, desc.line) == ("function", "handler", "webapp/a.py", 3)
     assert desc.package == "webapp"
+
+
+def test_find_in_package_matches_app_name(conn: sqlite3.Connection) -> None:
+    """find --in-package narrows by app name too, not just package name
+    (parity with describe_symbol / containing_package)."""
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="app", name="webapp", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="m.py", path="webapp/m.py", line=None, attrs={}),
+                GraphNode(kind="function", name="handler", path="webapp/m.py", line=3, attrs={}),
+                GraphNode(kind="function", name="handler", path="other/z.py", line=3, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("app", "webapp", None), dst=("file", "m.py", "webapp/m.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    rows = queries.find(conn, name="handler", in_package="webapp")
+    assert [r.path for r in rows] == ["webapp/m.py"]

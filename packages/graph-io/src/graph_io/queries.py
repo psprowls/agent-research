@@ -28,6 +28,18 @@ _CLI_KIND = {
 # DB node kinds that carry a path:line and dispatch to the symbol describer.
 _CODE_KINDS = frozenset({"function", "class", "method", "type"})
 
+# Files contained by a package OR app, matched case-insensitively on the short
+# `name` column. Shared by find() and describe_symbol() so their --in-package
+# semantics (notably: app names narrow too, not just package names) cannot drift.
+# NOTE: a package and an app sharing a name would union both — acceptable; names
+# are effectively unique in practice.
+_FILES_IN_PACKAGE_SUBQUERY = (
+    "(SELECT f.path FROM nodes p "
+    "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
+    "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
+    "WHERE p.kind IN ('package', 'app') AND LOWER(p.name) = LOWER(?))"
+)
+
 _VALID_KINDS = frozenset(
     {
         "function",
@@ -340,18 +352,7 @@ def find(
         where_parts.append("n.kind = ?")
         params.append(kind)
     if in_package is not None:
-        # NOTE: this join stays `p.kind='package'` (unlike containing_package /
-        # describe_symbol, which broadened to ('package','app')); find's
-        # --in-package is out of scope for the menu round-trip fix. Residual
-        # inconsistency: find cannot narrow by an app name.
-        where_parts.append(
-            "n.path IN ("
-            "SELECT f.path FROM nodes p "
-            "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
-            "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
-            "WHERE p.kind='package' AND LOWER(p.name) = LOWER(?)"
-            ")"
-        )
+        where_parts.append(f"n.path IN {_FILES_IN_PACKAGE_SUBQUERY}")
         params.append(in_package)
 
     sql = "SELECT kind, name, path, line, attrs_json FROM nodes n WHERE " + " AND ".join(where_parts)
@@ -513,14 +514,7 @@ def describe_symbol(
         where.append("line = ?")
         params.append(line)
     if in_package is not None:
-        where.append(
-            "path IN ("
-            "SELECT f.path FROM nodes p "
-            "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
-            "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
-            "WHERE p.kind IN ('package', 'app') AND LOWER(p.name) = LOWER(?)"
-            ")"
-        )
+        where.append(f"path IN {_FILES_IN_PACKAGE_SUBQUERY}")
         params.append(in_package)
     row = conn.execute(
         "SELECT kind, name, path, line FROM nodes WHERE " + " AND ".join(where) + " ORDER BY path, line LIMIT 1",
