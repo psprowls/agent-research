@@ -32,6 +32,8 @@ from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.update_tokens import DEFAULT_MODEL_ID, DEFAULT_REGION, update_vault
 from workspace_io.paths import graph_dir
 
+from graph_wiki_cli.lint_format import format_wiki_lint
+
 wiki_app = typer.Typer(
     name="wiki",
     help="Wiki maintenance operations.",
@@ -118,60 +120,8 @@ def lint(
 
         typer.echo(json.dumps(_dc.asdict(result), indent=2, default=list))
     else:
-        # Human-readable multi-section report
-        typer.echo(f"Code Wiki lint — {result.wiki}")
-        typer.echo(f"Total pages: {result.total_pages}")
-        typer.echo(f"Open proposals: {result.open_proposals}")
-        typer.echo("")
-
-        def _section(label: str, items: list) -> None:
-            sym = "OK" if not items else "WARN"
-            typer.echo(f"[{sym}] {label}: {len(items)}")
-            for item in items[:20]:
-                typer.echo(f"   - {item}")
-            typer.echo("")
-
-        _section("Orphans", result.orphans)
-        broken = [f"{src} -> [[{tgt}]]" for src, tgt in result.broken_links]
-        _section("Broken wikilinks", broken)
-        stale_items = [f"{p} (updated {d})" for p, d in result.stale]
-        _section("Stale pages", stale_items)
-        _section("Missing frontmatter", result.missing_frontmatter)
-        _section("Source path drift", result.source_path_drift)
-
-        if result.duplicate_titles:
-            typer.echo(f"[WARN] Duplicate titles: {len(result.duplicate_titles)}")
-            for title, keys in list(result.duplicate_titles.items())[:10]:
-                typer.echo(f"   - '{title}': {keys}")
-            typer.echo("")
-        else:
-            typer.echo("[OK] Duplicate titles: 0\n")
-
-        if result.log_gap:
-            typer.echo(
-                f"[WARN] Log gap: last entry {result.log_gap.get('last_entry')} "
-                f"({result.log_gap.get('days_ago')} days ago)\n"
-            )
-        else:
-            typer.echo("[OK] Log gap: recent\n")
-
-        _section("File map drift", result.file_map_drift)
-        _section("Package sync drift", result.package_sync_drift)
-        _section("Domain placement", result.domain_placement)
-        _section("Workflow hints", result.workflow_hints)
-        _section("Concept kinds", result.concept_kind)
-        _section("Scanner heading drift", result.scanner_heading_drift)
-
-        for group, findings in result.semantic_findings.items():
-            _section(f"Semantic: {group}", findings)
-
-        if result.guidance_lint_findings:
-            guidance_items = [
-                f"[{f['severity']}] {f['slug']}: {f['rule_id']} — {f['message']}" for f in result.guidance_lint_findings
-            ]
-            _section("Guidance frontmatter", guidance_items)
-        else:
-            typer.echo("[OK] Guidance frontmatter: 0\n")
+        for line in format_wiki_lint(result):
+            typer.echo(line)
 
     if result.errors:
         for err in result.errors:

@@ -51,3 +51,66 @@ def test_archive_exit_1_when_error_captured() -> None:
         result = runner.invoke(app, ["archive"])
 
     assert result.exit_code == 1
+
+
+def test_lint_command_registered() -> None:
+    from graph_wiki_cli.cli import app
+
+    root = typer.main.get_command(app)
+    assert "lint" in root.commands
+
+
+def test_lint_json_exit_0_when_clean() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.lint import LintResult
+    from graph_wiki_core.commands.lint_all import LintAllResult
+    from graph_wiki_core.commands.work import WorkLintResult
+
+    mock_result = LintAllResult(
+        wiki=LintResult(wiki="w", total_pages=1),
+        work=WorkLintResult(total_items=0, findings=[]),
+        errors=[],
+    )
+    with patch("graph_wiki_cli.cli.run_lint_all", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(app, ["lint", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert set(data) == {"wiki", "work", "errors"}
+
+
+def test_lint_exit_1_on_work_error_finding() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.lint import LintResult
+    from graph_wiki_core.commands.lint_all import LintAllResult
+    from graph_wiki_core.commands.work import WorkLintResult
+
+    mock_result = LintAllResult(
+        wiki=LintResult(wiki="w", total_pages=1),
+        work=WorkLintResult(
+            total_items=1,
+            findings=[{"rule_id": "r", "severity": "error", "slug": "s", "message": "m"}],
+        ),
+        errors=[],
+    )
+    with patch("graph_wiki_cli.cli.run_lint_all", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(app, ["lint"])
+
+    assert result.exit_code == 1
+
+
+def test_lint_exit_1_on_wiki_errors() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.lint import LintResult
+    from graph_wiki_core.commands.lint_all import LintAllResult
+    from graph_wiki_core.commands.work import WorkLintResult
+
+    mock_result = LintAllResult(
+        wiki=LintResult(wiki="w", total_pages=1, errors=["bad"]),
+        work=WorkLintResult(total_items=0, findings=[]),
+        errors=[],
+    )
+    with patch("graph_wiki_cli.cli.run_lint_all", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(app, ["lint"])
+
+    assert result.exit_code == 1

@@ -66,10 +66,12 @@ _ensure_uv_workspace()
 # the top of the module.
 from graph_wiki_core.commands.archive_all import run_archive_all  # noqa: E402
 from graph_wiki_core.commands.init import run_init  # noqa: E402
+from graph_wiki_core.commands.lint_all import run_lint_all  # noqa: E402
 from graph_wiki_core.commands.scan import run_scan  # noqa: E402
 from subagent_runtime.trace_io import render_trace_record  # noqa: E402
 
 from graph_wiki_cli.graph_cli.main import graph_app  # noqa: E402
+from graph_wiki_cli.lint_format import format_wiki_lint, format_work_lint  # noqa: E402
 from graph_wiki_cli.logging_config import configure_verbose_logging  # noqa: E402
 from graph_wiki_cli.wiki_cli.main import wiki_app  # noqa: E402
 from graph_wiki_cli.work_cli.main import work_app  # noqa: E402
@@ -689,6 +691,46 @@ def archive(
             typer.echo(f"  error: {err['command']}: {err['error']}", err=True)
 
     if result.errors:
+        raise typer.Exit(code=1)
+
+
+def _lint_all_failed(result) -> bool:
+    """True if either lint pass surfaced error-severity findings or a run error."""
+    if result.errors:
+        return True
+    if result.wiki is not None and result.wiki.errors:
+        return True
+    if result.work is not None and any(f["severity"] == "error" for f in result.work.findings):
+        return True
+    return False
+
+
+@app.command()
+def lint(
+    stale_days: int = typer.Option(90, "--stale-days", help="Days before a page is flagged as stale"),
+    log_gap_days: int = typer.Option(14, "--log-gap-days", help="Days before a log gap is flagged"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json", help="Emit LintAllResult as JSON"),
+) -> None:
+    """Run wiki lint and work-lifecycle lint in one pass (aggregated)."""
+    workspace_path = Path(workspace) if workspace else None
+    result = asyncio.run(run_lint_all(workspace_path=workspace_path, stale_days=stale_days, log_gap_days=log_gap_days))
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2, default=list))
+    else:
+        if result.wiki is not None:
+            for line in format_wiki_lint(result.wiki):
+                typer.echo(line)
+        if result.work is not None:
+            typer.echo("")
+            typer.echo("=== Work lifecycle ===")
+            for line in format_work_lint(result.work):
+                typer.echo(line)
+        for err in result.errors:
+            typer.echo(f"  error: {err['command']}: {err['error']}", err=True)
+
+    if _lint_all_failed(result):
         raise typer.Exit(code=1)
 
 
