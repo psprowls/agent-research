@@ -214,6 +214,7 @@ class PathDescription:
     children: list[NodeRecord]
     imports: list[NodeRecord]
     role_flags: dict[str, bool] | None = None
+    exports: list[ExportRecord] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -869,11 +870,13 @@ def describe_path(conn: sqlite3.Connection, *, path: str) -> PathDescription | N
         "is_type_only": bool(file_attrs.get("is_type_only", False)),
         "is_executable": bool(file_attrs.get("is_executable", False)),
     }
+    export_records = exports(conn, path=path)
     return PathDescription(
         path=path,
         children=[_row_to_node(r) for r in children_rows],
         imports=[_row_to_node(r) for r in import_rows],
         role_flags=role_flags,
+        exports=export_records,
     )
 
 

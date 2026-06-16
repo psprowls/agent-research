@@ -152,7 +152,10 @@ def format_path(desc: Any, fmt: str) -> str:
         lines.append(f"  {c.kind}  {c.name}  line {c.line}")
     lines.append("imports:")
     for i in desc.imports:
-        lines.append(f"  {i.path}")
+        lines.append(f"  {i.name}  {i.path}")
+    lines.append("exports:")
+    for e in desc.exports:
+        lines.append(f"  {e.kind}  {e.name}  line {e.line}")
     return "\n".join(lines)
 
 

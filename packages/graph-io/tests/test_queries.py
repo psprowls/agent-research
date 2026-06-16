@@ -2002,3 +2002,25 @@ def test_find_in_package_matches_app_name(conn: sqlite3.Connection) -> None:
     )
     rows = queries.find(conn, name="handler", in_package="webapp")
     assert [r.path for r in rows] == ["webapp/m.py"]
+
+
+def test_describe_path_includes_exports(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="file", name="a.py", path="a.py", line=None, attrs={}),
+                GraphNode(kind="function", name="alpha", path="a.py", line=10, attrs={}),
+                GraphNode(kind="file", name="b.py", path="b.py", line=None, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("file", "a.py", "a.py"), dst=("function", "alpha", None), kind="exports", attrs={}),
+                GraphEdge(src=("file", "a.py", "a.py"), dst=("file", "b.py", None), kind="imports", attrs={}),
+            ],
+        ),
+    )
+    resolve.sweep(conn)
+    desc = queries.describe_path(conn, path="a.py")
+    assert desc is not None
+    assert [(e.kind, e.name, e.line) for e in desc.exports] == [("function", "alpha", 10)]
+    assert [i.path for i in desc.imports] == ["b.py"]
