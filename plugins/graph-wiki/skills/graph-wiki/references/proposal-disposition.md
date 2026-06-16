@@ -74,7 +74,7 @@ Destination naming, from the note's `kind` / `target_slug` / `mode`:
 - **Concept, `create_new`** → `concepts/<target_slug>.md` (no number). If the note carries `concept_kind` (`pattern`/`architecture`), stamp `kind: <ck>` and use `.templates/concept-<ck>.md`.
 - **Any kind, `update_existing`** → merge the evidence into the named existing page; do not create a new file.
 
-Omit the `tokens:` key (stamped later by `gw tokens`). Write real prose grounded in
+Omit the `tokens:` key (stamped later by `gw util tokens`). Write real prose grounded in
 the note's evidence + source — never a bullet dump, never invented facts. Cite the source
 as `[[sources/<ref>]]` and wikilink only `[[entities/…]]` pages you've verified exist.
 
@@ -103,7 +103,7 @@ ingest/scan. Call it directly (graph-independent, pure frontmatter scan):
 uv run --package graph-wiki-core python -c "from pathlib import Path; from wiki_io.update_index import update_index; update_index(Path('$GRAPH_WIKI_WORKSPACE/wiki')); print('ok')"
 ```
 
-(Runs in this `uv` workspace; an installed/`uv tool` user without the workspace checked out would instead re-run an ingest/scan to refresh indexes.) Optionally run `gw tokens` afterward to stamp the `tokens:` keys you omitted.
+(Runs in this `uv` workspace; an installed/`uv tool` user without the workspace checked out would instead re-run an ingest/scan to refresh indexes.) Optionally run `gw util tokens` afterward to stamp the `tokens:` keys you omitted.
 
 ### 5. Verify and archive
 
@@ -113,7 +113,7 @@ uv run --package graph-wiki-cli gw wiki archive --dry-run   # preview: sweeps cr
 uv run --package graph-wiki-cli gw wiki archive             # moves spent notes to proposals/_archive/
 ```
 
-Optionally append a `gw log` entry to mirror ingest. Leave commit/push to the user.
+Optionally append a `gw util log` entry to mirror ingest. Leave commit/push to the user.
 
 ## Common mistakes
 

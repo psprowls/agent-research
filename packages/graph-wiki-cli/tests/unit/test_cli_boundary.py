@@ -79,3 +79,33 @@ def test_wiki_package_exposes_moved_cli_module_for_gw_wiki_namespace() -> None:
     wiki_module = importlib.import_module("graph_wiki_cli.wiki_cli.main")
     assert hasattr(wiki_module, "main")
     assert "gw wiki" in inspect.getsource(wiki_module)
+
+
+def test_util_namespace_lists_relocated_commands() -> None:
+    """`gw util` is a subapp exposing trace, tokens, and log."""
+    from graph_wiki_cli.cli import app
+
+    root_command = typer.main.get_command(app)
+    assert "util" in root_command.commands
+    util_group = root_command.commands["util"]
+    assert set(util_group.commands) >= {"trace", "tokens", "log"}
+
+
+def test_relocated_commands_not_at_top_level() -> None:
+    """trace/tokens/log no longer resolve at the top level (clean cut, no aliases)."""
+    from graph_wiki_cli.cli import app
+
+    root_command = typer.main.get_command(app)
+    for name in ("trace", "tokens", "log"):
+        assert name not in root_command.commands
+
+
+def test_top_level_invocation_of_relocated_commands_exits_2() -> None:
+    """Invoking a moved command at the top level errors with Click's exit code 2."""
+    from graph_wiki_cli.cli import app
+    from typer.testing import CliRunner
+
+    runner = CliRunner()
+    for name in ("trace", "tokens", "log"):
+        result = runner.invoke(app, [name])
+        assert result.exit_code == 2, f"expected exit 2 for top-level `gw {name}`, got {result.exit_code}"

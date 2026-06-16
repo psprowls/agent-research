@@ -36,11 +36,15 @@ def test_root_app_mounts_wiki_group_with_subcommands() -> None:
 
 
 def test_query_log_ingest_are_top_level() -> None:
-    """query/log/ingest are registered at the root (promoted out of `gw wiki`)."""
+    """query/ingest are registered at the root (promoted out of `gw wiki`).
+
+    `log` was subsequently relocated under `gw util`, so it is no longer a
+    top-level command — its placement is covered by test_cli_boundary.py.
+    """
     from graph_wiki_cli.cli import app
 
     root_command = typer.main.get_command(app)
-    for name in ("query", "log", "ingest"):
+    for name in ("query", "ingest"):
         assert name in root_command.commands
 
 

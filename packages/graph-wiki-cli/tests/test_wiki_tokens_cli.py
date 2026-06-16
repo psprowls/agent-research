@@ -36,9 +36,9 @@ def test_tokens_command_stamps_real_count(tmp_path, monkeypatch):
     wiki = _seed_wiki(tmp_path)
     page = wiki / "concepts" / "foo.md"
     _patch_count_tokens(monkeypatch, 7)
-    monkeypatch.setattr("graph_wiki_cli.cli.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
+    monkeypatch.setattr("graph_wiki_cli.util_cli.main.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
 
-    result = runner.invoke(app, ["tokens"])
+    result = runner.invoke(app, ["util", "tokens"])
 
     assert result.exit_code == 0, result.stdout
     assert frontmatter.load(str(page)).metadata["tokens"] == 7
@@ -48,9 +48,9 @@ def test_tokens_command_json_reports_updated(tmp_path, monkeypatch):
     """`--json` emits the {updated, unchanged, skipped} buckets from update_vault."""
     wiki = _seed_wiki(tmp_path)
     _patch_count_tokens(monkeypatch, 7)
-    monkeypatch.setattr("graph_wiki_cli.cli.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
+    monkeypatch.setattr("graph_wiki_cli.util_cli.main.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
 
-    result = runner.invoke(app, ["tokens", "--json"])
+    result = runner.invoke(app, ["util", "tokens", "--json"])
 
     assert result.exit_code == 0, result.stdout
     payload = json.loads(result.stdout)
@@ -63,9 +63,9 @@ def test_tokens_command_dry_run_does_not_write(tmp_path, monkeypatch):
     page = wiki / "concepts" / "foo.md"
     original = page.read_text(encoding="utf-8")
     _patch_count_tokens(monkeypatch, 7)
-    monkeypatch.setattr("graph_wiki_cli.cli.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
+    monkeypatch.setattr("graph_wiki_cli.util_cli.main.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
 
-    result = runner.invoke(app, ["tokens", "--dry-run"])
+    result = runner.invoke(app, ["util", "tokens", "--dry-run"])
 
     assert result.exit_code == 0, result.stdout
     assert page.read_text(encoding="utf-8") == original
