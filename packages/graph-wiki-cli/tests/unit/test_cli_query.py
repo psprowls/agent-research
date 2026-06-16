@@ -41,9 +41,9 @@ def _make_query_result():
 
 
 def test_query_help_exits_zero() -> None:
-    """gw wiki query --help exits 0 and lists all flags (CLI-01)."""
+    """gw query --help exits 0 and lists all flags (CLI-01)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "wiki", "query", "--help"],
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "query", "--help"],
         capture_output=True,
         text=True,
         env=_PLAIN_HELP_ENV,
@@ -59,7 +59,7 @@ def test_query_help_exits_zero() -> None:
 def test_vault_flag_in_help() -> None:
     """--workspace flag appears in help output (CLI-05; renamed in Phase 23 WSMCP-02)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "wiki", "query", "--help"],
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "query", "--help"],
         capture_output=True,
         text=True,
         env=_PLAIN_HELP_ENV,
@@ -75,20 +75,20 @@ def test_vault_flag_in_help() -> None:
 
 def test_shared_impl_is_imported_from_commands() -> None:
     """CLI query delegates to commands.query.run_query, not inline logic (CLI-03)."""
-    from graph_wiki_cli.wiki_cli.main import query
+    from graph_wiki_cli.cli import query
 
     src = inspect.getsource(query)
     assert "run_query" in src
     # The import should be from graph_wiki_core.commands.query
-    import graph_wiki_cli.wiki_cli.main as wiki_module
+    import graph_wiki_cli.cli as cli_module
 
-    assert hasattr(wiki_module, "run_query"), "run_query must be imported at module level in wiki_cli/main.py"
+    assert hasattr(cli_module, "run_query"), "run_query must be imported at module level in cli.py"
 
 
 def test_state_gate_flag_present() -> None:
     """--no-state-gate flag is present in help output and is a no-op for query (CMD-08)."""
     result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "wiki", "query", "--help"],
+        ["uv", "run", "--package", "graph-wiki-cli", "gw", "query", "--help"],
         capture_output=True,
         text=True,
         env=_PLAIN_HELP_ENV,
@@ -111,7 +111,6 @@ def test_exit_code_1_on_unresolved_vault() -> None:
             "--package",
             "graph-wiki-cli",
             "gw",
-            "wiki",
             "query",
             "test query",
             "--workspace",
@@ -144,7 +143,7 @@ def test_headless_mode_progress_to_stderr(tmp_path: Path, monkeypatch: pytest.Mo
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
-        "graph_wiki_cli.wiki_cli.main.run_query",
+        "graph_wiki_cli.cli.run_query",
         AsyncMock(return_value=mock_result),
     )
 
@@ -152,7 +151,7 @@ def test_headless_mode_progress_to_stderr(tmp_path: Path, monkeypatch: pytest.Mo
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["wiki", "query", "test", "--workspace", str(tmp_path)],
+        ["query", "test", "--workspace", str(tmp_path)],
     )
     assert result.exit_code in (0, 3), f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
     assert "Test answer [[Foo]]" in result.output
@@ -165,14 +164,14 @@ def test_json_flag_emits_valid_json(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
-        "graph_wiki_cli.wiki_cli.main.run_query",
+        "graph_wiki_cli.cli.run_query",
         AsyncMock(return_value=mock_result),
     )
 
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["wiki", "query", "test", "--workspace", str(tmp_path), "--json"],
+        ["query", "test", "--workspace", str(tmp_path), "--json"],
     )
     assert result.exit_code in (0, 3), f"Expected 0 or 3, got {result.exit_code}\n{result.output}"
     parsed = json.loads(result.output)
@@ -189,14 +188,14 @@ def test_no_state_gate_flag_accepted(tmp_path: Path, monkeypatch: pytest.MonkeyP
 
     mock_result = _make_query_result()
     monkeypatch.setattr(
-        "graph_wiki_cli.wiki_cli.main.run_query",
+        "graph_wiki_cli.cli.run_query",
         AsyncMock(return_value=mock_result),
     )
 
     runner = CliRunner()
     result = runner.invoke(
         app,
-        ["wiki", "query", "test", "--workspace", str(tmp_path), "--no-state-gate"],
+        ["query", "test", "--workspace", str(tmp_path), "--no-state-gate"],
     )
     # Should not error just because --no-state-gate is set
     assert result.exit_code in (0, 3), f"Expected 0 or 3, got {result.exit_code}\n{result.output}"

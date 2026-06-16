@@ -59,7 +59,7 @@ The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on
 plugin:
   backend_default: claude          # claude | bedrock — applies to any command not listed below
   backend_overrides:
-    query: bedrock                 # route /graph-wiki:query to gw wiki query
+    query: bedrock                 # route /graph-wiki:query to gw query
     lint: claude                   # explicit — same as the default
 ```
 

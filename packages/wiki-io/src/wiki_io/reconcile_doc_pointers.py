@@ -1,7 +1,7 @@
 """Repoint stale work-item spec_doc/plan_doc pointers after a source archive.
 
 Thin wrapper over ``work_io.doc_pointers.sweep`` for the Claude-hosted ingest
-path, which moves a source into ``raw/_archive/`` but (unlike ``gw wiki ingest``)
+path, which moves a source into ``raw/_archive/`` but (unlike ``gw ingest``)
 does not otherwise reconcile work-item pointers. Idempotent and best-effort;
 safe to run after any ingest.
 """

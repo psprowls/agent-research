@@ -92,12 +92,12 @@ def test_cli_log_json_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) ->
 
     mock_result = _make_log_result()
     monkeypatch.setattr(
-        "graph_wiki_cli.wiki_cli.main.run_log",
+        "graph_wiki_cli.cli.run_log",
         AsyncMock(return_value=mock_result),
     )
 
     runner = CliRunner()
-    result = runner.invoke(app, ["wiki", "log", "--op", "note", "--title", "test", "--json"])
+    result = runner.invoke(app, ["log", "--op", "note", "--title", "test", "--json"])
     assert result.exit_code == 0, f"Unexpected exit: {result.output}"
     parsed = json.loads(result.output)
     assert parsed["status"] == "ok"

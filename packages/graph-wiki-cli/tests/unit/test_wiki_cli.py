@@ -20,27 +20,28 @@ def test_wiki_cli_module_exposes_wiki_app_and_main() -> None:
 
 
 def test_root_app_mounts_wiki_group_with_subcommands() -> None:
-    """`gw wiki` is registered and exposes query/log/lint/ingest."""
+    """`gw wiki` is registered and still exposes the wiki-only `lint`.
+
+    query/log/ingest were promoted to top-level `gw` commands and no longer
+    live under the wiki group.
+    """
     from graph_wiki_cli.cli import app
 
     root_command = typer.main.get_command(app)
     assert "wiki" in root_command.commands
 
     wiki_group = root_command.commands["wiki"]
-    assert {"query", "log", "lint", "ingest"} <= set(wiki_group.commands)
+    assert "lint" in set(wiki_group.commands)
+    assert {"query", "log", "ingest"}.isdisjoint(set(wiki_group.commands))
 
 
-def test_moved_commands_no_longer_top_level() -> None:
-    """query/log/ingest are no longer registered at the root.
-
-    `lint` is excluded: a distinct top-level `gw lint` (aggregated wiki + work)
-    is reintroduced at the root, separate from the wiki-only `gw wiki lint`.
-    """
+def test_query_log_ingest_are_top_level() -> None:
+    """query/log/ingest are registered at the root (promoted out of `gw wiki`)."""
     from graph_wiki_cli.cli import app
 
     root_command = typer.main.get_command(app)
     for name in ("query", "log", "ingest"):
-        assert name not in root_command.commands
+        assert name in root_command.commands
 
 
 def test_ack_drift_subcommand_registered() -> None:
@@ -82,7 +83,6 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
     separately from stdout."""
     from unittest.mock import AsyncMock
 
-    from graph_wiki_cli.wiki_cli.main import wiki_app
     from graph_wiki_core.commands.ingest import IngestResult
 
     src = tmp_path / "doc.md"
@@ -102,11 +102,11 @@ def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
     )
 
     with patch(
-        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        "graph_wiki_cli.cli.run_ingest_source",
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", str(src)])
+        result = runner.invoke(app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     # stdout carries the ok line + the source_type
@@ -121,7 +121,6 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
     """Text-mode CLI lists suggestions and warns when the suggest pass degraded."""
     from unittest.mock import AsyncMock
 
-    from graph_wiki_cli.wiki_cli.main import wiki_app
     from graph_wiki_core.commands.ingest import IngestResult
 
     src = tmp_path / "doc.md"
@@ -153,11 +152,11 @@ def test_ingest_source_cli_prints_suggestions_and_degraded(tmp_path):
     )
 
     with patch(
-        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        "graph_wiki_cli.cli.run_ingest_source",
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", str(src)])
+        result = runner.invoke(app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     assert "suggested 1 page(s)" in result.stdout
@@ -171,7 +170,6 @@ def test_ingest_source_cli_prints_guidance_pages(tmp_path):
     """Text-mode CLI lists guidance pages when guidance_pages_written is non-empty."""
     from unittest.mock import AsyncMock
 
-    from graph_wiki_cli.wiki_cli.main import wiki_app
     from graph_wiki_core.commands.ingest import IngestResult
 
     src = tmp_path / "skill.md"
@@ -193,11 +191,11 @@ def test_ingest_source_cli_prints_guidance_pages(tmp_path):
     )
 
     with patch(
-        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        "graph_wiki_cli.cli.run_ingest_source",
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", str(src)])
+        result = runner.invoke(app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     assert "wrote 2 guidance page(s)" in result.stdout
@@ -208,7 +206,6 @@ def test_ingest_source_cli_prints_archive_to(tmp_path):
     """Text-mode CLI reports the raw/_archive/ destination when set."""
     from unittest.mock import AsyncMock
 
-    from graph_wiki_cli.wiki_cli.main import wiki_app
     from graph_wiki_core.commands.ingest import IngestResult
 
     src = tmp_path / "auth.md"
@@ -227,11 +224,11 @@ def test_ingest_source_cli_prints_archive_to(tmp_path):
     )
 
     with patch(
-        "graph_wiki_cli.wiki_cli.main.run_ingest_source",
+        "graph_wiki_cli.cli.run_ingest_source",
         new_callable=AsyncMock,
         return_value=fake_result,
     ):
-        result = runner.invoke(wiki_app, ["ingest", str(src)])
+        result = runner.invoke(app, ["ingest", str(src)])
 
     assert result.exit_code == 0
     assert "[ok] Archived source → raw/_archive/specs/auth.md" in result.stdout
