@@ -469,11 +469,8 @@ def test_describe_explicit_depth(workspace_with_internal_dep, capsys):
 def test_describe_depth_zero_rejected(workspace_with_internal_dep):
     """depth=0 must be rejected by the CLI with BadParameter before reaching the module."""
     runner = CliRunner()
-    # The CLI uses workspace resolution via ctx.obj — we need to pass --repo pointing to a
-    # directory that resolves to workspace_with_internal_dep's repo.  Since we only care
-    # about the validation logic (which fires before graph I/O), use any repo path that
-    # produces a valid workspace (the fixture path itself) or accept that BadParameter fires
-    # independently of the workspace.
+    # --depth 0 is rejected by describe_cmd's validation in the command body before any graph
+    # I/O, so it fails regardless of workspace state.
     result = runner.invoke(
         graph_app,
         ["--repo", str(workspace_with_internal_dep), "--mode", "test", "describe", "alpha", "--depth", "0"],
