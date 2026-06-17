@@ -529,3 +529,124 @@ def test_describe_block_invalid_fmt() -> None:
             nav=[],
             fmt="xml",
         )
+
+
+# ── Task 2: children section (ASCII tree + JSON array) ───────────────────────
+
+
+def test_describe_block_children_human_tree() -> None:
+    from graph_io.queries import ChildNode
+
+    tree = [
+        ChildNode(
+            kind="subpackage",
+            uri="subpkg:x/sub",
+            path="x/sub",
+            line=None,
+            children=[ChildNode(kind="file", uri=None, path="x/sub/a.py", line=None)],
+        ),
+        ChildNode(kind="file", uri=None, path="x/b.py", line=None),
+    ]
+    out = render.describe_block(
+        kind="package",
+        name="x",
+        identity_label="uri",
+        identity_value="pkg:x",
+        attributes=[],
+        relationships=[],
+        nav=["gw graph what-tests x"],
+        fmt="human",
+        children=tree,
+        children_depth=2,
+    )
+    assert "children (depth 2)" in out
+    assert "├─ subpkg:x/sub" in out
+    assert "│  └─ x/sub/a.py" in out
+    assert "└─ x/b.py" in out
+    # go-deeper hint uses the resolvable name (uri identity -> fall back to name)
+    assert "→ gw graph describe x --depth 3" in out
+    assert "→ gw graph what-tests x" in out
+
+
+def test_describe_block_children_json_array() -> None:
+    from graph_io.queries import ChildNode
+
+    tree = [ChildNode(kind="file", uri=None, path="x/b.py", line=None)]
+    parsed = json.loads(
+        render.describe_block(
+            kind="package",
+            name="x",
+            identity_label="uri",
+            identity_value="pkg:x",
+            attributes=[],
+            relationships=[],
+            nav=[],
+            fmt="json",
+            children=tree,
+            children_depth=1,
+        )
+    )
+    assert parsed["children_depth"] == 1
+    assert parsed["children"] == [{"kind": "file", "uri": None, "path": "x/b.py", "line": None, "children": []}]
+    assert parsed["nav"] == ["gw graph describe x --depth 2"]
+
+
+def test_describe_block_no_children_omits_section() -> None:
+    out = render.describe_block(
+        kind="package",
+        name="x",
+        identity_label="uri",
+        identity_value="pkg:x",
+        attributes=[],
+        relationships=[],
+        nav=[],
+        fmt="human",
+        children=[],
+        children_depth=1,
+    )
+    assert "children" not in out
+    parsed = json.loads(
+        render.describe_block(
+            kind="package",
+            name="x",
+            identity_label="uri",
+            identity_value="pkg:x",
+            attributes=[],
+            relationships=[],
+            nav=[],
+            fmt="json",
+            children=[],
+            children_depth=1,
+        )
+    )
+    assert "children" not in parsed and "children_depth" not in parsed
+
+
+def test_describe_block_children_label_fallback_path_line() -> None:
+    from graph_io.queries import ChildNode
+
+    tree = [ChildNode(kind="function", uri=None, path="a.py", line=12)]
+    out = render.describe_block(
+        kind="file",
+        name="a.py",
+        identity_label="path",
+        identity_value="a.py",
+        attributes=[],
+        relationships=[],
+        nav=[],
+        fmt="human",
+        children=tree,
+        children_depth=2,
+    )
+    assert "└─ a.py:12" in out
+    # path-identity kind -> go-deeper hint uses identity_value (the path)
+    assert "→ gw graph describe a.py --depth 3" in out
+
+
+def test_format_path_threads_children() -> None:
+    from graph_io.queries import ChildNode, PathDescription
+
+    desc = PathDescription(path="a.py", children=[], imports=[], role_flags=None, token_count=None)
+    tree = [ChildNode(kind="function", uri=None, path="a.py", line=3)]
+    out = render.format_path(desc, "human", children=tree, effective_depth=2)
+    assert "children (depth 2)" in out and "└─ a.py:3" in out
