@@ -2090,3 +2090,20 @@ def test_describe_symbol_inherits_test_exclusion(conn: sqlite3.Connection) -> No
     desc = queries.describe_symbol(conn, kind="function", name="X")
     assert desc is not None
     assert {c.name for c in desc.callers} == set()
+
+
+def test_describe_symbol_includes_token_count(seeded_db) -> None:
+    desc = queries.describe_symbol(seeded_db, kind="function", name="foo")
+    assert desc is not None
+    assert isinstance(desc.token_count, int)
+    assert desc.token_count > 0
+
+
+def test_describe_path_includes_token_count(seeded_db) -> None:
+    row = seeded_db.execute("SELECT path FROM nodes WHERE kind='file' AND path LIKE '%foo.py' LIMIT 1").fetchone()
+    assert row is not None
+    desc = queries.describe_path(seeded_db, path=row[0])
+    assert desc is not None
+    assert isinstance(desc.token_count, int)
+    assert desc.token_count > 0
+    assert any(c.attrs.get("token_count") for c in desc.children)

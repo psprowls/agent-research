@@ -147,9 +147,14 @@ def format_path(desc: Any, fmt: str) -> str:
     """
     if fmt == "json":
         return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [f"path: {desc.path}", "children:"]
+    lines = [f"path: {desc.path}"]
+    if desc.token_count is not None:
+        lines.append(f"tokens: {desc.token_count}")
+    lines.append("children:")
     for c in desc.children:
-        lines.append(f"  {c.kind}  {c.name}  line {c.line}")
+        tc = c.attrs.get("token_count")
+        suffix = f"  ({tc} tokens)" if tc is not None else ""
+        lines.append(f"  {c.kind}  {c.name}  line {c.line}{suffix}")
     lines.append("imports:")
     for i in desc.imports:
         lines.append(f"  {i.name}  {i.path}")
@@ -261,6 +266,8 @@ def format_symbol(desc: Any, fmt: str) -> str:
         raise ValueError(f"unknown format: {fmt!r}")
     loc = f"{desc.path}:{desc.line}" if desc.line is not None else (desc.path or "(unknown)")
     lines = [f"{desc.kind} {desc.name}", f"  path: {loc}"]
+    if desc.token_count is not None:
+        lines.append(f"  tokens: {desc.token_count}")
     if desc.package:
         pkg_line = f"  package: {desc.package}"
         if desc.domain:

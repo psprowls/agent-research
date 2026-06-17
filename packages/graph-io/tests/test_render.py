@@ -244,3 +244,56 @@ def test_format_path_json_includes_exports() -> None:
     )
     parsed = json.loads(render.format_path(desc, "json"))
     assert parsed["exports"] == [{"name": "alpha", "kind": "function", "line": 10}]
+
+
+def _symbol_desc(token_count):
+    from graph_io.queries import SymbolDescription
+
+    return SymbolDescription(
+        kind="function",
+        name="foo",
+        path="a.py",
+        line=1,
+        package=None,
+        domain=None,
+        exported_from=None,
+        token_count=token_count,
+    )
+
+
+def test_format_symbol_human_includes_tokens() -> None:
+    out = render.format_symbol(_symbol_desc(42), fmt="human")
+    assert "tokens: 42" in out
+
+
+def test_format_symbol_human_omits_tokens_when_none() -> None:
+    out = render.format_symbol(_symbol_desc(None), fmt="human")
+    assert "tokens" not in out
+
+
+def test_format_symbol_json_includes_token_count() -> None:
+    out = render.format_symbol(_symbol_desc(42), fmt="json")
+    assert json.loads(out)["token_count"] == 42
+
+
+def test_format_path_human_includes_file_and_child_tokens() -> None:
+    from graph_io.queries import NodeRecord, PathDescription
+
+    desc = PathDescription(
+        path="a.py",
+        children=[NodeRecord(kind="function", name="foo", path="a.py", line=1, attrs={"token_count": 7})],
+        imports=[],
+        role_flags=None,
+        token_count=20,
+    )
+    out = render.format_path(desc, fmt="human")
+    assert "tokens: 20" in out
+    assert "(7 tokens)" in out
+
+
+def test_format_path_json_includes_token_count() -> None:
+    from graph_io.queries import PathDescription
+
+    desc = PathDescription(path="a.py", children=[], imports=[], role_flags=None, token_count=20)
+    out = render.format_path(desc, fmt="json")
+    assert json.loads(out)["token_count"] == 20
