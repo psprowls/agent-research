@@ -224,23 +224,72 @@ def render(
 # ── Per-kind formatters (extracted from q_describe_*.py inline printers) ──────
 
 
-def format_package(desc: Any, fmt: str) -> str:
-    """Format a PackageDescription as human text or JSON.
+def _package_relationships(desc: Any) -> list[Rel]:
+    rels: list[Rel] = []
+    if desc.internal_dependencies:
+        rels.append(Rel("internal deps", "internal_dependencies", list(desc.internal_dependencies)))
+    if desc.internal_dependents:
+        rels.append(Rel("internal dependents", "internal_dependents", list(desc.internal_dependents)))
+    if desc.domains:
+        rels.append(Rel("domains", "domains", list(desc.domains)))
+    if desc.entry_points:
+        rels.append(Rel("entry_points", "entry_points", [ep.name for ep in desc.entry_points]))
+    if desc.test_suites:
+        rels.append(Rel("test_suites", "test_suites", [s.name for s in desc.test_suites]))
+    return rels
 
-    Extracted from q_describe_package.py lines 36-47.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [
-        f"package: {desc.name}",
-        f"language: {desc.language}",
-        f"version:  {desc.version}",
-        f"files:    {len(desc.files)}",
-        f"counts:   {desc.counts}",
-        f"internal deps:       {', '.join(desc.internal_dependencies) or '-'}",
-        f"internal dependents: {', '.join(desc.internal_dependents) or '-'}",
+
+def _package_nav(name: str) -> list[str]:
+    return [f"gw graph what-tests {name}", f"gw graph list-entry-points {name}"]
+
+
+def format_package(desc: Any, fmt: str) -> str:
+    """Format a PackageDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("language", "language", desc.language),
+        Attr.scalar("version", "version", desc.version),
+        Attr.scalar("files", "files", len(desc.files)),
+        Attr("counts", "counts", _counts_human(desc.counts), desc.counts),
     ]
-    return "\n".join(lines)
+    return describe_block(
+        kind="package",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=f"pkg:{desc.name}",
+        attributes=attributes,
+        relationships=_package_relationships(desc),
+        nav=_package_nav(desc.name),
+        fmt=fmt,
+    )
+
+
+def format_app(desc: Any, fmt: str) -> str:
+    """Format an AppDescription on the sectioned spine (Phase 50 fields)."""
+    rels: list[Rel] = []
+    if desc.domains:
+        rels.append(Rel("domains", "domains", list(desc.domains)))
+    if desc.entry_points:
+        rels.append(Rel("entry_points", "entry_points", [ep.name for ep in desc.entry_points]))
+    if desc.test_suites:
+        rels.append(Rel("test_suites", "test_suites", [s.name for s in desc.test_suites]))
+    attributes = [
+        Attr.scalar("language", "language", desc.language),
+        Attr.scalar("version", "version", desc.version),
+        Attr.scalar("app_kind", "app_kind", desc.app_kind),
+        Attr.joined("signals", "signals", list(desc.app_signals)),
+        Attr.scalar("files", "files", len(desc.files)),
+        Attr("counts", "counts", _counts_human(desc.counts), desc.counts),
+    ]
+    return describe_block(
+        kind="app",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=f"app:{desc.name}",
+        attributes=attributes,
+        relationships=rels,
+        nav=_package_nav(desc.name),
+        fmt=fmt,
+    )
 
 
 def format_path(desc: Any, fmt: str) -> str:

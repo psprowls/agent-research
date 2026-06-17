@@ -49,8 +49,7 @@ def test_render_invalid_format_via_public_module() -> None:
 # ── format_* output spot-checks (not byte-identical — that's in test_cli_describe.py) ──
 
 
-def test_format_package_human_contains_expected_keys() -> None:
-    """format_package human output includes the standard key labels."""
+def test_format_package_human_spine() -> None:
     from graph_io.queries import PackageDescription
 
     desc = PackageDescription(
@@ -59,20 +58,26 @@ def test_format_package_human_contains_expected_keys() -> None:
         version="1.0",
         files=["a.py", "b.py"],
         counts={"function": 2},
+        domains=["core"],
+        entry_points=[],
+        test_suites=[],
         internal_dependencies=["other"],
         internal_dependents=[],
     )
     out = render.format_package(desc, fmt="human")
-    assert "package: mypkg" in out
-    assert "language: python" in out
-    assert "files:    2" in out
-    assert "internal deps:       other" in out
-    assert "internal dependents: -" in out
+    assert out.startswith("package mypkg\n  uri: pkg:mypkg")
+    assert "  language: python" in out
+    assert "  files:    2" in out
+    assert "  counts:   2 functions" in out
+    assert "  internal deps:" in out and "other" in out
+    assert "  domains:" in out and "core" in out
+    # internal dependents empty → omitted as a relationship line
+    assert "internal dependents:" not in out
+    assert "→ gw graph what-tests mypkg" in out
+    assert "→ gw graph list-entry-points mypkg" in out
 
 
-def test_format_package_json_is_asdict() -> None:
-    import dataclasses
-
+def test_format_package_json_spine() -> None:
     from graph_io.queries import PackageDescription
 
     desc = PackageDescription(
@@ -80,12 +85,46 @@ def test_format_package_json_is_asdict() -> None:
         language="python",
         version="1.0",
         files=["a.py"],
-        counts={},
-        internal_dependencies=[],
+        counts={"function": 1},
+        domains=["core"],
+        entry_points=[],
+        test_suites=[],
+        internal_dependencies=["other"],
         internal_dependents=[],
     )
-    out = render.format_package(desc, fmt="json")
-    assert json.loads(out) == dataclasses.asdict(desc)
+    parsed = json.loads(render.format_package(desc, fmt="json"))
+    assert parsed["kind"] == "package"
+    assert parsed["name"] == "mypkg"
+    assert parsed["uri"] == "pkg:mypkg"
+    assert parsed["attributes"]["files"] == 1
+    assert parsed["attributes"]["counts"] == {"function": 1}
+    assert parsed["relationships"]["internal_dependencies"] == ["other"]
+    assert parsed["relationships"]["domains"] == ["core"]
+
+
+def test_format_app_human_and_json() -> None:
+    from graph_io.queries import AppDescription
+
+    desc = AppDescription(
+        name="my-cli",
+        language="python",
+        version="0.1",
+        app_kind="cli",
+        app_signals=["console_scripts"],
+        files=["cli.py"],
+        counts={"function": 3},
+        domains=[],
+        entry_points=[],
+        test_suites=[],
+    )
+    human = render.format_app(desc, fmt="human")
+    assert human.startswith("app my-cli\n  uri: app:my-cli")
+    assert "  app_kind: cli" in human
+    assert "  signals:  console_scripts" in human
+    parsed = json.loads(render.format_app(desc, fmt="json"))
+    assert parsed["uri"] == "app:my-cli"
+    assert parsed["attributes"]["app_kind"] == "cli"
+    assert parsed["attributes"]["signals"] == ["console_scripts"]
 
 
 def test_format_suite_label_is_suite_not_test_suite() -> None:
