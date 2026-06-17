@@ -317,22 +317,23 @@ def format_path(desc: Any, fmt: str) -> str:
 
 
 def format_repo(desc: Any, fmt: str) -> str:
-    """Format a RepoDescription as human text or JSON.
-
-    Extracted from q_describe_repo.py lines 39-46.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    url = desc.url if desc.url else "(none)"
-    default_branch = desc.default_branch if desc.default_branch else "(none)"
-    lines = [
-        f"repository:     {desc.name}",
-        f"uri:            {desc.uri}",
-        f"url:            {url}",
-        f"default_branch: {default_branch}",
-        f"package_count:  {desc.package_count}",
+    """Format a RepoDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("url", "url", desc.url),
+        Attr.scalar("default_branch", "default_branch", desc.default_branch),
+        Attr.scalar("owner", "owner", desc.owner),
+        Attr.scalar("package_count", "package_count", desc.package_count),
     ]
-    return "\n".join(lines)
+    return describe_block(
+        kind="repository",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=["gw graph list --kind package", "gw graph list --kind app"],
+        fmt=fmt,
+    )
 
 
 def format_domain(
@@ -394,20 +395,83 @@ def format_entry_point(desc: Any, fmt: str) -> str:
 
 
 def format_suite(desc: Any, fmt: str) -> str:
-    """Format a SuiteDescription as human text or JSON.
-
-    Extracted from q_describe_suite.py lines 43-46.
-    NOTE: label is 'suite:', not 'test_suite:' (D-03 byte-identical).
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [
-        f"suite:  {desc.name}",
-        f"uri:    {desc.uri}",
-        f"kind:   {desc.kind}",
-        f"files:  {desc.file_count}",
+    """Format a SuiteDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("kind", "kind", desc.kind),
+        Attr.scalar("files", "files", desc.file_count),
     ]
-    return "\n".join(lines)
+    return describe_block(
+        kind="test_suite",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=[],
+        fmt=fmt,
+    )
+
+
+def format_dependency(desc: Any, fmt: str) -> str:
+    """Format a DependencyDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("ecosystem", "ecosystem", desc.ecosystem),
+        Attr.joined("versions_in_use", "versions_in_use", list(desc.versions_in_use)),
+    ]
+    rels = [Rel("used_by", "used_by", list(desc.used_by))] if desc.used_by else []
+    return describe_block(
+        kind="dependency",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=rels,
+        nav=[],
+        fmt=fmt,
+    )
+
+
+def format_builtin(desc: Any, fmt: str) -> str:
+    """Format a BuiltinDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("language", "language", desc.language),
+        Attr.scalar("module_name", "module_name", desc.module_name),
+    ]
+    rels = [Rel("used_by", "used_by", list(desc.used_by))] if desc.used_by else []
+    return describe_block(
+        kind="builtin",
+        name=desc.module_name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=rels,
+        nav=[],
+        fmt=fmt,
+    )
+
+
+def format_agent_plugin(desc: Any, fmt: str) -> str:
+    """Format an AgentPluginDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("ecosystem", "ecosystem", desc.ecosystem),
+        Attr.scalar("version", "version", desc.version),
+        Attr.scalar("commands", "commands", len(desc.commands)),
+        Attr.scalar("agents", "agents", len(desc.agents)),
+        Attr.scalar("skills", "skills", len(desc.skills)),
+        Attr.scalar("scripts", "scripts", len(desc.scripts)),
+        Attr.scalar("hooks", "hooks", len(desc.hooks)),
+        Attr.scalar("mcp_servers", "mcp_servers", len(desc.mcp_servers)),
+    ]
+    return describe_block(
+        kind="agent_plugin",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=["gw graph list --kind agent_plugin"],
+        fmt=fmt,
+    )
 
 
 def format_symbol(desc: Any, fmt: str) -> str:

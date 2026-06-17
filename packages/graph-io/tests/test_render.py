@@ -127,14 +127,93 @@ def test_format_app_human_and_json() -> None:
     assert parsed["attributes"]["signals"] == ["console_scripts"]
 
 
-def test_format_suite_label_is_suite_not_test_suite() -> None:
-    """format_suite must use 'suite:' label, not 'test_suite:' (D-03 byte-identical)."""
+def test_format_suite_spine() -> None:
     from graph_io.queries import SuiteDescription
 
     desc = SuiteDescription(name="mytest", uri="test://x", kind="pytest", file_count=3)
     out = render.format_suite(desc, fmt="human")
-    assert out.startswith("suite:  mytest")
-    assert "test_suite:" not in out
+    assert out.startswith("test_suite mytest\n  uri: test://x")
+    assert "  kind:  pytest" in out
+    assert "  files: 3" in out
+
+
+def test_format_repo_spine() -> None:
+    from graph_io.queries import RepoDescription
+
+    desc = RepoDescription(
+        name="agent-research",
+        uri="repo://agent-research",
+        owner="pat",
+        url="git@x",
+        default_branch="develop",
+        package_count=11,
+    )
+    human = render.format_repo(desc, fmt="human")
+    assert human.startswith("repository agent-research\n  uri: repo://agent-research")
+    assert "  owner:" in human and "pat" in human
+    assert "package_count:" in human and "11" in human
+    assert "→ gw graph list --kind package" in human
+    assert "→ gw graph list --kind app" in human
+    parsed = json.loads(render.format_repo(desc, fmt="json"))
+    assert parsed["uri"] == "repo://agent-research"
+    assert parsed["attributes"]["package_count"] == 11
+
+
+def test_format_dependency_spine() -> None:
+    from graph_io.queries import DependencyDescription
+
+    desc = DependencyDescription(
+        ecosystem="pypi", name="boto3", uri="dependency:pypi/boto3", versions_in_use=["1.38"], used_by=["demo"]
+    )
+    human = render.format_dependency(desc, fmt="human")
+    assert human.startswith("dependency boto3\n  uri: dependency:pypi/boto3")
+    assert "  ecosystem:       pypi" in human
+    assert "  versions_in_use: 1.38" in human
+    assert "  used_by:" in human and "demo" in human
+    parsed = json.loads(render.format_dependency(desc, fmt="json"))
+    assert parsed["attributes"]["versions_in_use"] == ["1.38"]
+    assert parsed["relationships"]["used_by"] == ["demo"]
+
+
+def test_format_builtin_spine() -> None:
+    from graph_io.queries import BuiltinDescription
+
+    desc = BuiltinDescription(language="python", module_name="pathlib", uri="builtin:python/pathlib", used_by=["demo"])
+    human = render.format_builtin(desc, fmt="human")
+    assert human.startswith("builtin pathlib\n  uri: builtin:python/pathlib")
+    assert "  language:    python" in human
+    assert "  module_name: pathlib" in human
+    assert "  used_by:" in human
+    parsed = json.loads(render.format_builtin(desc, fmt="json"))
+    assert parsed["name"] == "pathlib"
+    assert parsed["relationships"]["used_by"] == ["demo"]
+
+
+def test_format_agent_plugin_spine() -> None:
+    from graph_io.queries import AgentPluginDescription
+
+    desc = AgentPluginDescription(
+        name="graph-wiki",
+        uri="agent_plugin:graph-wiki",
+        ecosystem="claude-code",
+        version="0.1.1",
+        description="x",
+        commands=[{"id": "a"}],
+        agents=[],
+        skills=[{"id": "s"}],
+        scripts=[],
+        hooks=[],
+        mcp_servers=[],
+    )
+    human = render.format_agent_plugin(desc, fmt="human")
+    assert human.startswith("agent_plugin graph-wiki\n  uri: agent_plugin:graph-wiki")
+    assert "  ecosystem:   claude-code" in human
+    assert "  commands:    1" in human
+    assert "  skills:      1" in human
+    assert "→ gw graph list --kind agent_plugin" in human
+    parsed = json.loads(render.format_agent_plugin(desc, fmt="json"))
+    assert parsed["attributes"]["commands"] == 1
+    assert parsed["attributes"]["mcp_servers"] == 0
 
 
 def test_format_domain_accepts_packages_subdomains_args() -> None:
