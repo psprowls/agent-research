@@ -643,18 +643,20 @@ def emit(
 
         has_main = False
         is_importable = False
+        prior_token_count: int | None = None
+        row = conn.execute(
+            "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
+            (rel,),
+        ).fetchone()
+        prior_attrs = json.loads(row[0]) if (row and row[0]) else {}
         if is_python:
-            row = conn.execute(
-                "SELECT attrs_json FROM nodes WHERE kind='file' AND path=?",
-                (rel,),
-            ).fetchone()
-            if row and row[0]:
-                sparser_attrs = json.loads(row[0])
-                has_main = bool(sparser_attrs.get("_has_main_block", False))
-                is_importable = bool(sparser_attrs.get("_has_importable_symbols", False))
+            has_main = bool(prior_attrs.get("_has_main_block", False))
+            is_importable = bool(prior_attrs.get("_has_importable_symbols", False))
         elif is_jsts:
             has_main = False
             is_importable = True
+        if isinstance(prior_attrs.get("token_count"), int):
+            prior_token_count = prior_attrs["token_count"]
 
         is_test = _is_test_path(
             rel,
@@ -676,6 +678,8 @@ def emit(
             "is_generated": is_generated,
             "is_type_only": is_type_only,
         }
+        if prior_token_count is not None:
+            file_attrs["token_count"] = prior_token_count
         if file_language is not None:
             file_attrs["language"] = file_language
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import sqlite3
 from pathlib import Path
 
@@ -204,3 +205,28 @@ def test_update_honors_graphignore(tmp_path: Path) -> None:
         assert "skip_me" not in names
     finally:
         conn.close()
+
+
+def test_token_count_on_function_node(seeded_db) -> None:
+    row = seeded_db.execute(
+        "SELECT attrs_json FROM nodes WHERE kind='function' AND name='foo' AND path LIKE '%foo.py'"
+    ).fetchone()
+    assert row is not None, "expected the 'foo' function node"
+    attrs = json.loads(row[0]) if row[0] else {}
+    assert isinstance(attrs.get("token_count"), int)
+    assert attrs["token_count"] > 0
+
+
+def test_token_count_on_file_node(seeded_db) -> None:
+    row = seeded_db.execute("SELECT attrs_json FROM nodes WHERE kind='file' AND path LIKE '%foo.py'").fetchone()
+    assert row is not None, "expected the foo.py file node"
+    attrs = json.loads(row[0]) if row[0] else {}
+    assert isinstance(attrs.get("token_count"), int)
+    assert attrs["token_count"] > 0
+
+
+def test_no_token_count_on_synthetic_package_node(seeded_db) -> None:
+    row = seeded_db.execute("SELECT attrs_json FROM nodes WHERE kind='package' LIMIT 1").fetchone()
+    assert row is not None, "expected at least one package node"
+    attrs = json.loads(row[0]) if row[0] else {}
+    assert "token_count" not in attrs
