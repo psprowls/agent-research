@@ -126,6 +126,22 @@ class CallRecord:
 
 
 @dataclass(frozen=True)
+class ChildNode:
+    """One node in a describe `children` containment tree.
+
+    Identity is stored raw (uri / path / line); the renderer derives the
+    display label (uri -> path:line -> path). `children` is the recursively
+    expanded subtree (empty at the depth frontier or for leaf kinds).
+    """
+
+    kind: str
+    uri: str | None
+    path: str | None
+    line: int | None
+    children: list[ChildNode] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
 class SymbolDescription:
     """Fixed-depth-1 dossier for a code symbol (function/class/method/type)."""
 
@@ -1041,6 +1057,169 @@ def domain_members(conn: sqlite3.Connection, name: str) -> tuple[list[str], list
         (name,),
     ).fetchall()
     return [r[0] for r in pkg_rows], [r[0] for r in sub_rows]
+
+
+# Container kinds show one level of containment by default; structural/symbol
+# kinds show two so the first describe already reaches into the symbol level.
+_CONTAINER_KINDS = frozenset({"repository", "package", "app", "domain"})
+
+
+def default_child_depth(kind: str) -> int:
+    """Effective `children` depth used when `--depth` is omitted (Design 8)."""
+    return 1 if kind in _CONTAINER_KINDS else 2
+
+
+def _node_id(conn: sqlite3.Connection, node: NodeRecord) -> int | None:
+    """Resolve the nodes.id for a describe target, most-specific identity first.
+
+    uri (if carried in attrs) -> (kind, path, line) -> (kind, path) -> (kind, name).
+    Returns None when no row matches (caller yields an empty tree).
+    """
+    uri = (node.attrs or {}).get("uri")
+    if uri:
+        row = conn.execute("SELECT id FROM nodes WHERE uri = ?", (uri,)).fetchone()
+        if row:
+            return row[0]
+    if node.path is not None and node.line is not None:
+        row = conn.execute(
+            "SELECT id FROM nodes WHERE kind = ? AND path = ? AND line = ?",
+            (node.kind, node.path, node.line),
+        ).fetchone()
+        if row:
+            return row[0]
+    if node.path is not None:
+        row = conn.execute("SELECT id FROM nodes WHERE kind = ? AND path = ?", (node.kind, node.path)).fetchone()
+        if row:
+            return row[0]
+    row = conn.execute("SELECT id FROM nodes WHERE kind = ? AND name = ? LIMIT 1", (node.kind, node.name)).fetchone()
+    return row[0] if row else None
+
+
+# Outgoing physically_contains, filtered to the given dst kinds, ordered
+# subpackage-before-file then by path. `{dst}` is an inlined IN-list of literals
+# from a fixed allow-list (never user input).
+def _phys_children_sql(dst_kinds: tuple[str, ...]) -> str:
+    in_list = ",".join(f"'{k}'" for k in dst_kinds)
+    return (
+        "SELECT n.id, n.kind, n.uri, n.path, n.line "
+        "FROM edges e JOIN nodes n ON e.dst = n.id "
+        f"WHERE e.src = ? AND e.kind = 'physically_contains' AND n.kind IN ({in_list}) "
+        "ORDER BY CASE n.kind WHEN 'subpackage' THEN 0 ELSE 1 END, n.path"
+    )
+
+
+def _contains_symbols_sql(dst_kinds: tuple[str, ...]) -> str:
+    in_list = ",".join(f"'{k}'" for k in dst_kinds)
+    return (
+        "SELECT n.id, n.kind, n.uri, n.path, n.line "
+        "FROM edges e JOIN nodes n ON e.dst = n.id "
+        f"WHERE e.src = ? AND e.kind = 'contains' AND n.kind IN ({in_list}) "
+        f"AND {_RESOLVED_FILTER} "
+        "ORDER BY n.line"
+    )
+
+
+_TEST_SUITES_SQL = (
+    "SELECT ts.id, ts.kind, ts.uri, ts.path, ts.line "
+    "FROM edges e JOIN nodes ts ON e.src = ts.id "
+    "WHERE e.dst = ? AND e.kind = 'tests' AND ts.kind = 'test_suite' "
+    "ORDER BY ts.name"
+)
+
+_ENTRY_POINTS_SQL = (
+    "SELECT ep.id, ep.kind, ep.uri, ep.path, ep.line "
+    "FROM edges e JOIN nodes ep ON e.dst = ep.id "
+    "WHERE e.src = ? AND e.kind = 'declares_entry_point' AND ep.kind = 'entry_point' "
+    "ORDER BY ep.name"
+)
+
+_SUBDOMAINS_SQL = (
+    "SELECT d.id, d.kind, d.uri, d.path, d.line "
+    "FROM edges e JOIN nodes d ON e.dst = d.id "
+    "WHERE e.src = ? AND e.kind = 'domain_contains_domain' AND d.kind = 'domain' "
+    "ORDER BY d.name"
+)
+
+_DOMAIN_PACKAGES_SQL = (
+    "SELECT p.id, p.kind, p.uri, p.path, p.line "
+    "FROM edges e JOIN nodes p ON e.src = p.id "
+    "WHERE e.dst = ? AND e.kind = 'belongs_to_domain' AND p.kind IN ('package','app') "
+    "ORDER BY p.name"
+)
+
+
+def _direct_children(conn: sqlite3.Connection, node_id: int, kind: str) -> list[tuple]:
+    """Kind-dispatched direct children as raw rows (id, kind, uri, path, line).
+
+    Container/structural kinds descend `physically_contains`; symbol nesting
+    descends `contains`; test_suites/entry_points/domain members come from
+    their dedicated edges. External deps/domains are intentionally excluded
+    (they live in the `relationships` section). Returns [] for leaf kinds.
+    """
+    if kind == "repository":
+        return conn.execute(_phys_children_sql(("package", "app")), (node_id,)).fetchall()
+    if kind in ("package", "app"):
+        rows = list(conn.execute(_phys_children_sql(("subpackage", "file")), (node_id,)).fetchall())
+        rows += conn.execute(_TEST_SUITES_SQL, (node_id,)).fetchall()
+        rows += conn.execute(_ENTRY_POINTS_SQL, (node_id,)).fetchall()
+        return rows
+    if kind == "subpackage":
+        return conn.execute(_phys_children_sql(("subpackage", "file")), (node_id,)).fetchall()
+    if kind == "domain":
+        rows = list(conn.execute(_SUBDOMAINS_SQL, (node_id,)).fetchall())
+        rows += conn.execute(_DOMAIN_PACKAGES_SQL, (node_id,)).fetchall()
+        return rows
+    if kind == "test_suite":
+        return conn.execute(_phys_children_sql(("file",)), (node_id,)).fetchall()
+    if kind == "file":
+        return conn.execute(_contains_symbols_sql(("function", "class", "method", "type")), (node_id,)).fetchall()
+    if kind == "class":
+        return conn.execute(_contains_symbols_sql(("method",)), (node_id,)).fetchall()
+    if kind in ("function", "method"):
+        return conn.execute(_contains_symbols_sql(("function",)), (node_id,)).fetchall()
+    return []  # type / dependency / builtin / entry_point / unresolved_symbol -> leaf
+
+
+def _expand(conn: sqlite3.Connection, node_id: int, kind: str, depth: int, visited: set[int]) -> list[ChildNode]:
+    if depth <= 0 or node_id in visited:
+        return []
+    visited = visited | {node_id}
+    out: list[ChildNode] = []
+    for child_id, child_kind, uri, path, line in _direct_children(conn, node_id, kind):
+        grandchildren = _expand(conn, child_id, child_kind, depth - 1, visited)
+        out.append(ChildNode(kind=child_kind, uri=uri, path=path, line=line, children=grandchildren))
+    return out
+
+
+def children_tree(conn: sqlite3.Connection, *, node: NodeRecord, depth: int) -> list[ChildNode]:
+    """Structural containment tree for `node`, bounded to `depth` nesting levels.
+
+    depth=1 yields direct children only. Each child expands by ITS OWN kind's
+    rule. A `visited` set is a cycle backstop (structural containment is acyclic
+    in practice). Read-only; `conn` must be opened `mode=ro`.
+    """
+    node_id = _node_id(conn, node)
+    if node_id is None:
+        return []
+    return _expand(conn, node_id, node.kind, depth, set())
+
+
+def children_for(
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    name: str | None = None,
+    path: str | None = None,
+    line: int | None = None,
+    uri: str | None = None,
+    depth: int | None,
+) -> tuple[list[ChildNode], int]:
+    """Surface convenience: resolve the effective depth (per-kind default when
+    `depth is None`) and return `(tree, effective_depth)`. Used by every
+    describe surface so depth-defaulting cannot drift between them."""
+    effective = depth if depth is not None else default_child_depth(kind)
+    node = NodeRecord(kind=kind, name=name or "", path=path, line=line, attrs={"uri": uri} if uri else {})
+    return children_tree(conn, node=node, depth=effective), effective
 
 
 def resolve_entry_point(conn: sqlite3.Connection, raw: str) -> tuple[EntryPointDescription | None, list[str]]:
