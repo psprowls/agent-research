@@ -216,28 +216,49 @@ def test_format_agent_plugin_spine() -> None:
     assert parsed["attributes"]["mcp_servers"] == 0
 
 
-def test_format_domain_accepts_packages_subdomains_args() -> None:
-    """format_domain signature: (desc, packages, subdomains, fmt) — packages/subdomains NOT in DomainDescription."""
+def test_format_domain_spine() -> None:
     from graph_io.queries import DomainDescription
 
     desc = DomainDescription(name="core", uri="dom://core", parent=None, description="Core domain")
-    out = render.format_domain(desc, packages=["pkgA"], subdomains=[], fmt="human")
-    assert "domain:        core" in out
-    assert "  - pkgA" in out
-    assert "  (none)" in out  # subdomains section
+    human = render.format_domain(desc, packages=["pkgA"], subdomains=[], fmt="human")
+    assert human.startswith("domain core\n  uri: dom://core")
+    assert "  parent:      (none)" in human
+    assert "  description: Core domain" in human
+    assert "  packages: pkgA" in human
+    assert "subdomains:" not in human  # empty relationship omitted
+    parsed = json.loads(render.format_domain(desc, packages=["pkgA", "pkgB"], subdomains=["sub"], fmt="json"))
+    assert parsed["uri"] == "dom://core"
+    assert parsed["relationships"]["packages"] == ["pkgA", "pkgB"]
+    assert parsed["relationships"]["subdomains"] == ["sub"]
 
 
-def test_format_domain_json_merges_packages_subdomains() -> None:
-    """format_domain json merges packages and subdomains keys into asdict(desc)."""
+def test_format_entry_point_spine() -> None:
+    from graph_io.queries import EntryPointDescription
 
-    from graph_io.queries import DomainDescription
+    desc = EntryPointDescription(
+        name="gw",
+        uri="ep://gw",
+        kind="console_script",
+        callable="mod:main",
+        implemented_by_path="src/mod.py",
+        source="pyproject",
+    )
+    human = render.format_entry_point(desc, fmt="human")
+    assert human.startswith("entry_point gw\n  uri: ep://gw")
+    assert "  callable: mod:main" in human
+    assert "  path:     src/mod.py" in human
+    assert "→ gw graph describe src/mod.py" in human
 
-    desc = DomainDescription(name="core", uri="dom://core", parent=None, description="Core")
-    out = render.format_domain(desc, packages=["pkgA", "pkgB"], subdomains=["sub"], fmt="json")
-    parsed = json.loads(out)
-    assert parsed["packages"] == ["pkgA", "pkgB"]
-    assert parsed["subdomains"] == ["sub"]
-    assert parsed["name"] == "core"
+
+def test_format_entry_point_no_nav_when_no_path() -> None:
+    from graph_io.queries import EntryPointDescription
+
+    desc = EntryPointDescription(
+        name="gw", uri="ep://gw", kind="console_script", callable=None, implemented_by_path=None, source="pyproject"
+    )
+    human = render.format_entry_point(desc, fmt="human")
+    assert "  callable: (none)" in human
+    assert "→" not in human
 
 
 # ============================================================================

@@ -1016,6 +1016,56 @@ def describe_entry_point(
     return _load_entry_point_description(row)
 
 
+def domain_members(conn: sqlite3.Connection, name: str) -> tuple[list[str], list[str]]:
+    """Return (packages, subdomains) for a domain, ordered by name.
+
+    Shared by the CLI describer, core run_describe, and cg_describe so the
+    membership SQL has one home (previously triplicated)."""
+    pkg_rows = conn.execute(
+        "SELECT p.name FROM edges e "
+        "JOIN nodes p ON e.src = p.id "
+        "JOIN nodes d ON e.dst = d.id "
+        "WHERE e.kind='belongs_to_domain' AND d.kind='domain' AND d.name = ? "
+        "ORDER BY p.name",
+        (name,),
+    ).fetchall()
+    sub_rows = conn.execute(
+        "SELECT c.name FROM edges e "
+        "JOIN nodes c ON e.dst = c.id "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE e.kind='domain_contains_domain' AND p.kind='domain' AND p.name = ? "
+        "ORDER BY c.name",
+        (name,),
+    ).fetchall()
+    return [r[0] for r in pkg_rows], [r[0] for r in sub_rows]
+
+
+def resolve_entry_point(conn: sqlite3.Connection, raw: str) -> tuple[EntryPointDescription | None, list[str]]:
+    """Resolve an entry-point selector to a description.
+
+    Accepts a qualified ``package:entry`` form or a bare entry name (scanned
+    across all packages AND apps that declare it). Returns
+    ``(desc_or_None, ambiguous_packages)``: when the bare name matches >1
+    package, ``desc`` is None and the list names the candidates (caller emits
+    the AMBIGUOUS error). Shared by run_describe and q_describe_entry_point."""
+    if ":" in raw:
+        package_name, entry_name = raw.split(":", 1)
+        return describe_entry_point(conn, package_name=package_name, entry_name=entry_name), []
+    rows = conn.execute(
+        "SELECT pkg.name "
+        "FROM nodes pkg "
+        "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+        "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
+        "WHERE pkg.kind IN ('package', 'app') AND ep.name = ?",
+        (raw,),
+    ).fetchall()
+    if not rows:
+        return None, []
+    if len(rows) > 1:
+        return None, [r[0] for r in rows]
+    return describe_entry_point(conn, package_name=rows[0][0], entry_name=raw), []
+
+
 def describe_test_suite(conn: sqlite3.Connection, *, suite_name: str) -> SuiteDescription | None:
     """Return the named TestSuite description, or None.
 

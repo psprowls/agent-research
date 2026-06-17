@@ -336,62 +336,49 @@ def format_repo(desc: Any, fmt: str) -> str:
     )
 
 
-def format_domain(
-    desc: Any,
-    packages: list[str],
-    subdomains: list[str],
-    fmt: str,
-) -> str:
-    """Format a DomainDescription as human text or JSON.
-
-    Extracted from q_describe_domain.py lines 55-80.
-    NOTE: packages and subdomains are NOT in DomainDescription; callers pass them explicitly.
-    """
-    if fmt == "json":
-        payload = {**dataclasses.asdict(desc), "packages": packages, "subdomains": subdomains}
-        return _json.dumps(payload, default=str)
-    parent = desc.parent if desc.parent else "(none)"
-    description = desc.description if desc.description else "(none)"
-    lines = [
-        f"domain:        {desc.name}",
-        f"uri:           {desc.uri}",
-        f"parent:        {parent}",
-        f"description:   {description}",
-        "packages:",
+def format_domain(desc: Any, packages: list[str], subdomains: list[str], fmt: str) -> str:
+    """Format a DomainDescription on the spine. packages/subdomains are fetched
+    by the caller (NOT on DomainDescription) — pass via queries.domain_members."""
+    attributes = [
+        Attr.scalar("parent", "parent", desc.parent),
+        Attr.scalar("description", "description", desc.description),
     ]
+    rels: list[Rel] = []
     if packages:
-        for name in packages:
-            lines.append(f"  - {name}")
-    else:
-        lines.append("  (none)")
-    lines.append("subdomains:")
+        rels.append(Rel("packages", "packages", list(packages)))
     if subdomains:
-        for name in subdomains:
-            lines.append(f"  - {name}")
-    else:
-        lines.append("  (none)")
-    return "\n".join(lines)
+        rels.append(Rel("subdomains", "subdomains", list(subdomains)))
+    return describe_block(
+        kind="domain",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=rels,
+        nav=[f"gw graph domain-refs {desc.name}", f"gw graph domain-deps {desc.name}"],
+        fmt=fmt,
+    )
 
 
 def format_entry_point(desc: Any, fmt: str) -> str:
-    """Format an EntryPointDescription as human text or JSON.
-
-    Extracted from q_describe_entry_point.py lines 83-92.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    callable_value = desc.callable if desc.callable else "(none)"
-    impl_path = desc.implemented_by_path if desc.implemented_by_path else "(none)"
-    source = desc.source if desc.source else "(none)"
-    lines = [
-        f"entry-point: {desc.name}",
-        f"uri:         {desc.uri}",
-        f"kind:        {desc.kind}",
-        f"callable:    {callable_value}",
-        f"path:        {impl_path}",
-        f"source:      {source}",
+    """Format an EntryPointDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("kind", "kind", desc.kind),
+        Attr.scalar("callable", "callable", desc.callable),
+        Attr.scalar("path", "path", desc.implemented_by_path),
+        Attr.scalar("source", "source", desc.source),
     ]
-    return "\n".join(lines)
+    nav = [f"gw graph describe {desc.implemented_by_path}"] if desc.implemented_by_path else []
+    return describe_block(
+        kind="entry_point",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=nav,
+        fmt=fmt,
+    )
 
 
 def format_suite(desc: Any, fmt: str) -> str:

@@ -2107,3 +2107,70 @@ def test_describe_path_includes_token_count(seeded_db) -> None:
     assert isinstance(desc.token_count, int)
     assert desc.token_count > 0
     assert any(c.attrs.get("token_count") for c in desc.children)
+
+
+# ============================================================================
+# Task 4: shared resolve_entry_point / domain_members helpers.
+# ============================================================================
+
+
+def test_resolve_entry_point_qualified(seeded_db: sqlite3.Connection) -> None:
+    from graph_io import queries
+
+    desc, ambiguous = queries.resolve_entry_point(seeded_db, "mypkg:mypkg-run")
+    assert ambiguous == []
+    assert desc is not None and desc.name == "mypkg-run"
+
+
+def test_resolve_entry_point_bare_unique(seeded_db: sqlite3.Connection) -> None:
+    from graph_io import queries
+
+    desc, ambiguous = queries.resolve_entry_point(seeded_db, "mypkg-run")
+    assert ambiguous == []
+    assert desc is not None and desc.name == "mypkg-run"
+
+
+def test_resolve_entry_point_bare_ambiguous(empty_db: sqlite3.Connection) -> None:
+    """Two packages declaring the same entry name → (None, [both names]).
+
+    The seeded fixture only has one `mypkg-run`, so the >1-match branch is
+    exercised against a minimal hand-built graph: two `package` nodes each
+    with a `declares_entry_point` edge to a same-named `entry_point` node."""
+    from graph_io import queries
+
+    cur = empty_db.execute("INSERT INTO nodes (kind, name, attrs_json) VALUES ('package', 'alpha', '{}')")
+    alpha_id = cur.lastrowid
+    cur = empty_db.execute("INSERT INTO nodes (kind, name, attrs_json) VALUES ('package', 'beta', '{}')")
+    beta_id = cur.lastrowid
+    cur = empty_db.execute("INSERT INTO nodes (kind, name, attrs_json) VALUES ('entry_point', 'shared-run', '{}')")
+    ep_alpha_id = cur.lastrowid
+    cur = empty_db.execute("INSERT INTO nodes (kind, name, attrs_json) VALUES ('entry_point', 'shared-run', '{}')")
+    ep_beta_id = cur.lastrowid
+    empty_db.execute(
+        "INSERT INTO edges (src, dst, kind) VALUES (?, ?, 'declares_entry_point')",
+        (alpha_id, ep_alpha_id),
+    )
+    empty_db.execute(
+        "INSERT INTO edges (src, dst, kind) VALUES (?, ?, 'declares_entry_point')",
+        (beta_id, ep_beta_id),
+    )
+
+    desc, ambiguous = queries.resolve_entry_point(empty_db, "shared-run")
+    assert desc is None
+    assert sorted(ambiguous) == ["alpha", "beta"]
+
+
+def test_resolve_entry_point_missing(seeded_db: sqlite3.Connection) -> None:
+    from graph_io import queries
+
+    desc, ambiguous = queries.resolve_entry_point(seeded_db, "no-such-ep")
+    assert desc is None and ambiguous == []
+
+
+def test_domain_members(seeded_db: sqlite3.Connection) -> None:
+    from graph_io import queries
+
+    packages, subdomains = queries.domain_members(seeded_db, "core")
+    assert isinstance(packages, list) and isinstance(subdomains, list)
+    assert packages == ["mypkg", "pyutil"]
+    assert subdomains == []
