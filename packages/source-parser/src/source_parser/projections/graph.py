@@ -9,6 +9,15 @@ from source_parser.tree import SourceNode
 
 NodeKey = tuple[str, str, str | None]  # (kind, name, path)
 
+# Containers whose qualified name prefixes their children's names. "function" is
+# deliberate (not just class->method): symbols nested inside a function/method are
+# qualified by the enclosing name (e.g. outer.inner), which Task 2's enclosing-class
+# tracking builds on.
+_CONTAINER_KINDS = frozenset({"class", "function", "method"})
+
+# Call receivers that bind to the enclosing class (intra-class calls).
+_SELF_RECEIVERS = frozenset({"self", "this"})
+
 
 @dataclass(frozen=True)
 class GraphNode:
@@ -38,15 +47,18 @@ class GraphRecords:
     edges: tuple[GraphEdge, ...]
 
 
-def _key(node: SourceNode) -> NodeKey:
-    name = node.name if node.name is not None else str(node.path)
-    return (node.kind, name, str(node.path))
+def _qualify(prefix: str, name: str) -> str:
+    return f"{prefix}.{name}" if prefix else name
 
 
-def _emit_node(node: SourceNode) -> GraphNode:
+def _key(node: SourceNode, qname: str) -> NodeKey:
+    return (node.kind, qname, str(node.path))
+
+
+def _emit_node(node: SourceNode, qname: str) -> GraphNode:
     return GraphNode(
         kind=node.kind,
-        name=node.name if node.name is not None else str(node.path),
+        name=qname,
         path=str(node.path),
         line=None if node.kind == "file" else node.span.start_line,
         attrs=dict(node.attrs),
@@ -55,28 +67,59 @@ def _emit_node(node: SourceNode) -> GraphNode:
     )
 
 
-def _walk(node: SourceNode, nodes: list[GraphNode], edges: list[GraphEdge]) -> None:
-    nodes.append(_emit_node(node))
-    parent_key = _key(node)
+def _walk(
+    node: SourceNode,
+    nodes: list[GraphNode],
+    edges: list[GraphEdge],
+    *,
+    prefix: str = "",
+    enclosing_class: str | None = None,
+) -> None:
+    name = node.name if node.name is not None else str(node.path)
+    qname = _qualify(prefix, name)
+    nodes.append(_emit_node(node, qname))
+    parent_key = _key(node, qname)
+
+    # Children of a container are qualified by the container's own name; a file
+    # resets the prefix to "" so top-level symbols stay bare.
+    child_prefix = qname if node.kind in _CONTAINER_KINDS else ""
+    # Propagate the enclosing class: set to qname at a class boundary, reset to
+    # None at file scope, and pass through unchanged for functions/methods so
+    # nested functions inside a method still see the class.
+    if node.kind == "class":
+        child_enclosing = qname
+    elif node.kind == "file":
+        child_enclosing = None
+    else:
+        child_enclosing = enclosing_class
     for child in node.children:
+        child_name = child.name if child.name is not None else str(child.path)
+        child_qname = _qualify(child_prefix, child_name)
         edges.append(
             GraphEdge(
                 src=parent_key,
-                dst=_key(child),
+                dst=_key(child, child_qname),
                 kind="contains",
                 attrs={},
             )
         )
-        _walk(child, nodes, edges)
+        _walk(child, nodes, edges, prefix=child_prefix, enclosing_class=child_enclosing)
+
+    # `enclosing_class` (the argument) is the class enclosing THIS node and drives
+    # self/this qualification below; `child_enclosing` (above) is what propagates to children.
     for ref in node.refs:
         if ref.kind == "call":
+            target = ref.target_name
+            # Only self/this receivers get a class-qualified target; other receivers stay bare.
+            if ref.attrs.get("receiver") in _SELF_RECEIVERS and enclosing_class is not None:
+                target = _qualify(enclosing_class, ref.target_name)
             edges.append(
                 GraphEdge(
                     src=parent_key,
                     # Upsert stores this pathless code-symbol target as
                     # kind='unresolved_symbol' while preserving symbol_kind on
                     # the edge for resolve.sweep().
-                    dst=("function", ref.target_name, None),
+                    dst=("function", target, None),
                     kind="calls",
                     attrs=dict(ref.attrs),
                 )

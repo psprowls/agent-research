@@ -2092,6 +2092,54 @@ def test_describe_symbol_inherits_test_exclusion(conn: sqlite3.Connection) -> No
     assert {c.name for c in desc.callers} == set()
 
 
+# ============================================================================
+# Task 4: suffix-aware code-symbol queries for qualified method names.
+# ============================================================================
+
+
+def test_find_bare_leaf_matches_qualified_methods(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="package", name="foo", path=None, line=None, attrs={}),
+                GraphNode(kind="file", name="a.py", path="foo/a.py", line=None, attrs={}),
+                GraphNode(kind="method", name="Foo.save", path="foo/a.py", line=5, attrs={}),
+                GraphNode(kind="method", name="Bar.save", path="foo/a.py", line=15, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("package", "foo", None), dst=("file", "a.py", "foo/a.py"), kind="contains", attrs={}),
+            ],
+        ),
+    )
+    # Bare leaf matches both qualified names.
+    assert {n.name for n in queries.find(conn, name="save")} == {"Foo.save", "Bar.save"}
+    # Qualified name matches only the exact node.
+    assert {n.name for n in queries.find(conn, name="Foo.save")} == {"Foo.save"}
+    # Two same-file methods with distinct qualified names → two distinct menu commands.
+    menu = queries.build_menu(conn, queries.resolve_selector(conn, selector="save"))
+    cmds = {m.command for m in menu}
+    assert len(cmds) == 2
+    # Both commands must carry the qualified names (not the bare leaf).
+    assert any("Foo.save" in c for c in cmds)
+    assert any("Bar.save" in c for c in cmds)
+
+
+def test_describe_symbol_bare_leaf_finds_qualified_method(conn: sqlite3.Connection) -> None:
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="file", name="a.py", path="a.py", line=None, attrs={}),
+                GraphNode(kind="method", name="Util.format", path="a.py", line=5, attrs={}),
+            ],
+            edges=[],
+        ),
+    )
+    desc = queries.describe_symbol(conn, kind="method", name="format")
+    assert desc is not None and desc.name == "Util.format"
+
+
 def test_describe_symbol_includes_token_count(seeded_db) -> None:
     desc = queries.describe_symbol(seeded_db, kind="function", name="foo")
     assert desc is not None
