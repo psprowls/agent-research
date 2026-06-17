@@ -217,8 +217,8 @@ def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
     rc2 = q_describe_app.run(_ns_describe(workspace, name="graph-wiki-agent", fmt="json"))
     assert rc2 == exit_codes.SUCCESS
     parsed = json.loads(capsys.readouterr().out)
-    # Spine shape: top-level keys are fixed for every kind.
-    assert set(parsed.keys()) == {"kind", "name", "uri", "attributes", "relationships", "nav"}
+    # Spine shape: core keys present (children/children_depth optional when tree non-empty).
+    assert {"kind", "name", "uri", "attributes", "relationships", "nav"} <= set(parsed.keys())
     assert parsed["name"] == "graph-wiki-agent"
     assert parsed["attributes"]["app_kind"] == "cli"
     assert "cli" in parsed["attributes"]["signals"]

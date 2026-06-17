@@ -19,6 +19,8 @@ from graph_wiki_cli.graph_cli import (
     q_describe_dependency,
     q_describe_package,
 )
+from graph_wiki_cli.graph_cli.main import graph_app
+from typer.testing import CliRunner
 
 
 @pytest.fixture
@@ -399,5 +401,101 @@ def test_cg_describe_app_json(workspace_with_app, capsys):
     assert parsed["attributes"]["app_kind"] == "cli"
     assert isinstance(parsed["attributes"]["signals"], list)
     assert "cli" in parsed["attributes"]["signals"]
-    # Spine shape: top-level keys are fixed for every kind.
-    assert set(parsed) == {"kind", "name", "uri", "attributes", "relationships", "nav"}
+    # Spine shape: core keys present (children/children_depth optional when tree non-empty).
+    assert {"kind", "name", "uri", "attributes", "relationships", "nav"} <= set(parsed)
+
+
+# ---------------------------------------------------------------------------
+# Task 3: --depth + children section wiring (e2e)
+# ---------------------------------------------------------------------------
+
+
+def _ns_depth(workspace, *, name, fmt="human", depth=None):
+    """SimpleNamespace for per-kind describe modules that read depth."""
+    return SimpleNamespace(
+        workspace=workspace,
+        repo=None,
+        fmt=fmt,
+        mode="workspace",
+        name=name,
+        depth=depth,
+    )
+
+
+def _ns_path_depth(workspace, *, path, fmt="human", depth=None):
+    """SimpleNamespace for q_describe_path.run()."""
+    return SimpleNamespace(
+        workspace=workspace,
+        repo=None,
+        fmt=fmt,
+        mode="workspace",
+        path=path,
+        depth=depth,
+    )
+
+
+def test_describe_package_default_depth_1(workspace_with_internal_dep, capsys):
+    """Package describe: default depth is 1 → 'children (depth 1)' in output."""
+    args = _ns_depth(workspace_with_internal_dep, name="alpha")
+    exit_code = q_describe_package.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "children (depth 1)" in captured.out
+
+
+def test_describe_file_default_depth_2(workspace_with_app, capsys):
+    """File describe: default depth is 2 → 'children (depth 2)' in output when file has symbols."""
+    from graph_wiki_cli.graph_cli import q_describe_path
+
+    # src/my_cli/cli.py contains function:main
+    args = _ns_path_depth(workspace_with_app, path="src/my_cli/cli.py")
+    exit_code = q_describe_path.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "children (depth 2)" in captured.out
+
+
+def test_describe_explicit_depth(workspace_with_internal_dep, capsys):
+    """Passing --depth 2 on a package deepens the tree and adds a go-deeper nav hint."""
+    args = _ns_depth(workspace_with_internal_dep, name="alpha", depth=2)
+    exit_code = q_describe_package.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "children (depth 2)" in captured.out
+    assert "→ gw graph describe" in captured.out
+    assert "--depth 3" in captured.out
+
+
+def test_describe_depth_zero_rejected(workspace_with_internal_dep):
+    """depth=0 must be rejected by the CLI with BadParameter before reaching the module."""
+    runner = CliRunner()
+    # The CLI uses workspace resolution via ctx.obj — we need to pass --repo pointing to a
+    # directory that resolves to workspace_with_internal_dep's repo.  Since we only care
+    # about the validation logic (which fires before graph I/O), use any repo path that
+    # produces a valid workspace (the fixture path itself) or accept that BadParameter fires
+    # independently of the workspace.
+    result = runner.invoke(
+        graph_app,
+        ["--repo", str(workspace_with_internal_dep), "--mode", "test", "describe", "alpha", "--depth", "0"],
+    )
+    assert result.exit_code != 0
+    combined = (result.output or "") + (result.stderr if hasattr(result, "stderr") and result.stderr else "")
+    assert "depth must be >= 1" in combined
+
+
+def test_describe_leaf_kind_no_children_section(workspace_with_deps_and_plugin, capsys):
+    """Dependency (leaf kind) describe must NOT emit a 'children (' section."""
+    args = _ns(workspace_with_deps_and_plugin, name="boto3", ecosystem="pypi")
+    exit_code = q_describe_dependency.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "children (" not in captured.out
+
+
+def test_describe_package_go_deeper_nav_hint(workspace_with_internal_dep, capsys):
+    """Children present → go-deeper nav hint appears in human output."""
+    args = _ns_depth(workspace_with_internal_dep, name="alpha")
+    exit_code = q_describe_package.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "→ gw graph describe alpha --depth 2" in captured.out

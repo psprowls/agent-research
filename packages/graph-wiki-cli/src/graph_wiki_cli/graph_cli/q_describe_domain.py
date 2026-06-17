@@ -27,8 +27,9 @@ def run(args: NameArgs) -> int:
             print(f"error: not found: {args.name}", file=sys.stderr)
             return exit_codes.GENERIC
         packages, subdomains = queries.domain_members(conn, args.name)
+        children, eff = queries.children_for(conn, kind="domain", name=desc.name, depth=getattr(args, "depth", None))
     finally:
         conn.close()
 
-    print(_render.format_domain(desc, packages, subdomains, fmt=args.fmt))
+    print(_render.format_domain(desc, packages, subdomains, fmt=args.fmt, children=children, effective_depth=eff))
     return exit_codes.SUCCESS

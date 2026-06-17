@@ -23,10 +23,11 @@ def run(args: NameArgs) -> int:
         return exit_codes.SCHEMA_MISMATCH
     try:
         desc = queries.describe_package(conn, name=args.name)
+        if desc is None:
+            print(f"error: package not found: {args.name}", file=sys.stderr)
+            return exit_codes.GENERIC
+        children, eff = queries.children_for(conn, kind="package", name=desc.name, depth=getattr(args, "depth", None))
     finally:
         conn.close()
-    if desc is None:
-        print(f"error: package not found: {args.name}", file=sys.stderr)
-        return exit_codes.GENERIC
-    print(_render.format_package(desc, fmt=args.fmt))
+    print(_render.format_package(desc, fmt=args.fmt, children=children, effective_depth=eff))
     return exit_codes.SUCCESS
