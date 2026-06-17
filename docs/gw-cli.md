@@ -231,10 +231,6 @@ Show callers of / callees of a symbol.
 - Argument: `<name>` **(required)** — symbol name.
 - `--depth INT` (default `3`) — traversal depth.
 
-### `gw graph imports <path>`
-
-Show imports for a path. Argument: `<path>` **(required)**. No flags.
-
 ### `gw graph imported-by <path>`
 
 Show files that import a path.
@@ -242,10 +238,6 @@ Show files that import a path.
 - Argument: `<path>` **(required)**.
 - `--symbol TEXT` — restrict to importers of a specific symbol.
 - `--depth INT` (default `1`) — traversal depth.
-
-### `gw graph exports <path>`
-
-Show exports from a path. Argument: `<path>` **(required)**. No flags.
 
 ### `gw graph exported-by <name>`
 
@@ -259,6 +251,8 @@ Describe a graph entity. Kind is inferred from the selector when `--kind` is omi
 - `--kind` / `-k` — one of `package`, `app`, `domain`, `suite`, `dependency`,
   `agent-plugin`, `entry-point`, `builtin`, `path`, `repo`.
 - `--ecosystem TEXT` — dependency ecosystem (use with `--kind dependency`).
+
+When `--kind path` is used, the output includes the file's imports (module name and resolved path) and exports (kind, name, and line number) inline.
 
 Inference when `--kind` is omitted:
 
