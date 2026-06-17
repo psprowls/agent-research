@@ -11,8 +11,13 @@
   relationships
     packages: mypkg, pyutil
   
+  children (depth 1)
+  ├─ app:local/repo/mypkg
+  └─ pkg:local/repo/pyutil
+  
   → gw graph domain-refs core
   → gw graph domain-deps core
+  → gw graph describe core --depth 2
   
   '''
 # ---
@@ -42,8 +47,13 @@
     files:    1
     counts:   1 function
   
+  children (depth 1)
+  ├─ file:local/repo/packages/commonlib/pyproject.toml
+  └─ file:local/repo/packages/commonlib/src/commonlib/__init__.py
+  
   → gw graph what-tests commonlib
   → gw graph list-entry-points commonlib
+  → gw graph describe commonlib --depth 2
   
   '''
 # ---
@@ -59,7 +69,11 @@
   relationships
     children: function common (line 1) (11 tokens)
   
+  children (depth 2)
+  └─ packages/commonlib/src/commonlib/__init__.py:1
+  
   → gw graph imported-by packages/commonlib/src/commonlib/__init__.py
+  → gw graph describe packages/commonlib/src/commonlib/__init__.py --depth 3
   
   '''
 # ---
@@ -74,8 +88,16 @@
     owner:          local
     package_count:  4
   
+  children (depth 1)
+  ├─ pkg:local/repo/commonlib
+  ├─ pkg:local/repo/jspkg
+  ├─ app:local/repo/mypkg
+  ├─ pkg:local/repo/pyutil
+  └─ pkg:local/repo/webutil
+  
   → gw graph list --kind package
   → gw graph list --kind app
+  → gw graph describe repo --depth 2
   
   '''
 # ---
@@ -87,6 +109,12 @@
   attributes
     kind:  unit
     files: 1
+  
+  children (depth 2)
+  └─ file:local/repo/packages/mypkg/tests/test_foo.py
+     └─ packages/mypkg/tests/test_foo.py:6
+  
+  → gw graph describe mypkg-unit-tests --depth 3
   
   '''
 # ---
