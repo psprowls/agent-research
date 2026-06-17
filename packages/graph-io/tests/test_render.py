@@ -297,3 +297,142 @@ def test_format_path_json_includes_token_count() -> None:
     desc = PathDescription(path="a.py", children=[], imports=[], role_flags=None, token_count=20)
     out = render.format_path(desc, fmt="json")
     assert json.loads(out)["token_count"] == 20
+
+
+# ── Task 1: describe_block spine builder ────────────────────────────────────
+
+
+def test_pluralize_rules() -> None:
+    assert render._pluralize("function", 2) == "functions"
+    assert render._pluralize("class", 4) == "classes"
+    assert render._pluralize("method", 7) == "methods"
+    assert render._pluralize("type", 3) == "types"
+    assert render._pluralize("function", 1) == "function"  # singular at n==1
+
+
+def test_counts_human_breakdown() -> None:
+    out = render._counts_human({"function": 12, "class": 4, "method": 7})
+    assert out == "12 functions · 4 classes · 7 methods"
+    assert render._counts_human({}) == "(none)"
+
+
+def test_describe_block_human_full() -> None:
+    out = render.describe_block(
+        kind="package",
+        name="graph-io",
+        identity_label="uri",
+        identity_value="pkg:graph-io",
+        attributes=[
+            render.Attr.scalar("language", "language", "python"),
+            render.Attr.scalar("version", "version", "1.8.0"),
+            render.Attr.scalar("files", "files", 23),
+            render.Attr("counts", "counts", "12 functions · 4 classes", {"function": 12, "class": 4}),
+        ],
+        relationships=[
+            render.Rel("internal deps", "internal_dependencies", ["workspace-io", "source-parser"]),
+            render.Rel("internal dependents", "internal_dependents", ["graph-wiki-core"]),
+        ],
+        nav=["gw graph what-tests graph-io", "gw graph list-entry-points graph-io"],
+        fmt="human",
+    )
+    expected = (
+        "package graph-io\n"
+        "  uri: pkg:graph-io\n"
+        "\n"
+        "attributes\n"
+        "  language: python\n"
+        "  version:  1.8.0\n"
+        "  files:    23\n"
+        "  counts:   12 functions · 4 classes\n"
+        "\n"
+        "relationships\n"
+        "  internal deps:       workspace-io, source-parser\n"
+        "  internal dependents: graph-wiki-core\n"
+        "\n"
+        "→ gw graph what-tests graph-io\n"
+        "→ gw graph list-entry-points graph-io"
+    )
+    assert out == expected
+
+
+def test_describe_block_human_omits_empty_sections() -> None:
+    out = render.describe_block(
+        kind="test_suite",
+        name="graph-io-tests",
+        identity_label="uri",
+        identity_value="test://graph-io-tests",
+        attributes=[render.Attr.scalar("kind", "kind", "pytest")],
+        relationships=[],
+        nav=[],
+        fmt="human",
+    )
+    assert out == ("test_suite graph-io-tests\n  uri: test://graph-io-tests\n\nattributes\n  kind: pytest")
+    assert "relationships" not in out
+    assert "→" not in out
+
+
+def test_describe_block_json_mirrors_spine() -> None:
+    out = render.describe_block(
+        kind="package",
+        name="graph-io",
+        identity_label="uri",
+        identity_value="pkg:graph-io",
+        attributes=[
+            render.Attr.scalar("files", "files", 23),
+            render.Attr("counts", "counts", "ignored-in-json", {"function": 12}),
+        ],
+        relationships=[render.Rel("domains", "domains", ["graph"])],
+        nav=["gw graph what-tests graph-io"],
+        fmt="json",
+    )
+    assert json.loads(out) == {
+        "kind": "package",
+        "name": "graph-io",
+        "uri": "pkg:graph-io",
+        "attributes": {"files": 23, "counts": {"function": 12}},
+        "relationships": {"domains": ["graph"]},
+        "nav": ["gw graph what-tests graph-io"],
+    }
+
+
+def test_describe_block_json_empty_sections_present() -> None:
+    out = render.describe_block(
+        kind="repository",
+        name="r",
+        identity_label="uri",
+        identity_value="repo://r",
+        attributes=[],
+        relationships=[],
+        nav=[],
+        fmt="json",
+    )
+    parsed = json.loads(out)
+    assert parsed["attributes"] == {} and parsed["relationships"] == {} and parsed["nav"] == []
+
+
+def test_describe_block_scalar_none_renders_none() -> None:
+    out = render.describe_block(
+        kind="domain",
+        name="d",
+        identity_label="uri",
+        identity_value="dom://d",
+        attributes=[render.Attr.scalar("parent", "parent", None)],
+        relationships=[],
+        nav=[],
+        fmt="human",
+    )
+    assert "  parent: (none)" in out
+
+
+def test_describe_block_invalid_fmt() -> None:
+    with pytest.raises(ValueError):
+        render.describe_block(
+            kind="x",
+            name="y",
+            identity_label="uri",
+            identity_value="z",
+            attributes=[],
+            relationships=[],
+            nav=[],
+            fmt="xml",
+        )

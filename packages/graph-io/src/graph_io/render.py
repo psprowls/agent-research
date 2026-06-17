@@ -13,7 +13,7 @@ from __future__ import annotations
 import dataclasses
 import json as _json
 from collections.abc import Mapping
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, NamedTuple
 
 
 def _to_dict(record: Any) -> dict[str, Any]:
@@ -55,6 +55,109 @@ def _importer_json(rows: list[Any]) -> str:
         else:
             flat.append({"path": r.path, "symbol": None, "depth": r.depth})
     return _json.dumps(flat, default=str)
+
+
+class Attr(NamedTuple):
+    """One attributes-block entry. `human` is the pre-rendered human value;
+    `json` is the raw value placed under `key` in JSON output."""
+
+    label: str
+    key: str
+    human: str
+    json: object
+
+    @classmethod
+    def scalar(cls, label: str, key: str, value: object) -> "Attr":
+        human = "(none)" if value is None or value == "" else str(value)
+        return cls(label, key, human, value)
+
+    @classmethod
+    def joined(cls, label: str, key: str, values: list[str]) -> "Attr":
+        return cls(label, key, ", ".join(values) or "(none)", list(values))
+
+
+class Rel(NamedTuple):
+    """One relationships-block entry. Human renders as a comma-joined list;
+    JSON places `values` under `key`."""
+
+    label: str
+    key: str
+    values: list[str]
+
+
+def _pluralize(word: str, n: int) -> str:
+    if n == 1:
+        return word
+    if word.endswith(("s", "x", "z", "ch", "sh")):
+        return word + "es"
+    if word.endswith("y") and word[-2:-1] not in "aeiou":
+        return word[:-1] + "ies"
+    return word + "s"
+
+
+def _counts_human(counts: dict[str, int]) -> str:
+    if not counts:
+        return "(none)"
+    return " · ".join(f"{n} {_pluralize(k, n)}" for k, n in counts.items())
+
+
+def _aligned_block(title: str, pairs: list[tuple[str, str]]) -> list[str]:
+    """Render a titled block: title line then `  label: value` lines aligned to
+    the widest label. Returns [] when pairs is empty (caller omits the section)."""
+    if not pairs:
+        return []
+    width = max(len(label) for label, _ in pairs)
+    lines = [title]
+    for label, value in pairs:
+        lines.append(f"  {(label + ':').ljust(width + 1)} {value}")
+    return lines
+
+
+def describe_block(
+    *,
+    kind: str,
+    name: str,
+    identity_label: str,
+    identity_value: str,
+    attributes: list[Attr],
+    relationships: list[Rel],
+    nav: list[str],
+    fmt: str,
+) -> str:
+    """Single sectioned-spine builder shared by every format_<kind>.
+
+    Human: `<kind> <name>` header, indented identity line, then the present
+    `attributes`/`relationships`/nav sections (empty sections omitted), each
+    separated by a blank line, labels aligned within their block.
+    JSON: {kind, name, <identity_label>, attributes, relationships, nav} —
+    empty sections kept as {}/[] for a stable machine shape.
+    """
+    if fmt == "json":
+        payload: dict[str, object] = {
+            "kind": kind,
+            "name": name,
+            identity_label: identity_value,
+            "attributes": {a.key: a.json for a in attributes},
+            "relationships": {r.key: r.values for r in relationships},
+            "nav": list(nav),
+        }
+        return _json.dumps(payload, default=str)
+    if fmt != "human":
+        raise ValueError(f"unknown format: {fmt!r}")
+
+    lines = [f"{kind} {name}", f"  {identity_label}: {identity_value}"]
+    attr_lines = _aligned_block("attributes", [(a.label, a.human) for a in attributes])
+    if attr_lines:
+        lines.append("")
+        lines.extend(attr_lines)
+    rel_lines = _aligned_block("relationships", [(r.label, ", ".join(r.values)) for r in relationships])
+    if rel_lines:
+        lines.append("")
+        lines.extend(rel_lines)
+    if nav:
+        lines.append("")
+        lines.extend(f"→ {cmd}" for cmd in nav)
+    return "\n".join(lines)
 
 
 def render(
