@@ -63,6 +63,16 @@ _VALID_APP_KINDS = frozenset({"cli", "electron", "expo", "nextjs", "spa"})
 
 _RESOLVED_FILTER = "(e.attrs_json IS NULL OR json_extract(e.attrs_json, '$.resolution') != 'unresolved')"
 
+# Prunes a candidate symbol whose file is a test file. `is_test` lives only on
+# `file` nodes (graph_io.import_scan via structural_nodes._is_test_path); a
+# definition node carries a `path`, so we join that path back to its file node.
+# `{alias}` is the candidate node alias (`src` for callers, `dst` for callees).
+_NON_TEST_FILTER = (
+    "NOT EXISTS (SELECT 1 FROM nodes f WHERE f.kind='file' "
+    "AND f.path = {alias}.path "
+    "AND json_extract(f.attrs_json, '$.is_test') = 1)"
+)
+
 # Recursive CTE: yields the id of the named Domain and every descendant
 # reachable via `domain_contains_domain` edges. The first ?-parameter is the
 # domain name. `UNION` (not `UNION ALL`) provides defence-in-depth against a
@@ -503,6 +513,11 @@ def describe_symbol(
     Returns None if no node matches. Supply `path` and `line` to pin an exact
     node; omit them to accept the first match. `kind` is the DB node kind
     (function/class/method/type). `conn` must be opened read-only.
+
+    The dossier's `callers`/`callees` intentionally exclude test-file symbols:
+    per decision D4, `describe` inherits the default-exclude and has no opt-in.
+    To see test-file callers/callees, use `gw graph callers <name>
+    --include-tests` directly.
     """
     where = ["kind = ?", "name = ?"]
     params: list = [kind, name]
@@ -547,18 +562,37 @@ def describe_symbol(
     )
 
 
-def callers(conn: sqlite3.Connection, *, name: str, depth: int = 3) -> list[CallRecord]:
+def callers(
+    conn: sqlite3.Connection,
+    *,
+    name: str,
+    depth: int = 3,
+    include_test_files: bool = False,
+) -> list[CallRecord]:
+    # D2 prune: when include_test_files is False, cut test-file callers out of
+    # the walk (base AND recursive), severing paths that reach `name` only
+    # through a test node. When True, BOTH the candidate JOIN and the filter
+    # are omitted, so the opt-in query is structurally identical to the
+    # pre-flag query (no extra JOIN that could alter results).
+    if include_test_files:
+        src_join = ""
+        src_filter = ""
+    else:
+        src_join = "JOIN nodes src ON e.src = src.id"
+        src_filter = f" AND {_NON_TEST_FILTER.format(alias='src')}"
     rows = conn.execute(
         f"""
         WITH RECURSIVE c(id, depth) AS (
             SELECT e.src, 1 FROM edges e
             JOIN nodes target ON e.dst = target.id
+            {src_join}
             WHERE e.kind='calls' AND target.name = ? AND target.path IS NOT NULL
-              AND {_RESOLVED_FILTER}
+              AND {_RESOLVED_FILTER}{src_filter}
             UNION
             SELECT e.src, c.depth + 1 FROM edges e
             JOIN c ON e.dst = c.id
-            WHERE e.kind='calls' AND c.depth < ? AND {_RESOLVED_FILTER}
+            {src_join}
+            WHERE e.kind='calls' AND c.depth < ? AND {_RESOLVED_FILTER}{src_filter}
         )
         SELECT n.name, n.path, n.line, MIN(c.depth)
         FROM c JOIN nodes n ON c.id = n.id
@@ -571,18 +605,37 @@ def callers(conn: sqlite3.Connection, *, name: str, depth: int = 3) -> list[Call
     return [CallRecord(name=r[0], path=r[1], line=r[2], depth=r[3]) for r in rows]
 
 
-def callees(conn: sqlite3.Connection, *, name: str, depth: int = 3) -> list[CallRecord]:
+def callees(
+    conn: sqlite3.Connection,
+    *,
+    name: str,
+    depth: int = 3,
+    include_test_files: bool = False,
+) -> list[CallRecord]:
+    # D2 prune: walk e.dst (the callee); cut test-file callees out of the walk
+    # in both cases when include_test_files is False. When True, BOTH the dst
+    # JOIN and the filter are omitted (see callers() for rationale).
+    # Note: the base arm already JOINs `src` (for `src.name = ?`); `dst_join`
+    # adds a distinct `dst` alias that the filter reads `dst.path` from.
+    if include_test_files:
+        dst_join = ""
+        dst_filter = ""
+    else:
+        dst_join = "JOIN nodes dst ON e.dst = dst.id"
+        dst_filter = f" AND {_NON_TEST_FILTER.format(alias='dst')}"
     rows = conn.execute(
         f"""
         WITH RECURSIVE c(id, depth) AS (
             SELECT e.dst, 1 FROM edges e
             JOIN nodes src ON e.src = src.id
+            {dst_join}
             WHERE e.kind='calls' AND src.name = ? AND src.path IS NOT NULL
-              AND {_RESOLVED_FILTER}
+              AND {_RESOLVED_FILTER}{dst_filter}
             UNION
             SELECT e.dst, c.depth + 1 FROM edges e
             JOIN c ON e.src = c.id
-            WHERE e.kind='calls' AND c.depth < ? AND {_RESOLVED_FILTER}
+            {dst_join}
+            WHERE e.kind='calls' AND c.depth < ? AND {_RESOLVED_FILTER}{dst_filter}
         )
         SELECT n.name, n.path, n.line, MIN(c.depth)
         FROM c JOIN nodes n ON c.id = n.id
