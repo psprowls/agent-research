@@ -108,6 +108,9 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             package_name, _, entry_name = identifier.partition(":")
             result = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
             return _render.format_entry_point(result, fmt="human") if result else _missing(kind, identifier)
+        # Unreachable today (every _DESCRIBE_KINDS value has a branch above); guards
+        # against a future kind added to the enum without a matching branch leaking None.
+        return f"error: unhandled kind '{kind}'"
 
     @tool
     def cg_callers(name: str, depth: int = 3) -> str:
