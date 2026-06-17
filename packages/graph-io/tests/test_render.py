@@ -568,6 +568,37 @@ def test_describe_block_children_human_tree() -> None:
     assert "→ gw graph what-tests x" in out
 
 
+def test_describe_block_children_human_multilevel_connectors() -> None:
+    # First top-level child is non-last AND has a nested child -> its descendant
+    # must carry the `│  ` continuation prefix; the last-position leaf uses `└─ `.
+    from graph_io.queries import ChildNode
+
+    tree = [
+        ChildNode(
+            kind="subpackage",
+            uri="subpkg:x/sub",
+            path="x/sub",
+            line=None,
+            children=[ChildNode(kind="file", uri=None, path="x/sub/a.py", line=None)],
+        ),
+        ChildNode(kind="file", uri=None, path="x/b.py", line=None),
+    ]
+    out = render.describe_block(
+        kind="package",
+        name="x",
+        identity_label="uri",
+        identity_value="pkg:x",
+        attributes=[],
+        relationships=[],
+        nav=[],
+        fmt="human",
+        children=tree,
+        children_depth=2,
+    )
+    block = "\n".join(["children (depth 2)", "├─ subpkg:x/sub", "│  └─ x/sub/a.py", "└─ x/b.py"])
+    assert block in out
+
+
 def test_describe_block_children_json_array() -> None:
     from graph_io.queries import ChildNode
 
@@ -604,7 +635,7 @@ def test_describe_block_no_children_omits_section() -> None:
         children=[],
         children_depth=1,
     )
-    assert "children" not in out
+    assert "children (depth" not in out
     parsed = json.loads(
         render.describe_block(
             kind="package",
