@@ -262,6 +262,9 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             return exit_codes.SUCCESS, _render.format_app(desc, fmt="human"), ""
 
         if kind == "dependency":
+            # Core receives no ecosystem arg, so it uses the "ecosystem/name" prefix
+            # convention (e.g. "npm/react"); bare names default to "pypi". MCP/CLI
+            # callers should pass the qualified form for non-pypi dependencies.
             if "/" in identifier:
                 ecosystem, _, dep_name = identifier.partition("/")
             else:

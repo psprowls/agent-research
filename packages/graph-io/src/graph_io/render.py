@@ -3,9 +3,11 @@
 Public formatter module for graph_io. Shared by graph-wiki-cli's gw graph
 modules and other graph-wiki surfaces without pulling CLI code back into graph-io.
 
-Per-kind formatters (format_package, format_path, format_repo, format_domain,
-format_entry_point, format_suite) extracted from the corresponding q_describe_*.py
-inline printers to form a single source of truth (D-02).
+Per-kind formatters (format_package, format_app, format_path, format_repo,
+format_domain, format_entry_point, format_suite, format_dependency,
+format_builtin, format_agent_plugin, format_symbol, format_matches) extracted
+from the corresponding q_describe_*.py inline printers to form a single source
+of truth (D-02).
 """
 
 from __future__ import annotations
@@ -264,7 +266,7 @@ def format_package(desc: Any, fmt: str) -> str:
 
 
 def format_app(desc: Any, fmt: str) -> str:
-    """Format an AppDescription on the sectioned spine (Phase 50 fields)."""
+    """Format an AppDescription on the sectioned spine (including app_kind and signals)."""
     rels: list[Rel] = []
     if desc.domains:
         rels.append(Rel("domains", "domains", list(desc.domains)))

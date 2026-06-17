@@ -1,15 +1,10 @@
 """gw graph describe-entry-point <name>
 
 Looks up an EntryPoint by name. Accepts either a bare entry-point name
-(unique across all packages) or a qualified ``package:entry`` form. The bare
-form resolves by scanning all packages declaring an EntryPoint with that name;
-if multiple matches are found, returns AMBIGUOUS with the candidates listed.
-
-Note: Phase 38 RESEARCH §3 documented the underlying ``queries.describe_entry_point``
-as ``(conn, name=...)`` but the actual signature is
-``(conn, package_name=..., entry_name=...)``. This module bridges the gap so the
-agent-side dispatch table can pass a single identifier (D-09) while the
-underlying query still receives both fields it needs.
+(unique across all packages) or a qualified ``package:entry`` form. Bare-name
+resolution and ambiguity detection are handled by ``queries.resolve_entry_point``:
+it scans all packages declaring an EntryPoint with that name and, if multiple
+matches are found, returns the candidates so this module can report AMBIGUOUS.
 """
 
 from __future__ import annotations

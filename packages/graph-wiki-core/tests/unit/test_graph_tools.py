@@ -187,6 +187,7 @@ def test_cg_describe_matches_run_describe_spine(seeded_graph_workspace) -> None:
     finally:
         conn.close()
 
+    # run_describe ignores the repo arg for describe, so the workspace is passed for both.
     _, run_out, _ = graph_module.run_describe("package", "commonlib", seeded_graph_workspace, seeded_graph_workspace)
     assert cg_out.strip() == run_out.strip()
     assert cg_out.startswith("package commonlib\n  uri: pkg:commonlib")

@@ -21,7 +21,18 @@ class Row:
 
 
 def test_render_module_has_all_format_functions() -> None:
-    for name in ["format_package", "format_path", "format_repo", "format_domain", "format_entry_point", "format_suite"]:
+    for name in [
+        "format_package",
+        "format_path",
+        "format_repo",
+        "format_domain",
+        "format_entry_point",
+        "format_suite",
+        "format_app",
+        "format_dependency",
+        "format_builtin",
+        "format_agent_plugin",
+    ]:
         assert hasattr(render, name), f"render.{name} missing"
 
 

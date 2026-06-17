@@ -1,8 +1,11 @@
 """Librarian grounding tools — 5 @tool callables wrapping graph_io.queries.
 
 Built via `build_graph_tools(conn)` factory that captures the connection in
-closure scope (LIBTOOLS-03). All tools return strings (LIBTOOLS-02) and route
-results through `graph_io.render.render(...)` with a 50-row cap.
+closure scope (LIBTOOLS-03). All tools return strings (LIBTOOLS-02). The
+multi-row tools (`cg_find`/`cg_callers`/`cg_callees`/`cg_imports`) route results
+through `graph_io.render.render(...)` with a 50-row cap; `cg_describe` renders
+each entity via the per-kind `graph_io.render.format_<kind>` spine formatters
+(the sectioned spine).
 
 Decision references: D-01..D-12 in .planning/phases/37-librarian-grounding-tools/37-CONTEXT.md.
 """
@@ -67,7 +70,11 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
 
         Args:
             kind: one of package|path|repository|domain|entry_point|test_suite.
-            identifier: string; ignored when kind=repository.
+            identifier: string; ignored when kind=repository. For
+                entry_point, the qualified ``package:entry`` form is required
+                (bare entry names are not resolved here — the CLI/core router
+                handles bare names; this grounding tool requires the qualified
+                form).
         """
         if kind not in _DESCRIBE_KINDS:
             valid = ", ".join(_DESCRIBE_KINDS)
@@ -92,14 +99,15 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
                 return _missing(kind, identifier)
             packages, subdomains = queries.domain_members(conn, identifier)
             return _render.format_domain(result, packages, subdomains, fmt="human")
-        # entry_point: needs "<package>:<entry>". Reject other shapes with the
-        # standard not-found string so the LLM gets a recoverable signal (D-12)
-        # rather than an exception.
-        if ":" not in identifier:
-            return _missing(kind, identifier)
-        package_name, _, entry_name = identifier.partition(":")
-        result = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
-        return _render.format_entry_point(result, fmt="human") if result else _missing(kind, identifier)
+        if kind == "entry_point":
+            # entry_point: needs "<package>:<entry>". Reject other shapes with the
+            # standard not-found string so the LLM gets a recoverable signal (D-12)
+            # rather than an exception.
+            if ":" not in identifier:
+                return _missing(kind, identifier)
+            package_name, _, entry_name = identifier.partition(":")
+            result = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
+            return _render.format_entry_point(result, fmt="human") if result else _missing(kind, identifier)
 
     @tool
     def cg_callers(name: str, depth: int = 3) -> str:
