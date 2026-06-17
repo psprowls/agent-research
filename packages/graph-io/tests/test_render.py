@@ -211,3 +211,36 @@ def test_format_matches_human_and_json() -> None:
     assert "gw graph describe run --kind class --in-package foo" in human
     parsed = json.loads(render.format_matches(rows, "json"))
     assert [r["kind"] for r in parsed] == ["function", "class"]
+
+
+def test_format_path_human_shows_imports_and_exports() -> None:
+    from graph_io.queries import ExportRecord, NodeRecord, PathDescription
+
+    desc = PathDescription(
+        path="foo/a.py",
+        children=[NodeRecord(kind="function", name="alpha", path="foo/a.py", line=10, attrs={})],
+        imports=[NodeRecord(kind="file", name="b.py", path="foo/b.py", line=None, attrs={})],
+        role_flags=None,
+        exports=[ExportRecord(name="alpha", kind="function", line=10)],
+    )
+    out = render.format_path(desc, "human")
+    assert "imports:" in out
+    assert "b.py  foo/b.py" in out
+    assert "exports:" in out
+    assert "function  alpha  line 10" in out
+
+
+def test_format_path_json_includes_exports() -> None:
+    import json
+
+    from graph_io.queries import ExportRecord, PathDescription
+
+    desc = PathDescription(
+        path="a.py",
+        children=[],
+        imports=[],
+        role_flags=None,
+        exports=[ExportRecord(name="alpha", kind="function", line=10)],
+    )
+    parsed = json.loads(render.format_path(desc, "json"))
+    assert parsed["exports"] == [{"name": "alpha", "kind": "function", "line": 10}]

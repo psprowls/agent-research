@@ -27,10 +27,8 @@ from graph_wiki_cli.graph_cli import (
     q_domain_deps,
     q_domain_refs,
     q_exported_by,
-    q_exports,
     q_find,
     q_imported_by,
-    q_imports,
     q_list,
     q_list_entry_points,
     q_what_tests,
@@ -139,12 +137,6 @@ def callees_cmd(ctx: typer.Context, name: str, depth: int = typer.Option(3, "--d
     _run(q_callees, ctx, name=name, depth=depth)
 
 
-@graph_app.command(name="imports")
-def imports_cmd(ctx: typer.Context, path: str) -> None:
-    """Show imports for a path."""
-    _run(q_imports, ctx, path=path)
-
-
 @graph_app.command(name="imported-by")
 def imported_by_cmd(
     ctx: typer.Context,
@@ -154,12 +146,6 @@ def imported_by_cmd(
 ) -> None:
     """Show files that import a path."""
     _run(q_imported_by, ctx, path=path, symbol=symbol, depth=depth)
-
-
-@graph_app.command(name="exports")
-def exports_cmd(ctx: typer.Context, path: str) -> None:
-    """Show exports from a path."""
-    _run(q_exports, ctx, path=path)
 
 
 @graph_app.command(name="exported-by")

@@ -2,15 +2,17 @@
 
 Seeds a minimal repo with a Python package + pyproject + domains.yaml +
 executable script, then runs `gw graph update --full` once. Each parametrized
-test then runs one of the 13 pre-existing subcommands with reasonable
+test then runs one of the 11 pre-existing subcommands with reasonable
 args resolved from the seeded DB and asserts a 0 exit code.
 
 The 7 subcommands listed in SC#5 are covered by
-`test_pre_existing_subcommand_exits_zero`. The other 6 pre-existing
+`test_pre_existing_subcommand_exits_zero`. The other 4 pre-existing
 subcommands not in SC#5 are covered by
 `test_unlisted_pre_existing_subcommand_exits_zero` as a bonus assertion
 (D-16). Any subcommand that genuinely requires complex setup beyond the
 fixture is marked xfail with a documented reason rather than removed.
+Note: `imports` and `exports` were folded into `describe path` (2026-06-16)
+and are no longer registered commands.
 """
 
 from __future__ import annotations
@@ -138,21 +140,21 @@ def test_find_positional_form_errors(post_phase33_fixture: FixtureRefs) -> None:
     assert "unexpected extra argument" in result.stderr.lower(), result.stderr
 
 
-# Bonus assertion (D-16) — covers the 6 pre-existing subcommands not
+# Bonus assertion (D-16) — covers the 4 pre-existing subcommands not
 # listed in SC#5. sync-wiki requires a configured wiki target so we
 # mark it xfail rather than synthesize one.
+# Note: `imports` and `exports` were folded into `describe path` (2026-06-16)
+# and are no longer registered commands.
 @pytest.mark.parametrize(
     "kind",
-    ["imports", "imported-by", "exports", "exported-by", "dump", "sync-wiki"],
+    ["imported-by", "exported-by", "dump", "sync-wiki"],
 )
 def test_unlisted_pre_existing_subcommand_exits_zero(post_phase33_fixture: FixtureRefs, kind: str) -> None:
     refs = post_phase33_fixture
     if kind == "sync-wiki":
         pytest.xfail("sync-wiki requires a configured wiki target; see Phase 14")
     args_by_cmd: dict[str, list[str]] = {
-        "imports": ["imports", refs.file_path],
         "imported-by": ["imported-by", refs.file_path],
-        "exports": ["exports", refs.file_path],
         "exported-by": ["exported-by", refs.symbol_id],
         "dump": ["dump"],
         "sync-wiki": ["sync-wiki"],

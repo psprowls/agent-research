@@ -68,9 +68,19 @@ def test_callees(populated_repo: Path) -> None:
     assert "beta" in res.stdout
 
 
-def test_imports(populated_repo: Path) -> None:
-    res = _cg(["imports", "src/a.py"], populated_repo)
-    assert res.returncode == 0
+def test_imports_exports_commands_removed(populated_repo: Path) -> None:
+    for argv in (["imports", "src/a.py"], ["exports", "src/a.py"]):
+        res = _cg(argv, populated_repo)
+        assert res.returncode != 0
+        assert "no such command" in res.stderr.lower()
+
+
+def test_describe_path_shows_imports_and_exports(populated_repo: Path) -> None:
+    res = _cg(["describe", "src/a.py", "--kind", "path"], populated_repo)
+    assert res.returncode == 0, res.stderr
+    assert "imports:" in res.stdout
+    assert "exports:" in res.stdout
+    assert "alpha" in res.stdout  # exported symbol from src/a.py
 
 
 def test_describe_package(populated_repo: Path) -> None:
@@ -131,14 +141,6 @@ def test_imported_by_json(populated_repo: Path) -> None:
     assert isinstance(data, list)
     assert any(r["path"] == "src/b.py" for r in data)
     assert all({"path", "symbol", "depth"} <= set(r) for r in data)
-
-
-def test_exports(populated_repo: Path) -> None:
-    res = _cg(["--fmt", "json", "exports", "src/a.py"], populated_repo)
-    assert res.returncode == 0, res.stderr
-    data = json.loads(res.stdout)
-    names = {r["name"] for r in data}
-    assert "alpha" in names
 
 
 def test_exported_by(populated_repo: Path) -> None:
