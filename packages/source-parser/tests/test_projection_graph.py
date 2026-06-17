@@ -64,3 +64,18 @@ def test_graph_projection(language, fname):
     expected = _substitute(expected, str(fixture))
     assert actual["nodes"] == expected["nodes"]
     assert sorted(map(json.dumps, actual["edges"])) == sorted(map(json.dumps, expected["edges"]))
+
+
+def test_emit_node_carries_byte_offsets() -> None:
+    fixture = FIXTURES_ROOT / "python" / "basic_function.py"
+    tree = parse_file(fixture, package="fixtures")
+    records = to_graph_records(tree)
+
+    file_node = next(n for n in records.nodes if n.kind == "file")
+    assert file_node.start_byte == 0
+    assert file_node.end_byte is not None and file_node.end_byte > 0
+
+    fn = next(n for n in records.nodes if n.kind == "function" and n.name == "greet")
+    assert fn.start_byte is not None
+    assert fn.end_byte is not None
+    assert fn.end_byte > fn.start_byte

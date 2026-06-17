@@ -15,7 +15,7 @@ from source_parser.projections.graph import to_graph_records
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
 
-from graph_io import _ignore, builtins, packages, resolve, schema, store, upsert
+from graph_io import _ignore, builtins, packages, resolve, schema, store, tokens, upsert
 from graph_io.uri import RepoContext, parse_remote_url
 
 # The `.graph-wiki/` dir holds only local machine state (graph DB + cache,
@@ -146,6 +146,9 @@ def _process_files(
         for node in records.nodes:
             if node.path is not None:
                 node.attrs.setdefault("language", tree.language)
+            if node.start_byte is not None and node.end_byte is not None:
+                snippet = source[node.start_byte : node.end_byte].decode("utf-8", "replace")
+                node.attrs["token_count"] = tokens.count_tokens(snippet)
         upsert.upsert_records(conn, records)
 
 

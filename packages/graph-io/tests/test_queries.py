@@ -2138,3 +2138,20 @@ def test_describe_symbol_bare_leaf_finds_qualified_method(conn: sqlite3.Connecti
     )
     desc = queries.describe_symbol(conn, kind="method", name="format")
     assert desc is not None and desc.name == "Util.format"
+
+
+def test_describe_symbol_includes_token_count(seeded_db) -> None:
+    desc = queries.describe_symbol(seeded_db, kind="function", name="foo")
+    assert desc is not None
+    assert isinstance(desc.token_count, int)
+    assert desc.token_count > 0
+
+
+def test_describe_path_includes_token_count(seeded_db) -> None:
+    row = seeded_db.execute("SELECT path FROM nodes WHERE kind='file' AND path LIKE '%foo.py' LIMIT 1").fetchone()
+    assert row is not None
+    desc = queries.describe_path(seeded_db, path=row[0])
+    assert desc is not None
+    assert isinstance(desc.token_count, int)
+    assert desc.token_count > 0
+    assert any(c.attrs.get("token_count") for c in desc.children)

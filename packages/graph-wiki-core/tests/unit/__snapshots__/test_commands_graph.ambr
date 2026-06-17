@@ -39,9 +39,11 @@
 # name: test_describe_path_output
   '''
   path: packages/commonlib/src/commonlib/__init__.py
+  tokens: 11
   children:
-    function  common  line 1
+    function  common  line 1  (11 tokens)
   imports:
+  exports:
   
   '''
 # ---

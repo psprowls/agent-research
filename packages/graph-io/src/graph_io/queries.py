@@ -136,6 +136,7 @@ class SymbolDescription:
     package: str | None
     domain: str | None
     exported_from: str | None
+    token_count: int | None = None
     callers: list[CallRecord] = field(default_factory=list)
     callees: list[CallRecord] = field(default_factory=list)
 
@@ -224,6 +225,7 @@ class PathDescription:
     children: list[NodeRecord]
     imports: list[NodeRecord]
     role_flags: dict[str, bool] | None = None
+    token_count: int | None = None
     exports: list[ExportRecord] = field(default_factory=list)
 
 
@@ -536,12 +538,15 @@ def describe_symbol(
         where.append(f"path IN {_FILES_IN_PACKAGE_SUBQUERY}")
         params.append(in_package)
     row = conn.execute(
-        "SELECT kind, name, path, line FROM nodes WHERE " + " AND ".join(where) + " ORDER BY path, line LIMIT 1",
+        "SELECT kind, name, path, line, attrs_json FROM nodes WHERE "
+        + " AND ".join(where)
+        + " ORDER BY path, line LIMIT 1",
         params,
     ).fetchone()
     if row is None:
         return None
-    db_kind, db_name, node_path, node_line = row
+    db_kind, db_name, node_path, node_line, attrs_json = row
+    node_attrs = json.loads(attrs_json) if attrs_json else {}
 
     package = containing_package(conn, path=node_path) if node_path else None
     domain = _first_domain_of_package(conn, package=package) if package else None
@@ -555,6 +560,7 @@ def describe_symbol(
         package=package,
         domain=domain,
         exported_from=exported_from,
+        token_count=node_attrs.get("token_count"),
         callers=callers(conn, name=db_name, depth=1),
         callees=callees(conn, name=db_name, depth=1),
     )
@@ -932,6 +938,7 @@ def describe_path(conn: sqlite3.Connection, *, path: str) -> PathDescription | N
         children=[_row_to_node(r) for r in children_rows],
         imports=[_row_to_node(r) for r in import_rows],
         role_flags=role_flags,
+        token_count=file_attrs.get("token_count"),
         exports=export_records,
     )
 

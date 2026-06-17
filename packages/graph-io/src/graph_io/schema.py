@@ -14,7 +14,8 @@ SCHEMA_VERSION = 2
 # Bumped whenever any node/edge/attr DERIVATION logic changes (e.g. classification.classify,
 # app_kind precedence, derived-edge rules) so existing graphs auto-rebuild without --full.
 # v6: synthetic non-null graph node paths for repository/domain/dependency/manifest nodes.
-DERIVER_VERSION = 6
+# v7: token_count attr on span-bearing nodes (file/class/function/method/type).
+DERIVER_VERSION = 7
 
 _DDL_STATEMENTS = (
     """
