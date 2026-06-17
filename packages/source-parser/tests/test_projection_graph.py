@@ -35,8 +35,10 @@ def _substitute(obj, path_str):
 GRAPH_FIXTURES = [
     ("python", "basic_function.py"),
     ("python", "class_with_decorator.py"),
+    ("python", "same_file_method_collision.py"),
     ("javascript", "basic_function.js"),
     ("javascript", "esm_module.mjs"),
+    ("javascript", "same_file_method_collision.js"),
     ("typescript", "basic_function.ts"),
     ("typescript", "interface_call.ts"),
     ("typescript", "type_exports.ts"),
