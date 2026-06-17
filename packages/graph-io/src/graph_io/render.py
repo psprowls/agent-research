@@ -292,28 +292,43 @@ def format_app(desc: Any, fmt: str) -> str:
     )
 
 
-def format_path(desc: Any, fmt: str) -> str:
-    """Format a PathDescription as human text or JSON.
+def _node_label(rec: Any) -> str:
+    tc = (getattr(rec, "attrs", None) or {}).get("token_count")
+    tok = f" ({tc} tokens)" if tc is not None else ""  # NodeRecord children carry it; ExportRecord has no attrs
+    if getattr(rec, "line", None) is not None:
+        return f"{rec.kind} {rec.name} (line {rec.line}){tok}"
+    return f"{rec.kind} {rec.name}{tok}"
 
-    Extracted from q_describe_path.py lines 39-46.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [f"path: {desc.path}"]
-    if desc.token_count is not None:
-        lines.append(f"tokens: {desc.token_count}")
-    lines.append("children:")
-    for c in desc.children:
-        tc = c.attrs.get("token_count")
-        suffix = f"  ({tc} tokens)" if tc is not None else ""
-        lines.append(f"  {c.kind}  {c.name}  line {c.line}{suffix}")
-    lines.append("imports:")
-    for i in desc.imports:
-        lines.append(f"  {i.name}  {i.path}")
-    lines.append("exports:")
-    for e in desc.exports:
-        lines.append(f"  {e.kind}  {e.name}  line {e.line}")
-    return "\n".join(lines)
+
+def _role_flags_human(role_flags: dict[str, bool] | None) -> str:
+    if not role_flags:
+        return "(none)"
+    on = [k for k, v in role_flags.items() if v]
+    return ", ".join(on) or "(none)"
+
+
+def format_path(desc: Any, fmt: str) -> str:
+    """Format a PathDescription (a file node) on the spine."""
+    attributes = [Attr("role_flags", "role_flags", _role_flags_human(desc.role_flags), desc.role_flags)]
+    if desc.token_count is not None:  # deriver v7 file token_count (Design decision 8)
+        attributes.append(Attr.scalar("tokens", "token_count", desc.token_count))
+    rels: list[Rel] = []
+    if desc.children:
+        rels.append(Rel("children", "children", [_node_label(c) for c in desc.children]))
+    if desc.imports:
+        rels.append(Rel("imports", "imports", [i.name for i in desc.imports]))
+    if desc.exports:
+        rels.append(Rel("exports", "exports", [_node_label(e) for e in desc.exports]))
+    return describe_block(
+        kind="file",
+        name=desc.path,
+        identity_label="path",
+        identity_value=desc.path,
+        attributes=attributes,
+        relationships=rels,
+        nav=[f"gw graph imported-by {desc.path}"],
+        fmt=fmt,
+    )
 
 
 def format_repo(desc: Any, fmt: str) -> str:
@@ -462,30 +477,31 @@ def format_agent_plugin(desc: Any, fmt: str) -> str:
 
 
 def format_symbol(desc: Any, fmt: str) -> str:
-    """Format a SymbolDescription (graph_io.queries) as human text or JSON."""
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    if fmt != "human":
-        raise ValueError(f"unknown format: {fmt!r}")
+    """Format a SymbolDescription (function/class/method/type) on the spine."""
     loc = f"{desc.path}:{desc.line}" if desc.line is not None else (desc.path or "(unknown)")
-    lines = [f"{desc.kind} {desc.name}", f"  path: {loc}"]
-    if desc.token_count is not None:
-        lines.append(f"  tokens: {desc.token_count}")
+    exported = f"yes (from {desc.exported_from})" if desc.exported_from else "no"
+    attributes = [Attr("exported", "exported", exported, bool(desc.exported_from))]
+    if desc.token_count is not None:  # deriver v7 symbol token_count (Design decision 8)
+        attributes.append(Attr.scalar("tokens", "token_count", desc.token_count))
     if desc.package:
-        pkg_line = f"  package: {desc.package}"
-        if desc.domain:
-            pkg_line += f"   domain: {desc.domain}"
-        lines.append(pkg_line)
-    if desc.exported_from:
-        lines.append(f"  exported: yes (from {desc.exported_from})")
-    else:
-        lines.append("  exported: no")
+        attributes.append(Attr.scalar("package", "package", desc.package))
+    if desc.domain:
+        attributes.append(Attr.scalar("domain", "domain", desc.domain))
+    rels: list[Rel] = []
     if desc.callers:
-        lines.append(f"  callers (depth 1): {', '.join(c.name for c in desc.callers)}")
+        rels.append(Rel("callers", "callers", [c.name for c in desc.callers]))
     if desc.callees:
-        lines.append(f"  callees (depth 1): {', '.join(c.name for c in desc.callees)}")
-    lines.append(f"  → deeper: gw graph callers {desc.name} --depth 3")
-    return "\n".join(lines)
+        rels.append(Rel("callees", "callees", [c.name for c in desc.callees]))
+    return describe_block(
+        kind=desc.kind,
+        name=desc.name,
+        identity_label="path",
+        identity_value=loc,
+        attributes=attributes,
+        relationships=rels,
+        nav=[f"gw graph callers {desc.name} --depth 3", f"gw graph callees {desc.name} --depth 3"],
+        fmt=fmt,
+    )
 
 
 def format_matches(records: Iterable[Any], fmt: str) -> str:

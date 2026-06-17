@@ -266,7 +266,7 @@ def test_format_entry_point_no_nav_when_no_path() -> None:
 # ============================================================================
 
 
-def test_format_symbol_human() -> None:
+def test_format_symbol_human_spine() -> None:
     from graph_io.queries import CallRecord, SymbolDescription
 
     desc = SymbolDescription(
@@ -277,21 +277,23 @@ def test_format_symbol_human() -> None:
         package="foo",
         domain="ingest",
         exported_from="foo/__init__.py",
+        token_count=99,
         callers=[CallRecord(name="run_scan", path="foo/a.py", line=1, depth=1)],
         callees=[CallRecord(name="validate", path="foo/a.py", line=80, depth=1)],
     )
     out = render.format_symbol(desc, "human")
-    assert "function process" in out
-    assert "path: foo/a.py:42" in out
-    assert "package: foo" in out
-    assert "domain: ingest" in out
-    assert "exported: yes (from foo/__init__.py)" in out
-    assert "callers (depth 1): run_scan" in out
-    assert "callees (depth 1): validate" in out
-    assert "gw graph callers process --depth 3" in out
+    assert out.startswith("function process\n  path: foo/a.py:42")
+    assert "  exported: yes (from foo/__init__.py)" in out
+    assert "  tokens:" in out and "99" in out  # token_count attribute (Design decision 8)
+    assert "  package:  foo" in out
+    assert "  domain:   ingest" in out
+    assert "  callers: run_scan" in out
+    assert "  callees: validate" in out
+    assert "→ gw graph callers process --depth 3" in out
+    assert "→ gw graph callees process --depth 3" in out
 
 
-def test_format_symbol_graceful_omissions() -> None:
+def test_format_symbol_graceful_omissions_spine() -> None:
     from graph_io.queries import SymbolDescription
 
     desc = SymbolDescription(
@@ -306,15 +308,13 @@ def test_format_symbol_graceful_omissions() -> None:
         callees=[],
     )
     out = render.format_symbol(desc, "human")
-    assert "class Widget" in out
-    assert "exported: no" in out
-    assert "callees" not in out  # omitted gracefully
-    assert "domain:" not in out
+    assert out.startswith("class Widget\n  path: foo/a.py:5")
+    assert "  exported: no" in out
+    assert "tokens:" not in out  # token_count None → attribute omitted (Design decision 8)
+    assert "callers:" not in out and "callees:" not in out  # empty relationships omitted
 
 
-def test_format_symbol_json() -> None:
-    import json
-
+def test_format_symbol_json_spine() -> None:
     from graph_io.queries import SymbolDescription
 
     desc = SymbolDescription(
@@ -322,6 +322,7 @@ def test_format_symbol_json() -> None:
         name="Foo",
         path="a.ts",
         line=3,
+        token_count=15,
         package="p",
         domain=None,
         exported_from=None,
@@ -329,9 +330,10 @@ def test_format_symbol_json() -> None:
         callees=[],
     )
     parsed = json.loads(render.format_symbol(desc, "json"))
-    assert parsed["kind"] == "type"
-    assert parsed["name"] == "Foo"
-    assert parsed["callees"] == []
+    assert parsed["kind"] == "type" and parsed["name"] == "Foo"
+    assert parsed["path"] == "a.ts:3"
+    assert parsed["attributes"]["token_count"] == 15  # moved under attributes (Design decision 8)
+    assert parsed["relationships"] == {}
 
 
 def test_format_matches_human_and_json() -> None:
@@ -352,90 +354,31 @@ def test_format_matches_human_and_json() -> None:
     assert [r["kind"] for r in parsed] == ["function", "class"]
 
 
-def test_format_path_human_shows_imports_and_exports() -> None:
+def test_format_path_spine() -> None:
     from graph_io.queries import ExportRecord, NodeRecord, PathDescription
 
     desc = PathDescription(
         path="foo/a.py",
-        children=[NodeRecord(kind="function", name="alpha", path="foo/a.py", line=10, attrs={})],
+        children=[NodeRecord(kind="function", name="alpha", path="foo/a.py", line=10, attrs={"token_count": 7})],
         imports=[NodeRecord(kind="file", name="b.py", path="foo/b.py", line=None, attrs={})],
-        role_flags=None,
-        exports=[ExportRecord(name="alpha", kind="function", line=10)],
-    )
-    out = render.format_path(desc, "human")
-    assert "imports:" in out
-    assert "b.py  foo/b.py" in out
-    assert "exports:" in out
-    assert "function  alpha  line 10" in out
-
-
-def test_format_path_json_includes_exports() -> None:
-    import json
-
-    from graph_io.queries import ExportRecord, PathDescription
-
-    desc = PathDescription(
-        path="a.py",
-        children=[],
-        imports=[],
-        role_flags=None,
-        exports=[ExportRecord(name="alpha", kind="function", line=10)],
-    )
-    parsed = json.loads(render.format_path(desc, "json"))
-    assert parsed["exports"] == [{"name": "alpha", "kind": "function", "line": 10}]
-
-
-def _symbol_desc(token_count):
-    from graph_io.queries import SymbolDescription
-
-    return SymbolDescription(
-        kind="function",
-        name="foo",
-        path="a.py",
-        line=1,
-        package=None,
-        domain=None,
-        exported_from=None,
-        token_count=token_count,
-    )
-
-
-def test_format_symbol_human_includes_tokens() -> None:
-    out = render.format_symbol(_symbol_desc(42), fmt="human")
-    assert "tokens: 42" in out
-
-
-def test_format_symbol_human_omits_tokens_when_none() -> None:
-    out = render.format_symbol(_symbol_desc(None), fmt="human")
-    assert "tokens" not in out
-
-
-def test_format_symbol_json_includes_token_count() -> None:
-    out = render.format_symbol(_symbol_desc(42), fmt="json")
-    assert json.loads(out)["token_count"] == 42
-
-
-def test_format_path_human_includes_file_and_child_tokens() -> None:
-    from graph_io.queries import NodeRecord, PathDescription
-
-    desc = PathDescription(
-        path="a.py",
-        children=[NodeRecord(kind="function", name="foo", path="a.py", line=1, attrs={"token_count": 7})],
-        imports=[],
-        role_flags=None,
+        role_flags={"is_test": False, "is_init": True},
         token_count=20,
+        exports=[ExportRecord(name="alpha", kind="function", line=10)],
     )
-    out = render.format_path(desc, fmt="human")
-    assert "tokens: 20" in out
-    assert "(7 tokens)" in out
-
-
-def test_format_path_json_includes_token_count() -> None:
-    from graph_io.queries import PathDescription
-
-    desc = PathDescription(path="a.py", children=[], imports=[], role_flags=None, token_count=20)
-    out = render.format_path(desc, fmt="json")
-    assert json.loads(out)["token_count"] == 20
+    human = render.format_path(desc, "human")
+    assert human.startswith("file foo/a.py\n  path: foo/a.py")
+    assert "  role_flags: is_init" in human
+    assert "  tokens:" in human and "20" in human  # file token_count attribute (Design decision 8)
+    assert "  children: function alpha (line 10)" in human
+    assert "(7 tokens)" in human  # per-child token suffix preserved on the children relationship
+    assert "  imports:  b.py" in human
+    assert "  exports:  function alpha (line 10)" in human  # exports carry no attrs → no token suffix
+    assert "→ gw graph imported-by foo/a.py" in human
+    parsed = json.loads(render.format_path(desc, "json"))
+    assert parsed["path"] == "foo/a.py"
+    assert parsed["attributes"]["token_count"] == 20
+    assert parsed["relationships"]["exports"] == ["function alpha (line 10)"]
+    assert parsed["attributes"]["role_flags"] == {"is_test": False, "is_init": True}
 
 
 # ── Task 1: describe_block spine builder ────────────────────────────────────
