@@ -22,7 +22,7 @@
       "package": "fixtures",
       "attrs": {},
       "refs": [
-        {"kind": "call", "target_name": "bar", "target_module": null, "attrs": {"is_member": true}}
+        {"kind": "call", "target_name": "bar", "target_module": null, "attrs": {"is_member": true, "receiver": "f"}}
       ],
       "children": []
     }

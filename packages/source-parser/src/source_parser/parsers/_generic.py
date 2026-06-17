@@ -74,10 +74,14 @@ def _extract_call_target(call_node: tree_sitter.Node, source: bytes, config: Lan
     if fn is None:
         return ("<unknown>", {})
     if fn.type in config.call_member_node_types:
+        attrs: dict = {"is_member": True}
+        obj = fn.child_by_field_name(config.call_member_object_field)
+        if obj is not None:
+            attrs["receiver"] = _text(obj, source)
         prop = fn.child_by_field_name(config.call_member_field)
         if prop is not None:
-            return (_text(prop, source), {"is_member": True})
-        return (_text(fn, source), {"is_member": True})
+            return (_text(prop, source), attrs)
+        return (_text(fn, source), attrs)
     return (_text(fn, source), {"is_member": False})
 
 

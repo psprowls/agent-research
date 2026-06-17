@@ -38,6 +38,7 @@ class LanguageConfig:
     call_function_field: str = "function"
     call_member_node_types: frozenset[str] = frozenset()
     call_member_field: str = "property"
+    call_member_object_field: str = "object"
 
     # Stop recursion at these node types (avoid descending into nested scopes
     # when looking for symbols at one nesting level).

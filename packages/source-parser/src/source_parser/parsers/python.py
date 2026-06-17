@@ -65,13 +65,17 @@ def _calls_in(body: tree_sitter.Node, source: bytes) -> list[Reference]:
                 if fn.type == "attribute":
                     attr = fn.child_by_field_name("attribute")
                     name = _text(attr, source) if attr is not None else _text(fn, source)
+                    attrs: dict = {"is_member": True}
+                    obj = fn.child_by_field_name("object")
+                    if obj is not None:
+                        attrs["receiver"] = _text(obj, source)
                     out.append(
                         Reference(
                             kind="call",
                             target_name=name,
                             target_module=None,
                             site=_span(node),
-                            attrs={"is_member": True},
+                            attrs=attrs,
                         )
                     )
                 else:

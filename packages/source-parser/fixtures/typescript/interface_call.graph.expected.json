@@ -7,6 +7,6 @@
   "edges": [
     {"src": ["file", "PATH", "PATH"], "dst": ["type", "IFoo", "PATH"], "kind": "contains", "attrs": {}},
     {"src": ["file", "PATH", "PATH"], "dst": ["function", "callIt", "PATH"], "kind": "contains", "attrs": {}},
-    {"src": ["function", "callIt", "PATH"], "dst": ["function", "bar", null], "kind": "calls", "attrs": {"is_member": true}}
+    {"src": ["function", "callIt", "PATH"], "dst": ["function", "bar", null], "kind": "calls", "attrs": {"is_member": true, "receiver": "f"}}
   ]
 }
