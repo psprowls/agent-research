@@ -837,3 +837,89 @@ def test_sweep_function_placeholder_resolves_to_type_node_cross_kind(conn: sqlit
     assert path == "types/aws.d.ts"
     assert kind == "type"
     assert json.loads(attrs_json)["resolution"] == "exact"
+
+
+# ---------------------------------------------------------------------------
+# Tests for suffix-aware + exact-qualified resolution in sweep (Task 3)
+# ---------------------------------------------------------------------------
+
+
+def test_sweep_same_file_method_collision_fans_out(conn: sqlite3.Connection) -> None:
+    """Two qualified same-file methods both survive; a bare call fans out (ambiguous)."""
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="function", name="caller", path="a.py", line=1, attrs={}),
+            GraphNode(kind="method", name="Foo.save", path="a.py", line=5, attrs={}),
+            GraphNode(kind="method", name="Bar.save", path="a.py", line=15, attrs={}),
+        ],
+        edges=[
+            GraphEdge(
+                src=("function", "caller", "a.py"),
+                dst=("function", "save", None),
+                kind="calls",
+                attrs={"is_member": True},
+            ),
+        ],
+    )
+    resolve.sweep(conn)
+    rows = conn.execute(
+        "SELECT n2.name, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls' ORDER BY n2.name"
+    ).fetchall()
+    assert [r[0] for r in rows] == ["Bar.save", "Foo.save"]
+    assert all(json.loads(r[1])["resolution"] == "ambiguous" for r in rows)
+    method_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='method' AND name LIKE '%.save'").fetchone()[0]
+    assert method_count == 2
+
+
+def test_sweep_bare_member_call_resolves_unique_method_via_suffix(conn: sqlite3.Connection) -> None:
+    """A bare member call with a uniquely-named qualified target resolves exact via the tier-3 suffix fan-out."""
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="function", name="caller", path="a.py", line=1, attrs={}),
+            GraphNode(kind="method", name="Util.format", path="b.py", line=5, attrs={}),
+        ],
+        edges=[
+            GraphEdge(
+                src=("function", "caller", "a.py"),
+                dst=("function", "format", None),
+                kind="calls",
+                attrs={"is_member": True},
+            ),
+        ],
+    )
+    resolve.sweep(conn)
+    row = conn.execute(
+        "SELECT n2.name, n2.path, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+    ).fetchone()
+    assert row[0] == "Util.format"
+    assert row[1] == "b.py"
+    assert json.loads(row[2])["resolution"] == "exact"
+
+
+def test_sweep_self_call_qualified_target_resolves_exact(conn: sqlite3.Connection) -> None:
+    """A qualified self/this target matches its method node exactly even when a
+    sibling same-leaf method exists (precision, not fan-out)."""
+    _seed(
+        conn,
+        nodes=[
+            GraphNode(kind="method", name="Foo.run", path="a.py", line=2, attrs={}),
+            GraphNode(kind="method", name="Foo.helper", path="a.py", line=5, attrs={}),
+            GraphNode(kind="method", name="Bar.helper", path="a.py", line=12, attrs={}),
+        ],
+        edges=[
+            GraphEdge(
+                src=("method", "Foo.run", "a.py"),
+                dst=("function", "Foo.helper", None),
+                kind="calls",
+                attrs={"is_member": True, "receiver": "self"},
+            ),
+        ],
+    )
+    resolve.sweep(conn)
+    rows = conn.execute(
+        "SELECT n2.name, e.attrs_json FROM edges e JOIN nodes n2 ON e.dst=n2.id WHERE e.kind='calls'"
+    ).fetchall()
+    assert [r[0] for r in rows] == ["Foo.helper"]
+    assert json.loads(rows[0][1])["resolution"] == "exact"

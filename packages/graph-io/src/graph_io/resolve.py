@@ -201,19 +201,46 @@ def sweep(conn: sqlite3.Connection) -> None:
         if not matches:
             # D-3 conservative cross-kind fallback: a same-kind match found
             # nothing. For code-kind placeholders (including the explicit
-            # unresolved_symbol nodes emitted for call/export refs), look up ALL
-            # code-kind nodes graph-wide with this name and resolve ONLY when
-            # EXACTLY ONE exists. 0 → stay unresolved; 2+ (any kinds) → stay
-            # unresolved, never fabricate an ambiguous cross-kind edge (bare
-            # names like get/render collide).
+            # unresolved_symbol nodes emitted for call/export refs):
+            #
+            # Tier 2 — cross-kind EXACT name. Resolve ONLY when exactly 1
+            # candidate. Preserves the historical single-candidate cross-kind
+            # resolution AND the 2+-collision guard (bare colliding names like
+            # get/render stay unresolved). A qualified self/this target
+            # (Foo.helper) emitted pre-qualified by the projection matches its
+            # method node here exactly — precision win even when Bar.helper
+            # exists.
+            #
+            # Tier 3 — suffix fan-out. When tier 2 finds ZERO exact cross-kind
+            # candidates, a bare leaf call (save) reaches every qualified method
+            # node (*.save) via LIKE '%.<leaf>'. Runs ONLY when no exact name
+            # match exists, so it never overrides the collision guard. When
+            # multiple qualified methods share the leaf, all are resolved as
+            # "ambiguous" (same-file collision promoted from unresolved →
+            # ambiguous, which is the correct post-qualification behavior).
+            # Note: LIKE '%.x' cannot use the (kind, name) index (leading
+            # wildcard); acceptable at single-repo graph scale.
             if symbol_kind in _CROSS_KIND_RESOLVABLE:
+                # Leaf = trailing bare segment (Foo.save → save; save → save).
+                leaf = node_name.rsplit(".", 1)[-1]
+
                 cross = conn.execute(
                     "SELECT id FROM nodes WHERE kind IN ('function', 'method', 'class', 'type') "
                     "AND name=? AND path IS NOT NULL",
                     (node_name,),
                 ).fetchall()
                 if len(cross) == 1:
+                    # Tier 2: unique exact name match (including qualified targets).
                     matches = cross
+                elif not cross:
+                    # Tier 3: suffix fan-out — only when no exact match exists.
+                    matches = conn.execute(
+                        "SELECT id FROM nodes WHERE kind IN ('function', 'method', 'class', 'type') "
+                        "AND name LIKE '%.' || ? AND path IS NOT NULL",
+                        (leaf,),
+                    ).fetchall()
+                # cross has 2+ exact candidates: tier 2 collision guard fires →
+                # matches stays empty → falls through to unresolved below.
             if not matches:
                 new_attrs = _set_resolution(attrs_json, "unresolved")
                 conn.execute(
