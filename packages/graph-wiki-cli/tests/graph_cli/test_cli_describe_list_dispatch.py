@@ -153,7 +153,7 @@ def test_describe_infers_dependency_and_autofills_ecosystem(repo_with_pypi_dep: 
     assert res_json.returncode == 0, f"json variant failed: {res_json.stderr}"
     parsed = json.loads(res_json.stdout)
     assert parsed["name"] == "boto3"
-    assert parsed["ecosystem"] == "pypi"
+    assert parsed["attributes"]["ecosystem"] == "pypi"
 
 
 def test_describe_ambiguous_dependency_across_ecosystems(tmp_path: Path) -> None:
@@ -270,7 +270,8 @@ def test_describe_symbol_explicit_kind(repo_with_symbols: Path) -> None:
     res = _cg(["describe", "process", "--kind", "function"], repo_with_symbols)
     assert res.returncode == 0, res.stderr
     assert "function process" in res.stdout
-    assert "callees (depth 1): validate" in res.stdout
+    assert "callees:" in res.stdout
+    assert "validate" in res.stdout
 
 
 def test_describe_symbol_explicit_kind_json(repo_with_symbols: Path) -> None:
@@ -352,8 +353,8 @@ def test_describe_path_line_resolves_symbol(repo_with_symbols: Path) -> None:
     # Discover the line of `process` from its JSON dossier.
     probe = _cg(["--fmt", "json", "describe", "process", "--kind", "function"], repo_with_symbols)
     assert probe.returncode == 0, probe.stderr
-    line = json.loads(probe.stdout)["line"]
-    assert isinstance(line, int)
+    # Spine identity is "<path>:<line>"; extract the line component.
+    line = int(json.loads(probe.stdout)["path"].rsplit(":", 1)[1])
 
     res = _cg(["describe", f"src/demo/a.py:{line}"], repo_with_symbols)
     assert res.returncode == 0, res.stderr

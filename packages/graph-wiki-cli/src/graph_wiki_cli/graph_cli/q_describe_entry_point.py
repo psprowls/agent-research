@@ -1,15 +1,10 @@
 """gw graph describe-entry-point <name>
 
 Looks up an EntryPoint by name. Accepts either a bare entry-point name
-(unique across all packages) or a qualified ``package:entry`` form. The bare
-form resolves by scanning all packages declaring an EntryPoint with that name;
-if multiple matches are found, returns AMBIGUOUS with the candidates listed.
-
-Note: Phase 38 RESEARCH §3 documented the underlying ``queries.describe_entry_point``
-as ``(conn, name=...)`` but the actual signature is
-``(conn, package_name=..., entry_name=...)``. This module bridges the gap so the
-agent-side dispatch table can pass a single identifier (D-09) while the
-underlying query still receives both fields it needs.
+(unique across all packages) or a qualified ``package:entry`` form. Bare-name
+resolution and ambiguity detection are handled by ``queries.resolve_entry_point``:
+it scans all packages declaring an EntryPoint with that name and, if multiple
+matches are found, returns the candidates so this module can report AMBIGUOUS.
 """
 
 from __future__ import annotations
@@ -34,35 +29,16 @@ def run(args: NameArgs) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        raw = args.name
-        if ":" in raw:
-            package_name, entry_name = raw.split(":", 1)
-            desc = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
-        else:
-            # Bare entry name: scan all packages that declare an EntryPoint by this name.
-            rows = conn.execute(
-                "SELECT pkg.name "
-                "FROM nodes pkg "
-                "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
-                "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
-                # Phase 50 D-04: include apps too — apps declare entry points
-                # via the same manifest fields as packages.
-                "WHERE pkg.kind IN ('package', 'app') AND ep.name = ?",
-                (raw,),
-            ).fetchall()
-            if not rows:
-                desc = None
-            elif len(rows) > 1:
-                packages = ", ".join(r[0] for r in rows)
-                print(
-                    f"error: entry point not found: {raw} (ambiguous across packages: {packages}; use 'package:entry')",
-                    file=sys.stderr,
-                )
-                return exit_codes.AMBIGUOUS
-            else:
-                desc = queries.describe_entry_point(conn, package_name=rows[0][0], entry_name=raw)
+        desc, ambiguous = queries.resolve_entry_point(conn, args.name)
     finally:
         conn.close()
+    if ambiguous:
+        packages = ", ".join(ambiguous)
+        print(
+            f"error: entry point not found: {args.name} (ambiguous across packages: {packages}; use 'package:entry')",
+            file=sys.stderr,
+        )
+        return exit_codes.AMBIGUOUS
     if desc is None:
         print(f"error: entry point not found: {args.name}", file=sys.stderr)
         return exit_codes.GENERIC

@@ -78,7 +78,7 @@ def test_imports_exports_commands_removed(populated_repo: Path) -> None:
 def test_describe_path_shows_imports_and_exports(populated_repo: Path) -> None:
     res = _cg(["describe", "src/a.py", "--kind", "path"], populated_repo)
     assert res.returncode == 0, res.stderr
-    assert "imports:" in res.stdout
+    # src/a.py has no imports, so the spine omits that (empty) relationship.
     assert "exports:" in res.stdout
     assert "alpha" in res.stdout  # exported symbol from src/a.py
 
@@ -88,7 +88,7 @@ def test_describe_package(populated_repo: Path) -> None:
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert data["name"] == "demo"
-    assert data["language"] == "python"
+    assert data["attributes"]["language"] == "python"
 
 
 def test_describe_path(populated_repo: Path) -> None:
@@ -96,7 +96,8 @@ def test_describe_path(populated_repo: Path) -> None:
     assert res.returncode == 0
     data = json.loads(res.stdout)
     assert data["path"] == "src/a.py"
-    assert any(c["name"] == "alpha" for c in data["children"])
+    # Spine renders children as label strings, not dicts.
+    assert any("alpha" in c for c in data["relationships"]["children"])
 
 
 def test_query_without_db_returns_3(tmp_path: Path) -> None:

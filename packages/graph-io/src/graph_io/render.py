@@ -3,9 +3,11 @@
 Public formatter module for graph_io. Shared by graph-wiki-cli's gw graph
 modules and other graph-wiki surfaces without pulling CLI code back into graph-io.
 
-Per-kind formatters (format_package, format_path, format_repo, format_domain,
-format_entry_point, format_suite) extracted from the corresponding q_describe_*.py
-inline printers to form a single source of truth (D-02).
+Per-kind formatters (format_package, format_app, format_path, format_repo,
+format_domain, format_entry_point, format_suite, format_dependency,
+format_builtin, format_agent_plugin, format_symbol, format_matches) extracted
+from the corresponding q_describe_*.py inline printers to form a single source
+of truth (D-02).
 """
 
 from __future__ import annotations
@@ -13,7 +15,7 @@ from __future__ import annotations
 import dataclasses
 import json as _json
 from collections.abc import Mapping
-from typing import Any, Callable, Iterable
+from typing import Any, Callable, Iterable, NamedTuple
 
 
 def _to_dict(record: Any) -> dict[str, Any]:
@@ -55,6 +57,109 @@ def _importer_json(rows: list[Any]) -> str:
         else:
             flat.append({"path": r.path, "symbol": None, "depth": r.depth})
     return _json.dumps(flat, default=str)
+
+
+class Attr(NamedTuple):
+    """One attributes-block entry. `human` is the pre-rendered human value;
+    `json` is the raw value placed under `key` in JSON output."""
+
+    label: str
+    key: str
+    human: str
+    json: object
+
+    @classmethod
+    def scalar(cls, label: str, key: str, value: object) -> "Attr":
+        human = "(none)" if value is None or value == "" else str(value)
+        return cls(label, key, human, value)
+
+    @classmethod
+    def joined(cls, label: str, key: str, values: list[str]) -> "Attr":
+        return cls(label, key, ", ".join(values) or "(none)", list(values))
+
+
+class Rel(NamedTuple):
+    """One relationships-block entry. Human renders as a comma-joined list;
+    JSON places `values` under `key`."""
+
+    label: str
+    key: str
+    values: list[str]
+
+
+def _pluralize(word: str, n: int) -> str:
+    if n == 1:
+        return word
+    if word.endswith(("s", "x", "z", "ch", "sh")):
+        return word + "es"
+    if word.endswith("y") and word[-2:-1] not in "aeiou":
+        return word[:-1] + "ies"
+    return word + "s"
+
+
+def _counts_human(counts: dict[str, int]) -> str:
+    if not counts:
+        return "(none)"
+    return " · ".join(f"{n} {_pluralize(k, n)}" for k, n in counts.items())
+
+
+def _aligned_block(title: str, pairs: list[tuple[str, str]]) -> list[str]:
+    """Render a titled block: title line then `  label: value` lines aligned to
+    the widest label. Returns [] when pairs is empty (caller omits the section)."""
+    if not pairs:
+        return []
+    width = max(len(label) for label, _ in pairs)
+    lines = [title]
+    for label, value in pairs:
+        lines.append(f"  {(label + ':').ljust(width + 1)} {value}")
+    return lines
+
+
+def describe_block(
+    *,
+    kind: str,
+    name: str,
+    identity_label: str,
+    identity_value: str,
+    attributes: list[Attr],
+    relationships: list[Rel],
+    nav: list[str],
+    fmt: str,
+) -> str:
+    """Single sectioned-spine builder shared by every format_<kind>.
+
+    Human: `<kind> <name>` header, indented identity line, then the present
+    `attributes`/`relationships`/nav sections (empty sections omitted), each
+    separated by a blank line, labels aligned within their block.
+    JSON: {kind, name, <identity_label>, attributes, relationships, nav} —
+    empty sections kept as {}/[] for a stable machine shape.
+    """
+    if fmt == "json":
+        payload: dict[str, object] = {
+            "kind": kind,
+            "name": name,
+            identity_label: identity_value,
+            "attributes": {a.key: a.json for a in attributes},
+            "relationships": {r.key: r.values for r in relationships},
+            "nav": list(nav),
+        }
+        return _json.dumps(payload, default=str)
+    if fmt != "human":
+        raise ValueError(f"unknown format: {fmt!r}")
+
+    lines = [f"{kind} {name}", f"  {identity_label}: {identity_value}"]
+    attr_lines = _aligned_block("attributes", [(a.label, a.human) for a in attributes])
+    if attr_lines:
+        lines.append("")
+        lines.extend(attr_lines)
+    rel_lines = _aligned_block("relationships", [(r.label, ", ".join(r.values)) for r in relationships])
+    if rel_lines:
+        lines.append("")
+        lines.extend(rel_lines)
+    if nav:
+        lines.append("")
+        lines.extend(f"→ {cmd}" for cmd in nav)
+    return "\n".join(lines)
 
 
 def render(
@@ -121,168 +226,284 @@ def render(
 # ── Per-kind formatters (extracted from q_describe_*.py inline printers) ──────
 
 
-def format_package(desc: Any, fmt: str) -> str:
-    """Format a PackageDescription as human text or JSON.
+def _package_relationships(desc: Any) -> list[Rel]:
+    rels: list[Rel] = []
+    if desc.internal_dependencies:
+        rels.append(Rel("internal deps", "internal_dependencies", list(desc.internal_dependencies)))
+    if desc.internal_dependents:
+        rels.append(Rel("internal dependents", "internal_dependents", list(desc.internal_dependents)))
+    if desc.domains:
+        rels.append(Rel("domains", "domains", list(desc.domains)))
+    if desc.entry_points:
+        rels.append(Rel("entry_points", "entry_points", [ep.name for ep in desc.entry_points]))
+    if desc.test_suites:
+        rels.append(Rel("test_suites", "test_suites", [s.name for s in desc.test_suites]))
+    return rels
 
-    Extracted from q_describe_package.py lines 36-47.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [
-        f"package: {desc.name}",
-        f"language: {desc.language}",
-        f"version:  {desc.version}",
-        f"files:    {len(desc.files)}",
-        f"counts:   {desc.counts}",
-        f"internal deps:       {', '.join(desc.internal_dependencies) or '-'}",
-        f"internal dependents: {', '.join(desc.internal_dependents) or '-'}",
+
+def _package_nav(name: str) -> list[str]:
+    return [f"gw graph what-tests {name}", f"gw graph list-entry-points {name}"]
+
+
+def format_package(desc: Any, fmt: str) -> str:
+    """Format a PackageDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("language", "language", desc.language),
+        Attr.scalar("version", "version", desc.version),
+        Attr.scalar("files", "files", len(desc.files)),
+        Attr("counts", "counts", _counts_human(desc.counts), desc.counts),
     ]
-    return "\n".join(lines)
+    return describe_block(
+        kind="package",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=f"pkg:{desc.name}",
+        attributes=attributes,
+        relationships=_package_relationships(desc),
+        nav=_package_nav(desc.name),
+        fmt=fmt,
+    )
+
+
+def format_app(desc: Any, fmt: str) -> str:
+    """Format an AppDescription on the sectioned spine (including app_kind and signals)."""
+    rels: list[Rel] = []
+    if desc.domains:
+        rels.append(Rel("domains", "domains", list(desc.domains)))
+    if desc.entry_points:
+        rels.append(Rel("entry_points", "entry_points", [ep.name for ep in desc.entry_points]))
+    if desc.test_suites:
+        rels.append(Rel("test_suites", "test_suites", [s.name for s in desc.test_suites]))
+    attributes = [
+        Attr.scalar("language", "language", desc.language),
+        Attr.scalar("version", "version", desc.version),
+        Attr.scalar("app_kind", "app_kind", desc.app_kind),
+        Attr.joined("signals", "signals", list(desc.app_signals)),
+        Attr.scalar("files", "files", len(desc.files)),
+        Attr("counts", "counts", _counts_human(desc.counts), desc.counts),
+    ]
+    return describe_block(
+        kind="app",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=f"app:{desc.name}",
+        attributes=attributes,
+        relationships=rels,
+        nav=_package_nav(desc.name),
+        fmt=fmt,
+    )
+
+
+def _node_label(rec: Any) -> str:
+    tc = (getattr(rec, "attrs", None) or {}).get("token_count")
+    tok = f" ({tc} tokens)" if tc is not None else ""  # NodeRecord children carry it; ExportRecord has no attrs
+    if getattr(rec, "line", None) is not None:
+        return f"{rec.kind} {rec.name} (line {rec.line}){tok}"
+    return f"{rec.kind} {rec.name}{tok}"
+
+
+def _role_flags_human(role_flags: dict[str, bool] | None) -> str:
+    if not role_flags:
+        return "(none)"
+    on = [k for k, v in role_flags.items() if v]
+    return ", ".join(on) or "(none)"
 
 
 def format_path(desc: Any, fmt: str) -> str:
-    """Format a PathDescription as human text or JSON.
-
-    Extracted from q_describe_path.py lines 39-46.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [f"path: {desc.path}"]
-    if desc.token_count is not None:
-        lines.append(f"tokens: {desc.token_count}")
-    lines.append("children:")
-    for c in desc.children:
-        tc = c.attrs.get("token_count")
-        suffix = f"  ({tc} tokens)" if tc is not None else ""
-        lines.append(f"  {c.kind}  {c.name}  line {c.line}{suffix}")
-    lines.append("imports:")
-    for i in desc.imports:
-        lines.append(f"  {i.name}  {i.path}")
-    lines.append("exports:")
-    for e in desc.exports:
-        lines.append(f"  {e.kind}  {e.name}  line {e.line}")
-    return "\n".join(lines)
+    """Format a PathDescription (a file node) on the spine."""
+    attributes = [Attr("role_flags", "role_flags", _role_flags_human(desc.role_flags), desc.role_flags)]
+    if desc.token_count is not None:  # deriver v7 file token_count (Design decision 8)
+        attributes.append(Attr.scalar("tokens", "token_count", desc.token_count))
+    rels: list[Rel] = []
+    if desc.children:
+        rels.append(Rel("children", "children", [_node_label(c) for c in desc.children]))
+    if desc.imports:
+        rels.append(Rel("imports", "imports", [i.name for i in desc.imports]))
+    if desc.exports:
+        rels.append(Rel("exports", "exports", [_node_label(e) for e in desc.exports]))
+    return describe_block(
+        kind="file",
+        name=desc.path,
+        identity_label="path",
+        identity_value=desc.path,
+        attributes=attributes,
+        relationships=rels,
+        nav=[f"gw graph imported-by {desc.path}"],
+        fmt=fmt,
+    )
 
 
 def format_repo(desc: Any, fmt: str) -> str:
-    """Format a RepoDescription as human text or JSON.
-
-    Extracted from q_describe_repo.py lines 39-46.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    url = desc.url if desc.url else "(none)"
-    default_branch = desc.default_branch if desc.default_branch else "(none)"
-    lines = [
-        f"repository:     {desc.name}",
-        f"uri:            {desc.uri}",
-        f"url:            {url}",
-        f"default_branch: {default_branch}",
-        f"package_count:  {desc.package_count}",
+    """Format a RepoDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("url", "url", desc.url),
+        Attr.scalar("default_branch", "default_branch", desc.default_branch),
+        Attr.scalar("owner", "owner", desc.owner),
+        Attr.scalar("package_count", "package_count", desc.package_count),
     ]
-    return "\n".join(lines)
+    return describe_block(
+        kind="repository",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=["gw graph list --kind package", "gw graph list --kind app"],
+        fmt=fmt,
+    )
 
 
-def format_domain(
-    desc: Any,
-    packages: list[str],
-    subdomains: list[str],
-    fmt: str,
-) -> str:
-    """Format a DomainDescription as human text or JSON.
-
-    Extracted from q_describe_domain.py lines 55-80.
-    NOTE: packages and subdomains are NOT in DomainDescription; callers pass them explicitly.
-    """
-    if fmt == "json":
-        payload = {**dataclasses.asdict(desc), "packages": packages, "subdomains": subdomains}
-        return _json.dumps(payload, default=str)
-    parent = desc.parent if desc.parent else "(none)"
-    description = desc.description if desc.description else "(none)"
-    lines = [
-        f"domain:        {desc.name}",
-        f"uri:           {desc.uri}",
-        f"parent:        {parent}",
-        f"description:   {description}",
-        "packages:",
+def format_domain(desc: Any, packages: list[str], subdomains: list[str], fmt: str) -> str:
+    """Format a DomainDescription on the spine. packages/subdomains are fetched
+    by the caller (NOT on DomainDescription) — pass via queries.domain_members."""
+    attributes = [
+        Attr.scalar("parent", "parent", desc.parent),
+        Attr.scalar("description", "description", desc.description),
     ]
+    rels: list[Rel] = []
     if packages:
-        for name in packages:
-            lines.append(f"  - {name}")
-    else:
-        lines.append("  (none)")
-    lines.append("subdomains:")
+        rels.append(Rel("packages", "packages", list(packages)))
     if subdomains:
-        for name in subdomains:
-            lines.append(f"  - {name}")
-    else:
-        lines.append("  (none)")
-    return "\n".join(lines)
+        rels.append(Rel("subdomains", "subdomains", list(subdomains)))
+    return describe_block(
+        kind="domain",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=rels,
+        nav=[f"gw graph domain-refs {desc.name}", f"gw graph domain-deps {desc.name}"],
+        fmt=fmt,
+    )
 
 
 def format_entry_point(desc: Any, fmt: str) -> str:
-    """Format an EntryPointDescription as human text or JSON.
-
-    Extracted from q_describe_entry_point.py lines 83-92.
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    callable_value = desc.callable if desc.callable else "(none)"
-    impl_path = desc.implemented_by_path if desc.implemented_by_path else "(none)"
-    source = desc.source if desc.source else "(none)"
-    lines = [
-        f"entry-point: {desc.name}",
-        f"uri:         {desc.uri}",
-        f"kind:        {desc.kind}",
-        f"callable:    {callable_value}",
-        f"path:        {impl_path}",
-        f"source:      {source}",
+    """Format an EntryPointDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("kind", "kind", desc.kind),
+        Attr.scalar("callable", "callable", desc.callable),
+        Attr.scalar("path", "path", desc.implemented_by_path),
+        Attr.scalar("source", "source", desc.source),
     ]
-    return "\n".join(lines)
+    nav = [f"gw graph describe {desc.implemented_by_path}"] if desc.implemented_by_path else []
+    return describe_block(
+        kind="entry_point",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=nav,
+        fmt=fmt,
+    )
 
 
 def format_suite(desc: Any, fmt: str) -> str:
-    """Format a SuiteDescription as human text or JSON.
-
-    Extracted from q_describe_suite.py lines 43-46.
-    NOTE: label is 'suite:', not 'test_suite:' (D-03 byte-identical).
-    """
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    lines = [
-        f"suite:  {desc.name}",
-        f"uri:    {desc.uri}",
-        f"kind:   {desc.kind}",
-        f"files:  {desc.file_count}",
+    """Format a SuiteDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("kind", "kind", desc.kind),
+        Attr.scalar("files", "files", desc.file_count),
     ]
-    return "\n".join(lines)
+    return describe_block(
+        kind="test_suite",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=[],
+        fmt=fmt,
+    )
+
+
+def format_dependency(desc: Any, fmt: str) -> str:
+    """Format a DependencyDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("ecosystem", "ecosystem", desc.ecosystem),
+        Attr.joined("versions_in_use", "versions_in_use", list(desc.versions_in_use)),
+    ]
+    rels = [Rel("used_by", "used_by", list(desc.used_by))] if desc.used_by else []
+    return describe_block(
+        kind="dependency",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=rels,
+        nav=[],
+        fmt=fmt,
+    )
+
+
+def format_builtin(desc: Any, fmt: str) -> str:
+    """Format a BuiltinDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("language", "language", desc.language),
+        Attr.scalar("module_name", "module_name", desc.module_name),
+    ]
+    rels = [Rel("used_by", "used_by", list(desc.used_by))] if desc.used_by else []
+    return describe_block(
+        kind="builtin",
+        name=desc.module_name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=rels,
+        nav=[],
+        fmt=fmt,
+    )
+
+
+def format_agent_plugin(desc: Any, fmt: str) -> str:
+    """Format an AgentPluginDescription on the sectioned spine."""
+    attributes = [
+        Attr.scalar("ecosystem", "ecosystem", desc.ecosystem),
+        Attr.scalar("version", "version", desc.version),
+        Attr.scalar("commands", "commands", len(desc.commands)),
+        Attr.scalar("agents", "agents", len(desc.agents)),
+        Attr.scalar("skills", "skills", len(desc.skills)),
+        Attr.scalar("scripts", "scripts", len(desc.scripts)),
+        Attr.scalar("hooks", "hooks", len(desc.hooks)),
+        Attr.scalar("mcp_servers", "mcp_servers", len(desc.mcp_servers)),
+    ]
+    return describe_block(
+        kind="agent_plugin",
+        name=desc.name,
+        identity_label="uri",
+        identity_value=desc.uri,
+        attributes=attributes,
+        relationships=[],
+        nav=["gw graph list --kind agent_plugin"],
+        fmt=fmt,
+    )
 
 
 def format_symbol(desc: Any, fmt: str) -> str:
-    """Format a SymbolDescription (graph_io.queries) as human text or JSON."""
-    if fmt == "json":
-        return _json.dumps(dataclasses.asdict(desc), default=str)
-    if fmt != "human":
-        raise ValueError(f"unknown format: {fmt!r}")
+    """Format a SymbolDescription (function/class/method/type) on the spine."""
     loc = f"{desc.path}:{desc.line}" if desc.line is not None else (desc.path or "(unknown)")
-    lines = [f"{desc.kind} {desc.name}", f"  path: {loc}"]
-    if desc.token_count is not None:
-        lines.append(f"  tokens: {desc.token_count}")
+    exported = f"yes (from {desc.exported_from})" if desc.exported_from else "no"
+    attributes = [Attr("exported", "exported", exported, bool(desc.exported_from))]
+    if desc.token_count is not None:  # deriver v7 symbol token_count (Design decision 8)
+        attributes.append(Attr.scalar("tokens", "token_count", desc.token_count))
     if desc.package:
-        pkg_line = f"  package: {desc.package}"
-        if desc.domain:
-            pkg_line += f"   domain: {desc.domain}"
-        lines.append(pkg_line)
-    if desc.exported_from:
-        lines.append(f"  exported: yes (from {desc.exported_from})")
-    else:
-        lines.append("  exported: no")
+        attributes.append(Attr.scalar("package", "package", desc.package))
+    if desc.domain:
+        attributes.append(Attr.scalar("domain", "domain", desc.domain))
+    rels: list[Rel] = []
     if desc.callers:
-        lines.append(f"  callers (depth 1): {', '.join(c.name for c in desc.callers)}")
+        rels.append(Rel("callers", "callers", [c.name for c in desc.callers]))
     if desc.callees:
-        lines.append(f"  callees (depth 1): {', '.join(c.name for c in desc.callees)}")
-    lines.append(f"  → deeper: gw graph callers {desc.name} --depth 3")
-    return "\n".join(lines)
+        rels.append(Rel("callees", "callees", [c.name for c in desc.callees]))
+    return describe_block(
+        kind=desc.kind,
+        name=desc.name,
+        identity_label="path",
+        identity_value=loc,
+        attributes=attributes,
+        relationships=rels,
+        nav=[f"gw graph callers {desc.name} --depth 3", f"gw graph callees {desc.name} --depth 3"],
+        fmt=fmt,
+    )
 
 
 def format_matches(records: Iterable[Any], fmt: str) -> str:

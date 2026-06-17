@@ -7,11 +7,10 @@ counts/files/domains/entry_points/test_suites. Mirrors
 
 from __future__ import annotations
 
-import dataclasses
-import json as _json
 import sys
 
 from graph_io import exit_codes, queries, store
+from graph_io import render as _render
 from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli._args import NameArgs
@@ -34,14 +33,5 @@ def run(args: NameArgs) -> int:
     if desc is None:
         print(f"error: app not found: {args.name}", file=sys.stderr)
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        print(f"app:      {desc.name}")
-        print(f"language: {desc.language}")
-        print(f"version:  {desc.version}")
-        print(f"app_kind: {desc.app_kind}")
-        print(f"signals:  {desc.app_signals}")
-        print(f"files:    {len(desc.files)}")
-        print(f"counts:   {desc.counts}")
+    print(_render.format_app(desc, fmt=args.fmt))
     return exit_codes.SUCCESS

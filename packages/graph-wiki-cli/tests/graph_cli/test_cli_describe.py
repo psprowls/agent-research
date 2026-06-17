@@ -93,7 +93,7 @@ def test_cg_describe_dependency_smoke(workspace_with_deps_and_plugin, capsys):
     captured = capsys.readouterr()
     assert exit_code == exit_codes.SUCCESS, captured.err
     assert "boto3" in captured.out
-    assert "versions_in_use" in captured.out
+    assert "versions_in_use:" in captured.out
 
 
 def test_cg_describe_dependency_not_found(workspace_with_deps_and_plugin, capsys):
@@ -113,7 +113,7 @@ def test_cg_describe_dependency_json(workspace_with_deps_and_plugin, capsys):
 
     parsed = json.loads(captured.out)
     assert parsed["name"] == "boto3"
-    assert parsed["ecosystem"] == "pypi"
+    assert parsed["attributes"]["ecosystem"] == "pypi"
     assert parsed["uri"] == "dependency:pypi/boto3"
 
 
@@ -135,10 +135,10 @@ def test_cg_describe_agent_plugin_json(workspace_with_deps_and_plugin, capsys):
     assert exit_code == exit_codes.SUCCESS, captured.err
     parsed = json.loads(captured.out)
     assert parsed["name"] == "graph-wiki"
-    assert parsed["ecosystem"] == "claude-code"
-    assert parsed["version"] == "0.1.1"
+    assert parsed["attributes"]["ecosystem"] == "claude-code"
+    assert parsed["attributes"]["version"] == "0.1.1"
     for key in ("commands", "agents", "skills", "scripts", "hooks", "mcp_servers"):
-        assert isinstance(parsed[key], list)
+        assert isinstance(parsed["attributes"][key], int)
 
 
 def test_cg_describe_agent_plugin_not_found(workspace_with_deps_and_plugin, capsys):
@@ -201,10 +201,8 @@ def test_cg_describe_package_internal_deps_json(workspace_with_internal_dep, cap
     assert exit_code == exit_codes.SUCCESS, captured.err
     parsed = json.loads(captured.out)
     assert parsed["name"] == "beta"
-    assert "internal_dependencies" in parsed
-    assert "internal_dependents" in parsed
-    assert parsed["internal_dependencies"] == ["alpha"]
-    assert parsed["internal_dependents"] == []
+    assert parsed["relationships"].get("internal_dependencies", []) == ["alpha"]
+    assert parsed["relationships"].get("internal_dependents", []) == []
 
 
 def test_cg_describe_package_internal_dependents_json(workspace_with_internal_dep, capsys):
@@ -215,8 +213,8 @@ def test_cg_describe_package_internal_dependents_json(workspace_with_internal_de
     assert exit_code == exit_codes.SUCCESS, captured.err
     parsed = json.loads(captured.out)
     assert parsed["name"] == "alpha"
-    assert parsed["internal_dependents"] == ["beta"]
-    assert parsed["internal_dependencies"] == []
+    assert parsed["relationships"].get("internal_dependents", []) == ["beta"]
+    assert parsed["relationships"].get("internal_dependencies", []) == []
 
 
 def test_cg_describe_package_internal_deps_human(workspace_with_internal_dep, capsys):
@@ -299,10 +297,10 @@ def test_cg_describe_builtin_json(workspace_with_builtins, capsys):
     captured = capsys.readouterr()
     assert exit_code == exit_codes.SUCCESS, captured.err
     parsed = json.loads(captured.out)
-    assert parsed["language"] == "python"
-    assert parsed["module_name"] == "pathlib"
+    assert parsed["attributes"]["language"] == "python"
+    assert parsed["attributes"]["module_name"] == "pathlib"
     assert parsed["uri"] == "builtin:python/pathlib"
-    assert isinstance(parsed["used_by"], list)
+    assert isinstance(parsed["relationships"].get("used_by", []), list)
 
 
 def test_cg_describe_builtin_malformed_uri(workspace_with_builtins, capsys):
@@ -371,8 +369,7 @@ def test_cg_describe_app_smoke(workspace_with_app, capsys):
     exit_code = q_describe_app.run(args)
     captured = capsys.readouterr()
     assert exit_code == exit_codes.SUCCESS, captured.err
-    assert "app:" in captured.out
-    assert "my-cli" in captured.out
+    assert "app my-cli" in captured.out
     assert "language:" in captured.out
     assert "python" in captured.out
     assert "app_kind:" in captured.out
@@ -397,21 +394,10 @@ def test_cg_describe_app_json(workspace_with_app, capsys):
     assert exit_code == exit_codes.SUCCESS, captured.err
     parsed = json.loads(captured.out)
     assert parsed["name"] == "my-cli"
-    assert parsed["language"] == "python"
-    assert parsed["app_kind"] == "cli"
-    assert isinstance(parsed["app_signals"], list)
-    assert "cli" in parsed["app_signals"]
-    # Ensure full AppDescription field set is present.
-    expected_keys = {
-        "name",
-        "language",
-        "version",
-        "app_kind",
-        "app_signals",
-        "files",
-        "counts",
-        "domains",
-        "entry_points",
-        "test_suites",
-    }
-    assert expected_keys.issubset(set(parsed.keys()))
+    assert parsed["uri"] == "app:my-cli"
+    assert parsed["attributes"]["language"] == "python"
+    assert parsed["attributes"]["app_kind"] == "cli"
+    assert isinstance(parsed["attributes"]["signals"], list)
+    assert "cli" in parsed["attributes"]["signals"]
+    # Spine shape: top-level keys are fixed for every kind.
+    assert set(parsed) == {"kind", "name", "uri", "attributes", "relationships", "nav"}

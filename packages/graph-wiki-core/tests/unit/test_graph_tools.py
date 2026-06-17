@@ -170,3 +170,24 @@ def _symbol_names(rendered: str) -> set[str]:
             continue
         names.add(line.split()[0])
     return names
+
+
+def test_cg_describe_matches_run_describe_spine(seeded_graph_workspace) -> None:
+    """cg_describe and run_describe produce the identical human spine (surface-divergence gap)."""
+    from graph_io.store import read_only_connect
+    from graph_wiki_core.commands import graph as graph_module
+    from graph_wiki_core.graph_tools import build_graph_tools
+    from workspace_io.paths import graph_dir
+
+    db = graph_dir(seeded_graph_workspace) / "code.db"
+    conn = read_only_connect(db)
+    try:
+        tools = {t.name: t for t in build_graph_tools(conn)}
+        cg_out = tools["cg_describe"].invoke({"kind": "package", "identifier": "commonlib"})
+    finally:
+        conn.close()
+
+    # run_describe ignores the repo arg for describe, so the workspace is passed for both.
+    _, run_out, _ = graph_module.run_describe("package", "commonlib", seeded_graph_workspace, seeded_graph_workspace)
+    assert cg_out.strip() == run_out.strip()
+    assert cg_out.startswith("package commonlib\n  uri: pkg:commonlib")
