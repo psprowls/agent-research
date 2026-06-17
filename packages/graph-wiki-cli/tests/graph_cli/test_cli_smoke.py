@@ -340,3 +340,46 @@ def test_list_unknown_kind_is_bad_parameter(populated_repo: Path) -> None:
     res = _cg(["list", "--kind", "wombats"], populated_repo)
     assert res.returncode == 2
     assert "kind must be one of" in res.stderr
+
+
+# ── --include-tests flag: gw graph callers / callees ──────────────────────────
+
+
+@pytest.fixture()
+def repo_with_test_caller(tmp_path: Path) -> Path:
+    """prod target xtarget with a caller defined in a tests/ file (is_test=True)."""
+    init_repo(tmp_path)
+    write_and_commit(
+        tmp_path,
+        {
+            "pyproject.toml": '[project]\nname = "demo"\nversion = "0.1.1"\n',
+            "src/x.py": "def xtarget():\n    return 1\n",
+            "tests/test_x.py": "from x import xtarget\n\ndef caller_in_test():\n    return xtarget()\n",
+        },
+        "init",
+    )
+    res = _cg(["update"], tmp_path)
+    assert res.returncode == 0, res.stderr
+    return tmp_path
+
+
+def test_callers_excludes_tests_by_default(repo_with_test_caller: Path) -> None:
+    res = _cg(["--fmt", "json", "callers", "xtarget"], repo_with_test_caller)
+    assert res.returncode == 0, res.stderr
+    rows = json.loads(res.stdout)
+    assert not any(r["name"] == "caller_in_test" for r in rows)
+
+
+def test_callers_include_tests_flag_shows_test_caller(repo_with_test_caller: Path) -> None:
+    res = _cg(["--fmt", "json", "callers", "xtarget", "--include-tests"], repo_with_test_caller)
+    assert res.returncode == 0, res.stderr
+    rows = json.loads(res.stdout)
+    assert any(r["name"] == "caller_in_test" for r in rows)
+
+
+def test_callees_include_tests_flag_changes_rows(repo_with_test_caller: Path) -> None:
+    default = _cg(["--fmt", "json", "callees", "caller_in_test"], repo_with_test_caller)
+    included = _cg(["--fmt", "json", "callees", "caller_in_test", "--include-tests"], repo_with_test_caller)
+    assert default.returncode == 0 and included.returncode == 0
+    assert len(json.loads(included.stdout)) >= len(json.loads(default.stdout))
+    assert any(r["name"] == "xtarget" for r in json.loads(included.stdout))

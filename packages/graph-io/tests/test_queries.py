@@ -2024,3 +2024,69 @@ def test_describe_path_includes_exports(conn: sqlite3.Connection) -> None:
     assert desc is not None
     assert [(e.kind, e.name, e.line) for e in desc.exports] == [("function", "alpha", 10)]
     assert [i.path for i in desc.imports] == ["b.py"]
+
+
+def _seed_prod_test_target(conn: sqlite3.Connection) -> None:
+    """P (prod) -> T (test) -> X (prod). T lives in a test file (is_test=True).
+
+    Call edges: P calls T, T calls X. So X's callers are {T (depth 1),
+    P (depth 2, only via T)}; P's callees are {T (depth 1), X (depth 2,
+    only via T)}.
+    """
+    nodes = [
+        GraphNode(kind="file", name="prod.py", path="prod.py", line=None, attrs={}),
+        GraphNode(kind="file", name="test_prod.py", path="test_prod.py", line=None, attrs={"is_test": True}),
+        GraphNode(kind="function", name="P", path="prod.py", line=1, attrs={}),
+        GraphNode(kind="function", name="T", path="test_prod.py", line=1, attrs={}),
+        GraphNode(kind="function", name="X", path="prod.py", line=10, attrs={}),
+    ]
+    edges = [
+        GraphEdge(src=("function", "P", "prod.py"), dst=("function", "T", None), kind="calls", attrs={}),
+        GraphEdge(src=("function", "T", "test_prod.py"), dst=("function", "X", None), kind="calls", attrs={}),
+    ]
+    upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
+    resolve.sweep(conn)
+
+
+def test_callers_excludes_test_symbols_by_default(conn: sqlite3.Connection) -> None:
+    _seed_prod_test_target(conn)
+    rows = queries.callers(conn, name="X", depth=3)
+    assert {r.name for r in rows} == set()
+
+
+def test_callers_include_tests_restores_full_walk(conn: sqlite3.Connection) -> None:
+    _seed_prod_test_target(conn)
+    rows = queries.callers(conn, name="X", depth=3, include_test_files=True)
+    assert {r.name for r in rows} == {"T", "P"}
+
+
+def test_callees_excludes_test_symbols_by_default(conn: sqlite3.Connection) -> None:
+    _seed_prod_test_target(conn)
+    rows = queries.callees(conn, name="P", depth=3)
+    assert {r.name for r in rows} == set()
+
+
+def test_callees_include_tests_restores_full_walk(conn: sqlite3.Connection) -> None:
+    _seed_prod_test_target(conn)
+    rows = queries.callees(conn, name="P", depth=3, include_test_files=True)
+    assert {r.name for r in rows} == {"T", "X"}
+
+
+def test_non_test_caller_unaffected_by_default(conn: sqlite3.Connection) -> None:
+    _seed_call_chain(conn)
+    rows = queries.callers(conn, name="gamma", depth=3)
+    assert {r.name for r in rows} == {"alpha", "beta"}
+
+
+def test_non_test_callee_unaffected_by_default(conn: sqlite3.Connection) -> None:
+    # _seed_call_chain has no test files; alpha->beta->gamma in a.py.
+    _seed_call_chain(conn)
+    rows = queries.callees(conn, name="alpha", depth=3)
+    assert {r.name for r in rows} == {"beta", "gamma"}
+
+
+def test_describe_symbol_inherits_test_exclusion(conn: sqlite3.Connection) -> None:
+    _seed_prod_test_target(conn)
+    desc = queries.describe_symbol(conn, kind="function", name="X")
+    assert desc is not None
+    assert {c.name for c in desc.callers} == set()
