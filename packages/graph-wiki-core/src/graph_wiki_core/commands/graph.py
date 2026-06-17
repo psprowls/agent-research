@@ -160,6 +160,10 @@ DESCRIBE_REQUIRES_IDENTIFIER: dict[str, bool] = {
     "domain": True,
     "entry_point": True,
     "test_suite": True,
+    "app": True,
+    "dependency": True,
+    "agent_plugin": True,
+    "builtin": True,
 }
 
 
@@ -185,7 +189,11 @@ def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str
 
 
 def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path) -> tuple[int, str, str]:
-    """Describe a graph entity (all 6 kinds), printing-free (D-04).
+    """Describe a graph entity (full describable set), printing-free (D-04).
+
+    Dispatches over the shared `_render.format_<kind>` spine formatters using
+    the shared `queries.*` resolvers. Covers package/app/path/repository/domain/
+    dependency/agent_plugin/builtin/entry_point/test_suite.
 
     Returns (exit_code, stdout, stderr). On success stdout is exactly the
     `_render.format_<kind>(...)` human string (byte-identical). not-found →
@@ -224,59 +232,19 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             desc = queries.describe_domain(conn, name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: not found: {identifier}"
-            pkg_rows = conn.execute(
-                "SELECT p.name FROM edges e "
-                "JOIN nodes p ON e.src = p.id "
-                "JOIN nodes d ON e.dst = d.id "
-                "WHERE e.kind='belongs_to_domain' AND d.kind='domain' AND d.name = ? "
-                "ORDER BY p.name",
-                (identifier,),
-            ).fetchall()
-            packages = [r[0] for r in pkg_rows]
-            sub_rows = conn.execute(
-                "SELECT c.name FROM edges e "
-                "JOIN nodes c ON e.dst = c.id "
-                "JOIN nodes p ON e.src = p.id "
-                "WHERE e.kind='domain_contains_domain' AND p.kind='domain' AND p.name = ? "
-                "ORDER BY c.name",
-                (identifier,),
-            ).fetchall()
-            subdomains = [r[0] for r in sub_rows]
-            return (
-                exit_codes.SUCCESS,
-                _render.format_domain(desc, packages, subdomains, fmt="human"),
-                "",
-            )
+            packages, subdomains = queries.domain_members(conn, identifier)
+            return exit_codes.SUCCESS, _render.format_domain(desc, packages, subdomains, fmt="human"), ""
 
         if kind == "entry_point":
-            raw = identifier
-            if ":" in raw:
-                package_name, entry_name = raw.split(":", 1)
-                desc = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
-            else:
-                # Bare entry name: scan all packages that declare an EntryPoint by this name.
-                rows = conn.execute(
-                    "SELECT pkg.name "
-                    "FROM nodes pkg "
-                    "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
-                    "JOIN nodes ep ON ep.id = de.dst AND ep.kind='entry_point' "
-                    # Phase 50 D-04: include apps too — apps declare entry points
-                    # via the same manifest fields as packages.
-                    "WHERE pkg.kind IN ('package', 'app') AND ep.name = ?",
-                    (raw,),
-                ).fetchall()
-                if not rows:
-                    desc = None
-                elif len(rows) > 1:
-                    packages = ", ".join(r[0] for r in rows)
-                    return (
-                        exit_codes.AMBIGUOUS,
-                        "",
-                        f"error: entry point not found: {raw} "
-                        f"(ambiguous across packages: {packages}; use 'package:entry')",
-                    )
-                else:
-                    desc = queries.describe_entry_point(conn, package_name=rows[0][0], entry_name=raw)
+            desc, ambiguous = queries.resolve_entry_point(conn, identifier)
+            if ambiguous:
+                packages = ", ".join(ambiguous)
+                return (
+                    exit_codes.AMBIGUOUS,
+                    "",
+                    f"error: entry point not found: {identifier} "
+                    f"(ambiguous across packages: {packages}; use 'package:entry')",
+                )
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: entry point not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_entry_point(desc, fmt="human"), ""
@@ -286,6 +254,38 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_suite(desc, fmt="human"), ""
+
+        if kind == "app":
+            desc = queries.describe_app(conn, name=identifier)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: app not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_app(desc, fmt="human"), ""
+
+        if kind == "dependency":
+            if "/" in identifier:
+                ecosystem, _, dep_name = identifier.partition("/")
+            else:
+                ecosystem, dep_name = "pypi", identifier
+            desc = queries.describe_dependency(conn, ecosystem=ecosystem, name=dep_name)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: dependency not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_dependency(desc, fmt="human"), ""
+
+        if kind == "agent_plugin":
+            desc = queries.describe_agent_plugin(conn, name=identifier)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: agent_plugin not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_agent_plugin(desc, fmt="human"), ""
+
+        if kind == "builtin":
+            rest = identifier.removeprefix("builtin:")
+            if "/" not in rest:
+                return exit_codes.GENERIC, "", f"error: malformed builtin URI: {identifier}"
+            language, module_name = rest.split("/", 1)
+            desc = queries.describe_builtin(conn, language=language, module_name=module_name)
+            if desc is None:
+                return exit_codes.GENERIC, "", f"error: builtin not found: {identifier}"
+            return exit_codes.SUCCESS, _render.format_builtin(desc, fmt="human"), ""
 
         # Unknown kind — caller should have validated; treat defensively.
         raise KeyError(kind)

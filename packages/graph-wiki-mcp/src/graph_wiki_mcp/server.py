@@ -547,9 +547,18 @@ class GraphBuildInput(BaseModel):
 
 class GraphDescribeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    kind: Literal["package", "path", "repository", "domain", "entry_point", "test_suite"] = Field(
-        ..., description="Entity kind (snake_case enum)."
-    )
+    kind: Literal[
+        "package",
+        "path",
+        "repository",
+        "domain",
+        "entry_point",
+        "test_suite",
+        "app",
+        "dependency",
+        "agent_plugin",
+        "builtin",
+    ] = Field(..., description="Entity kind (snake_case enum).")
     identifier: str | None = Field(
         None,
         description="Identifier (e.g. package name, file path). Required for all kinds except 'repository'.",

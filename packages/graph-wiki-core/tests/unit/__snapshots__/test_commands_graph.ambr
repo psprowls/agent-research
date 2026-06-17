@@ -1,68 +1,92 @@
 # serializer version: 1
 # name: test_describe_domain_output
   '''
-  domain:        core
-  uri:           domain:local/repo/core
-  parent:        (none)
-  description:   Core utilities domain
-  packages:
-    - mypkg
-    - pyutil
-  subdomains:
-    (none)
+  domain core
+    uri: domain:local/repo/core
+  
+  attributes
+    parent:      (none)
+    description: Core utilities domain
+  
+  relationships
+    packages: mypkg, pyutil
+  
+  → gw graph domain-refs core
+  → gw graph domain-deps core
   
   '''
 # ---
 # name: test_describe_entry_point_output
   '''
-  entry-point: mypkg-run
-  uri:         entry_point:local/repo/mypkg/mypkg-run
-  kind:        executable
-  callable:    foo
-  path:        packages/mypkg/src/mypkg/foo.py
-  source:      pyproject.scripts
+  entry_point mypkg-run
+    uri: entry_point:local/repo/mypkg/mypkg-run
+  
+  attributes
+    kind:     executable
+    callable: foo
+    path:     packages/mypkg/src/mypkg/foo.py
+    source:   pyproject.scripts
+  
+  → gw graph describe packages/mypkg/src/mypkg/foo.py
   
   '''
 # ---
 # name: test_describe_package_output
   '''
-  package: commonlib
-  language: python
-  version:  0.0.0
-  files:    1
-  counts:   {'function': 1}
-  internal deps:       -
-  internal dependents: -
+  package commonlib
+    uri: pkg:commonlib
+  
+  attributes
+    language: python
+    version:  0.0.0
+    files:    1
+    counts:   1 function
+  
+  → gw graph what-tests commonlib
+  → gw graph list-entry-points commonlib
   
   '''
 # ---
 # name: test_describe_path_output
   '''
-  path: packages/commonlib/src/commonlib/__init__.py
-  tokens: 11
-  children:
-    function  common  line 1  (11 tokens)
-  imports:
-  exports:
+  file packages/commonlib/src/commonlib/__init__.py
+    path: packages/commonlib/src/commonlib/__init__.py
+  
+  attributes
+    role_flags: is_importable
+    tokens:     11
+  
+  relationships
+    children: function common (line 1) (11 tokens)
+  
+  → gw graph imported-by packages/commonlib/src/commonlib/__init__.py
   
   '''
 # ---
 # name: test_describe_repository_output
   '''
-  repository:     repo
-  uri:            repo:local/repo
-  url:            <normalized>
-  default_branch: main
-  package_count:  4
+  repository repo
+    uri: repo:local/repo
+  
+  attributes
+    url:            <normalized>
+    default_branch: main
+    owner:          local
+    package_count:  4
+  
+  → gw graph list --kind package
+  → gw graph list --kind app
   
   '''
 # ---
 # name: test_describe_test_suite_output
   '''
-  suite:  mypkg-unit-tests
-  uri:    test_suite:local/repo/packages/mypkg/tests
-  kind:   unit
-  files:  1
+  test_suite mypkg-unit-tests
+    uri: test_suite:local/repo/packages/mypkg/tests
+  
+  attributes
+    kind:  unit
+    files: 1
   
   '''
 # ---
