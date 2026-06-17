@@ -22,7 +22,7 @@ def run(args: DepthNameArgs) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        records = queries.callers(conn, name=args.name, depth=args.depth)
+        records = queries.callers(conn, name=args.name, depth=args.depth, include_test_files=args.include_tests)
     finally:
         conn.close()
     print(_format.render(records, fmt=args.fmt))

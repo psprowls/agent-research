@@ -28,6 +28,7 @@ class NameArgs(FormatArgs, Protocol):
 
 class DepthNameArgs(NameArgs, Protocol):
     depth: int
+    include_tests: bool
 
 
 class OptionalNameArgs(FormatArgs, Protocol):

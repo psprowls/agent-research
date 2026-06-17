@@ -128,15 +128,25 @@ def find_cmd(
 
 
 @graph_app.command(name="callers")
-def callers_cmd(ctx: typer.Context, name: str, depth: int = typer.Option(3, "--depth")) -> None:
+def callers_cmd(
+    ctx: typer.Context,
+    name: str,
+    depth: int = typer.Option(3, "--depth"),
+    include_tests: bool = typer.Option(False, "--include-tests", help="Include callers defined in test files."),
+) -> None:
     """Show callers of a symbol."""
-    _run(q_callers, ctx, name=name, depth=depth)
+    _run(q_callers, ctx, name=name, depth=depth, include_tests=include_tests)
 
 
 @graph_app.command(name="callees")
-def callees_cmd(ctx: typer.Context, name: str, depth: int = typer.Option(3, "--depth")) -> None:
+def callees_cmd(
+    ctx: typer.Context,
+    name: str,
+    depth: int = typer.Option(3, "--depth"),
+    include_tests: bool = typer.Option(False, "--include-tests", help="Include callees defined in test files."),
+) -> None:
     """Show callees of a symbol."""
-    _run(q_callees, ctx, name=name, depth=depth)
+    _run(q_callees, ctx, name=name, depth=depth, include_tests=include_tests)
 
 
 @graph_app.command(name="imports")
