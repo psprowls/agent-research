@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 
 from graph_io import queries
+from graph_io.schema import apply_schema
 
 
 def test_default_child_depth_mapping() -> None:
@@ -123,3 +124,35 @@ def test_children_for_resolves_default_depth(seeded_db: sqlite3.Connection) -> N
     assert eff == queries.default_child_depth(kind) == 1
     tree2, eff2 = queries.children_for(seeded_db, kind=kind, name="mypkg", depth=2)
     assert eff2 == 2
+
+
+def test_visited_set_terminates_on_cycle() -> None:
+    """A physically_contains cycle A->B->A must not recurse infinitely.
+
+    The seeded graph is acyclic, so build a tiny in-memory graph with the real
+    schema and a deliberate cycle to exercise the `visited` backstop in _expand.
+    """
+    conn = sqlite3.connect(":memory:")
+    apply_schema(conn)
+    conn.execute(
+        "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?,?)",
+        (1, "package", "A", None, None, None, "pkg:A"),
+    )
+    conn.execute(
+        "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?,?)",
+        (2, "subpackage", "B", None, None, None, "subpkg:B"),
+    )
+    # Deliberate cycle: A physically_contains B, and B physically_contains A.
+    conn.execute("INSERT INTO edges (src, dst, kind, attrs_json) VALUES (1, 2, 'physically_contains', NULL)")
+    conn.execute("INSERT INTO edges (src, dst, kind, attrs_json) VALUES (2, 1, 'physically_contains', NULL)")
+
+    rec = queries.NodeRecord(kind="package", name="A", path=None, line=None, attrs={"uri": "pkg:A"})
+    # depth=5 would recurse forever without the visited backstop.
+    tree = queries.children_tree(conn, node=rec, depth=5)
+    conn.close()
+
+    # A's only child is B; B would re-point at A, but A is in `visited`, so B
+    # has no further expansion. The result is bounded (one node, no grandchildren).
+    assert len(tree) == 1
+    assert tree[0].kind == "subpackage" and tree[0].uri == "subpkg:B"
+    assert tree[0].children == []

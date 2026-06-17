@@ -1148,7 +1148,9 @@ _DOMAIN_PACKAGES_SQL = (
 )
 
 
-def _direct_children(conn: sqlite3.Connection, node_id: int, kind: str) -> list[tuple]:
+def _direct_children(
+    conn: sqlite3.Connection, node_id: int, kind: str
+) -> list[tuple[int, str, str | None, str | None, int | None]]:
     """Kind-dispatched direct children as raw rows (id, kind, uri, path, line).
 
     Container/structural kinds descend `physically_contains`; symbol nesting
