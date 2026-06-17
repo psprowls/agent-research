@@ -17,6 +17,11 @@ class GraphNode:
     path: str
     line: int | None
     attrs: dict[str, Any] = field(default_factory=dict)
+    # Transport-only: raw source byte span, consumed by graph-io's token
+    # counter at build time. NOT persisted to attrs_json. Defaults of None
+    # keep every other GraphNode construction path valid.
+    start_byte: int | None = None
+    end_byte: int | None = None
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,8 @@ def _emit_node(node: SourceNode) -> GraphNode:
         path=str(node.path),
         line=None if node.kind == "file" else node.span.start_line,
         attrs=dict(node.attrs),
+        start_byte=node.span.start_byte,
+        end_byte=node.span.end_byte,
     )
 
 
