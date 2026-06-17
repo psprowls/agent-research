@@ -64,6 +64,15 @@ _DB_KIND_TO_DISPATCH = {
     "agent_plugin": "agent-plugin",
     "entry_point": "entry-point",
     "file": "path",
+    "repository": "repo",
+}
+
+# Tailored stderr for bare-name describe of structural / placeholder kinds that
+# have no spine describer (builtin is reachable only via its `builtin:` URI).
+_NON_DESCRIBABLE_MESSAGES = {
+    "builtin": "error: describe builtins by URI: gw graph describe builtin:<lang>/<module>",
+    "subpackage": "error: structural node (sub-package); describe its package or a file instead",
+    "unresolved_symbol": "error: placeholder for an unresolved reference; not a real node",
 }
 
 
@@ -80,11 +89,12 @@ def _describe_one(match: queries.NodeRecord, args: MutableDescribeArgs) -> int:
         return q_describe_symbol.run(args)
     dispatch_key = _DB_KIND_TO_DISPATCH.get(match.kind)
     if dispatch_key is None:
-        # Kinds absent from _DB_KIND_TO_DISPATCH (repository, builtin, subpackage,
-        # unresolved_symbol) intentionally land here: repository is reached via the
-        # no-selector fast path and builtins via the `builtin:` prefix, so bare-name
-        # describe of those is not supported.
-        print(f"error: cannot describe {match.kind}: {args.selector}", file=sys.stderr)
+        # Kinds absent from _DB_KIND_TO_DISPATCH (builtin, subpackage,
+        # unresolved_symbol) intentionally land here: builtins are reached via the
+        # `builtin:` prefix, the others are structural/placeholder nodes. Each gets
+        # a tailored hint; anything else falls back to a generic message.
+        msg = _NON_DESCRIBABLE_MESSAGES.get(match.kind, f"error: cannot describe {match.kind}: {args.selector}")
+        print(msg, file=sys.stderr)
         return exit_codes.GENERIC
     if match.kind == "dependency" and args.ecosystem is None:
         args.ecosystem = match.attrs.get("ecosystem")

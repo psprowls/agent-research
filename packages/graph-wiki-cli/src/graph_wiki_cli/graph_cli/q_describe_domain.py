@@ -26,24 +26,7 @@ def run(args: NameArgs) -> int:
         if desc is None:
             print(f"error: not found: {args.name}", file=sys.stderr)
             return exit_codes.GENERIC
-        pkg_rows = conn.execute(
-            "SELECT p.name FROM edges e "
-            "JOIN nodes p ON e.src = p.id "
-            "JOIN nodes d ON e.dst = d.id "
-            "WHERE e.kind='belongs_to_domain' AND d.kind='domain' AND d.name = ? "
-            "ORDER BY p.name",
-            (args.name,),
-        ).fetchall()
-        packages = [r[0] for r in pkg_rows]
-        sub_rows = conn.execute(
-            "SELECT c.name FROM edges e "
-            "JOIN nodes c ON e.dst = c.id "
-            "JOIN nodes p ON e.src = p.id "
-            "WHERE e.kind='domain_contains_domain' AND p.kind='domain' AND p.name = ? "
-            "ORDER BY c.name",
-            (args.name,),
-        ).fetchall()
-        subdomains = [r[0] for r in sub_rows]
+        packages, subdomains = queries.domain_members(conn, args.name)
     finally:
         conn.close()
 

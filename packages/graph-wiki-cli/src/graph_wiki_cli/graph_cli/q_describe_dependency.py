@@ -2,12 +2,11 @@
 
 from __future__ import annotations
 
-import dataclasses
-import json as _json
 import sys
 from typing import cast
 
 from graph_io import exit_codes, queries, store
+from graph_io import render as _render
 from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli._args import DependencyDescribeArgs
@@ -33,14 +32,5 @@ def run(args: DependencyDescribeArgs) -> int:
             file=sys.stderr,
         )
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        print(f"name:             {desc.name}")
-        print(f"ecosystem:        {desc.ecosystem}")
-        print(f"uri:              {desc.uri}")
-        versions = ", ".join(desc.versions_in_use) or "(none)"
-        used_by = ", ".join(desc.used_by) or "(none)"
-        print(f"versions_in_use:  {versions}")
-        print(f"used_by:          {used_by}")
+    print(_render.format_dependency(desc, fmt=args.fmt))
     return exit_codes.SUCCESS

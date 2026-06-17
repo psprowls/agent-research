@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-import dataclasses
-import json as _json
 import sys
 
 from graph_io import exit_codes, queries, store
+from graph_io import render as _render
 from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli._args import NameArgs
@@ -29,17 +28,5 @@ def run(args: NameArgs) -> int:
     if desc is None:
         print(f"error: agent_plugin not found: {args.name}", file=sys.stderr)
         return exit_codes.GENERIC
-    if args.fmt == "json":
-        print(_json.dumps(dataclasses.asdict(desc), default=str))
-    else:
-        print(f"name:        {desc.name}")
-        print(f"ecosystem:   {desc.ecosystem}")
-        print(f"version:     {desc.version}")
-        print(f"uri:         {desc.uri}")
-        print(f"commands:    {len(desc.commands)}")
-        print(f"agents:      {len(desc.agents)}")
-        print(f"skills:      {len(desc.skills)}")
-        print(f"scripts:     {len(desc.scripts)}")
-        print(f"hooks:       {len(desc.hooks)}")
-        print(f"mcp_servers: {len(desc.mcp_servers)}")
+    print(_render.format_agent_plugin(desc, fmt=args.fmt))
     return exit_codes.SUCCESS

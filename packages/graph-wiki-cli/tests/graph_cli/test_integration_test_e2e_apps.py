@@ -123,8 +123,8 @@ def test_e2e_js_multi_signal_precedence(tmp_path: Path, capsys) -> None:
     rc = q_describe_app.run(_ns_describe(workspace, name="site", fmt="json"))
     assert rc == exit_codes.SUCCESS, capsys.readouterr().err
     parsed = json.loads(capsys.readouterr().out)
-    assert parsed["app_kind"] == "nextjs"
-    assert parsed["app_signals"] == sorted(["cli", "nextjs"])
+    assert parsed["attributes"]["app_kind"] == "nextjs"
+    assert parsed["attributes"]["signals"] == sorted(["cli", "nextjs"])
 
 
 def test_e2e_kind_flip_repeatable(tmp_path: Path, capsys) -> None:
@@ -217,24 +217,11 @@ def test_e2e_list_apps_and_describe_app_shape(tmp_path: Path, capsys) -> None:
     rc2 = q_describe_app.run(_ns_describe(workspace, name="graph-wiki-agent", fmt="json"))
     assert rc2 == exit_codes.SUCCESS
     parsed = json.loads(capsys.readouterr().out)
-    expected_keys = {
-        "name",
-        "language",
-        "version",
-        "app_kind",
-        "app_signals",
-        "files",
-        "counts",
-        "domains",
-        "entry_points",
-        "test_suites",
-    }
-    assert expected_keys == set(parsed.keys()), (
-        f"AppDescription field set mismatch: expected={expected_keys}, got={set(parsed.keys())}"
-    )
+    # Spine shape: top-level keys are fixed for every kind.
+    assert set(parsed.keys()) == {"kind", "name", "uri", "attributes", "relationships", "nav"}
     assert parsed["name"] == "graph-wiki-agent"
-    assert parsed["app_kind"] == "cli"
-    assert "cli" in parsed["app_signals"]
+    assert parsed["attributes"]["app_kind"] == "cli"
+    assert "cli" in parsed["attributes"]["signals"]
 
 
 def test_e2e_electron_app_from_dev_deps(tmp_path: Path, capsys) -> None:
@@ -260,4 +247,4 @@ def test_e2e_electron_app_from_dev_deps(tmp_path: Path, capsys) -> None:
     rc = q_describe_app.run(_ns_describe(workspace, name="my-electron-app", fmt="json"))
     assert rc == exit_codes.SUCCESS, capsys.readouterr().err
     parsed = json.loads(capsys.readouterr().out)
-    assert parsed["app_kind"] == "electron"
+    assert parsed["attributes"]["app_kind"] == "electron"
