@@ -357,8 +357,11 @@ def find(
     where_parts: list[str] = []
     params: list = []
     if name is not None:
-        where_parts.append("n.name = ?")
-        params.append(name)
+        # Suffix-aware: a bare leaf matches both an exact node and any qualified
+        # `*.name` node (e.g. `save` reaches `Foo.save`). LIKE '%.name' can't use
+        # the (kind, name) index (leading wildcard); acceptable at single-repo scale.
+        where_parts.append("(n.name = ? OR n.name LIKE '%.' || ?)")
+        params.extend([name, name])
     if kind is not None:
         where_parts.append("n.kind = ?")
         params.append(kind)
@@ -521,8 +524,8 @@ def describe_symbol(
     To see test-file callers/callees, use `gw graph callers <name>
     --include-tests` directly.
     """
-    where = ["kind = ?", "name = ?"]
-    params: list = [kind, name]
+    where = ["kind = ?", "(name = ? OR name LIKE '%.' || ?)"]
+    params: list = [kind, name, name]
     if path is not None:
         where.append("path = ?")
         params.append(path)
@@ -581,7 +584,7 @@ def callers(
             SELECT e.src, 1 FROM edges e
             JOIN nodes target ON e.dst = target.id
             {src_join}
-            WHERE e.kind='calls' AND target.name = ? AND target.path IS NOT NULL
+            WHERE e.kind='calls' AND (target.name = ? OR target.name LIKE '%.' || ?) AND target.path IS NOT NULL
               AND {_RESOLVED_FILTER}{src_filter}
             UNION
             SELECT e.src, c.depth + 1 FROM edges e
@@ -595,7 +598,7 @@ def callers(
         GROUP BY n.id
         ORDER BY MIN(c.depth), n.name
         """,
-        (name, depth),
+        (name, name, depth),
     ).fetchall()
     return [CallRecord(name=r[0], path=r[1], line=r[2], depth=r[3]) for r in rows]
 
@@ -624,7 +627,7 @@ def callees(
             SELECT e.dst, 1 FROM edges e
             JOIN nodes src ON e.src = src.id
             {dst_join}
-            WHERE e.kind='calls' AND src.name = ? AND src.path IS NOT NULL
+            WHERE e.kind='calls' AND (src.name = ? OR src.name LIKE '%.' || ?) AND src.path IS NOT NULL
               AND {_RESOLVED_FILTER}{dst_filter}
             UNION
             SELECT e.dst, c.depth + 1 FROM edges e
@@ -638,7 +641,7 @@ def callees(
         GROUP BY n.id
         ORDER BY MIN(c.depth), n.name
         """,
-        (name, depth),
+        (name, name, depth),
     ).fetchall()
     return [CallRecord(name=r[0], path=r[1], line=r[2], depth=r[3]) for r in rows]
 
@@ -1330,12 +1333,12 @@ def exported_by(conn: sqlite3.Connection, *, name: str) -> list[ExporterRecord]:
         FROM edges e
         JOIN nodes src ON e.src = src.id
         JOIN nodes dst ON e.dst = dst.id
-        WHERE e.kind='exports' AND dst.name = ?
+        WHERE e.kind='exports' AND (dst.name = ? OR dst.name LIKE '%.' || ?)
           AND src.path IS NOT NULL
           AND {_RESOLVED_FILTER}
         ORDER BY src.path
         """,
-        (name,),
+        (name, name),
     ).fetchall()
     return [ExporterRecord(path=r[0], name=r[1]) for r in rows]
 
