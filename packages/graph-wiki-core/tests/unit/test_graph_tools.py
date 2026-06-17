@@ -96,3 +96,77 @@ def test_cg_callers_callees_imports_smoke(seeded_graph_conn):
     assert isinstance(out_callees, str)
     out_imports = tools["cg_imports"].invoke({"path": "packages/mypkg/src/mypkg/foo.py"})
     assert isinstance(out_imports, str)
+
+
+def test_cg_callers_callees_exclude_test_symbols_by_default(tmp_path):
+    """D3/D5: agent tools inherit the queries default that hides test symbols.
+
+    Includes a prod-only A->B->C positive control so the empty (pruned) X/P
+    results are a meaningful contrast — without it, the "T absent" assertions
+    would pass vacuously even if the tools returned nothing for any input.
+    """
+    from graph_io import resolve, store, upsert
+    from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
+
+    db = tmp_path / "code.db"
+    conn = store.connect(db, create=True)
+    upsert.upsert_records(
+        conn,
+        GraphRecords(
+            nodes=[
+                GraphNode(kind="file", name="prod.py", path="prod.py", line=None, attrs={}),
+                GraphNode(kind="file", name="test_prod.py", path="test_prod.py", line=None, attrs={"is_test": True}),
+                # Test-file chain: P (prod) -> T (test) -> X (prod).
+                GraphNode(kind="function", name="P", path="prod.py", line=1, attrs={}),
+                GraphNode(kind="function", name="T", path="test_prod.py", line=1, attrs={}),
+                GraphNode(kind="function", name="X", path="prod.py", line=10, attrs={}),
+                # Positive control: pure-prod chain A -> B -> C (no test files).
+                GraphNode(kind="function", name="A", path="prod.py", line=20, attrs={}),
+                GraphNode(kind="function", name="B", path="prod.py", line=30, attrs={}),
+                GraphNode(kind="function", name="C", path="prod.py", line=40, attrs={}),
+            ],
+            edges=[
+                GraphEdge(src=("function", "P", "prod.py"), dst=("function", "T", None), kind="calls", attrs={}),
+                GraphEdge(src=("function", "T", "test_prod.py"), dst=("function", "X", None), kind="calls", attrs={}),
+                GraphEdge(src=("function", "A", "prod.py"), dst=("function", "B", None), kind="calls", attrs={}),
+                GraphEdge(src=("function", "B", "prod.py"), dst=("function", "C", None), kind="calls", attrs={}),
+            ],
+        ),
+    )
+    resolve.sweep(conn)
+    conn.close()
+
+    ro = store.read_only_connect(db)
+    try:
+        tools = _by_name(build_graph_tools(ro))
+        callers_out = tools["cg_callers"].invoke({"name": "X"})
+        callees_out = tools["cg_callees"].invoke({"name": "P"})
+        control_callers = tools["cg_callers"].invoke({"name": "B"})
+        control_callees = tools["cg_callees"].invoke({"name": "B"})
+    finally:
+        ro.close()
+
+    # Positive control: the tools render prod rows normally (so an empty result
+    # below is meaningfully "pruned", not "tool returns nothing").
+    assert "A" in _symbol_names(control_callers)
+    assert "C" in _symbol_names(control_callees)
+
+    # Default-exclude: T (test symbol) is gone, and P/X reachable only via T
+    # are pruned too.
+    assert "T" not in _symbol_names(callers_out)
+    assert "T" not in _symbol_names(callees_out)
+
+
+def _symbol_names(rendered: str) -> set[str]:
+    """Leading symbol token from each rendered human row (set membership only).
+
+    Relies on `name` being the first field of `CallRecord` (the human render
+    emits columns in dataclass field order); update if that order changes.
+    """
+    names: set[str] = set()
+    for line in rendered.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        names.add(line.split()[0])
+    return names
