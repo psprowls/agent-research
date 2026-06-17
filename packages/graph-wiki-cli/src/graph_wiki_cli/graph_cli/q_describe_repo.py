@@ -23,10 +23,13 @@ def run(args: FormatArgs) -> int:
         return exit_codes.SCHEMA_MISMATCH
     try:
         desc = queries.describe_repository(conn)
+        if desc is None:
+            print("error: not found: repository", file=sys.stderr)
+            return exit_codes.GENERIC
+        children, eff = queries.children_for(
+            conn, kind="repository", name=desc.name, depth=getattr(args, "depth", None)
+        )
     finally:
         conn.close()
-    if desc is None:
-        print("error: not found: repository", file=sys.stderr)
-        return exit_codes.GENERIC
-    print(_render.format_repo(desc, fmt=args.fmt))
+    print(_render.format_repo(desc, fmt=args.fmt, children=children, effective_depth=eff))
     return exit_codes.SUCCESS

@@ -496,3 +496,34 @@ def test_describe_package_go_deeper_nav_hint(workspace_with_internal_dep, capsys
     captured = capsys.readouterr()
     assert exit_code == exit_codes.SUCCESS, captured.err
     assert "→ gw graph describe alpha --depth 2" in captured.out
+
+
+# ---------------------------------------------------------------------------
+# Cross-surface parity: repository describe must emit children (depth 1)
+# ---------------------------------------------------------------------------
+
+
+def _ns_repo(workspace: Path, *, fmt: str = "human", depth: int | None = None):
+    """SimpleNamespace for q_describe_repo.run() — mirrors FormatArgs + depth."""
+    return SimpleNamespace(
+        workspace=workspace,
+        repo=None,
+        fmt=fmt,
+        mode="workspace",
+        depth=depth,
+    )
+
+
+def test_describe_repo_default_depth_1(workspace_with_internal_dep, capsys):
+    """Repository describe: default depth is 1 → 'children (depth 1)' in output.
+
+    The workspace_with_internal_dep fixture has packages alpha + beta under the
+    repo root, so the repository node has physically_contains children.
+    """
+    from graph_wiki_cli.graph_cli import q_describe_repo
+
+    args = _ns_repo(workspace_with_internal_dep)
+    exit_code = q_describe_repo.run(args)
+    captured = capsys.readouterr()
+    assert exit_code == exit_codes.SUCCESS, captured.err
+    assert "children (depth 1)" in captured.out
