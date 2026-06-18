@@ -70,7 +70,7 @@
     children: function common (line 1) (11 tokens)
   
   children (depth 2)
-  └─ packages/commonlib/src/commonlib/__init__.py:1
+  └─ common
   
   → gw graph imported-by packages/commonlib/src/commonlib/__init__.py
   → gw graph describe packages/commonlib/src/commonlib/__init__.py --depth 3
@@ -112,7 +112,7 @@
   
   children (depth 2)
   └─ file:local/repo/packages/mypkg/tests/test_foo.py
-     └─ packages/mypkg/tests/test_foo.py:6
+     └─ test_smoke
   
   → gw graph describe mypkg-unit-tests --depth 3
   

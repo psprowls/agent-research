@@ -129,8 +129,9 @@ class CallRecord:
 class ChildNode:
     """One node in a describe `children` containment tree.
 
-    Identity is stored raw (uri / path / line); the renderer derives the
-    display label (uri -> path:line -> path). `children` is the recursively
+    Identity is stored raw (uri / path / line / name); the renderer derives the
+    display label (source-code symbols have no uri, so they show `name`;
+    everything else: uri -> path:line -> path). `children` is the recursively
     expanded subtree (empty at the depth frontier or for leaf kinds).
     """
 
@@ -138,6 +139,7 @@ class ChildNode:
     uri: str | None
     path: str | None
     line: int | None
+    name: str | None = None
     children: list[ChildNode] = field(default_factory=list)
 
 
@@ -1101,7 +1103,7 @@ def _node_id(conn: sqlite3.Connection, node: NodeRecord) -> int | None:
 def _phys_children_sql(dst_kinds: tuple[str, ...]) -> str:
     in_list = ",".join(f"'{k}'" for k in dst_kinds)
     return (
-        "SELECT n.id, n.kind, n.uri, n.path, n.line "
+        "SELECT n.id, n.kind, n.uri, n.path, n.line, n.name "
         "FROM edges e JOIN nodes n ON e.dst = n.id "
         f"WHERE e.src = ? AND e.kind = 'physically_contains' AND n.kind IN ({in_list}) "
         "ORDER BY CASE n.kind WHEN 'subpackage' THEN 0 ELSE 1 END, n.path"
@@ -1111,7 +1113,7 @@ def _phys_children_sql(dst_kinds: tuple[str, ...]) -> str:
 def _contains_symbols_sql(dst_kinds: tuple[str, ...]) -> str:
     in_list = ",".join(f"'{k}'" for k in dst_kinds)
     return (
-        "SELECT n.id, n.kind, n.uri, n.path, n.line "
+        "SELECT n.id, n.kind, n.uri, n.path, n.line, n.name "
         "FROM edges e JOIN nodes n ON e.dst = n.id "
         f"WHERE e.src = ? AND e.kind = 'contains' AND n.kind IN ({in_list}) "
         f"AND {_RESOLVED_FILTER} "
@@ -1120,28 +1122,28 @@ def _contains_symbols_sql(dst_kinds: tuple[str, ...]) -> str:
 
 
 _TEST_SUITES_SQL = (
-    "SELECT ts.id, ts.kind, ts.uri, ts.path, ts.line "
+    "SELECT ts.id, ts.kind, ts.uri, ts.path, ts.line, ts.name "
     "FROM edges e JOIN nodes ts ON e.src = ts.id "
     "WHERE e.dst = ? AND e.kind = 'tests' AND ts.kind = 'test_suite' "
     "ORDER BY ts.name"
 )
 
 _ENTRY_POINTS_SQL = (
-    "SELECT ep.id, ep.kind, ep.uri, ep.path, ep.line "
+    "SELECT ep.id, ep.kind, ep.uri, ep.path, ep.line, ep.name "
     "FROM edges e JOIN nodes ep ON e.dst = ep.id "
     "WHERE e.src = ? AND e.kind = 'declares_entry_point' AND ep.kind = 'entry_point' "
     "ORDER BY ep.name"
 )
 
 _SUBDOMAINS_SQL = (
-    "SELECT d.id, d.kind, d.uri, d.path, d.line "
+    "SELECT d.id, d.kind, d.uri, d.path, d.line, d.name "
     "FROM edges e JOIN nodes d ON e.dst = d.id "
     "WHERE e.src = ? AND e.kind = 'domain_contains_domain' AND d.kind = 'domain' "
     "ORDER BY d.name"
 )
 
 _DOMAIN_PACKAGES_SQL = (
-    "SELECT p.id, p.kind, p.uri, p.path, p.line "
+    "SELECT p.id, p.kind, p.uri, p.path, p.line, p.name "
     "FROM edges e JOIN nodes p ON e.src = p.id "
     "WHERE e.dst = ? AND e.kind = 'belongs_to_domain' AND p.kind IN ('package','app') "
     "ORDER BY p.name"
@@ -1150,8 +1152,8 @@ _DOMAIN_PACKAGES_SQL = (
 
 def _direct_children(
     conn: sqlite3.Connection, node_id: int, kind: str
-) -> list[tuple[int, str, str | None, str | None, int | None]]:
-    """Kind-dispatched direct children as raw rows (id, kind, uri, path, line).
+) -> list[tuple[int, str, str | None, str | None, int | None, str | None]]:
+    """Kind-dispatched direct children as raw rows (id, kind, uri, path, line, name).
 
     Container/structural kinds descend `physically_contains`; symbol nesting
     descends `contains`; test_suites/entry_points/domain members come from
@@ -1187,9 +1189,9 @@ def _expand(conn: sqlite3.Connection, node_id: int, kind: str, depth: int, visit
         return []
     visited = visited | {node_id}
     out: list[ChildNode] = []
-    for child_id, child_kind, uri, path, line in _direct_children(conn, node_id, kind):
+    for child_id, child_kind, uri, path, line, name in _direct_children(conn, node_id, kind):
         grandchildren = _expand(conn, child_id, child_kind, depth - 1, visited)
-        out.append(ChildNode(kind=child_kind, uri=uri, path=path, line=line, children=grandchildren))
+        out.append(ChildNode(kind=child_kind, uri=uri, path=path, line=line, name=name, children=grandchildren))
     return out
 
 

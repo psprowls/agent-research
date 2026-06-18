@@ -115,8 +115,19 @@ def _aligned_block(title: str, pairs: list[tuple[str, str]]) -> list[str]:
     return lines
 
 
+# Source-code symbol kinds carry no uri; their node name is the readable label.
+_SYMBOL_KINDS = ("function", "class", "method", "type")
+
+
 def _child_label(child: Any) -> str:
-    """Display identity for a children-tree node: uri -> path:line -> path."""
+    """Display identity for a children-tree node.
+
+    Source-code symbols (function/class/method/type) have no uri, so show their
+    node name. Everything else: uri -> path:line -> path.
+    """
+    name = getattr(child, "name", None)
+    if child.kind in _SYMBOL_KINDS and name:
+        return name
     if child.uri:
         return child.uri
     if child.path is not None and child.line is not None:
@@ -140,7 +151,7 @@ def _ascii_tree(children: list[Any], prefix: str = "") -> list[str]:
 
 
 def _children_json(children: list[Any]) -> list[dict[str, Any]]:
-    """Nested {kind,uri,path,line,children} array mirroring the tree."""
+    """Nested {kind,uri,path,line,name,children} array mirroring the tree."""
     return [dataclasses.asdict(c) for c in children]
 
 

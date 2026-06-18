@@ -618,7 +618,9 @@ def test_describe_block_children_json_array() -> None:
         )
     )
     assert parsed["children_depth"] == 1
-    assert parsed["children"] == [{"kind": "file", "uri": None, "path": "x/b.py", "line": None, "children": []}]
+    assert parsed["children"] == [
+        {"kind": "file", "uri": None, "path": "x/b.py", "line": None, "name": None, "children": []}
+    ]
     assert parsed["nav"] == ["gw graph describe x --depth 2"]
 
 
@@ -672,6 +674,38 @@ def test_describe_block_children_label_fallback_path_line() -> None:
     assert "└─ a.py:12" in out
     # path-identity kind -> go-deeper hint uses identity_value (the path)
     assert "→ gw graph describe a.py --depth 3" in out
+
+
+def test_describe_block_children_symbol_label_uses_name() -> None:
+    # Source-code symbols (function/class/method/type) have no uri -> show the
+    # node name, not the path:line of the enclosing file.
+    from graph_io.queries import ChildNode
+
+    tree = [
+        ChildNode(
+            kind="class",
+            uri=None,
+            path="a.py",
+            line=4,
+            name="Widget",
+            children=[ChildNode(kind="method", uri=None, path="a.py", line=8, name="render")],
+        )
+    ]
+    out = render.describe_block(
+        kind="file",
+        name="a.py",
+        identity_label="path",
+        identity_value="a.py",
+        attributes=[],
+        relationships=[],
+        nav=[],
+        fmt="human",
+        children=tree,
+        children_depth=2,
+    )
+    assert "└─ Widget" in out
+    assert "   └─ render" in out
+    assert "a.py:4" not in out
 
 
 def test_format_path_threads_children() -> None:
