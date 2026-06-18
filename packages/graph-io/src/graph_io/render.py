@@ -115,6 +115,35 @@ def _aligned_block(title: str, pairs: list[tuple[str, str]]) -> list[str]:
     return lines
 
 
+def _child_label(child: Any) -> str:
+    """Display identity for a children-tree node: uri -> path:line -> path."""
+    if child.uri:
+        return child.uri
+    if child.path is not None and child.line is not None:
+        return f"{child.path}:{child.line}"
+    if child.path is not None:
+        return child.path
+    return "(unknown)"
+
+
+def _ascii_tree(children: list[Any], prefix: str = "") -> list[str]:
+    """Depth-first box-drawing render of a ChildNode tree. 3-char connectors."""
+    lines: list[str] = []
+    for i, child in enumerate(children):
+        last = i == len(children) - 1
+        connector = "└─ " if last else "├─ "
+        lines.append(f"{prefix}{connector}{_child_label(child)}")
+        if child.children:
+            extension = "   " if last else "│  "
+            lines.extend(_ascii_tree(child.children, prefix + extension))
+    return lines
+
+
+def _children_json(children: list[Any]) -> list[dict[str, Any]]:
+    """Nested {kind,uri,path,line,children} array mirroring the tree."""
+    return [dataclasses.asdict(c) for c in children]
+
+
 def describe_block(
     *,
     kind: str,
@@ -125,6 +154,8 @@ def describe_block(
     relationships: list[Rel],
     nav: list[str],
     fmt: str,
+    children: list[Any] | None = None,
+    children_depth: int | None = None,
 ) -> str:
     """Single sectioned-spine builder shared by every format_<kind>.
 
@@ -133,7 +164,19 @@ def describe_block(
     separated by a blank line, labels aligned within their block.
     JSON: {kind, name, <identity_label>, attributes, relationships, nav} —
     empty sections kept as {}/[] for a stable machine shape.
+
+    `children` (a ChildNode tree) renders a depth-bounded containment section
+    between `relationships` and `nav`; when present a `gw graph describe <sel>
+    --depth N+1` hint is appended to `nav` so the reader can expand one level
+    deeper (<sel> is the path-style identity for file/symbol kinds, else the
+    resolvable name). An empty/omitted tree leaves the spine unchanged.
     """
+    has_children = bool(children)
+    nav = list(nav)
+    if has_children:
+        deeper_sel = identity_value if identity_label == "path" else name
+        nav.append(f"gw graph describe {deeper_sel} --depth {(children_depth or 0) + 1}")
+
     if fmt == "json":
         payload: dict[str, object] = {
             "kind": kind,
@@ -141,8 +184,11 @@ def describe_block(
             identity_label: identity_value,
             "attributes": {a.key: a.json for a in attributes},
             "relationships": {r.key: r.values for r in relationships},
-            "nav": list(nav),
         }
+        if has_children:
+            payload["children_depth"] = children_depth
+            payload["children"] = _children_json(children)  # type: ignore[arg-type]
+        payload["nav"] = list(nav)
         return _json.dumps(payload, default=str)
     if fmt != "human":
         raise ValueError(f"unknown format: {fmt!r}")
@@ -156,6 +202,10 @@ def describe_block(
     if rel_lines:
         lines.append("")
         lines.extend(rel_lines)
+    if has_children:
+        lines.append("")
+        lines.append(f"children (depth {children_depth})")
+        lines.extend(_ascii_tree(children))  # type: ignore[arg-type]
     if nav:
         lines.append("")
         lines.extend(f"→ {cmd}" for cmd in nav)
@@ -245,7 +295,9 @@ def _package_nav(name: str) -> list[str]:
     return [f"gw graph what-tests {name}", f"gw graph list-entry-points {name}"]
 
 
-def format_package(desc: Any, fmt: str) -> str:
+def format_package(
+    desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None
+) -> str:
     """Format a PackageDescription on the sectioned spine."""
     attributes = [
         Attr.scalar("language", "language", desc.language),
@@ -262,10 +314,12 @@ def format_package(desc: Any, fmt: str) -> str:
         relationships=_package_relationships(desc),
         nav=_package_nav(desc.name),
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 
-def format_app(desc: Any, fmt: str) -> str:
+def format_app(desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None) -> str:
     """Format an AppDescription on the sectioned spine (including app_kind and signals)."""
     rels: list[Rel] = []
     if desc.domains:
@@ -291,6 +345,8 @@ def format_app(desc: Any, fmt: str) -> str:
         relationships=rels,
         nav=_package_nav(desc.name),
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 
@@ -309,7 +365,7 @@ def _role_flags_human(role_flags: dict[str, bool] | None) -> str:
     return ", ".join(on) or "(none)"
 
 
-def format_path(desc: Any, fmt: str) -> str:
+def format_path(desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None) -> str:
     """Format a PathDescription (a file node) on the spine."""
     attributes = [Attr("role_flags", "role_flags", _role_flags_human(desc.role_flags), desc.role_flags)]
     if desc.token_count is not None:  # deriver v7 file token_count (Design decision 8)
@@ -330,10 +386,12 @@ def format_path(desc: Any, fmt: str) -> str:
         relationships=rels,
         nav=[f"gw graph imported-by {desc.path}"],
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 
-def format_repo(desc: Any, fmt: str) -> str:
+def format_repo(desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None) -> str:
     """Format a RepoDescription on the sectioned spine."""
     attributes = [
         Attr.scalar("url", "url", desc.url),
@@ -350,10 +408,20 @@ def format_repo(desc: Any, fmt: str) -> str:
         relationships=[],
         nav=["gw graph list --kind package", "gw graph list --kind app"],
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 
-def format_domain(desc: Any, packages: list[str], subdomains: list[str], fmt: str) -> str:
+def format_domain(
+    desc: Any,
+    packages: list[str],
+    subdomains: list[str],
+    fmt: str,
+    *,
+    children: list[Any] | None = None,
+    effective_depth: int | None = None,
+) -> str:
     """Format a DomainDescription on the spine. packages/subdomains are fetched
     by the caller (NOT on DomainDescription) — pass via queries.domain_members."""
     attributes = [
@@ -374,6 +442,8 @@ def format_domain(desc: Any, packages: list[str], subdomains: list[str], fmt: st
         relationships=rels,
         nav=[f"gw graph domain-refs {desc.name}", f"gw graph domain-deps {desc.name}"],
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 
@@ -398,7 +468,7 @@ def format_entry_point(desc: Any, fmt: str) -> str:
     )
 
 
-def format_suite(desc: Any, fmt: str) -> str:
+def format_suite(desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None) -> str:
     """Format a SuiteDescription on the sectioned spine."""
     attributes = [
         Attr.scalar("kind", "kind", desc.kind),
@@ -413,6 +483,8 @@ def format_suite(desc: Any, fmt: str) -> str:
         relationships=[],
         nav=[],
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 
@@ -478,7 +550,7 @@ def format_agent_plugin(desc: Any, fmt: str) -> str:
     )
 
 
-def format_symbol(desc: Any, fmt: str) -> str:
+def format_symbol(desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None) -> str:
     """Format a SymbolDescription (function/class/method/type) on the spine."""
     loc = f"{desc.path}:{desc.line}" if desc.line is not None else (desc.path or "(unknown)")
     exported = f"yes (from {desc.exported_from})" if desc.exported_from else "no"
@@ -503,6 +575,8 @@ def format_symbol(desc: Any, fmt: str) -> str:
         relationships=rels,
         nav=[f"gw graph callers {desc.name} --depth 3", f"gw graph callees {desc.name} --depth 3"],
         fmt=fmt,
+        children=children,
+        children_depth=effective_depth,
     )
 
 

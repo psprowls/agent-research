@@ -28,10 +28,11 @@ def run(args: NameArgs) -> int:
         return exit_codes.SCHEMA_MISMATCH
     try:
         desc = queries.describe_app(conn, name=args.name)
+        if desc is None:
+            print(f"error: app not found: {args.name}", file=sys.stderr)
+            return exit_codes.GENERIC
+        children, eff = queries.children_for(conn, kind="app", name=desc.name, depth=getattr(args, "depth", None))
     finally:
         conn.close()
-    if desc is None:
-        print(f"error: app not found: {args.name}", file=sys.stderr)
-        return exit_codes.GENERIC
-    print(_render.format_app(desc, fmt=args.fmt))
+    print(_render.format_app(desc, fmt=args.fmt, children=children, effective_depth=eff))
     return exit_codes.SUCCESS

@@ -83,22 +83,35 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             result = queries.describe_repository(conn)
             if result is None:
                 return _missing(kind, identifier)
-            return _render.format_repo(result, fmt="human")
+            children, eff = queries.children_for(conn, kind="repository", name=result.name, depth=None)
+            return _render.format_repo(result, fmt="human", children=children, effective_depth=eff)
         if kind == "package":
             result = queries.describe_package(conn, name=identifier)
-            return _render.format_package(result, fmt="human") if result else _missing(kind, identifier)
+            if result is None:
+                return _missing(kind, identifier)
+            children, eff = queries.children_for(conn, kind="package", name=result.name, depth=None)
+            return _render.format_package(result, fmt="human", children=children, effective_depth=eff)
         if kind == "path":
             result = queries.describe_path(conn, path=identifier)
-            return _render.format_path(result, fmt="human") if result else _missing(kind, identifier)
+            if result is None:
+                return _missing(kind, identifier)
+            children, eff = queries.children_for(conn, kind="file", path=result.path, depth=None)
+            return _render.format_path(result, fmt="human", children=children, effective_depth=eff)
         if kind == "test_suite":
             result = queries.describe_test_suite(conn, suite_name=identifier)
-            return _render.format_suite(result, fmt="human") if result else _missing(kind, identifier)
+            if result is None:
+                return _missing(kind, identifier)
+            children, eff = queries.children_for(conn, kind="test_suite", name=result.name, depth=None)
+            return _render.format_suite(result, fmt="human", children=children, effective_depth=eff)
         if kind == "domain":
             result = queries.describe_domain(conn, name=identifier)
             if result is None:
                 return _missing(kind, identifier)
             packages, subdomains = queries.domain_members(conn, identifier)
-            return _render.format_domain(result, packages, subdomains, fmt="human")
+            children, eff = queries.children_for(conn, kind="domain", name=result.name, depth=None)
+            return _render.format_domain(
+                result, packages, subdomains, fmt="human", children=children, effective_depth=eff
+            )
         if kind == "entry_point":
             # entry_point: needs "<package>:<entry>". Reject other shapes with the
             # standard not-found string so the LLM gets a recoverable signal (D-12)

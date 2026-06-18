@@ -180,11 +180,14 @@ def describe_cmd(
     in_package: Optional[str] = typer.Option(
         None, "--in-package", help="Narrow resolution to a containing package (mirrors find)."
     ),
+    depth: Optional[int] = typer.Option(None, "--depth", help="children-tree depth (>=1). Default: per-kind."),
 ) -> None:
     """Describe a graph entity. Kind is inferred from the selector when --kind is omitted."""
     if kind is not None and kind not in q_describe.DESCRIBE_KINDS:
         raise typer.BadParameter(f"kind must be one of: {', '.join(q_describe.DESCRIBE_KINDS)}")
-    _run(q_describe, ctx, selector=selector, kind=kind, ecosystem=ecosystem, in_package=in_package)
+    if depth is not None and depth < 1:
+        raise typer.BadParameter("depth must be >= 1")
+    _run(q_describe, ctx, selector=selector, kind=kind, ecosystem=ecosystem, in_package=in_package, depth=depth)
 
 
 @graph_app.command(name="list")

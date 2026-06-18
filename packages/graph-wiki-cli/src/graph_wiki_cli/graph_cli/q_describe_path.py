@@ -23,10 +23,11 @@ def run(args: PathDescribeArgs) -> int:
         return exit_codes.SCHEMA_MISMATCH
     try:
         desc = queries.describe_path(conn, path=args.path)
+        if desc is None:
+            print(f"error: path not found in graph: {args.path}", file=sys.stderr)
+            return exit_codes.GENERIC
+        children, eff = queries.children_for(conn, kind="file", path=desc.path, depth=getattr(args, "depth", None))
     finally:
         conn.close()
-    if desc is None:
-        print(f"error: path not found in graph: {args.path}", file=sys.stderr)
-        return exit_codes.GENERIC
-    print(_render.format_path(desc, fmt=args.fmt))
+    print(_render.format_path(desc, fmt=args.fmt, children=children, effective_depth=eff))
     return exit_codes.SUCCESS

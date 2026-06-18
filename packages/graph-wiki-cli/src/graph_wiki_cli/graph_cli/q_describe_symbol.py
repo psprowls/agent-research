@@ -38,10 +38,13 @@ def run(args: MutableDescribeArgs) -> int:
             path=getattr(args, "path", None),
             line=getattr(args, "line", None),
         )
+        if desc is None:
+            print(f"error: {args.kind} not found: {args.selector}", file=sys.stderr)
+            return exit_codes.GENERIC
+        children, eff = queries.children_for(
+            conn, kind=desc.kind, name=desc.name, path=desc.path, line=desc.line, depth=getattr(args, "depth", None)
+        )
     finally:
         conn.close()
-    if desc is None:
-        print(f"error: {args.kind} not found: {args.selector}", file=sys.stderr)
-        return exit_codes.GENERIC
-    print(_render.format_symbol(desc, fmt=args.fmt))
+    print(_render.format_symbol(desc, fmt=args.fmt, children=children, effective_depth=eff))
     return exit_codes.SUCCESS

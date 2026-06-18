@@ -46,6 +46,7 @@ class DescribeArgs(FormatArgs, Protocol):
     kind: str | None
     ecosystem: str | None
     in_package: str | None
+    depth: int | None
 
 
 class MutableDescribeArgs(DescribeArgs, Protocol):

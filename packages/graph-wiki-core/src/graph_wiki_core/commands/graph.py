@@ -188,7 +188,9 @@ def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str
     return exit_codes.SUCCESS, "", ""
 
 
-def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path) -> tuple[int, str, str]:
+def run_describe(
+    kind: str, identifier: str | None, repo: Path, workspace: Path, depth: int | None = None
+) -> tuple[int, str, str]:
     """Describe a graph entity (full describable set), printing-free (D-04).
 
     Dispatches over the shared `_render.format_<kind>` spine formatters using
@@ -199,6 +201,9 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
     `_render.format_<kind>(...)` human string (byte-identical). not-found →
     GENERIC; ambiguous bare entry-point → AMBIGUOUS(7); store errors →
     NOT_INITIALIZED|SCHEMA_MISMATCH (via `_connect_or_error`).
+
+    `depth` controls the children-tree depth (per-kind default when None).
+    Existing callers that omit `depth` are unaffected.
     """
     conn, exit_code, stderr = _connect_or_error(workspace)
     if conn is None:
@@ -209,7 +214,9 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             desc = queries.describe_repository(conn)
             if desc is None:
                 return exit_codes.GENERIC, "", "error: not found: repository"
-            return exit_codes.SUCCESS, _render.format_repo(desc, fmt="human"), ""
+            children, eff = queries.children_for(conn, kind="repository", name=desc.name, depth=depth)
+            out = _render.format_repo(desc, fmt="human", children=children, effective_depth=eff)
+            return exit_codes.SUCCESS, out, ""
 
         # Defensive guard: every other kind requires an identifier. Real callers
         # already prevent None reaching here; this keeps the public core safe.
@@ -220,20 +227,26 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             desc = queries.describe_package(conn, name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: package not found: {identifier}"
-            return exit_codes.SUCCESS, _render.format_package(desc, fmt="human"), ""
+            children, eff = queries.children_for(conn, kind="package", name=desc.name, depth=depth)
+            out = _render.format_package(desc, fmt="human", children=children, effective_depth=eff)
+            return exit_codes.SUCCESS, out, ""
 
         if kind == "path":
             desc = queries.describe_path(conn, path=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: path not found in graph: {identifier}"
-            return exit_codes.SUCCESS, _render.format_path(desc, fmt="human"), ""
+            children, eff = queries.children_for(conn, kind="file", path=desc.path, depth=depth)
+            out = _render.format_path(desc, fmt="human", children=children, effective_depth=eff)
+            return exit_codes.SUCCESS, out, ""
 
         if kind == "domain":
             desc = queries.describe_domain(conn, name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: not found: {identifier}"
             packages, subdomains = queries.domain_members(conn, identifier)
-            return exit_codes.SUCCESS, _render.format_domain(desc, packages, subdomains, fmt="human"), ""
+            children, eff = queries.children_for(conn, kind="domain", name=desc.name, depth=depth)
+            out = _render.format_domain(desc, packages, subdomains, fmt="human", children=children, effective_depth=eff)
+            return exit_codes.SUCCESS, out, ""
 
         if kind == "entry_point":
             desc, ambiguous = queries.resolve_entry_point(conn, identifier)
@@ -253,13 +266,17 @@ def run_describe(kind: str, identifier: str | None, repo: Path, workspace: Path)
             desc = queries.describe_test_suite(conn, suite_name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: not found: {identifier}"
-            return exit_codes.SUCCESS, _render.format_suite(desc, fmt="human"), ""
+            children, eff = queries.children_for(conn, kind="test_suite", name=desc.name, depth=depth)
+            out = _render.format_suite(desc, fmt="human", children=children, effective_depth=eff)
+            return exit_codes.SUCCESS, out, ""
 
         if kind == "app":
             desc = queries.describe_app(conn, name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: app not found: {identifier}"
-            return exit_codes.SUCCESS, _render.format_app(desc, fmt="human"), ""
+            children, eff = queries.children_for(conn, kind="app", name=desc.name, depth=depth)
+            out = _render.format_app(desc, fmt="human", children=children, effective_depth=eff)
+            return exit_codes.SUCCESS, out, ""
 
         if kind == "dependency":
             # Core receives no ecosystem arg, so it uses the "ecosystem/name" prefix
