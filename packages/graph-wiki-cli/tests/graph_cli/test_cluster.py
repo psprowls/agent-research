@@ -39,22 +39,25 @@ def _seed_packages(
     conn.commit()
 
 
-def _seed_references(
+def _seed_dependencies(
     conn: sqlite3.Connection,
     edges: list[tuple[str, str]],
     *,
     insert_order_seed: int | None = None,
 ) -> None:
-    """INSERT references edges between existing package nodes."""
+    """INSERT depends_on_package edges between existing package/app nodes.
+
+    Direction is src=dependent -> dst=dependency (matches derived_edges).
+    """
     to_insert = list(edges)
     if insert_order_seed is not None:
         random.Random(insert_order_seed).shuffle(to_insert)
     for src, dst in to_insert:
-        src_id = conn.execute("SELECT id FROM nodes WHERE name = ? AND kind = 'package'", (src,)).fetchone()[0]
-        dst_id = conn.execute("SELECT id FROM nodes WHERE name = ? AND kind = 'package'", (dst,)).fetchone()[0]
+        src_id = conn.execute("SELECT id FROM nodes WHERE name = ? AND kind IN ('package','app')", (src,)).fetchone()[0]
+        dst_id = conn.execute("SELECT id FROM nodes WHERE name = ? AND kind IN ('package','app')", (dst,)).fetchone()[0]
         conn.execute(
             "INSERT INTO edges (src, dst, kind) VALUES (?, ?, ?)",
-            (src_id, dst_id, "references"),
+            (src_id, dst_id, "depends_on_package"),
         )
     conn.commit()
 
@@ -93,7 +96,7 @@ def test_hub_detection_threshold_boundary(empty_db: sqlite3.Connection) -> None:
     # n_packages = 10; denom = 9; in_degree(P) = 5; ratio = 5/9 ≈ 0.5555.
     names = ["P"] + [f"P{i}" for i in range(9)]
     _seed_packages(empty_db, names)
-    _seed_references(empty_db, [(f"P{i}", "P") for i in range(5)])
+    _seed_dependencies(empty_db, [(f"P{i}", "P") for i in range(5)])
 
     # threshold=0.5: 5/9 > 0.5 → P IS a hub.
     r = compute_clusters(empty_db, hub_threshold=0.5)
@@ -120,7 +123,7 @@ def test_known_small_graph(empty_db: sqlite3.Connection) -> None:
     # 6 packages A,B,C,D,E,F + 1 hub X. X is importED by all 6 (in_degree=6).
     # Clusters from intra-cluster edges A→B, B→C, D→E, plus F as singleton.
     _seed_packages(empty_db, ["A", "B", "C", "D", "E", "F", "X"])
-    _seed_references(
+    _seed_dependencies(
         empty_db,
         [
             ("A", "B"),
@@ -159,7 +162,7 @@ def test_known_small_graph(empty_db: sqlite3.Connection) -> None:
 def test_degenerate_giant(empty_db: sqlite3.Connection) -> None:
     # 5 packages, no hubs, all in one big cluster.
     _seed_packages(empty_db, ["a", "b", "c", "d", "e"])
-    _seed_references(
+    _seed_dependencies(
         empty_db,
         [("a", "b"), ("b", "c"), ("c", "d"), ("d", "e")],
     )
@@ -170,7 +173,7 @@ def test_degenerate_giant(empty_db: sqlite3.Connection) -> None:
     assert r.clusters[0].size == 5
     assert r.degenerate_warning is not None
     assert "cluster '" in r.degenerate_warning
-    assert "contains 100% of packages" in r.degenerate_warning
+    assert "contains 100% of members" in r.degenerate_warning
 
 
 def test_degenerate_all_singletons(empty_db: sqlite3.Connection) -> None:
@@ -180,7 +183,7 @@ def test_degenerate_all_singletons(empty_db: sqlite3.Connection) -> None:
     assert len(r.clusters) == 5
     assert all(c.size == 1 for c in r.clusters)
     assert r.degenerate_warning is not None
-    assert "every package is its own cluster" in r.degenerate_warning
+    assert "every member is its own cluster" in r.degenerate_warning
 
 
 # ---------------------------------------------------------------------------
@@ -191,7 +194,7 @@ def test_degenerate_all_singletons(empty_db: sqlite3.Connection) -> None:
 def test_determinism_repeated_invocation(empty_db: sqlite3.Connection) -> None:
     # Non-trivial graph: 5 packages, mixed edges, 1 hub.
     _seed_packages(empty_db, ["A", "B", "C", "D", "H"])
-    _seed_references(
+    _seed_dependencies(
         empty_db,
         [
             ("A", "B"),
@@ -229,13 +232,13 @@ def test_determinism_permuted_insertion(tmp_path) -> None:
     conn1 = sqlite3.connect(":memory:")
     apply_schema(conn1)
     _seed_packages(conn1, names)
-    _seed_references(conn1, edges)
+    _seed_dependencies(conn1, edges)
 
     # DB 2: insert in a shuffled order.
     conn2 = sqlite3.connect(":memory:")
     apply_schema(conn2)
     _seed_packages(conn2, names, insert_order_seed=42)
-    _seed_references(conn2, edges, insert_order_seed=42)
+    _seed_dependencies(conn2, edges, insert_order_seed=42)
 
     r1 = compute_clusters(conn1, hub_threshold=0.5)
     r2 = compute_clusters(conn2, hub_threshold=0.5)
@@ -271,7 +274,7 @@ def test_hub_threshold_out_of_range(empty_db: sqlite3.Connection) -> None:
 
 def test_empty_graph(empty_db: sqlite3.Connection) -> None:
     r = compute_clusters(empty_db)
-    assert r.n_packages_total == 0
+    assert r.n_members_total == 0
     assert r.clusters == ()
     assert r.cross_cutting == ()
     assert r.degenerate_warning is None
@@ -284,7 +287,7 @@ def test_empty_graph(empty_db: sqlite3.Connection) -> None:
 
 def test_singleton_cluster_present_when_isolated(empty_db: sqlite3.Connection) -> None:
     _seed_packages(empty_db, ["A", "B", "C"])
-    _seed_references(empty_db, [("A", "B")])
+    _seed_dependencies(empty_db, [("A", "B")])
     r = compute_clusters(empty_db, hub_threshold=0.5)
     assert len(r.clusters) == 2
     sizes = sorted([c.size for c in r.clusters], reverse=True)
@@ -299,7 +302,7 @@ def test_singleton_cluster_present_when_isolated(empty_db: sqlite3.Connection) -
 def test_cluster_name_intra_in_degree_picks_central(empty_db: sqlite3.Connection) -> None:
     # A,B,C with edges A→B, A→C, B→C. Intra in-degree: A=0, B=1, C=2 → name=C.
     _seed_packages(empty_db, ["A", "B", "C"])
-    _seed_references(empty_db, [("A", "B"), ("A", "C"), ("B", "C")])
+    _seed_dependencies(empty_db, [("A", "B"), ("A", "C"), ("B", "C")])
     # threshold=1.0 inclusive: C's ratio is 2/2=1.0; 1.0 > 1.0 is False → not a hub.
     r = compute_clusters(empty_db, hub_threshold=1.0)
     assert len(r.clusters) == 1
@@ -319,7 +322,7 @@ def test_connects_clusters_skips_hub_to_hub_edges(empty_db: sqlite3.Connection) 
     #   X→Y, Y→X (hub-to-hub)
     #   A→B (A,B cluster)
     _seed_packages(empty_db, ["A", "B", "X", "Y"])
-    _seed_references(
+    _seed_dependencies(
         empty_db,
         [
             ("A", "X"),
@@ -369,7 +372,7 @@ def _seed_workspace(
     try:
         apply_schema(conn)
         _seed_packages(conn, names)
-        _seed_references(conn, edges)
+        _seed_dependencies(conn, edges)
     finally:
         conn.close()
     return ws
@@ -432,7 +435,7 @@ def test_cli_json_format(tmp_path: Path) -> None:
     # D-20: JSON key order locked.
     assert list(payload.keys()) == [
         "hub_threshold",
-        "n_packages_total",
+        "n_members_total",
         "degenerate_warning",
         "clusters",
         "cross_cutting",
@@ -495,6 +498,6 @@ def test_cli_emits_degenerate_warning_to_stderr(tmp_path: Path) -> None:
         text=True,
     )
     assert result.returncode == 0
-    assert "every package is its own cluster" in result.stderr
+    assert "every member is its own cluster" in result.stderr
     payload = json.loads(result.stdout)
     assert payload["degenerate_warning"] is not None

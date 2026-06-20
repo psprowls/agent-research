@@ -1,9 +1,9 @@
 """Deterministic connected-component domain clustering over the code graph.
 
 This module implements undirected weakly-connected-components clustering over
-`references` edges between `package` nodes, with hub-node exclusion preprocessing.
-A *hub* is a package whose in-degree fraction exceeds ``hub_threshold`` — those
-packages are removed from the working node and edge set before union-find runs,
+``depends_on_package`` edges between ``package``/``app`` nodes, with hub-node exclusion preprocessing.
+A *hub* is a member node whose in-degree fraction exceeds ``hub_threshold`` — those
+nodes are removed from the working node and edge set before union-find runs,
 so utility libraries (logging, click, pytest, etc.) do not silently merge every
 otherwise-separable cluster into one giant component.
 
@@ -42,8 +42,8 @@ from dataclasses import dataclass
 
 _DEFAULT_HUB_THRESHOLD: float = 0.5
 _DEGENERATE_GIANT_RATIO: float = 0.8
-_REFERENCES_KIND: str = "references"
-_PACKAGE_KIND: str = "package"
+_DEPENDS_ON_PACKAGE_KIND: str = "depends_on_package"
+_MEMBER_KINDS: tuple[str, ...] = ("package", "app")
 
 
 @dataclass(frozen=True)
@@ -65,7 +65,7 @@ class CrossCuttingHub:
 @dataclass(frozen=True)
 class ClusterResult:
     hub_threshold: float
-    n_packages_total: int
+    n_members_total: int
     degenerate_warning: str | None
     clusters: tuple[Cluster, ...]
     cross_cutting: tuple[CrossCuttingHub, ...]
@@ -105,30 +105,34 @@ class _UnionFind:
             self._rank[ra] += 1
 
 
-def _load_package_names(conn: sqlite3.Connection) -> list[str]:
-    """Return all package node names, sorted alphabetically (D-15)."""
+def _load_member_names(conn: sqlite3.Connection) -> list[str]:
+    """Return all package + app node names, sorted alphabetically (D-15, D2)."""
+    placeholders = ", ".join("?" for _ in _MEMBER_KINDS)
     rows = conn.execute(
-        "SELECT name FROM nodes WHERE kind = ? ORDER BY name",
-        (_PACKAGE_KIND,),
+        f"SELECT name FROM nodes WHERE kind IN ({placeholders}) ORDER BY name",
+        _MEMBER_KINDS,
     ).fetchall()
     return [r[0] for r in rows]
 
 
-def _load_reference_edges(conn: sqlite3.Connection) -> list[tuple[str, str]]:
-    """Return all ``references`` edges between two ``package`` nodes (D-15).
+def _load_dependency_edges(conn: sqlite3.Connection) -> list[tuple[str, str]]:
+    """Return all ``depends_on_package`` edges between member nodes (D1, D2).
 
-    Sorted by ``(src, dst)`` at the SQL level for determinism.
+    Members are ``('package','app')`` nodes. Edge direction is
+    src=dependent -> dst=dependency, so in-degree = imported-by count — the
+    signal hub detection assumes. Sorted by ``(src, dst)`` for determinism.
     """
+    placeholders = ", ".join("?" for _ in _MEMBER_KINDS)
     rows = conn.execute(
-        """
+        f"""
         SELECT src.name, dst.name
         FROM edges e
         JOIN nodes src ON src.id = e.src
         JOIN nodes dst ON dst.id = e.dst
-        WHERE e.kind = ? AND src.kind = ? AND dst.kind = ?
+        WHERE e.kind = ? AND src.kind IN ({placeholders}) AND dst.kind IN ({placeholders})
         ORDER BY src.name, dst.name
         """,
-        (_REFERENCES_KIND, _PACKAGE_KIND, _PACKAGE_KIND),
+        (_DEPENDS_ON_PACKAGE_KIND, *_MEMBER_KINDS, *_MEMBER_KINDS),
     ).fetchall()
     return [(r[0], r[1]) for r in rows]
 
@@ -138,16 +142,16 @@ def _compute_hubs(
     names: list[str],
     threshold: float,
 ) -> set[str]:
-    """Return the set of package names classified as hubs (D-04).
+    """Return the set of member node names classified as hubs (D-04).
 
-    A package ``n`` is a hub when ``in_degree(n) / (n_packages - 1) > threshold``
-    (strictly greater). With ``n_packages <= 1`` there is no denominator, so
+    A member node ``n`` is a hub when ``in_degree(n) / (n_members - 1) > threshold``
+    (strictly greater). With ``n_members <= 1`` there is no denominator, so
     no node can be a hub.
     """
-    n_packages = len(names)
-    if n_packages <= 1:
+    n_members = len(names)
+    if n_members <= 1:
         return set()
-    denom = n_packages - 1
+    denom = n_members - 1
     hubs: set[str] = set()
     for n in names:
         in_degree = len(adjacency_in.get(n, ()))
@@ -214,7 +218,7 @@ def _compute_connects_clusters(
 
 def _detect_degenerate(
     clusters: tuple[Cluster, ...],
-    n_packages_total: int,
+    n_members_total: int,
     threshold: float,
 ) -> str | None:
     """Detect degenerate clusterings (D-11/D-12/D-13/D-14).
@@ -222,28 +226,28 @@ def _detect_degenerate(
     First-match-wins: giant component checked before all-singletons. ``None``
     when neither condition fires.
     """
-    if n_packages_total <= 0:
+    if n_members_total <= 0:
         return None
     if clusters:
         max_size = max(c.size for c in clusters)
-        if max_size / n_packages_total > _DEGENERATE_GIANT_RATIO:
+        if max_size / n_members_total > _DEGENERATE_GIANT_RATIO:
             # Find the cluster with that max size (sort spec guarantees ties
             # break by members[0]; clusters is already sorted, so first match
             # is the deterministic pick).
             giant = next(c for c in clusters if c.size == max_size)
-            pct = max_size / n_packages_total
+            pct = max_size / n_members_total
             return (
                 f"warning: domain clustering degenerate — cluster '{giant.name}' "
-                f"contains {pct:.0%} of packages.\n"
+                f"contains {pct:.0%} of members.\n"
                 f"Likely cause: hub threshold too high (currently {threshold:g}), "
-                f"too few packages, or sparse imports.\n"
+                f"too few members, or sparse imports.\n"
                 f"Try: gw graph domain-clusters --hub-threshold 0.3"
             )
-    if clusters and len(clusters) == n_packages_total:
+    if clusters and len(clusters) == n_members_total:
         return (
-            f"warning: domain clustering degenerate — every package is its own cluster.\n"
+            f"warning: domain clustering degenerate — every member is its own cluster.\n"
             f"Likely cause: hub threshold too aggressive (currently {threshold:g}) "
-            f"or no inter-package imports.\n"
+            f"or no inter-member imports.\n"
             f"Try: gw graph domain-clusters --hub-threshold 0.7"
         )
     return None
@@ -262,19 +266,19 @@ def compute_clusters(
     if not (0.0 < hub_threshold <= 1.0):
         raise ValueError(f"hub_threshold must be in (0.0, 1.0], got {hub_threshold}")
 
-    names = _load_package_names(conn)
-    n_packages_total = len(names)
+    names = _load_member_names(conn)
+    n_members_total = len(names)
 
-    if n_packages_total == 0:
+    if n_members_total == 0:
         return ClusterResult(
             hub_threshold=hub_threshold,
-            n_packages_total=0,
+            n_members_total=0,
             degenerate_warning=None,
             clusters=(),
             cross_cutting=(),
         )
 
-    edges = _load_reference_edges(conn)
+    edges = _load_dependency_edges(conn)
 
     adjacency_in: dict[str, set[str]] = defaultdict(set)
     for src, dst in edges:
@@ -343,7 +347,7 @@ def compute_clusters(
 
     # Build cross-cutting hubs, iterating sorted(hubs) — final tuple is
     # therefore alphabetical by name (D-09).
-    denom = n_packages_total - 1
+    denom = n_members_total - 1
     cross_cutting_list: list[CrossCuttingHub] = []
     for h in sorted(hubs):
         imported_by_count = len(adjacency_in.get(h, ()))
@@ -357,11 +361,11 @@ def compute_clusters(
             )
         )
 
-    degenerate_warning = _detect_degenerate(clusters_tuple, n_packages_total, hub_threshold)
+    degenerate_warning = _detect_degenerate(clusters_tuple, n_members_total, hub_threshold)
 
     return ClusterResult(
         hub_threshold=hub_threshold,
-        n_packages_total=n_packages_total,
+        n_members_total=n_members_total,
         degenerate_warning=degenerate_warning,
         clusters=clusters_tuple,
         cross_cutting=tuple(cross_cutting_list),
