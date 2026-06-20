@@ -30,7 +30,7 @@ def run(args: FormatArgs) -> int:
         if args.fmt == "json":
             print("[]")
         else:
-            print("No domains configured (domains.yaml missing).", file=sys.stderr)
+            print("No domains configured (graph.domains not set in .graph-wiki.yaml).", file=sys.stderr)
         return exit_codes.SUCCESS
     if args.fmt == "json":
         print(_json.dumps([dataclasses.asdict(r) for r in records], default=str))

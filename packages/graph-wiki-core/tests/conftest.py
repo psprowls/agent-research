@@ -99,6 +99,24 @@ def _resolve_sample_monorepo_fixture() -> Path:
 
 _GRAPH_IO_FIXTURE = _resolve_sample_monorepo_fixture()
 
+# D7: domains now come from <workspace>/.graph-wiki.yaml (graph.domains), not a
+# repo-root domains.yaml. Restores the sample_monorepo fixture's pre-feature
+# domain set (core/web/presentation) into the workspace manifest.
+_SAMPLE_DOMAINS_MANIFEST = (
+    "version: 2\n"
+    "graph:\n"
+    "  domains:\n"
+    "    core:\n"
+    "      packages: [mypkg, pyutil]\n"
+    "      description: Core utilities domain\n"
+    "    web:\n"
+    "      packages: [jspkg, webutil]\n"
+    "      parent: presentation\n"
+    "    presentation:\n"
+    "      packages: []\n"
+    "      description: Top-level UI layer\n"
+)
+
 
 @pytest.fixture(scope="session")
 def seeded_graph_workspace(tmp_path_factory):
@@ -114,6 +132,7 @@ def seeded_graph_workspace(tmp_path_factory):
     """
     from graph_io import update
     from workspace_io.config import resolve as resolve_workspace
+    from workspace_io.paths import manifest_path
 
     if not _GRAPH_IO_FIXTURE.exists():
         pytest.skip(f"sample_monorepo fixture not found at {_GRAPH_IO_FIXTURE}")
@@ -129,8 +148,10 @@ def seeded_graph_workspace(tmp_path_factory):
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "seeded init"], cwd=repo_root, check=True)
-    update.run(repo_root, full=True)
     ws = resolve_workspace(repo_root, require_manifest=False).workspace
+    ws.mkdir(parents=True, exist_ok=True)
+    manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
+    update.run(repo_root, full=True)
     return ws  # not a generator — session-scoped, no teardown needed
 
 
@@ -145,7 +166,7 @@ def seeded_graph_conn(tmp_path_factory):
     from graph_io import update
     from graph_io.store import read_only_connect
     from workspace_io.config import resolve as resolve_workspace
-    from workspace_io.paths import graph_dir
+    from workspace_io.paths import graph_dir, manifest_path
 
     if not _GRAPH_IO_FIXTURE.exists():
         pytest.skip(f"sample_monorepo fixture not found at {_GRAPH_IO_FIXTURE}")
@@ -161,8 +182,10 @@ def seeded_graph_conn(tmp_path_factory):
     subprocess.run(["git", "config", "user.name", "test"], cwd=repo_root, check=True)
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "seeded init"], cwd=repo_root, check=True)
-    update.run(repo_root, full=True)
     ws = resolve_workspace(repo_root, require_manifest=False).workspace
+    ws.mkdir(parents=True, exist_ok=True)
+    manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
+    update.run(repo_root, full=True)
     conn = read_only_connect(graph_dir(ws) / "code.db")
     try:
         yield conn
