@@ -1,4 +1,7 @@
-"""Unit tests for graph_io.domains.emit (Phase 31 DOMAIN-01..05, D-15)."""
+"""Unit tests for graph_io.domains.emit (Phase 31 DOMAIN-01..05, D-15).
+
+Phase 50 (D6): emit consumes a `domains_config` dict, not a domains.yaml file.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +12,6 @@ from pathlib import Path
 
 import pytest
 from graph_io import domains, packages, store
-from graph_io.domains import DomainYamlError
 from graph_io.uri import RepoContext
 
 CTX = RepoContext(org="testorg", repo="testrepo")
@@ -48,32 +50,36 @@ def _count_domains(conn: sqlite3.Connection) -> int:
 
 
 def _count_edges(conn: sqlite3.Connection, kind: str) -> int:
-    return conn.execute(
-        "SELECT COUNT(*) FROM edges WHERE kind=?",
-        (kind,),
-    ).fetchone()[0]
+    return conn.execute("SELECT COUNT(*) FROM edges WHERE kind=?", (kind,)).fetchone()[0]
 
 
-# ---------- (a) missing yaml ----------
+# ---------- (a) None / empty config -> zero domains ----------
 
 
-def test_missing_yaml_zero_domain(tmp_path: Path) -> None:
+def test_none_config_zero_domain(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config=None, ctx=CTX)
     assert _count_domains(conn) == 0
 
 
-# ---------- (b) valid yaml -> Domain + belongs_to_domain ----------
+def test_empty_config_zero_domain(tmp_path: Path) -> None:
+    _write_pkg(tmp_path, "mypkg")
+    conn = _setup(tmp_path)
+    _refresh_packages(conn, tmp_path)
+    domains.emit(conn, domains_config={}, ctx=CTX)
+    assert _count_domains(conn) == 0
+
+
+# ---------- (b) valid config -> Domain + belongs_to_domain ----------
 
 
 def test_emit_domain_nodes(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("core:\n  packages: [mypkg]\n  description: 'Core domain'\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"core": {"packages": ["mypkg"], "description": "Core domain"}}, ctx=CTX)
     assert _count_domains(conn) == 1
     assert _count_edges(conn, "belongs_to_domain") == 1
     row = conn.execute("SELECT uri, attrs_json FROM nodes WHERE kind='domain' AND name='core'").fetchone()
@@ -87,10 +93,9 @@ def test_emit_domain_nodes(tmp_path: Path) -> None:
 
 def test_multi_domain_membership(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\nb:\n  packages: [mypkg]\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"a": {"packages": ["mypkg"]}, "b": {"packages": ["mypkg"]}}, ctx=CTX)
     assert _count_edges(conn, "belongs_to_domain") == 2
 
 
@@ -99,18 +104,16 @@ def test_multi_domain_membership(tmp_path: Path) -> None:
 
 def test_cycle_skip_only_intra_scc(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    # Two-domain cycle + a third domain outside the cycle
-    (tmp_path / "domains.yaml").write_text(
-        "payments:\n  packages: []\n  parent: billing\n"
-        "billing:\n  packages: [mypkg]\n  parent: payments\n"
-        "outside:\n  packages: []\n  parent: payments\n"
-    )
+    cfg = {
+        "payments": {"packages": [], "parent": "billing"},
+        "billing": {"packages": ["mypkg"], "parent": "payments"},
+        "outside": {"packages": [], "parent": "payments"},
+    }
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config=cfg, ctx=CTX)
     assert "cycle detected involving domains: billing, payments" in caplog.text
-    # outside->payments is NOT in the SCC; it should still be emitted
     edges = conn.execute(
         "SELECT n1.name AS parent, n2.name AS child FROM edges e "
         "JOIN nodes n1 ON e.src=n1.id JOIN nodes n2 ON e.dst=n2.id "
@@ -118,7 +121,6 @@ def test_cycle_skip_only_intra_scc(tmp_path: Path, caplog: pytest.LogCaptureFixt
     ).fetchall()
     edge_pairs = {(p, c) for p, c in edges}
     assert ("payments", "outside") in edge_pairs
-    # Intra-cycle edges are skipped
     assert ("payments", "billing") not in edge_pairs
     assert ("billing", "payments") not in edge_pairs
 
@@ -128,16 +130,18 @@ def test_cycle_skip_only_intra_scc(tmp_path: Path, caplog: pytest.LogCaptureFixt
 
 def test_cycle_length_3_intra_scc_only_skipped(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text(
-        "a:\n  packages: [mypkg]\n  parent: b\nb:\n  packages: []\n  parent: c\nc:\n  packages: []\n  parent: a\n"
-    )
+    cfg = {
+        "a": {"packages": ["mypkg"], "parent": "b"},
+        "b": {"packages": [], "parent": "c"},
+        "c": {"packages": [], "parent": "a"},
+    }
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config=cfg, ctx=CTX)
     assert "cycle detected involving domains: a, b, c" in caplog.text
     assert _count_edges(conn, "domain_contains_domain") == 0
-    assert _count_domains(conn) == 3  # all 3 nodes still emit
+    assert _count_domains(conn) == 3
 
 
 # ---------- (f) self-loop ----------
@@ -145,11 +149,10 @@ def test_cycle_length_3_intra_scc_only_skipped(tmp_path: Path, caplog: pytest.Lo
 
 def test_self_loop_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\n  parent: a\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config={"a": {"packages": ["mypkg"], "parent": "a"}}, ctx=CTX)
     assert "declares itself as parent" in caplog.text
     assert _count_edges(conn, "domain_contains_domain") == 0
     assert _count_domains(conn) == 1
@@ -160,11 +163,10 @@ def test_self_loop_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> Non
 
 def test_orphan_parent_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\n  parent: nonexistent\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config={"a": {"packages": ["mypkg"], "parent": "nonexistent"}}, ctx=CTX)
     assert "is not a declared domain" in caplog.text
     assert _count_edges(conn, "domain_contains_domain") == 0
     assert _count_domains(conn) == 1
@@ -176,16 +178,13 @@ def test_orphan_parent_skip(tmp_path: Path, caplog: pytest.LogCaptureFixture) ->
 def test_unknown_package_warns_with_known_list(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
     _write_pkg(tmp_path, "otherpkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  packages: [bogus]\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config={"a": {"packages": ["bogus"]}}, ctx=CTX)
     assert "package 'bogus' (in domain 'a')" in caplog.text
-    # Full sorted known-package list must appear (SC#4)
     assert "mypkg" in caplog.text
     assert "otherpkg" in caplog.text
-    # Domain node still emits, but no belongs_to_domain edge
     assert _count_domains(conn) == 1
     assert _count_edges(conn, "belongs_to_domain") == 0
 
@@ -195,13 +194,12 @@ def test_unknown_package_warns_with_known_list(tmp_path: Path, caplog: pytest.Lo
 
 def test_unknown_top_level_key_logged_and_ignored(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  packages: [mypkg]\n  weird_extra: yes\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config={"a": {"packages": ["mypkg"], "weird_extra": "yes"}}, ctx=CTX)
     assert "has unknown key 'weird_extra'" in caplog.text
-    assert _count_domains(conn) == 1  # Domain still emits
+    assert _count_domains(conn) == 1
 
 
 # ---------- (j) missing 'packages:' field -> skip ----------
@@ -209,11 +207,10 @@ def test_unknown_top_level_key_logged_and_ignored(tmp_path: Path, caplog: pytest
 
 def test_missing_packages_field_skips_domain(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  description: 'no packages'\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config={"a": {"description": "no packages"}}, ctx=CTX)
     assert "missing required 'packages:' field" in caplog.text
     assert _count_domains(conn) == 0
 
@@ -223,42 +220,37 @@ def test_missing_packages_field_skips_domain(tmp_path: Path, caplog: pytest.LogC
 
 def test_non_list_packages_skips_domain(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a:\n  packages: 'mypkg'\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
     with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+        domains.emit(conn, domains_config={"a": {"packages": "mypkg"}}, ctx=CTX)
     assert "non-list 'packages:' field" in caplog.text
     assert _count_domains(conn) == 0
 
 
-# ---------- (l) yaml parse error -> DomainYamlError(exit_code=4) ----------
+# ---------- (l) non-mapping domain value -> skip ----------
 
 
-def test_yaml_parse_error_raises_domain_yaml_error(tmp_path: Path) -> None:
+def test_non_mapping_domain_value_skips(tmp_path: Path, caplog: pytest.LogCaptureFixture) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("a: { invalid: yaml: payload\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    with pytest.raises(DomainYamlError) as exc_info:
-        domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    assert exc_info.value.exit_code == 4
-    assert "YAML parse error" in str(exc_info.value)
+    with caplog.at_level(logging.WARNING, logger="graph_io.domains"):
+        domains.emit(conn, domains_config={"a": "notamap"}, ctx=CTX)
+    assert "must be a mapping" in caplog.text
+    assert _count_domains(conn) == 0
 
 
-# ---------- (m) SC#5: no convention inference from tests/billing/ ----------
+# ---------- (m) SC#5: no convention inference ----------
 
 
-def test_no_convention_inference_from_test_dir(tmp_path: Path) -> None:
+def test_no_convention_inference(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    # Create a tests/billing/ directory — this should NOT produce a Domain('billing')
     (tmp_path / "tests" / "billing").mkdir(parents=True, exist_ok=True)
     (tmp_path / "tests" / "billing" / "__init__.py").write_text("")
-    # No domains.yaml — explicit-config-only (DOMAIN-05)
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
-    # SC#5: no Domain node named 'billing' should exist
+    domains.emit(conn, domains_config=None, ctx=CTX)
     row = conn.execute("SELECT id FROM nodes WHERE kind='domain' AND name='billing'").fetchone()
     assert row is None
     assert _count_domains(conn) == 0
@@ -269,12 +261,12 @@ def test_no_convention_inference_from_test_dir(tmp_path: Path) -> None:
 
 def test_idempotent_emit(tmp_path: Path) -> None:
     _write_pkg(tmp_path, "mypkg")
-    (tmp_path / "domains.yaml").write_text("core:\n  packages: [mypkg]\n")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    cfg = {"core": {"packages": ["mypkg"]}}
+    domains.emit(conn, domains_config=cfg, ctx=CTX)
     edges_first = conn.execute("SELECT src, dst, kind FROM edges ORDER BY src, dst, kind").fetchall()
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config=cfg, ctx=CTX)
     edges_second = conn.execute("SELECT src, dst, kind FROM edges ORDER BY src, dst, kind").fetchall()
     assert edges_first == edges_second
-    assert _count_domains(conn) == 1  # not duplicated
+    assert _count_domains(conn) == 1

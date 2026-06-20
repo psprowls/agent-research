@@ -76,10 +76,9 @@ def _two_domain_setup(tmp_path: Path) -> sqlite3.Connection:
             "src/pkg_b/bar.py": "x = 1\n",
         },
     )
-    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a]\nE:\n  packages: [pkg-b]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"D": {"packages": ["pkg-a"]}, "E": {"packages": ["pkg-b"]}}, ctx=CTX)
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     return conn
 
@@ -135,10 +134,9 @@ def test_no_self_loops_in_depends_on(tmp_path: Path) -> None:
             "src/pkg_a_helper/__init__.py": "x = 1\n",
         },
     )
-    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a, pkg-a-helper]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"D": {"packages": ["pkg-a", "pkg-a-helper"]}}, ctx=CTX)
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     # D -> D depends_on must NOT exist (D-09)
     count = conn.execute(
@@ -190,12 +188,17 @@ def test_no_transitive_storage(tmp_path: Path) -> None:
             "src/pkg_x/__init__.py": "y = 1\n",
         },
     )
-    (tmp_path / "domains.yaml").write_text(
-        "parent:\n  packages: []\nchild:\n  packages: [pkg-a]\n  parent: parent\noutside:\n  packages: [pkg-x]\n"
-    )
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(
+        conn,
+        domains_config={
+            "parent": {"packages": []},
+            "child": {"packages": ["pkg-a"], "parent": "parent"},
+            "outside": {"packages": ["pkg-x"]},
+        },
+        ctx=CTX,
+    )
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     # references edge exists from child -> pkg-x
     row = conn.execute(
@@ -255,10 +258,9 @@ def _seed_testsuite(
 def test_testsuite_domain_emitted(tmp_path: Path) -> None:
     _write_pkg_py(tmp_path, "pkg-a", {})
     _write_pkg_py(tmp_path, "pkg-b", {})
-    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a, pkg-b]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"D": {"packages": ["pkg-a", "pkg-b"]}}, ctx=CTX)
     _seed_testsuite(
         conn, "integration", "tests/integration", [("pkg-a", "packages/pkg-a"), ("pkg-b", "packages/pkg-b")]
     )
@@ -277,10 +279,9 @@ def test_testsuite_domain_emitted(tmp_path: Path) -> None:
 def test_testsuite_no_domain_on_multi_domain_span(tmp_path: Path) -> None:
     _write_pkg_py(tmp_path, "pkg-a", {})
     _write_pkg_py(tmp_path, "pkg-b", {})
-    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a]\nE:\n  packages: [pkg-b]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"D": {"packages": ["pkg-a"]}, "E": {"packages": ["pkg-b"]}}, ctx=CTX)
     _seed_testsuite(
         conn, "integration", "tests/integration", [("pkg-a", "packages/pkg-a"), ("pkg-b", "packages/pkg-b")]
     )
@@ -298,10 +299,9 @@ def test_testsuite_no_domain_on_multi_domain_span(tmp_path: Path) -> None:
 
 def test_testsuite_no_domain_for_single_package_suite(tmp_path: Path) -> None:
     _write_pkg_py(tmp_path, "pkg-a", {})
-    (tmp_path / "domains.yaml").write_text("D:\n  packages: [pkg-a]\n")
     conn = _setup(tmp_path)
     _emit_phase_29(conn, tmp_path)
-    domains.emit(conn, repo_root=tmp_path, ctx=CTX, skip_dirs=frozenset())
+    domains.emit(conn, domains_config={"D": {"packages": ["pkg-a"]}}, ctx=CTX)
     _seed_testsuite(conn, "unit", "tests/unit", [("pkg-a", "packages/pkg-a")])
     derived_edges.compute(conn, repo_root=tmp_path, ctx=CTX)
     row = conn.execute(
@@ -327,6 +327,27 @@ def test_update_run_end_to_end(tmp_path: Path) -> None:
     subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "init"], cwd=repo, check=True)
 
+    # Write the workspace manifest with domain config (D7: domains now come
+    # from <workspace>/.graph-wiki.yaml, not a domains.yaml in the repo root).
+    from workspace_io.config import resolve as _resolve_ws
+    from workspace_io.paths import manifest_path as _manifest_path
+
+    _ws = _resolve_ws(repo, require_manifest=False).workspace
+    _ws.mkdir(parents=True, exist_ok=True)
+    _manifest_path(_ws).write_text(
+        "version: 2\n"
+        "graph:\n"
+        "  domains:\n"
+        "    core:\n"
+        "      packages: [mypkg, pyutil]\n"
+        "      description: Core utilities domain\n"
+        "    web:\n"
+        "      packages: [jspkg, webutil]\n"
+        "      parent: presentation\n"
+        "    presentation:\n"
+        "      packages: []\n"
+        "      description: Top-level UI layer\n"
+    )
     update.run(repo, full=True)
 
     ws = resolve_workspace(repo, require_manifest=False).workspace

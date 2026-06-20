@@ -1,4 +1,4 @@
-"""gw graph domain-clusters — connected-component clusters over package references."""
+"""gw graph domain-clusters — connected-component clusters over package/app dependencies."""
 
 from __future__ import annotations
 
@@ -57,12 +57,12 @@ def _render_human(result: cluster.ClusterResult) -> None:
     """
     if not result.clusters and not result.cross_cutting:
         # D-22 empty-case: write to stderr.
-        print("No packages with import edges found.", file=sys.stderr)
+        print("No members with import edges found.", file=sys.stderr)
         return
 
     print("# gw graph domain-clusters")
     print()
-    print(f"Hub threshold: {result.hub_threshold:g}  ·  {result.n_packages_total} packages total")
+    print(f"Hub threshold: {result.hub_threshold:g}  ·  {result.n_members_total} members total")
     print()
 
     if result.cross_cutting:
@@ -73,13 +73,13 @@ def _render_human(result: cluster.ClusterResult) -> None:
             connects_str = f"connects clusters {connects}" if connects else "no clusters"
             print(
                 f"  {h.name.ljust(name_w)}  — imported by "
-                f"{h.imported_by_count}/{result.n_packages_total} "
+                f"{h.imported_by_count}/{result.n_members_total} "
                 f"({h.imported_by_fraction:.0%}) — {connects_str}"
             )
         print()
 
     for c in result.clusters:
-        print(f"## Cluster {c.id}: {c.name} ({c.size} packages)")
+        print(f"## Cluster {c.id}: {c.name} ({c.size} members)")
         for m in c.members:
             print(f"  - {m}")
         print()

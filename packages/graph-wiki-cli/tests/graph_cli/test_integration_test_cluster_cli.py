@@ -87,7 +87,7 @@ def test_run_against_agent_research_graph() -> None:
     # JSON shape locked by D-20.
     assert list(payload.keys()) == [
         "hub_threshold",
-        "n_packages_total",
+        "n_members_total",
         "degenerate_warning",
         "clusters",
         "cross_cutting",
