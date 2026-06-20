@@ -15,11 +15,12 @@ def test_v2_write_then_read(tmp_path):
     }
     write(mpath, data)
     result = read(mpath)
-    # read() fills in defaults for plugin and state_gate when absent from disk.
+    # read() fills in defaults for plugin, state_gate, and graph when absent from disk.
     expected = dict(
         data,
         plugin={"backend_default": "claude", "backend_overrides": {}},
         state_gate={"enabled": True, "branches": ["main"]},
+        graph={"domains": {}},
     )
     assert result == expected
 

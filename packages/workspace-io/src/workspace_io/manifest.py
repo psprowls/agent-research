@@ -9,6 +9,7 @@ import yaml
 _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
 _KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
+_KNOWN_GRAPH_KEYS = {"domains"}
 
 
 def read(path: Path) -> dict:
@@ -76,6 +77,22 @@ def read(path: Path) -> dict:
         if not all(isinstance(b, str) for b in branches):
             raise RuntimeError(f"{path}: state_gate.branches must contain only strings")
         raw["state_gate"] = {"enabled": enabled, "branches": branches}
+    # Validate and normalise the optional [graph] block. Always returns
+    # {"domains": {name: info_dict}}; absent → {"domains": {}}. Mirrors the
+    # plugin / state_gate normalization style.
+    graph = raw.get("graph")
+    if graph is None:
+        raw["graph"] = {"domains": {}}
+    else:
+        if not isinstance(graph, dict):
+            raise RuntimeError(f"{path}: 'graph' must be a mapping, got {type(graph).__name__}")
+        unknown = set(graph.keys()) - _KNOWN_GRAPH_KEYS
+        if unknown:
+            raise RuntimeError(f"{path}: unknown keys in graph block: {sorted(unknown)}")
+        domains = graph.get("domains", {}) or {}
+        if not isinstance(domains, dict):
+            raise RuntimeError(f"{path}: graph.domains must be a mapping, got {type(domains).__name__}")
+        raw["graph"] = {"domains": domains}
     return raw
 
 
@@ -142,3 +159,16 @@ def read_state_gate(manifest_path: Path) -> tuple[bool, list[str]]:
     """
     block = read(manifest_path).get("state_gate") or {"enabled": True, "branches": ["main"]}
     return block["enabled"], block["branches"]
+
+
+def read_graph_domains(manifest_path: Path) -> dict[str, dict]:
+    """Return the `graph.domains` mapping ({domain_name: info_dict}) or {}.
+
+    Reads the manifest and returns the normalized `graph.domains` block.
+    Defaults to {} when the manifest is missing or carries no `graph` block.
+    Mirrors `read_state_gate()` / `read_roles()`: a thin read-only accessor
+    that does not mutate disk and does not validate per-domain field shape
+    (graph_io.domains.emit owns that).
+    """
+    block = read(manifest_path).get("graph") or {"domains": {}}
+    return block.get("domains") or {}
