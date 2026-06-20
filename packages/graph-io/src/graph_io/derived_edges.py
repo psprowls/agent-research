@@ -38,7 +38,7 @@ _PACKAGE_KIND = "package"
 _MANIFEST_KINDS = ("package", "app")
 _TEST_SUITE_KIND = "test_suite"
 _BELONGS_TO_DOMAIN_KIND = "belongs_to_domain"
-_DOMAINS_SOURCE_PATH = "domains.yaml"
+_DOMAINS_SOURCE_PATH = ".graph-wiki.yaml"
 
 
 def _domain_key(name: str) -> tuple[str, str, str]:

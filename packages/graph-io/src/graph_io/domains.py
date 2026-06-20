@@ -1,6 +1,7 @@
 """Domain emitter.
 
-Reads `<repo_root>/domains.yaml` and emits:
+Consumes a `domains_config` dict ({domain_name: info_dict}) resolved by the
+caller from `<workspace>/.graph-wiki.yaml` graph.domains (D6) and emits:
   - Domain nodes (one per top-level key)
   - belongs_to_domain edges (Package -> Domain)
   - domain_contains_domain edges (Domain -> Domain, tree)
@@ -13,9 +14,7 @@ from __future__ import annotations
 
 import logging
 import sqlite3
-from pathlib import Path
 
-import yaml
 from source_parser.projections.graph import GraphEdge, GraphNode
 
 from graph_io import upsert
@@ -28,39 +27,11 @@ _KNOWN_KEYS = frozenset({"packages", "parent", "description", "owner"})
 _DOMAIN_KIND = "domain"
 _BELONGS_TO_DOMAIN_KIND = "belongs_to_domain"
 _DOMAIN_CONTAINS_DOMAIN_KIND = "domain_contains_domain"
-_DOMAINS_SOURCE_PATH = "domains.yaml"
+_DOMAINS_SOURCE_PATH = ".graph-wiki.yaml"
 
 
 def _domain_key(name: str) -> tuple[str, str, str]:
     return (_DOMAIN_KIND, name, _DOMAINS_SOURCE_PATH)
-
-
-class DomainYamlError(Exception):
-    """Raised on unrecoverable domains.yaml parse error.
-
-    The CLI surface maps this exception to exit code 4 (D-06,
-    consistent with the Phase 28 schema-mismatch exit-code reuse).
-    """
-
-    exit_code: int = 4
-
-
-def _load_domains_yaml(repo_root: Path) -> dict | None:
-    """Return parsed domains.yaml as a dict, or None if the file is missing.
-
-    Raises DomainYamlError on parse failure or non-mapping top-level.
-    """
-    path = repo_root / "domains.yaml"
-    if not path.exists():
-        return None
-    try:
-        with path.open("r", encoding="utf-8") as f:
-            data = yaml.safe_load(f) or {}
-    except yaml.YAMLError as exc:
-        raise DomainYamlError(f"domains.yaml: YAML parse error: {exc}") from exc
-    if not isinstance(data, dict):
-        raise DomainYamlError(f"domains.yaml: top-level must be a mapping, got {type(data).__name__}")
-    return data
 
 
 def _known_packages(conn: sqlite3.Connection) -> list[tuple[str, str | None, str]]:
@@ -196,19 +167,17 @@ def _emit_containment_edges(
 def emit(
     conn: sqlite3.Connection,
     *,
-    repo_root: Path,
+    domains_config: dict | None,
     ctx: RepoContext,
-    skip_dirs: frozenset[str],
 ) -> None:
     """Emit Domain nodes + belongs_to_domain + domain_contains_domain edges.
 
-    Idempotent: re-running over the same domains.yaml produces the same
-    edge set (upsert dedupes on (src, dst, kind)).
-
-    Missing domains.yaml is NOT an error (DOMAIN-04 / D-03).
+    Consumes a `domains_config` dict ({domain_name: info_dict}) resolved by the
+    caller from `<workspace>/.graph-wiki.yaml` graph.domains (D6). Idempotent:
+    re-running with the same dict produces the same edge set (upsert dedupes on
+    (src, dst, kind)). A None or empty dict emits nothing (DOMAIN-04 / D-03).
     """
-    data = _load_domains_yaml(repo_root)
-    if data is None:
+    if not domains_config:
         return
 
     known_pkgs = _known_packages(conn)
@@ -224,7 +193,7 @@ def emit(
     parent_map: dict[str, str] = {}  # child -> parent
     all_domain_names: set[str] = set()
 
-    for dom_name, dom_attrs in data.items():
+    for dom_name, dom_attrs in domains_config.items():
         if not isinstance(dom_attrs, dict):
             _LOG.warning(
                 "domains.yaml: domain '%s' must be a mapping, got %s — skipping",
