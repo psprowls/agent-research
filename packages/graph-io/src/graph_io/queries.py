@@ -65,6 +65,9 @@ _VALID_KINDS = frozenset(
         "type",
         # Explicit unresolved call/export target placeholders.
         "unresolved_symbol",
+        # Architecture node: a capability / backing service (API, database,
+        # cloud service). Config-derived from graph.resources, like `domain`.
+        "resource",
     }
 )
 
@@ -1149,6 +1152,33 @@ _DOMAIN_PACKAGES_SQL = (
     "ORDER BY p.name"
 )
 
+# Resources a package/app provides or consumes (outgoing edges).
+_PROVIDED_RESOURCES_SQL = (
+    "SELECT r.id, r.kind, r.uri, r.path, r.line, r.name "
+    "FROM edges e JOIN nodes r ON e.dst = r.id "
+    "WHERE e.src = ? AND e.kind = 'provides' AND r.kind = 'resource' "
+    "ORDER BY r.name"
+)
+_CONSUMED_RESOURCES_SQL = (
+    "SELECT r.id, r.kind, r.uri, r.path, r.line, r.name "
+    "FROM edges e JOIN nodes r ON e.dst = r.id "
+    "WHERE e.src = ? AND e.kind = 'consumes' AND r.kind = 'resource' "
+    "ORDER BY r.name"
+)
+# Providers/consumers of a resource (incoming edges).
+_RESOURCE_PROVIDERS_SQL = (
+    "SELECT n.id, n.kind, n.uri, n.path, n.line, n.name "
+    "FROM edges e JOIN nodes n ON e.src = n.id "
+    "WHERE e.dst = ? AND e.kind = 'provides' "
+    "ORDER BY n.kind, n.name"
+)
+_RESOURCE_CONSUMERS_SQL = (
+    "SELECT n.id, n.kind, n.uri, n.path, n.line, n.name "
+    "FROM edges e JOIN nodes n ON e.src = n.id "
+    "WHERE e.dst = ? AND e.kind = 'consumes' "
+    "ORDER BY n.kind, n.name"
+)
+
 
 def _direct_children(
     conn: sqlite3.Connection, node_id: int, kind: str
@@ -1166,6 +1196,8 @@ def _direct_children(
         rows = list(conn.execute(_phys_children_sql(("subpackage", "file")), (node_id,)).fetchall())
         rows += conn.execute(_TEST_SUITES_SQL, (node_id,)).fetchall()
         rows += conn.execute(_ENTRY_POINTS_SQL, (node_id,)).fetchall()
+        rows += conn.execute(_PROVIDED_RESOURCES_SQL, (node_id,)).fetchall()
+        rows += conn.execute(_CONSUMED_RESOURCES_SQL, (node_id,)).fetchall()
         return rows
     if kind == "subpackage":
         return conn.execute(_phys_children_sql(("subpackage", "file")), (node_id,)).fetchall()
@@ -1181,6 +1213,10 @@ def _direct_children(
         return conn.execute(_contains_symbols_sql(("method",)), (node_id,)).fetchall()
     if kind in ("function", "method"):
         return conn.execute(_contains_symbols_sql(("function",)), (node_id,)).fetchall()
+    if kind == "resource":
+        rows = list(conn.execute(_RESOURCE_PROVIDERS_SQL, (node_id,)).fetchall())
+        rows += conn.execute(_RESOURCE_CONSUMERS_SQL, (node_id,)).fetchall()
+        return rows
     return []  # type / dependency / builtin / entry_point / unresolved_symbol -> leaf
 
 

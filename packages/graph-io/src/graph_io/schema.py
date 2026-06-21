@@ -15,7 +15,8 @@ SCHEMA_VERSION = 2
 # app_kind precedence, derived-edge rules) so existing graphs auto-rebuild without --full.
 # v6: synthetic non-null graph node paths for repository/domain/dependency/manifest nodes.
 # v7: token_count attr on span-bearing nodes (file/class/function/method/type).
-DERIVER_VERSION = 7
+# v8: resource nodes + provides/consumes edges from manifest graph.resources.
+DERIVER_VERSION = 8
 
 _DDL_STATEMENTS = (
     """
