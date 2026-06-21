@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+import typer
 from graph_io import packages, store
+from graph_io.store import GraphNotInitializedError
 from graph_io.uri import RepoContext
+from graph_wiki_core.commands import suggest_resources as suggest_resources_mod
 from graph_wiki_core.commands.suggest_resources import compute_and_write
 from workspace_io.paths import graph_dir
 
@@ -83,3 +87,17 @@ def test_no_new_suggestions_writes_note(tmp_path: Path) -> None:
     out_path, n = compute_and_write(workspace)
     assert n == 0
     assert "no new resources suggested" in out_path.read_text()
+
+
+def test_cmd_exits_2_when_graph_not_initialized(tmp_path: Path, monkeypatch) -> None:
+    # Mirrors propose_domains: an uninitialized graph DB yields a clean exit 2,
+    # not a raw GraphNotInitializedError traceback.
+    monkeypatch.setattr(suggest_resources_mod, "_resolve_paths", lambda _ws: (tmp_path, tmp_path))
+
+    def _raise(_workspace_root: Path):
+        raise GraphNotInitializedError("graph DB not found")
+
+    monkeypatch.setattr(suggest_resources_mod, "compute_and_write", _raise)
+    with pytest.raises(typer.Exit) as excinfo:
+        suggest_resources_mod.suggest_resources_cmd(workspace=str(tmp_path))
+    assert excinfo.value.exit_code == 2

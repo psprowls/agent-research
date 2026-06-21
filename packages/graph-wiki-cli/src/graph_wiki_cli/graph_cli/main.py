@@ -252,6 +252,39 @@ def cross_cutting_cmd(ctx: typer.Context) -> None:
     _run(q_cross_cutting, ctx)
 
 
+# --------------------------------------------------------------------------- #
+# Core-owned commands re-exposed on the CLI graph surface. These live on the
+# core graph_app (commands/graph.py) but the gw CLI mounts this separate
+# graph_app, so they must be wired here too to be reachable via `gw graph`.
+# They resolve the workspace from --workspace / GRAPH_WIKI_WORKSPACE and ignore
+# the group --repo/--fmt/--mode options.
+# --------------------------------------------------------------------------- #
+
+# suggest-resources is Bedrock-free, so register the core function directly.
+from graph_wiki_core.commands.suggest_resources import (  # noqa: E402
+    suggest_resources_cmd as _suggest_resources_cmd,
+)
+
+graph_app.command(name="suggest-resources")(_suggest_resources_cmd)
+
+
+# propose-domains pulls the Bedrock stack (model_adapter / subagent_runtime) at
+# import. Wrap it so the import stays inside the command body — keeping this
+# module (invoked per-command in the smoke suite) lightweight to import.
+@graph_app.command(name="propose-domains")
+def propose_domains_cmd(
+    workspace: str = typer.Option("", "--workspace", help="Workspace root (defaults to GRAPH_WIKI_WORKSPACE)"),
+    hub_threshold: float = typer.Option(
+        0.5, "--hub-threshold", help="Fraction-of-packages threshold for cross-cutting hub detection"
+    ),
+    model: Optional[str] = typer.Option(None, "--model", help="Override domain-proposer model_id"),
+) -> None:
+    """Propose candidate domains from domain-clusters via an LLM fan-out."""
+    from graph_wiki_core.commands.propose_domains import propose_domains_cmd as _core
+
+    _core(workspace=workspace, hub_threshold=hub_threshold, model=model)
+
+
 def main() -> None:
     graph_app()
 

@@ -12,7 +12,7 @@ from pathlib import Path
 import typer
 import yaml
 from graph_io import resource_matchers
-from graph_io.store import read_only_connect
+from graph_io.store import GraphNotInitializedError, read_only_connect
 from workspace_io.manifest import read_graph_resource_matchers, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
 
@@ -67,5 +67,9 @@ def suggest_resources_cmd(
 ) -> None:
     """Propose graph.resources entries from existing graph facts."""
     _repo_root, workspace_root = _resolve_paths(workspace)
-    out_path, n = compute_and_write(workspace_root)
+    try:
+        out_path, n = compute_and_write(workspace_root)
+    except GraphNotInitializedError as exc:
+        typer.echo(f"error: graph not initialized: {exc}", err=True)
+        raise typer.Exit(code=2)
     typer.echo(f"Wrote {n} suggested resource(s) to {out_path}")
