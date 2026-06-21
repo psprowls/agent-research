@@ -65,6 +65,9 @@ _VALID_KINDS = frozenset(
         "type",
         # Explicit unresolved call/export target placeholders.
         "unresolved_symbol",
+        # Architecture node: a capability / backing service (API, database,
+        # cloud service). Config-derived from graph.resources, like `domain`.
+        "resource",
     }
 )
 
