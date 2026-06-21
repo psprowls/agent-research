@@ -9,7 +9,7 @@ import yaml
 _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
 _KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
-_KNOWN_GRAPH_KEYS = {"domains"}
+_KNOWN_GRAPH_KEYS = {"domains", "resources"}
 
 
 def read(path: Path) -> dict:
@@ -78,11 +78,11 @@ def read(path: Path) -> dict:
             raise RuntimeError(f"{path}: state_gate.branches must contain only strings")
         raw["state_gate"] = {"enabled": enabled, "branches": branches}
     # Validate and normalise the optional [graph] block. Always returns
-    # {"domains": {name: info_dict}}; absent → {"domains": {}}. Mirrors the
+    # {"domains": {...}, "resources": {...}}; absent → both empty. Mirrors the
     # plugin / state_gate normalization style.
     graph = raw.get("graph")
     if graph is None:
-        raw["graph"] = {"domains": {}}
+        raw["graph"] = {"domains": {}, "resources": {}}
     else:
         if not isinstance(graph, dict):
             raise RuntimeError(f"{path}: 'graph' must be a mapping, got {type(graph).__name__}")
@@ -92,7 +92,10 @@ def read(path: Path) -> dict:
         domains = graph.get("domains", {}) or {}
         if not isinstance(domains, dict):
             raise RuntimeError(f"{path}: graph.domains must be a mapping, got {type(domains).__name__}")
-        raw["graph"] = {"domains": domains}
+        resources = graph.get("resources", {}) or {}
+        if not isinstance(resources, dict):
+            raise RuntimeError(f"{path}: graph.resources must be a mapping, got {type(resources).__name__}")
+        raw["graph"] = {"domains": domains, "resources": resources}
     return raw
 
 
@@ -172,3 +175,16 @@ def read_graph_domains(manifest_path: Path) -> dict[str, dict]:
     """
     block = read(manifest_path).get("graph") or {"domains": {}}
     return block.get("domains") or {}
+
+
+def read_graph_resources(manifest_path: Path) -> dict[str, dict]:
+    """Return the `graph.resources` mapping ({resource_name: info_dict}) or {}.
+
+    Reads the manifest and returns the normalized `graph.resources` block.
+    Defaults to {} when the manifest is missing or carries no `graph` block.
+    Mirrors `read_graph_domains()`: a thin read-only accessor that does not
+    mutate disk and does not validate per-resource field shape
+    (graph_io.resources.emit owns that).
+    """
+    block = read(manifest_path).get("graph") or {"domains": {}, "resources": {}}
+    return block.get("resources") or {}

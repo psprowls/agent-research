@@ -20,7 +20,7 @@ def test_v2_write_then_read(tmp_path):
         data,
         plugin={"backend_default": "claude", "backend_overrides": {}},
         state_gate={"enabled": True, "branches": ["main"]},
-        graph={"domains": {}},
+        graph={"domains": {}, "resources": {}},
     )
     assert result == expected
 
