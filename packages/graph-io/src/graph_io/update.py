@@ -13,7 +13,7 @@ from typing import Iterable
 from source_parser.parse import parse_bytes
 from source_parser.projections.graph import to_graph_records
 from workspace_io.config import resolve as resolve_workspace
-from workspace_io.manifest import read_graph_domains
+from workspace_io.manifest import read_graph_domains, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_io import _ignore, builtins, packages, resolve, schema, store, tokens, upsert
@@ -312,6 +312,7 @@ def run(
                     derived_edges,
                     domains,
                     entry_points,
+                    resources,
                     structural_nodes,
                     test_suites,
                 )
@@ -322,6 +323,8 @@ def run(
                 test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
                 domains_config = read_graph_domains(manifest_path(workspace))
                 domains.emit(conn, domains_config=domains_config, ctx=ctx)
+                resources_config = read_graph_resources(manifest_path(workspace))
+                resources.emit(conn, resources_config=resources_config, ctx=ctx)
                 resolve.sweep(conn)
                 resolve.sweep_skip_dir_files(conn, skip_dirs)
                 _enforce_strict_tree_invariant(conn)
