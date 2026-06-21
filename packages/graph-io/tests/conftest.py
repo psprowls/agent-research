@@ -33,6 +33,22 @@ _SAMPLE_DOMAINS_MANIFEST = (
 )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_from_ambient_workspace():
+    """Strip `GRAPH_WIKI_WORKSPACE` for the whole graph-io test session.
+
+    graph-io tests build their own temp workspaces; no test reads the ambient
+    env var. If a developer has it pointed at a real workspace, `config.resolve`
+    would bind the seeded_db fixture's writes there — clobbering that workspace's
+    `.graph-wiki.yaml` and code.db (the D7 manifest write made this destructive).
+    Removing it categorically prevents any graph-io test from touching it.
+    """
+    mp = pytest.MonkeyPatch()
+    mp.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    yield
+    mp.undo()
+
+
 @pytest.fixture(scope="session")
 def seeded_db(tmp_path_factory):
     """Read-only conn over sample_monorepo after `update.run(..., full=True)`.
@@ -40,11 +56,16 @@ def seeded_db(tmp_path_factory):
     Session-scoped per D-14: one update run per test session; all callers
     share the resulting `mode=ro` connection. Safe because every Phase 32
     query helper opens read-only and issues no INSERT/UPDATE/DELETE.
+
+    The workspace is pinned to a temp sibling of the seeded repo via the *pure*
+    `resolve_workspace` (no env, no manifest check) and passed explicitly to
+    `update.run`, so the fixture never resolves against the ambient
+    `GRAPH_WIKI_WORKSPACE` (see `_isolate_from_ambient_workspace`).
     """
     # Lazy imports to avoid forcing the import at conftest collection time
     # for tests that do not need the seeded DB.
     from graph_io import update
-    from workspace_io.config import resolve as resolve_workspace
+    from workspace_io.config import resolve_workspace
     from workspace_io.paths import graph_dir, manifest_path
 
     fixture_src = Path(__file__).parent / "fixtures" / "sample_monorepo"
@@ -63,12 +84,12 @@ def seeded_db(tmp_path_factory):
     subprocess.run(["git", "commit", "-q", "-m", "seeded_db init"], cwd=repo_root, check=True)
 
     # D7: write the workspace manifest carrying graph.domains before update.run
-    # (resolve is pure/idempotent; update.run does not create the manifest).
-    ws = resolve_workspace(repo_root, require_manifest=False).workspace
+    # (resolve_workspace is pure; update.run does not create the manifest).
+    ws = resolve_workspace(repo_root)
     ws.mkdir(parents=True, exist_ok=True)
     manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
 
-    update.run(repo_root, full=True)
+    update.run(repo_root, workspace=ws, full=True)
 
     db_path = graph_dir(ws) / "code.db"
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
