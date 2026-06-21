@@ -603,6 +603,16 @@ def _count(conn: sqlite3.Connection, sql: str, *params) -> int:
     return conn.execute(sql, params).fetchone()[0]
 
 
+def test_ambient_workspace_env_is_isolated() -> None:
+    """Regression: the ambient GRAPH_WIKI_WORKSPACE must be stripped for the
+    graph-io session so fixtures never resolve against — and clobber — a real
+    workspace's manifest/code.db. See conftest._isolate_from_ambient_workspace.
+    """
+    import os
+
+    assert os.environ.get("GRAPH_WIKI_WORKSPACE") is None
+
+
 def test_seeded_db_fixture_audit(seeded_db: sqlite3.Connection) -> None:
     """D-15 checklist: sample_monorepo fixture has the expected shape.
 
