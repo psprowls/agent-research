@@ -15,8 +15,36 @@ def _write(path: Path, body: str) -> Path:
 
 def test_resources_absent_defaults_empty(tmp_path: Path) -> None:
     p = _write(tmp_path / ".graph-wiki.yaml", "version: 2\ninitialized_at: '2026-06-20'\n")
-    assert read(p)["graph"] == {"domains": {}, "resources": {}}
+    assert read(p)["graph"] == {"domains": {}, "resources": {}, "resource_matchers": []}
     assert read_graph_resources(p) == {}
+
+
+def test_resource_matchers_read_and_accessor(tmp_path: Path) -> None:
+    from workspace_io.manifest import read_graph_resource_matchers
+
+    p = _write(
+        tmp_path / ".graph-wiki.yaml",
+        "version: 2\ninitialized_at: '2026-06-20'\n"
+        "graph:\n"
+        "  resource_matchers:\n"
+        "    - name: boto3-clients\n"
+        "      when: {consumer_depends_on: boto3}\n"
+        "      emit: {resource: aws, role: consumes}\n",
+    )
+    matchers = read_graph_resource_matchers(p)
+    assert matchers == [
+        {
+            "name": "boto3-clients",
+            "when": {"consumer_depends_on": "boto3"},
+            "emit": {"resource": "aws", "role": "consumes"},
+        }
+    ]
+
+
+def test_resource_matchers_non_list_raises(tmp_path: Path) -> None:
+    p = _write(tmp_path / ".graph-wiki.yaml", "version: 2\ngraph:\n  resource_matchers: {}\n")
+    with pytest.raises(RuntimeError, match="graph.resource_matchers must be a list"):
+        read(p)
 
 
 def test_resources_read_and_accessor(tmp_path: Path) -> None:

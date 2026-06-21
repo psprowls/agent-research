@@ -302,13 +302,13 @@ def test_read_state_gate_defaults_when_manifest_missing(tmp_path):
 
 
 def test_graph_block_default_when_missing(tmp_path):
-    """Block absent → read() returns {'graph': {'domains': {}, 'resources': {}}}."""
+    """Block absent → read() returns {'graph': {'domains': {}, 'resources': {}, 'resource_matchers': []}}."""
     mpath = tmp_path / ".graph-wiki.yaml"
     mpath.write_text(
         "version: 2\ninitialized_at: 2026-05-08\nplugins: []\n",
         encoding="utf-8",
     )
-    assert read(mpath)["graph"] == {"domains": {}, "resources": {}}
+    assert read(mpath)["graph"] == {"domains": {}, "resources": {}, "resource_matchers": []}
 
 
 def test_graph_domains_passthrough(tmp_path):
