@@ -179,3 +179,14 @@ def test_validate_reports_every_bad_rule() -> None:
     ]
     errs = validate_matchers(rules)
     assert len(errs) == 2
+
+
+def test_validate_invalid_role() -> None:
+    rule = {
+        "name": "bad-role",
+        "when": {"package_glob": "*"},
+        "capture": {"from": "literal"},
+        "emit": {"kind": "queue", "role": "emits"},
+    }
+    errs = validate_matchers([rule])
+    assert len(errs) == 1 and "bad-role" in errs[0] and "emits" in errs[0]

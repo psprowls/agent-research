@@ -16,7 +16,6 @@ config error surfaced by the command (exit 2, nothing written).
 from __future__ import annotations
 
 import fnmatch
-import re  # noqa: F401 — used by Task 2 (capture transform pipeline)
 import sqlite3
 from dataclasses import dataclass
 
