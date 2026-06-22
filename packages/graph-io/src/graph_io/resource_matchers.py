@@ -1,20 +1,110 @@
-"""Deterministic resource matchers (architecture-resource-nodes Phase 2).
+"""Deterministic resource matchers (general cross-stack vocabulary).
 
-Given matcher rules (from graph.resource_matchers) and a built graph, return
-resource suggestions — paste-ready material for graph.resources. Pure, read-only
-over the graph; no writes. Seed rule vocabulary:
+Given matcher rules (graph.resource_matchers) and a built graph, return resource
+suggestions — paste-ready material for graph.resources. Pure, read-only over the
+graph; no file-content reads. One unified rule shape:
 
-  - {"name": ..., "when": {"consumer_depends_on": <dep>},
-     "emit": {"resource": <name>, "resource_kind": ..., "scope": ..., "role": "consumes"}}
-  - {"name": ..., "when": {"package_glob": <glob>, "has_file": <glob>},
-     "emit": {"resource_kind": ..., "scope": ..., "role": "provides"}}  # resource = file stem
+  - name:    rule id (provenance)
+    when:    closed set of predicates, AND-ed together (PREDICATE_NAMES)
+    capture: {from: <CAPTURE_SOURCES>, segment?: int, transform?: [...]}
+    emit:    {kind: <CANONICAL_KINDS>, subtype?: str, role: provides|consumes}
+
+Rules are validated up front (validate_matchers); an invalid rule is a hard
+config error surfaced by the command (exit 2, nothing written).
 """
 
 from __future__ import annotations
 
 import fnmatch
+import re  # noqa: F401 — used by Task 2 (capture transform pipeline)
 import sqlite3
 from dataclasses import dataclass
+
+# Canonical architecture-role kinds. emit.kind must be one of these.
+CANONICAL_KINDS: frozenset[str] = frozenset(
+    {
+        "queue",
+        "topic",
+        "table",
+        "store",
+        "bucket",
+        "cache",
+        "endpoint",
+        "service",
+        "function",
+        "inference",
+        "secret",
+        "schedule",
+    }
+)
+
+# Closed predicate vocabulary for `when` (all keys in a rule AND together).
+PREDICATE_NAMES: frozenset[str] = frozenset(
+    {
+        "package_glob",
+        "depends_on",
+        "imports_module",
+        "instantiates_symbol",
+        "defines_symbol",
+        "has_file",
+        "declares_entry_point",
+    }
+)
+
+# Capture sources for `capture.from`.
+CAPTURE_SOURCES: frozenset[str] = frozenset({"literal", "dependency", "symbol", "file_stem", "path_segment"})
+
+_VALID_ROLES: frozenset[str] = frozenset({"provides", "consumes"})
+
+# Which predicate(s) must be present for a given capture.from to ever yield a token.
+_CAPTURE_REQUIRES: dict[str, frozenset[str]] = {
+    "dependency": frozenset({"depends_on"}),
+    "symbol": frozenset({"instantiates_symbol", "defines_symbol"}),
+    "file_stem": frozenset({"has_file"}),
+    # literal / path_segment are always satisfiable from the rule / anchor.
+}
+
+
+def validate_matchers(matchers: list[dict]) -> list[str]:
+    """Return one error string per invalid rule (empty list = all valid).
+
+    Invalid = unknown emit.kind, no matchable predicate in `when`, missing/unknown
+    capture, an unsatisfiable capture.from, or an invalid emit.role.
+    """
+    errors: list[str] = []
+    for rule in matchers:
+        name = rule.get("name", "<unnamed>")
+        when = rule.get("when") or {}
+        capture = rule.get("capture") or {}
+        emit = rule.get("emit") or {}
+
+        kind = emit.get("kind")
+        if kind not in CANONICAL_KINDS:
+            errors.append(f"rule '{name}': unknown emit.kind {kind!r} (expected: {', '.join(sorted(CANONICAL_KINDS))})")
+
+        role = emit.get("role", "provides")
+        if role not in _VALID_ROLES:
+            errors.append(f"rule '{name}': invalid emit.role {role!r} (expected: provides, consumes)")
+
+        present_preds = set(when) & PREDICATE_NAMES
+        if not present_preds:
+            errors.append(
+                f"rule '{name}': no matchable predicate in `when` (need one of: {', '.join(sorted(PREDICATE_NAMES))})"
+            )
+
+        cap_from = capture.get("from")
+        if cap_from not in CAPTURE_SOURCES:
+            errors.append(
+                f"rule '{name}': unknown capture.from {cap_from!r} (expected: {', '.join(sorted(CAPTURE_SOURCES))})"
+            )
+        else:
+            required = _CAPTURE_REQUIRES.get(cap_from)
+            if required and not (required & present_preds):
+                errors.append(
+                    f"rule '{name}': capture.from {cap_from!r} requires one of "
+                    f"these predicates in `when`: {', '.join(sorted(required))}"
+                )
+    return errors
 
 
 @dataclass(frozen=True)

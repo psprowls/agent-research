@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 from graph_io import packages, resource_matchers, store
+from graph_io.resource_matchers import CANONICAL_KINDS, CAPTURE_SOURCES, PREDICATE_NAMES, validate_matchers
 from graph_io.uri import RepoContext
 
 CTX = RepoContext(org="testorg", repo="testrepo")
@@ -93,3 +94,88 @@ def test_dedupe(tmp_path: Path) -> None:
     rule = {"name": "r", "when": {"consumer_depends_on": "boto3"}, "emit": {"resource": "aws", "role": "consumes"}}
     sugg = resource_matchers.compute_suggestions(conn, [rule, rule])
     assert len(sugg) == 1  # deduped on (resource, role, source_name)
+
+
+def test_taxonomy_constants() -> None:
+    assert CANONICAL_KINDS == frozenset(
+        {
+            "queue",
+            "topic",
+            "table",
+            "store",
+            "bucket",
+            "cache",
+            "endpoint",
+            "service",
+            "function",
+            "inference",
+            "secret",
+            "schedule",
+        }
+    )
+    assert PREDICATE_NAMES == frozenset(
+        {
+            "package_glob",
+            "depends_on",
+            "imports_module",
+            "instantiates_symbol",
+            "defines_symbol",
+            "has_file",
+            "declares_entry_point",
+        }
+    )
+    assert CAPTURE_SOURCES == frozenset({"literal", "dependency", "symbol", "file_stem", "path_segment"})
+
+
+def test_validate_accepts_well_formed_rule() -> None:
+    rule = {
+        "name": "cdk-queues",
+        "when": {"package_glob": "*-aws-node-ts", "instantiates_symbol": "Queue"},
+        "capture": {"from": "path_segment", "segment": 1},
+        "emit": {"kind": "queue", "subtype": "sqs", "role": "provides"},
+    }
+    assert validate_matchers([rule]) == []
+
+
+def test_validate_unknown_kind() -> None:
+    rule = {
+        "name": "cdk-queues",
+        "when": {"package_glob": "*"},
+        "capture": {"from": "literal"},
+        "emit": {"kind": "queu", "role": "provides"},
+    }
+    errs = validate_matchers([rule])
+    assert len(errs) == 1
+    assert "cdk-queues" in errs[0] and "queu" in errs[0]
+
+
+def test_validate_no_matchable_predicate() -> None:
+    rule = {
+        "name": "auth",
+        "when": {"nonsense": "x"},
+        "capture": {"from": "literal"},
+        "emit": {"kind": "secret", "role": "consumes"},
+    }
+    errs = validate_matchers([rule])
+    assert len(errs) == 1 and "auth" in errs[0] and "predicate" in errs[0]
+
+
+def test_validate_unsatisfiable_capture() -> None:
+    # capture.from=dependency but no depends_on predicate in `when`.
+    rule = {
+        "name": "bad-cap",
+        "when": {"package_glob": "*"},
+        "capture": {"from": "dependency"},
+        "emit": {"kind": "queue", "role": "consumes"},
+    }
+    errs = validate_matchers([rule])
+    assert len(errs) == 1 and "bad-cap" in errs[0]
+
+
+def test_validate_reports_every_bad_rule() -> None:
+    rules = [
+        {"name": "r1", "when": {}, "capture": {"from": "literal"}, "emit": {"kind": "queue"}},
+        {"name": "r2", "when": {"package_glob": "*"}, "capture": {"from": "zzz"}, "emit": {"kind": "queue"}},
+    ]
+    errs = validate_matchers(rules)
+    assert len(errs) == 2
