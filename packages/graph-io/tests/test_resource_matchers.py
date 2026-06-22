@@ -11,6 +11,8 @@ from graph_io.resource_matchers import (
     CAPTURE_SOURCES,
     PREDICATE_NAMES,
     _apply_transforms,
+    _eval_predicate,
+    _load_packages,
     validate_matchers,
 )
 from graph_io.uri import RepoContext
@@ -233,3 +235,65 @@ def test_transform_empty_list_passthrough() -> None:
 def test_transform_regex_optional_group_skips_none() -> None:
     # An optional group that did not participate must not yield None.
     assert _apply_transforms("bar", [{"regex": "(foo)?(bar)"}]) == "bar"
+
+
+def test_predicate_package_glob_filter_only(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    aws = _insert_node(conn, "package", "device-aws-node-ts", path="packages/device-aws-node-ts")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "package_glob", "*-aws-node-ts", pkgs)
+    assert res == {aws: set()}
+
+
+def test_predicate_depends_on(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    dep = _insert_node(conn, "dependency", "boto3", uri="dependency:pypi/boto3")
+    ma = _node_id(conn, "package", "model-adapter")
+    _insert_edge(conn, ma, dep, "used_by")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "depends_on", "boto3", pkgs)
+    assert res == {ma: {"boto3"}}
+
+
+def test_predicate_depends_on_star_prefix(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    dep = _insert_node(conn, "dependency", "@aws-sdk/client-sqs", uri="dependency:npm/x")
+    ma = _node_id(conn, "package", "model-adapter")
+    _insert_edge(conn, ma, dep, "used_by")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "depends_on", "client-sqs", pkgs)
+    assert res == {ma: {"@aws-sdk/client-sqs"}}
+
+
+def test_predicate_has_file_captures_stem(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    pkg = _insert_node(conn, "package", "loc-aws-node-ts", path="packages/loc-aws-node-ts")
+    f = _insert_node(conn, "file", "location-service.ts", path="packages/loc-aws-node-ts/cdk/location-service.ts")
+    _insert_edge(conn, pkg, f, "physically_contains")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "has_file", "cdk/*.ts", pkgs)
+    assert res == {pkg: {"location-service"}}
+
+
+def test_predicate_defines_symbol(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    pkg = _insert_node(conn, "package", "data-pkg", path="packages/data-pkg")
+    f = _insert_node(conn, "file", "tables.ts", path="packages/data-pkg/src/tables.ts")
+    _insert_node(conn, "class", "Table", path="packages/data-pkg/src/tables.ts")
+    _insert_edge(conn, pkg, f, "physically_contains")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "defines_symbol", "Table", pkgs)
+    assert res == {pkg: {"Table"}}
+
+
+def test_predicate_instantiates_symbol(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    pkg = _insert_node(conn, "package", "cdk-pkg", path="packages/cdk-pkg")
+    f = _insert_node(conn, "file", "stack.ts", path="packages/cdk-pkg/src/stack.ts")
+    caller = _insert_node(conn, "function", "build", path="packages/cdk-pkg/src/stack.ts")
+    target = _insert_node(conn, "unresolved_symbol", "Queue")
+    _insert_edge(conn, pkg, f, "physically_contains")
+    _insert_edge(conn, caller, target, "calls")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "instantiates_symbol", "Queue", pkgs)
+    assert res == {pkg: {"Queue"}}

@@ -147,6 +147,123 @@ def _apply_transforms(value: str, transforms: list[dict] | None) -> str:
     return out
 
 
+def _load_packages(conn: sqlite3.Connection) -> dict[int, tuple[str, str | None]]:
+    """All package/app nodes keyed by id → (name, path)."""
+    rows = conn.execute("SELECT id, name, path FROM nodes WHERE kind IN ('package','app')").fetchall()
+    return {pid: (name, path) for pid, name, path in rows}
+
+
+def _owner_pkg_by_path(conn: sqlite3.Connection) -> dict[str, int]:
+    """Map each file path → the id of the package/app that physically_contains it."""
+    rows = conn.execute(
+        "SELECT f.path, p.id FROM edges e "
+        "JOIN nodes p ON e.src = p.id JOIN nodes f ON e.dst = f.id "
+        "WHERE e.kind = 'physically_contains' AND p.kind IN ('package','app') "
+        "AND f.kind = 'file' AND f.path IS NOT NULL"
+    ).fetchall()
+    return {path: pid for path, pid in rows}
+
+
+def _dep_matches(dep_name: str, glob: str) -> bool:
+    # Forgiving *-prefix matching (so 'client-sqs' matches '@aws-sdk/client-sqs').
+    return fnmatch.fnmatch(dep_name, glob) or fnmatch.fnmatch(dep_name, f"*{glob}")
+
+
+def _eval_predicate(
+    conn: sqlite3.Connection,
+    key: str,
+    arg: str,
+    pkgs: dict[int, tuple[str, str | None]],
+) -> dict[int, set[str]]:
+    """Evaluate one predicate → {anchor_pkg_id: {capture tokens}}.
+
+    Filter-only predicates (package_glob, imports_module, declares_entry_point)
+    map matching anchors to an empty token set; token-bearing predicates record
+    the matched string for capture.from to read.
+    """
+    out: dict[int, set[str]] = {}
+
+    def _add(pid: int, token: str | None) -> None:
+        bucket = out.setdefault(pid, set())
+        if token:
+            bucket.add(token)
+
+    if key == "package_glob":
+        for pid, (name, _path) in pkgs.items():
+            if fnmatch.fnmatch(name, arg):
+                out.setdefault(pid, set())
+        return out
+
+    if key == "depends_on":
+        rows = conn.execute(
+            "SELECT c.id, d.name FROM edges e "
+            "JOIN nodes c ON e.src = c.id JOIN nodes d ON e.dst = d.id "
+            "WHERE e.kind = 'used_by' AND d.kind IN ('dependency','builtin') "
+            "AND c.kind IN ('package','app')"
+        ).fetchall()
+        for cid, dname in rows:
+            if cid in pkgs and _dep_matches(dname, arg):
+                _add(cid, dname)
+        return out
+
+    if key == "has_file":
+        rows = conn.execute(
+            "SELECT e.src, f.path FROM edges e JOIN nodes f ON e.dst = f.id "
+            "WHERE e.kind = 'physically_contains' AND f.kind = 'file' AND f.path IS NOT NULL"
+        ).fetchall()
+        for pid, fpath in rows:
+            if pid in pkgs and _matches_file(fpath, arg):
+                stem = fpath.rsplit("/", 1)[-1].rsplit(".", 1)[0]
+                _add(pid, stem)
+        return out
+
+    if key == "defines_symbol":
+        owner = _owner_pkg_by_path(conn)
+        rows = conn.execute(
+            "SELECT name, path FROM nodes WHERE kind IN ('class','type','function') AND path IS NOT NULL"
+        ).fetchall()
+        for sname, spath in rows:
+            if fnmatch.fnmatch(sname, arg) and owner.get(spath) in pkgs:
+                _add(owner[spath], sname)
+        return out
+
+    if key == "instantiates_symbol":
+        owner = _owner_pkg_by_path(conn)
+        rows = conn.execute(
+            "SELECT src.path, tgt.name FROM edges e "
+            "JOIN nodes src ON e.src = src.id JOIN nodes tgt ON e.dst = tgt.id "
+            "WHERE e.kind = 'calls' AND src.path IS NOT NULL"
+        ).fetchall()
+        for spath, tname in rows:
+            if tname and fnmatch.fnmatch(tname, arg) and owner.get(spath) in pkgs:
+                _add(owner[spath], tname)
+        return out
+
+    if key == "imports_module":
+        owner = _owner_pkg_by_path(conn)
+        rows = conn.execute(
+            "SELECT src.path, dst.path, dst.name FROM edges e "
+            "JOIN nodes src ON e.src = src.id JOIN nodes dst ON e.dst = dst.id "
+            "WHERE e.kind = 'imports' AND src.kind = 'file' AND src.path IS NOT NULL"
+        ).fetchall()
+        for spath, dpath, dname in rows:
+            target = dpath or dname or ""
+            if target and _matches_file(target, arg) and owner.get(spath) in pkgs:
+                _add(owner[spath], dname or "")
+        return out
+
+    if key == "declares_entry_point":
+        rows = conn.execute(
+            "SELECT e.src, ep.name FROM edges e JOIN nodes ep ON e.dst = ep.id WHERE e.kind = 'declares_entry_point'"
+        ).fetchall()
+        for pid, epname in rows:
+            if pid in pkgs and (arg in ("*", "") or fnmatch.fnmatch(epname or "", arg)):
+                _add(pid, epname or "")
+        return out
+
+    return out  # unknown predicate key (already rejected by validate_matchers)
+
+
 def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[ResourceSuggestion]:
     """Apply matcher rules over existing graph facts → deduped suggestions.
 
