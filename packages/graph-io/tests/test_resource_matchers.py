@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import pytest
 from graph_io import packages, resource_matchers, store
 from graph_io.resource_matchers import (
     CANONICAL_KINDS,
@@ -58,48 +59,95 @@ def _insert_edge(conn: sqlite3.Connection, src: int, dst: int, kind: str) -> Non
         conn.execute("INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?,?,?,?)", (src, dst, kind, None))
 
 
-def test_consumer_depends_on_rule(tmp_path: Path) -> None:
+def test_capture_path_segment(tmp_path: Path) -> None:
     conn = _setup(tmp_path)
-    dep_id = _insert_node(conn, "dependency", "boto3", uri="dependency:pypi/boto3")
-    _insert_edge(conn, _node_id(conn, "package", "model-adapter"), dep_id, "used_by")
+    pkg = _insert_node(conn, "package", "device-aws-node-ts", path="domains/device/device-aws-node-ts")
+    f = _insert_node(conn, "file", "stack.ts", path="domains/device/device-aws-node-ts/src/stack.ts")
+    caller = _insert_node(conn, "function", "build", path="domains/device/device-aws-node-ts/src/stack.ts")
+    target = _insert_node(conn, "unresolved_symbol", "Queue")
+    _insert_edge(conn, pkg, f, "physically_contains")
+    _insert_edge(conn, caller, target, "calls")
     matchers = [
         {
-            "name": "boto3-clients",
-            "when": {"consumer_depends_on": "boto3"},
-            "emit": {"resource": "aws", "resource_kind": "cloud_service", "scope": "external", "role": "consumes"},
+            "name": "cdk-queues",
+            "when": {"package_glob": "*-aws-node-ts", "instantiates_symbol": "Queue"},
+            "capture": {"from": "path_segment", "segment": 1},
+            "emit": {"kind": "queue", "subtype": "sqs", "role": "provides"},
         }
     ]
     sugg = resource_matchers.compute_suggestions(conn, matchers)
     assert len(sugg) == 1
     s = sugg[0]
-    assert s.resource == "aws" and s.role == "consumes" and s.source_name == "model-adapter"
-    assert s.resource_kind == "cloud_service" and s.scope == "external"
+    assert s.resource == "device" and s.resource_kind == "queue" and s.subtype == "sqs"
+    assert s.role == "provides" and s.source_name == "device-aws-node-ts"
 
 
-def test_package_glob_has_file_rule(tmp_path: Path) -> None:
+def test_capture_dependency_with_transform(tmp_path: Path) -> None:
     conn = _setup(tmp_path)
-    aws_id = _insert_node(conn, "package", "location-aws-node-ts", path="packages/location-aws-node-ts")
-    file_id = _insert_node(
-        conn, "file", "location-service.ts", path="packages/location-aws-node-ts/cdk/location-service.ts"
-    )
-    _insert_edge(conn, aws_id, file_id, "physically_contains")
+    dep = _insert_node(conn, "dependency", "@aws-sdk/client-sqs", uri="dependency:npm/x")
+    ma = _node_id(conn, "package", "model-adapter")
+    _insert_edge(conn, ma, dep, "used_by")
     matchers = [
         {
-            "name": "aws-cdk-service",
-            "when": {"package_glob": "*-aws-node-ts", "has_file": "cdk/*.ts"},
-            "emit": {"resource_kind": "api", "scope": "internal", "role": "provides"},
+            "name": "sqs-consumers",
+            "when": {"depends_on": "@aws-sdk/client-sqs"},
+            "capture": {"from": "dependency", "transform": [{"strip_prefix": "@aws-sdk/client-"}]},
+            "emit": {"kind": "queue", "subtype": "sqs", "role": "consumes"},
         }
     ]
     sugg = resource_matchers.compute_suggestions(conn, matchers)
-    keys = {(s.resource, s.role, s.source_name) for s in sugg}
-    assert ("location-service", "provides", "location-aws-node-ts") in keys
+    assert len(sugg) == 1 and sugg[0].resource == "sqs" and sugg[0].role == "consumes"
 
 
-def test_dedupe(tmp_path: Path) -> None:
+def test_and_semantics_requires_all_predicates(tmp_path: Path) -> None:
     conn = _setup(tmp_path)
-    dep_id = _insert_node(conn, "dependency", "boto3", uri="dependency:pypi/boto3")
-    _insert_edge(conn, _node_id(conn, "package", "model-adapter"), dep_id, "used_by")
-    rule = {"name": "r", "when": {"consumer_depends_on": "boto3"}, "emit": {"resource": "aws", "role": "consumes"}}
+    # matches package_glob but has NO 'Queue' call → no match.
+    _insert_node(conn, "package", "model-adapter-aws-node-ts", path="packages/x")
+    matchers = [
+        {
+            "name": "cdk-queues",
+            "when": {"package_glob": "*-aws-node-ts", "instantiates_symbol": "Queue"},
+            "capture": {"from": "literal"},
+            "emit": {"kind": "queue", "role": "provides"},
+        }
+    ]
+    assert resource_matchers.compute_suggestions(conn, matchers) == []
+
+
+def test_empty_capture_drops_match(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    dep = _insert_node(conn, "dependency", "boto3", uri="dependency:pypi/boto3")
+    ma = _node_id(conn, "package", "model-adapter")
+    _insert_edge(conn, ma, dep, "used_by")
+    matchers = [
+        {
+            "name": "drop-me",
+            "when": {"depends_on": "boto3"},
+            "capture": {"from": "dependency", "transform": [{"strip_suffix": "boto3"}]},
+            "emit": {"kind": "service", "role": "consumes"},
+        }
+    ]
+    assert resource_matchers.compute_suggestions(conn, matchers) == []
+
+
+def test_compute_suggestions_raises_on_invalid_rule(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    bad = [{"name": "b", "when": {}, "capture": {"from": "literal"}, "emit": {"kind": "nope"}}]
+    with pytest.raises(ValueError):
+        resource_matchers.compute_suggestions(conn, bad)
+
+
+def test_dedupe_new_grammar(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    dep = _insert_node(conn, "dependency", "boto3", uri="dependency:pypi/boto3")
+    ma = _node_id(conn, "package", "model-adapter")
+    _insert_edge(conn, ma, dep, "used_by")
+    rule = {
+        "name": "r",
+        "when": {"depends_on": "boto3"},
+        "capture": {"from": "literal"},
+        "emit": {"kind": "service", "role": "consumes"},
+    }
     sugg = resource_matchers.compute_suggestions(conn, [rule, rule])
     assert len(sugg) == 1  # deduped on (resource, role, source_name)
 

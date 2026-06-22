@@ -110,11 +110,12 @@ def validate_matchers(matchers: list[dict]) -> list[str]:
 @dataclass(frozen=True)
 class ResourceSuggestion:
     resource: str
-    resource_kind: str | None
+    resource_kind: str | None  # canonical kind (emit.kind)
     scope: str | None
     role: str  # "provides" | "consumes"
-    source_name: str  # the package/app/dependency node name on the edge
+    source_name: str  # the anchor package/app node name
     rule: str
+    subtype: str | None = None  # freeform tech subtype (emit.subtype)
 
 
 def _matches_file(fpath: str, file_glob: str) -> bool:
@@ -265,11 +266,46 @@ def _eval_predicate(
     return out  # unknown predicate key (already rejected by validate_matchers)
 
 
-def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[ResourceSuggestion]:
-    """Apply matcher rules over existing graph facts → deduped suggestions.
+def _capture_tokens(
+    capture: dict,
+    rule_name: str,
+    anchor_path: str | None,
+    per_pred: dict[str, dict[int, set[str]]],
+    pid: int,
+) -> list[str]:
+    """Raw (pre-transform) capture strings for one anchor, per capture.from."""
+    src = capture.get("from")
+    if src == "literal":
+        return [rule_name]
+    if src == "path_segment":
+        if not anchor_path:
+            return []
+        segs = anchor_path.split("/")
+        idx = capture.get("segment", 0)
+        return [segs[idx]] if 0 <= idx < len(segs) else []
+    if src == "dependency":
+        return sorted(per_pred.get("depends_on", {}).get(pid, set()))
+    if src == "file_stem":
+        return sorted(per_pred.get("has_file", {}).get(pid, set()))
+    if src == "symbol":
+        toks = per_pred.get("instantiates_symbol", {}).get(pid, set()) | per_pred.get("defines_symbol", {}).get(
+            pid, set()
+        )
+        return sorted(toks)
+    return []
 
-    Deduped on (resource, role, source_name).
+
+def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[ResourceSuggestion]:
+    """Apply unified matcher rules over existing graph facts → deduped suggestions.
+
+    Raises ValueError (listing every problem) if any rule is invalid. Deduped on
+    (resource, role, source_name).
     """
+    errors = validate_matchers(matchers)
+    if errors:
+        raise ValueError("invalid resource_matcher rule(s):\n" + "\n".join(f"  - {e}" for e in errors))
+
+    pkgs = _load_packages(conn)
     seen: set[tuple[str, str, str]] = set()
     out: list[ResourceSuggestion] = []
 
@@ -280,55 +316,32 @@ def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[
             out.append(s)
 
     for rule in matchers:
-        when = rule.get("when", {}) or {}
-        emit = rule.get("emit", {}) or {}
+        when = {k: v for k, v in (rule.get("when") or {}).items() if k in PREDICATE_NAMES}
+        capture = rule.get("capture") or {}
+        emit = rule.get("emit") or {}
         name = rule.get("name", "<unnamed>")
+        role = emit.get("role", "provides")
 
-        if "consumer_depends_on" in when:
-            dep = when["consumer_depends_on"]
-            rows = conn.execute(
-                "SELECT c.name FROM edges e "
-                "JOIN nodes c ON e.src = c.id JOIN nodes d ON e.dst = d.id "
-                "WHERE e.kind = 'used_by' AND d.kind IN ('dependency','builtin') AND d.name = ? "
-                "AND c.kind IN ('package','app') ORDER BY c.name",
-                (dep,),
-            ).fetchall()
-            for (consumer,) in rows:
+        per_pred = {key: _eval_predicate(conn, key, arg, pkgs) for key, arg in when.items()}
+        if not per_pred:
+            continue
+        anchor_ids = set.intersection(*[set(d.keys()) for d in per_pred.values()])
+
+        for pid in sorted(anchor_ids):
+            pkg_name, pkg_path = pkgs[pid]
+            for raw in _capture_tokens(capture, name, pkg_path, per_pred, pid):
+                value = _apply_transforms(raw, capture.get("transform"))
+                if not value:
+                    continue  # empty capture → drop
                 _add(
                     ResourceSuggestion(
-                        resource=emit.get("resource", dep),
-                        resource_kind=emit.get("resource_kind"),
+                        resource=value,
+                        resource_kind=emit.get("kind"),
+                        subtype=emit.get("subtype"),
                         scope=emit.get("scope"),
-                        role=emit.get("role", "consumes"),
-                        source_name=consumer,
+                        role=role,
+                        source_name=pkg_name,
                         rule=name,
                     )
                 )
-
-        elif "package_glob" in when and "has_file" in when:
-            pkg_glob = when["package_glob"]
-            file_glob = when["has_file"]
-            pkgs = conn.execute("SELECT id, name FROM nodes WHERE kind IN ('package','app') ORDER BY name").fetchall()
-            for pkg_id, pkg_name in pkgs:
-                if not fnmatch.fnmatch(pkg_name, pkg_glob):
-                    continue
-                files = conn.execute(
-                    "SELECT n.path FROM edges e JOIN nodes n ON e.dst = n.id "
-                    "WHERE e.src = ? AND e.kind = 'physically_contains' AND n.kind = 'file'",
-                    (pkg_id,),
-                ).fetchall()
-                for (fpath,) in files:
-                    if not fpath or not _matches_file(fpath, file_glob):
-                        continue
-                    stem = fpath.rsplit("/", 1)[-1].rsplit(".", 1)[0]
-                    _add(
-                        ResourceSuggestion(
-                            resource=stem,
-                            resource_kind=emit.get("resource_kind"),
-                            scope=emit.get("scope"),
-                            role=emit.get("role", "provides"),
-                            source_name=pkg_name,
-                            rule=name,
-                        )
-                    )
     return out
