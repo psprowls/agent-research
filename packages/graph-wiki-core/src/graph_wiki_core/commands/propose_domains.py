@@ -9,8 +9,8 @@ human-review-only `domains.proposed.yaml` artifact (D-13..D-16).
 
 Boundary (D8): existing domains are read from the workspace manifest's
 `graph.domains` block; proposals are written to a paste-ready `graph:` block
-at `<workspace>/domains.proposed.yaml`, which the reviewer pastes into
-`<workspace>/.graph-wiki.yaml`. This module never mutates the manifest.
+at `<workspace>/.graph-wiki/domains.proposed.yaml`, which the reviewer pastes
+into `<workspace>/.graph-wiki.yaml`. This module never mutates the manifest.
 
 Decision references (see .planning/phases/48-graph-propose-domains/48-CONTEXT.md):
   D-01 per-cluster fan-out via SubagentPool, partial-success
@@ -25,7 +25,7 @@ Decision references (see .planning/phases/48-graph-propose-domains/48-CONTEXT.md
   D-10 cycle detection scope = union(proposed, existing) parent edges
   D-11 existing edges immune in cycle strip
   D-12 iterative DFS, no networkx
-  D-13 output path = <workspace>/domains.proposed.yaml
+  D-13 output path = <workspace>/.graph-wiki/domains.proposed.yaml
   D-14 top-level key `graph:` → `domains:` (paste-ready); run-metadata as leading `#` comments only
   D-15 yaml.safe_dump(sort_keys=True, default_flow_style=False); deterministic
   D-16 overwrite on each invocation
@@ -549,7 +549,7 @@ def propose_domains_cmd(
 ) -> None:
     """Propose candidate domains from cg domain-clusters via an LLM fan-out.
 
-    Writes ``<workspace>/domains.proposed.yaml`` — a paste-ready ``graph:``
+    Writes ``<workspace>/.graph-wiki/domains.proposed.yaml`` — a paste-ready ``graph:``
     block for human review. NEVER auto-applies; the user reviews, edits, and
     pastes the ``graph:`` block into ``<workspace>/.graph-wiki.yaml``.
     Existing domains are read from ``graph.domains`` in that manifest (D8).
@@ -663,9 +663,9 @@ def propose_domains_cmd(
         total_cost_usd=total_cost,
     )
 
-    # D8/D-16: write the paste-ready graph: block (overwrite) to the workspace.
+    # D8/D-16: write the paste-ready graph: block (overwrite) to the gitignored .graph-wiki/ dir.
     # Reviewer copies/pastes the `graph:` block into <workspace>/.graph-wiki.yaml.
-    output_path = workspace_root / "domains.proposed.yaml"
+    output_path = graph_dir(workspace_root) / "domains.proposed.yaml"
     _write_proposed_yaml(
         result,
         output_path,
