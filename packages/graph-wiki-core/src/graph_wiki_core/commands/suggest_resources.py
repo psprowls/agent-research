@@ -12,6 +12,7 @@ from pathlib import Path
 import typer
 import yaml
 from graph_io import resource_matchers
+from graph_io.resource_matchers import validate_matchers
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from workspace_io.manifest import read_graph_resource_matchers, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
@@ -25,10 +26,25 @@ _BANNER = (
 )
 
 
+class InvalidMatcherRules(Exception):
+    """Raised when graph.resource_matchers contains invalid rules (command → exit 2)."""
+
+    def __init__(self, errors: list[str]) -> None:
+        super().__init__("invalid resource_matcher rules")
+        self.errors = errors
+
+
 def compute_and_write(workspace_root: Path) -> tuple[Path, int]:
-    """Core logic (testable without Typer). Returns (output_path, n_suggestions)."""
-    db_path = graph_dir(workspace_root) / "code.db"
+    """Core logic (testable without Typer). Returns (output_path, n_suggestions).
+
+    Raises InvalidMatcherRules (before writing anything) if any rule is malformed.
+    """
     matchers = read_graph_resource_matchers(manifest_path(workspace_root))
+    errors = validate_matchers(matchers)
+    if errors:
+        raise InvalidMatcherRules(errors)
+
+    db_path = graph_dir(workspace_root) / "code.db"
     existing = set(read_graph_resources(manifest_path(workspace_root)).keys())
 
     conn = read_only_connect(db_path)
@@ -37,29 +53,57 @@ def compute_and_write(workspace_root: Path) -> tuple[Path, int]:
     finally:
         conn.close()
 
-    # Dedupe against declared resources, then group provides/consumes per resource.
-    grouped: dict[str, dict] = {}
+    # Group by the (resource_name, kind) join key so a provider and consumer that
+    # captured the same token coalesce into one entry. Dedupe of (resource, role,
+    # source) already happened in compute_suggestions.
+    grouped: dict[tuple[str, str | None], dict] = {}
+    providers: dict[tuple[str, str | None], list[str]] = {}
+    consumers: dict[tuple[str, str | None], set[str]] = {}
     for s in suggestions:
         if s.resource in existing:
             continue
-        entry = grouped.setdefault(s.resource, {})
+        key = (s.resource, s.resource_kind)
+        entry = grouped.setdefault(key, {})
         if s.resource_kind:
             entry["resource_kind"] = s.resource_kind
+        if s.subtype:
+            entry["subtype"] = s.subtype
         if s.scope:
             entry["scope"] = s.scope
         if s.role == "provides":
-            entry["provided_by"] = s.source_name
+            providers.setdefault(key, []).append(s.source_name)
         else:
-            entry.setdefault("consumed_by", []).append(s.source_name)
+            consumers.setdefault(key, set()).add(s.source_name)
+
+    # Finalize provided_by / consumed_by per group.
+    multi_provider_keys: list[str] = []
+    for key, entry in grouped.items():
+        provs = sorted(set(providers.get(key, [])))
+        if len(provs) == 1:
+            entry["provided_by"] = provs[0]
+        elif len(provs) > 1:
+            entry["provided_by"] = provs
+            multi_provider_keys.append(key[0])
+        cons = sorted(consumers.get(key, set()))
+        if cons:
+            entry["consumed_by"] = cons
+
+    # Collapse the (name, kind) keys back to name-keyed YAML.
+    # YAML output is name-keyed. If two suggestions share a name but differ in kind
+    # (separate (name, kind) groups), the last one wins here — an accepted limitation
+    # of the propose-only file; the human disambiguates on paste-in.
+    flat: dict[str, dict] = {name: entry for (name, _kind), entry in grouped.items()}
 
     out_path = graph_dir(workspace_root) / "resources.proposed.yaml"
     out_path.parent.mkdir(parents=True, exist_ok=True)
-    if grouped:
-        body = yaml.safe_dump({"graph": {"resources": grouped}}, sort_keys=True, default_flow_style=False)
+    if flat:
+        body = yaml.safe_dump({"graph": {"resources": flat}}, sort_keys=True, default_flow_style=False)
+        for rname in sorted(set(multi_provider_keys)):
+            body = body.replace(f"    {rname}:\n", f"    {rname}:  # WARN multiple providers\n", 1)
     else:
         body = "# no new resources suggested\n"
     out_path.write_text(_BANNER + body, encoding="utf-8")
-    return out_path, len(grouped)
+    return out_path, len(flat)
 
 
 def suggest_resources_cmd(
@@ -69,6 +113,11 @@ def suggest_resources_cmd(
     _repo_root, workspace_root = _resolve_paths(workspace)
     try:
         out_path, n = compute_and_write(workspace_root)
+    except InvalidMatcherRules as exc:
+        typer.echo(f"error: {len(exc.errors)} invalid resource_matcher rule(s):", err=True)
+        for e in exc.errors:
+            typer.echo(f"  - {e}", err=True)
+        raise typer.Exit(code=2)
     except GraphNotInitializedError as exc:
         typer.echo(f"error: graph not initialized: {exc}", err=True)
         raise typer.Exit(code=2)
