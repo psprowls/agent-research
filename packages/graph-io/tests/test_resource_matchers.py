@@ -6,7 +6,13 @@ import sqlite3
 from pathlib import Path
 
 from graph_io import packages, resource_matchers, store
-from graph_io.resource_matchers import CANONICAL_KINDS, CAPTURE_SOURCES, PREDICATE_NAMES, validate_matchers
+from graph_io.resource_matchers import (
+    CANONICAL_KINDS,
+    CAPTURE_SOURCES,
+    PREDICATE_NAMES,
+    _apply_transforms,
+    validate_matchers,
+)
 from graph_io.uri import RepoContext
 
 CTX = RepoContext(org="testorg", repo="testrepo")
@@ -190,3 +196,35 @@ def test_validate_invalid_role() -> None:
     }
     errs = validate_matchers([rule])
     assert len(errs) == 1 and "bad-role" in errs[0] and "emits" in errs[0]
+
+
+def test_transform_strip_suffix() -> None:
+    assert _apply_transforms("alerts-construct", [{"strip_suffix": "-construct"}]) == "alerts"
+
+
+def test_transform_strip_prefix() -> None:
+    assert _apply_transforms("@aws-sdk/client-sqs", [{"strip_prefix": "@aws-sdk/client-"}]) == "sqs"
+
+
+def test_transform_regex_match_uses_group_1() -> None:
+    assert _apply_transforms("device-service", [{"regex": "^(.*)-service$"}]) == "device"
+
+
+def test_transform_regex_no_match_passthrough() -> None:
+    assert _apply_transforms("queue", [{"regex": "^(.*)-service$"}]) == "queue"
+
+
+def test_transform_lowercase() -> None:
+    assert _apply_transforms("Device", [{"lowercase": True}]) == "device"
+
+
+def test_transform_ordered_chain() -> None:
+    out = _apply_transforms(
+        "@aws-sdk/client-SQS",
+        [{"strip_prefix": "@aws-sdk/client-"}, {"lowercase": True}],
+    )
+    assert out == "sqs"
+
+
+def test_transform_empty_list_passthrough() -> None:
+    assert _apply_transforms("X", []) == "X"

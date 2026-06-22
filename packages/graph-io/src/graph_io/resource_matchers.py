@@ -16,6 +16,7 @@ config error surfaced by the command (exit 2, nothing written).
 from __future__ import annotations
 
 import fnmatch
+import re
 import sqlite3
 from dataclasses import dataclass
 
@@ -122,6 +123,28 @@ def _matches_file(fpath: str, file_glob: str) -> bool:
         or fnmatch.fnmatch(fpath, f"*{file_glob}")
         or fnmatch.fnmatch(fpath, f"*/{file_glob}")
     )
+
+
+def _apply_transforms(value: str, transforms: list[dict] | None) -> str:
+    """Apply ordered, optional string transforms. Deterministic; regex passes
+    through unchanged when it does not match. Returns the (possibly empty) result."""
+    out = value
+    for step in transforms or []:
+        if "strip_prefix" in step:
+            prefix = step["strip_prefix"]
+            if out.startswith(prefix):
+                out = out[len(prefix) :]
+        if "strip_suffix" in step:
+            suffix = step["strip_suffix"]
+            if suffix and out.endswith(suffix):
+                out = out[: -len(suffix)]
+        if "regex" in step:
+            m = re.search(step["regex"], out)
+            if m:
+                out = m.group(1) if m.groups() else m.group(0)
+        if step.get("lowercase"):
+            out = out.lower()
+    return out
 
 
 def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[ResourceSuggestion]:
