@@ -89,6 +89,9 @@ def compute_and_write(workspace_root: Path) -> tuple[Path, int]:
             entry["consumed_by"] = cons
 
     # Collapse the (name, kind) keys back to name-keyed YAML.
+    # YAML output is name-keyed. If two suggestions share a name but differ in kind
+    # (separate (name, kind) groups), the last one wins here — an accepted limitation
+    # of the propose-only file; the human disambiguates on paste-in.
     flat: dict[str, dict] = {name: entry for (name, _kind), entry in grouped.items()}
 
     out_path = graph_dir(workspace_root) / "resources.proposed.yaml"

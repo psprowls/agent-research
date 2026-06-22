@@ -136,3 +136,37 @@ def test_cmd_exits_2_when_graph_not_initialized(tmp_path: Path, monkeypatch) -> 
     with pytest.raises(typer.Exit) as excinfo:
         suggest_resources_mod.suggest_resources_cmd(workspace=str(tmp_path))
     assert excinfo.value.exit_code == 2
+
+
+def test_multiple_providers_warn(tmp_path: Path) -> None:
+    workspace = _build_workspace(tmp_path)
+    # Add a SECOND package that also depends on boto3 → two providers of 'device'.
+    db_path = graph_dir(workspace) / "code.db"
+    conn = store.connect(db_path, create=False)
+    with conn:
+        cur = conn.execute(
+            "INSERT INTO nodes (kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
+            ("package", "second-pkg", "packages/second-pkg", None, None, "package:local/second-pkg"),
+        )
+        pkg2 = cur.lastrowid
+        dep_id = conn.execute("SELECT id FROM nodes WHERE kind='dependency' AND name='boto3'").fetchone()[0]
+        conn.execute(
+            "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?,?,?,?)",
+            (pkg2, dep_id, "used_by", None),
+        )
+    conn.close()
+    manifest = (
+        "version: 2\n"
+        "initialized_at: '2026-06-20'\n"
+        "graph:\n"
+        "  resource_matchers:\n"
+        "    - name: device\n"
+        "      when: {depends_on: boto3}\n"
+        "      capture: {from: literal}\n"
+        "      emit: {kind: queue, role: provides}\n"
+    )
+    (workspace / ".graph-wiki.yaml").write_text(manifest, encoding="utf-8")
+    out_path, n = compute_and_write(workspace)
+    body = out_path.read_text()
+    assert "# WARN multiple providers" in body
+    assert "model-adapter" in body and "second-pkg" in body  # both providers listed
