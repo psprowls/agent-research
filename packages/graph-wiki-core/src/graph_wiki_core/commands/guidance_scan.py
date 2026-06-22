@@ -18,6 +18,7 @@ from graph_io.store import GraphNotInitializedError, read_only_connect
 from guidance_io.index_store import GuidanceIndex, IndexEntry, content_hash, load_index, save_index
 from guidance_io.vocab import load_vocab, write_tags_yaml
 from guidance_io.vocab import seed_tags as seed_tags_fn
+from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io._workspace import resolve_wiki_and_repo
 from workspace_io.paths import graph_dir
 
@@ -27,13 +28,11 @@ from graph_wiki_core.prompts.guidance_classifier import (
 )
 
 try:  # Bedrock stack — guarded so the plugin/non-Bedrock import path stays light
-    from langchain_core.messages import HumanMessage, SystemMessage
     from model_adapter.loader import load_role_config, make_llm
     from subagent_runtime.pool import SubagentPool, TaskResult
 except ImportError:  # pragma: no cover
     load_role_config = make_llm = None  # type: ignore[assignment]
     SubagentPool = TaskResult = None  # type: ignore[assignment]
-    HumanMessage = SystemMessage = None  # type: ignore[assignment]
 
 # Light extra filter on top of the graph's .graphignore-respecting enumeration.
 _SKIP_SUFFIXES = (".min.js", ".lock", ".map")
@@ -205,4 +204,9 @@ def _resolve_seams(make_llm_fn, load_role_config_fn, subagent_pool_type, task_re
     task_result_type = task_result_type or TaskResult
     if None in (make_llm_fn, load_role_config_fn, subagent_pool_type, task_result_type):
         return None
-    return cast(Any, make_llm_fn), cast(Any, load_role_config_fn), subagent_pool_type, task_result_type
+    return (
+        cast(Any, make_llm_fn),
+        cast(Any, load_role_config_fn),
+        cast(Any, subagent_pool_type),
+        cast(Any, task_result_type),
+    )

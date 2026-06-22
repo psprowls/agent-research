@@ -15,6 +15,7 @@ from graph_io.store import GraphNotInitializedError, read_only_connect
 from graph_io.tokens import count_tokens
 from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
+from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io._workspace import resolve_wiki_and_repo
 from workspace_io.paths import graph_dir
 
@@ -29,11 +30,9 @@ from graph_wiki_core.prompts.guidance_orchestrator import (
 )
 
 try:  # Bedrock stack — guarded
-    from langchain_core.messages import HumanMessage, SystemMessage
     from model_adapter.loader import make_llm
 except ImportError:  # pragma: no cover
     make_llm = None  # type: ignore[assignment]
-    HumanMessage = SystemMessage = None  # type: ignore[assignment]
 
 
 @dataclass
