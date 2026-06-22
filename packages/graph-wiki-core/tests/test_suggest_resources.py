@@ -20,15 +20,13 @@ _MANIFEST = (
     "initialized_at: '2026-06-20'\n"
     "graph:\n"
     "  resources:\n"
-    "    aws:\n"  # already declared → must be EXCLUDED from suggestions
-    "      resource_kind: cloud_service\n"
+    "    declared-svc:\n"  # already declared → must be EXCLUDED
+    "      resource_kind: service\n"
     "  resource_matchers:\n"
-    "    - name: aws-already\n"
-    "      when: {consumer_depends_on: boto3}\n"
-    "      emit: {resource: aws, role: consumes}\n"
-    "    - name: bedrock-new\n"
-    "      when: {consumer_depends_on: boto3}\n"
-    "      emit: {resource: bedrock, resource_kind: cloud_service, scope: external, role: consumes}\n"
+    "    - name: boto3-consumers\n"
+    "      when: {depends_on: boto3}\n"
+    "      capture: {from: literal}\n"
+    "      emit: {kind: service, subtype: aws, role: consumes}\n"
 )
 
 
@@ -66,27 +64,64 @@ def test_compute_and_write_excludes_declared(tmp_path: Path) -> None:
     workspace = _build_workspace(tmp_path)
     out_path, n = compute_and_write(workspace)
     assert out_path == graph_dir(workspace) / "resources.proposed.yaml"
-    assert out_path.exists()
     text = out_path.read_text()
-    # 'bedrock' is new → suggested; 'aws' is already declared → excluded.
-    assert "bedrock" in text
+    assert "declared-svc" not in text  # already declared → excluded
     assert "graph:" in text and "resources:" in text
     assert n == 1
 
 
-def test_no_new_suggestions_writes_note(tmp_path: Path) -> None:
-    # Only the already-declared 'aws' rule → nothing new.
+def test_provider_and_consumer_coalesce(tmp_path: Path) -> None:
     workspace = _build_workspace(tmp_path)
-    manifest_no_new = _MANIFEST.replace(
-        "    - name: bedrock-new\n"
-        "      when: {consumer_depends_on: boto3}\n"
-        "      emit: {resource: bedrock, resource_kind: cloud_service, scope: external, role: consumes}\n",
-        "",
+    # Two rules both named 'device' (literal capture → rule name), same kind queue:
+    # one provides, one consumes → coalesce into ONE entry carrying both edges.
+    manifest = (
+        "version: 2\n"
+        "initialized_at: '2026-06-20'\n"
+        "graph:\n"
+        "  resource_matchers:\n"
+        "    - name: device\n"
+        "      when: {depends_on: boto3}\n"
+        "      capture: {from: literal}\n"
+        "      emit: {kind: queue, role: provides}\n"
+        "    - name: device\n"
+        "      when: {depends_on: boto3}\n"
+        "      capture: {from: literal}\n"
+        "      emit: {kind: queue, role: consumes}\n"
     )
-    (workspace / ".graph-wiki.yaml").write_text(manifest_no_new, encoding="utf-8")
+    (workspace / ".graph-wiki.yaml").write_text(manifest, encoding="utf-8")
     out_path, n = compute_and_write(workspace)
-    assert n == 0
-    assert "no new resources suggested" in out_path.read_text()
+    body = out_path.read_text()
+    assert n == 1
+    assert "device:" in body and "provided_by:" in body and "consumed_by:" in body
+
+
+def test_subtype_emitted(tmp_path: Path) -> None:
+    workspace = _build_workspace(tmp_path)
+    out_path, n = compute_and_write(workspace)  # uses _MANIFEST: subtype aws
+    assert "subtype: aws" in out_path.read_text()
+
+
+def test_invalid_rule_exits_2_writes_nothing(tmp_path: Path, monkeypatch) -> None:
+    workspace = _build_workspace(tmp_path)
+    bad_manifest = (
+        "version: 2\n"
+        "initialized_at: '2026-06-20'\n"
+        "graph:\n"
+        "  resource_matchers:\n"
+        "    - name: bad\n"
+        "      when: {depends_on: boto3}\n"
+        "      capture: {from: literal}\n"
+        "      emit: {kind: nope, role: consumes}\n"  # unknown kind
+    )
+    (workspace / ".graph-wiki.yaml").write_text(bad_manifest, encoding="utf-8")
+    out_path = graph_dir(workspace) / "resources.proposed.yaml"
+    if out_path.exists():
+        out_path.unlink()
+    monkeypatch.setattr(suggest_resources_mod, "_resolve_paths", lambda _ws: (workspace, workspace))
+    with pytest.raises(typer.Exit) as excinfo:
+        suggest_resources_mod.suggest_resources_cmd(workspace=str(workspace))
+    assert excinfo.value.exit_code == 2
+    assert not out_path.exists()  # nothing written on invalid rules
 
 
 def test_cmd_exits_2_when_graph_not_initialized(tmp_path: Path, monkeypatch) -> None:
