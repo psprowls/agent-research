@@ -1,0 +1,1 @@
+"""`gw guidance` CLI namespace."""

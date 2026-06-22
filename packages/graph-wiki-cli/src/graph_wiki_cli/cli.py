@@ -75,6 +75,7 @@ from graph_wiki_core.commands.query import run_query  # noqa: E402
 from graph_wiki_core.commands.scan import run_scan  # noqa: E402
 
 from graph_wiki_cli.graph_cli.main import graph_app  # noqa: E402
+from graph_wiki_cli.guidance_cli.main import guidance_app  # noqa: E402
 from graph_wiki_cli.lint_format import format_wiki_lint, format_work_lint  # noqa: E402
 from graph_wiki_cli.logging_config import configure_verbose_logging  # noqa: E402
 from graph_wiki_cli.util_cli.main import util_app  # noqa: E402
@@ -524,6 +525,9 @@ def lint(
 
 # graph command namespace: native Typer subapp for code-graph operations.
 app.add_typer(graph_app, name="graph")
+
+# guidance command namespace: native Typer subapp for guidance scan/suggest.
+app.add_typer(guidance_app, name="guidance")
 
 # wiki command namespace: native Typer subapp for wiki-maintenance operations.
 app.add_typer(wiki_app, name="wiki")
