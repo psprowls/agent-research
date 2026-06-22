@@ -297,3 +297,25 @@ def test_predicate_instantiates_symbol(tmp_path: Path) -> None:
     pkgs = _load_packages(conn)
     res = _eval_predicate(conn, "instantiates_symbol", "Queue", pkgs)
     assert res == {pkg: {"Queue"}}
+
+
+def test_predicate_imports_module(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    pkg = _insert_node(conn, "package", "imp-pkg", path="packages/imp-pkg")
+    f = _insert_node(conn, "file", "client.ts", path="packages/imp-pkg/src/client.ts")
+    mod = _insert_node(conn, "file", "sqs.ts", path="node_modules/@aws-sdk/client-sqs/sqs.ts")
+    _insert_edge(conn, pkg, f, "physically_contains")
+    _insert_edge(conn, f, mod, "imports")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "imports_module", "*client-sqs*", pkgs)
+    assert res == {pkg: set()}  # filter-only: anchor present, no token
+
+
+def test_predicate_declares_entry_point(tmp_path: Path) -> None:
+    conn = _setup(tmp_path)
+    pkg = _insert_node(conn, "package", "cli-pkg", path="packages/cli-pkg")
+    ep = _insert_node(conn, "entry_point", "gw")
+    _insert_edge(conn, pkg, ep, "declares_entry_point")
+    pkgs = _load_packages(conn)
+    res = _eval_predicate(conn, "declares_entry_point", "gw", pkgs)
+    assert res == {pkg: set()}  # filter-only: anchor present, no token

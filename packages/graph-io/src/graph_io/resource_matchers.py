@@ -248,8 +248,9 @@ def _eval_predicate(
         ).fetchall()
         for spath, dpath, dname in rows:
             target = dpath or dname or ""
-            if target and _matches_file(target, arg) and owner.get(spath) in pkgs:
-                _add(owner[spath], dname or "")
+            pid = owner.get(spath)
+            if target and _matches_file(target, arg) and pid in pkgs:
+                out.setdefault(pid, set())
         return out
 
     if key == "declares_entry_point":
@@ -258,7 +259,7 @@ def _eval_predicate(
         ).fetchall()
         for pid, epname in rows:
             if pid in pkgs and (arg in ("*", "") or fnmatch.fnmatch(epname or "", arg)):
-                _add(pid, epname or "")
+                out.setdefault(pid, set())
         return out
 
     return out  # unknown predicate key (already rejected by validate_matchers)
