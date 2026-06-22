@@ -275,3 +275,34 @@ model_id        = "us.amazon.nova-pro-v1:0"
 region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 2
+
+# Guidance page generation — Pass 1. Classifies raw skill/agent/etc. input
+# into discrete guidance-page propositions. Type-branched like skill-planner;
+# uses a cheap, fast classifier tier (mirrors scanner).
+[roles.guidance_classifier]
+model_id        = "openai.gpt-oss-20b-1:0"
+region          = "us-east-1"
+max_tokens      = 256
+max_concurrency = 20
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "qwen.qwen3-32b-v1:0",
+  "us.amazon.nova-lite-v1:0",
+]
+
+# Guidance page generation — Pass 2. Synthesizes one guidance page from a
+# single classified proposition; fanned out via SubagentPool. Uses a higher-tier
+# reasoning model to ensure guidance quality. Concurrency capped to 3 because
+# guidance pages are high-cost synthesis (extended output, reasoning overhead).
+[roles.guidance_orchestrator]
+model_id        = "qwen.qwen3-32b-v1:0"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "moonshotai.kimi-k2.5",
+  "deepseek.v3.2",
+  "qwen.qwen3-next-80b-a3b",
+]
