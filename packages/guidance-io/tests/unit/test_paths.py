@@ -2,7 +2,14 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from guidance_io.paths import guidance_dir, list_pages, page_path, slugify
+from guidance_io.paths import (
+    guidance_dir,
+    guidance_index_path,
+    list_pages,
+    page_path,
+    slugify,
+    tags_yaml_path,
+)
 
 
 def test_guidance_dir_is_under_wiki() -> None:
@@ -50,3 +57,13 @@ def test_list_pages_excludes_index_md(tmp_path: Path) -> None:
     (topic_dir / "index.md").write_text("---\n---\n", encoding="utf-8")
     pages = list_pages(tmp_path, "react-native")
     assert [p.name for p in pages] == ["a-page.md"]
+
+
+def test_tags_yaml_path() -> None:
+    ws = Path("/tmp/ws")
+    assert tags_yaml_path(ws) == ws / "wiki" / "guidance" / "tags.yaml"
+
+
+def test_guidance_index_path() -> None:
+    ws = Path("/tmp/ws")
+    assert guidance_index_path(ws) == ws / ".graph-wiki" / "guidance-index.json"

@@ -10,7 +10,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from workspace_io.paths import wiki_dir
+from workspace_io.paths import graph_dir, wiki_dir
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
 
@@ -50,3 +50,13 @@ def list_all_pages(workspace: Path) -> list[Path]:
     if not root.is_dir():
         return []
     return sorted(p for p in root.glob("*/*.md") if p.name != "index.md")
+
+
+def tags_yaml_path(workspace: Path) -> Path:
+    """The committed tag allowlist at wiki/guidance/tags.yaml (no I/O)."""
+    return guidance_dir(workspace) / "tags.yaml"
+
+
+def guidance_index_path(workspace: Path) -> Path:
+    """The sidecar file→vocab index at .graph-wiki/guidance-index.json (no I/O)."""
+    return graph_dir(workspace) / "guidance-index.json"
