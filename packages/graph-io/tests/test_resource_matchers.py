@@ -228,3 +228,8 @@ def test_transform_ordered_chain() -> None:
 
 def test_transform_empty_list_passthrough() -> None:
     assert _apply_transforms("X", []) == "X"
+
+
+def test_transform_regex_optional_group_skips_none() -> None:
+    # An optional group that did not participate must not yield None.
+    assert _apply_transforms("bar", [{"regex": "(foo)?(bar)"}]) == "bar"

@@ -141,7 +141,7 @@ def _apply_transforms(value: str, transforms: list[dict] | None) -> str:
         if "regex" in step:
             m = re.search(step["regex"], out)
             if m:
-                out = m.group(1) if m.groups() else m.group(0)
+                out = next((g for g in m.groups() if g is not None), m.group(0))
         if step.get("lowercase"):
             out = out.lower()
     return out
