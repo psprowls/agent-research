@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import yaml
+
+if TYPE_CHECKING:
+    from guidance_io.vocab import Vocab
 
 REQUIRED_KEYS = ("title", "category", "summary", "topic", "applies_when", "impact", "updated", "tokens")
 IMPACT_VALUES = ("critical", "high", "medium", "low")
@@ -70,3 +75,30 @@ def validate(fm: dict) -> list[str]:
                     errors.append(f"triggers.{tk} must be a list, got {type(triggers[tk]).__name__}")
 
     return errors
+
+
+_KEYWORD_MAX_LEN = 40
+
+
+def tag_violations(fm: dict, vocab: "Vocab") -> list[str]:
+    """Return one error per top-level `tags` entry not in the allowlist (post-alias)."""
+    from guidance_io.vocab import canonical_tag
+
+    errors: list[str] = []
+    for tag in fm.get("tags") or []:
+        if canonical_tag(str(tag), vocab) is None:
+            errors.append(f"tag {tag!r} is not in the allowlist (wiki/guidance/tags.yaml)")
+    return errors
+
+
+def keyword_shape_warnings(fm: dict) -> list[str]:
+    """Warn on triggers.keywords that look like prose, not grep-able identifiers."""
+    triggers = fm.get("triggers")
+    if not isinstance(triggers, dict):
+        return []
+    warnings: list[str] = []
+    for kw in triggers.get("keywords") or []:
+        s = str(kw)
+        if any(c.isspace() for c in s) or len(s) > _KEYWORD_MAX_LEN:
+            warnings.append(f"keyword {kw!r} looks like prose, not a grep-able identifier")
+    return warnings

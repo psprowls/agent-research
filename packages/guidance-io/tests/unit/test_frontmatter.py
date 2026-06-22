@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import pytest
-from guidance_io.frontmatter import emit, parse, validate
+from guidance_io.frontmatter import emit, keyword_shape_warnings, parse, tag_violations, validate
+from guidance_io.vocab import Vocab
 
 
 def test_parse_roundtrip() -> None:
@@ -107,3 +108,40 @@ def test_validate_flags_non_list_trigger_value() -> None:
     fm["triggers"] = {"globs": "**/*.tsx"}  # should be a list
     errors = validate(fm)
     assert any("globs" in e for e in errors)
+
+
+def _vocab() -> Vocab:
+    return Vocab(
+        topics=frozenset({"python"}),
+        tags=frozenset({"retry", "styling"}),
+        aliases={"retries": "retry"},
+        vocab_hash="h",
+    )
+
+
+def test_tag_violations_accepts_allowlisted_and_alias() -> None:
+    fm = {"tags": ["retry", "Retries", "styling"]}
+    assert tag_violations(fm, _vocab()) == []
+
+
+def test_tag_violations_flags_off_vocab() -> None:
+    fm = {"tags": ["retry", "made-up"]}
+    errors = tag_violations(fm, _vocab())
+    assert len(errors) == 1
+    assert "made-up" in errors[0]
+
+
+def test_tag_violations_no_tags_key() -> None:
+    assert tag_violations({}, _vocab()) == []
+
+
+def test_keyword_shape_warns_on_prose() -> None:
+    fm = {"triggers": {"keywords": ["FlatList", "use a virtualizer for lists"]}}
+    warnings = keyword_shape_warnings(fm)
+    assert len(warnings) == 1
+    assert "use a virtualizer" in warnings[0]
+
+
+def test_keyword_shape_ok_for_identifiers() -> None:
+    fm = {"triggers": {"keywords": ["ScrollView", "recursion_limit", "metro.config.js"]}}
+    assert keyword_shape_warnings(fm) == []

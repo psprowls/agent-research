@@ -11,8 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from guidance_io.frontmatter import parse, validate
+from guidance_io.frontmatter import keyword_shape_warnings, parse, tag_violations, validate
 from guidance_io.paths import guidance_dir, list_all_pages, slugify
+from guidance_io.vocab import load_vocab
 
 
 @dataclass
@@ -27,6 +28,7 @@ def run_lint(workspace: Path) -> list[LintFinding]:
     """Lint every guidance page; return findings (empty == clean)."""
     findings: list[LintFinding] = []
     root = guidance_dir(workspace)
+    vocab = load_vocab(workspace)
 
     for page in list_all_pages(workspace):
         rel = page.relative_to(root)
@@ -42,6 +44,12 @@ def run_lint(workspace: Path) -> list[LintFinding]:
 
         for msg in validate(fm):
             findings.append(LintFinding("guidance-invalid-frontmatter", "error", slug, msg))
+
+        for msg in tag_violations(fm, vocab):
+            findings.append(LintFinding("guidance-tag-not-allowlisted", "error", slug, msg))
+
+        for msg in keyword_shape_warnings(fm):
+            findings.append(LintFinding("guidance-keyword-shape", "warn", slug, msg))
 
         topic = fm.get("topic")
         if isinstance(topic, str) and topic.strip() and slugify(topic) != topic_dir:

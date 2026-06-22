@@ -77,3 +77,54 @@ def test_topic_placement_finding(tmp_path: Path) -> None:
     assert [f.rule_id for f in findings] == ["guidance-topic-placement"]
     assert findings[0].severity == "warn"
     assert isinstance(findings[0], LintFinding)
+
+
+def test_run_lint_flags_off_vocab_tag(tmp_path: Path) -> None:
+    import yaml
+    from guidance_io.lint import run_lint
+
+    gdir = tmp_path / "wiki" / "guidance" / "python"
+    gdir.mkdir(parents=True)
+    (tmp_path / "wiki" / "guidance" / "tags.yaml").write_text(yaml.safe_dump(["retry"]), encoding="utf-8")
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-22",
+        "tokens": 0,
+        "tags": ["retry", "bogus"],
+    }
+    (gdir / "a.md").write_text(
+        "---\n" + yaml.safe_dump(fm, sort_keys=False) + "---\n\n## Guidance\nx\n",
+        encoding="utf-8",
+    )
+    findings = run_lint(tmp_path)
+    assert any(f.rule_id == "guidance-tag-not-allowlisted" and "bogus" in f.message for f in findings)
+
+
+def test_run_lint_warns_on_prose_keyword(tmp_path: Path) -> None:
+    import yaml
+    from guidance_io.lint import run_lint
+
+    gdir = tmp_path / "wiki" / "guidance" / "python"
+    gdir.mkdir(parents=True)
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-22",
+        "tokens": 0,
+        "triggers": {"keywords": ["this is clearly prose not an identifier"]},
+    }
+    (gdir / "b.md").write_text(
+        "---\n" + yaml.safe_dump(fm, sort_keys=False) + "---\n\n## Guidance\nx\n",
+        encoding="utf-8",
+    )
+    findings = run_lint(tmp_path)
+    assert any(f.rule_id == "guidance-keyword-shape" and f.severity == "warn" for f in findings)
