@@ -40,6 +40,7 @@ from typing import Any, Optional
 
 import typer
 from graph_io import exit_codes, queries, update
+from graph_io import graphml as _graphml
 from graph_io import render as _render
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
 from workspace_io.paths import graph_dir
@@ -353,6 +354,32 @@ def run_query(
     return exit_codes.SUCCESS, rendered, truncation.get("msg", "")
 
 
+def run_export(workspace: Path, out_path: Path) -> tuple[int, str, str]:
+    """Export the full code graph to GraphML.
+
+    Returns (exit_code, stdout, stderr). When out_path is Path("-"), stdout is
+    the full XML string. Otherwise stdout is a one-line summary and the file is
+    written to out_path.
+    """
+    conn, exit_code, stderr = _connect_or_error(workspace)
+    if conn is None:
+        return exit_code, "", stderr
+
+    try:
+        xml_str = _graphml.to_graphml(conn)
+        n_nodes = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+        n_edges = conn.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
+    finally:
+        conn.close()
+
+    if str(out_path) == "-":
+        return exit_codes.SUCCESS, xml_str, ""
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(xml_str, encoding="utf-8")
+    return exit_codes.SUCCESS, f"wrote {n_nodes} nodes, {n_edges} edges → {out_path}", ""
+
+
 # --------------------------------------------------------------------------- #
 # Typer apps
 # --------------------------------------------------------------------------- #
@@ -646,6 +673,28 @@ def graph_query_cmd(
 # whenever this module is imported — and avoids a circular `commands/graph.py`
 # ↔ `commands/propose_domains.py` import. The function body (with all
 # orchestration logic, dataclasses, helpers) lives in `propose_domains.py`.
+
+
+@graph_app.command(name="export")
+def export_graph_cmd(
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
+    out: Optional[str] = typer.Option(
+        None,
+        "--out",
+        help="Output file (default: <workspace>/.graph-wiki/graph.graphml). Use '-' for stdout.",
+    ),
+) -> None:
+    """Export the code graph to GraphML for visualization in Gephi/Cytoscape."""
+    _, workspace_path = _resolve_paths(workspace)
+    out_path = Path("-") if out == "-" else (Path(out) if out else graph_dir(workspace_path) / "graph.graphml")
+    exit_code, stdout, stderr = run_export(workspace_path, out_path)
+    if stdout:
+        typer.echo(stdout)
+    if stderr:
+        typer.echo(stderr, err=True)
+    if exit_code != exit_codes.SUCCESS:
+        raise typer.Exit(code=exit_code)
+
 
 from graph_wiki_core.commands.propose_domains import (  # noqa: E402
     propose_domains_cmd as _propose_domains_cmd,
