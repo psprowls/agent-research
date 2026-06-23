@@ -109,3 +109,37 @@ def test_topup_reaches_k() -> None:
     # message matches none strongly; top-up should still return k candidates
     cands = compute_candidates(pages, message="zzz", path_contexts=[], k=5)
     assert len(cands) == 5
+
+
+def test_index_signal_fires_on_alias_tag(tmp_path: Path) -> None:
+    # tags.yaml maps alias "retries" -> canonical "retry"; the page is tagged with
+    # the alias form, while a working file was indexed under the canonical form.
+    (tmp_path / "wiki" / "guidance").mkdir(parents=True)
+    (tmp_path / "wiki" / "guidance" / "tags.yaml").write_text(
+        yaml.safe_dump({"tags": ["retry"], "aliases": {"retries": "retry"}}), encoding="utf-8"
+    )
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-22",
+        "tokens": 0,
+        "tags": ["retries"],  # alias form
+    }
+    _write_page(tmp_path, "python", "p", fm)
+    pages = load_guidance_pages(tmp_path)
+    # page tags are canonicalized to the allowlist form
+    assert pages[0].tags == ["retry"]
+    ctx = PathContext(
+        rel_path="packages/x/x.py",
+        content="",
+        package_stem=None,
+        index_topics=[],
+        index_tags=["retry"],  # canonical, as the scan writes it
+    )
+    cands = compute_candidates(pages, message="", path_contexts=[ctx], k=5)
+    fired = next(c for c in cands if c.page.slug == "python/p")
+    assert "index" in fired.signals_fired

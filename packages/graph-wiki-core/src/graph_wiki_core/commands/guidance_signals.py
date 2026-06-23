@@ -17,6 +17,7 @@ from pathlib import Path, PurePath
 from guidance_io.frontmatter import parse
 from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
+from guidance_io.vocab import canonical_tag, load_vocab
 from wiki_io.entity_lookup import entity_filename_for_uri, lookup_entity_by_path
 
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
@@ -77,6 +78,7 @@ def _extract_section(body: str, heading: str) -> str:
 
 def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
     root = guidance_dir(workspace)
+    vocab = load_vocab(workspace)
     pages: list[GuidancePage] = []
     for page_path in list_all_pages(workspace):
         try:
@@ -95,7 +97,7 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
             GuidancePage(
                 slug=f"{rel.parent.as_posix()}/{page_path.stem}",
                 topic=str(fm.get("topic", "")),
-                tags=[str(t) for t in (fm.get("tags") or [])],
+                tags=[canonical_tag(str(t), vocab) or str(t) for t in (fm.get("tags") or [])],
                 keywords=[str(k) for k in (triggers.get("keywords") or [])],
                 entities=entities,
                 globs=[str(g) for g in (triggers.get("globs") or [])],
