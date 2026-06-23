@@ -19,7 +19,13 @@ If `gw` is not on PATH, run it as
 
 ### 1. Resolve & report
 
-Run `gw work next <slug> --json`.
+Run `gw next <slug> --json --file <workspace>/raw/guidance/<slug>.md`.
+
+`gw next` wraps the read-only `gw work next` and adds two keys to the JSON:
+`guidance` (ranked phase-relevant pages) and `guidance_warnings`. It also writes
+the assembled guidance bodies to the `--file` path when any matched. The
+`--file` parent dir is created on demand. All the blocker / terminal / dispatch
+fields the steps below read are unchanged from `gw work next`.
 
 - If `blockers` is non-empty:
   - If a blocker reports a **terminal status** (`resolved`, `wontfix`, or
@@ -52,6 +58,18 @@ Invoke the stage skill named by `action.skill` via the Skill tool (namespaced
   the durable state, not from memory
 - when `artifact.path` is set: "Write your output document to
   `<artifact.path>` — this overrides the skill's default location."
+- when the `gw next` output's `guidance` list is non-empty, add a
+  `## Relevant guidance` block to the brief pointing the stage skill at the
+  assembled bundle:
+
+  ```
+  ## Relevant guidance
+  Phase-relevant guidance assembled at: raw/guidance/<slug>.md
+  Read it before starting this stage.
+  ```
+
+  Omit this block entirely when `guidance` is empty (guidance skipped or no
+  matches). Surface any `guidance_warnings` to the user as plain notes.
 
 The stock skills honor user-preference path overrides; they stay unmodified.
 
