@@ -133,6 +133,28 @@ def write(path: Path, data: dict) -> None:
     if topic:
         payload["topic"] = str(topic)
     payload["plugins"] = plugins_payload
+    # Round-trip optional blocks using the same omit-when-absent-or-default
+    # pattern as `roles` and `topic` above. Guards prevent writing default-valued
+    # blocks that read() would re-inject anyway (avoids disk churn on vanilla manifests).
+    plugin = data.get("plugin")
+    if plugin is not None:
+        if plugin.get("backend_default", "claude") != "claude" or plugin.get("backend_overrides"):
+            payload["plugin"] = plugin
+    state_gate = data.get("state_gate")
+    if state_gate is not None:
+        if state_gate.get("enabled", True) is not True or state_gate.get("branches", ["main"]) != ["main"]:
+            payload["state_gate"] = state_gate
+    graph = data.get("graph")
+    if graph is not None:
+        graph_payload = {}
+        if graph.get("domains"):
+            graph_payload["domains"] = graph["domains"]
+        if graph.get("resources"):
+            graph_payload["resources"] = graph["resources"]
+        if graph.get("resource_matchers"):
+            graph_payload["resource_matchers"] = graph["resource_matchers"]
+        if graph_payload:
+            payload["graph"] = graph_payload
     path.write_text(
         yaml.safe_dump(payload, sort_keys=False, default_flow_style=False),
         encoding="utf-8",
