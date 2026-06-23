@@ -71,8 +71,10 @@ from graph_wiki_core.commands.ingest import (  # noqa: E402
 )
 from graph_wiki_core.commands.init import run_init  # noqa: E402
 from graph_wiki_core.commands.lint_all import run_lint_all  # noqa: E402
+from graph_wiki_core.commands.next_guidance import guidance_eligible, run_next_guidance  # noqa: E402
 from graph_wiki_core.commands.query import run_query  # noqa: E402
 from graph_wiki_core.commands.scan import run_scan  # noqa: E402
+from graph_wiki_core.commands.work import run_work_advance, run_work_next  # noqa: E402
 
 from graph_wiki_cli.graph_cli.main import graph_app  # noqa: E402
 from graph_wiki_cli.guidance_cli.main import guidance_app  # noqa: E402
@@ -521,6 +523,112 @@ def lint(
 
     if _lint_all_failed(result):
         raise typer.Exit(code=1)
+
+
+@app.command(name="next")
+def next_cmd(
+    slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
+    human: bool = typer.Option(False, "--human", help="Human-readable ranked guidance list"),
+    json_output: bool = typer.Option(False, "--json", help="Emit the work-next envelope + guidance as JSON"),
+    file: str = typer.Option("", "--file", help="Write assembled top-N guidance bodies to this path"),
+    budget: int = typer.Option(0, "--budget", help="Token cap for the --file bundle (0 = unlimited)"),
+    top: int = typer.Option(5, "--top", help="How many ranked guidance pages to attach"),
+    no_rank: bool = typer.Option(False, "--no-rank", help="Force deterministic recall-only ordering"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+) -> None:
+    """Compute the next workflow action AND attach phase-relevant guidance (read-only)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        wn = asyncio.run(run_work_next(workspace_path=workspace_path, slug=slug))
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=3)
+
+    guidance: list[dict] = []
+    guidance_warnings: list[str] = []
+    guidance_file: str | None = None
+    if guidance_eligible(wn):
+        ng = asyncio.run(
+            run_next_guidance(
+                slug,
+                workspace_path=workspace_path,
+                top=top,
+                assemble=bool(file),
+                budget=budget or None,
+                no_rank=no_rank,
+            )
+        )
+        guidance = [dataclasses.asdict(r) for r in ng.ranked]
+        guidance_warnings = list(ng.warnings)
+        if file and ng.assembled is not None:
+            out = Path(file)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(ng.assembled, encoding="utf-8")
+            guidance_file = str(out)
+
+    if json_output:
+        payload = dataclasses.asdict(wn)
+        payload["guidance"] = guidance
+        payload["guidance_warnings"] = guidance_warnings
+        payload["guidance_file"] = guidance_file
+        typer.echo(json.dumps(payload, indent=2))
+    if human or not json_output:
+        typer.echo(f"{wn.slug}: kind={wn.kind} status={wn.status} phase={wn.phase}")
+        if wn.action:
+            typer.echo(f"  dispatch: {wn.action['skill']} — {wn.action['reason']}")
+        if wn.artifact:
+            typer.echo(f"  artifact: {wn.artifact['path']}")
+        for b in wn.blockers:
+            typer.echo(f"  blocked: {b}")
+        if guidance:
+            typer.echo("  guidance:")
+            for i, r in enumerate(guidance, start=1):
+                signals = ", ".join(r["signals_fired"]) or "-"
+                typer.echo(f"   {i:>2} | [[guidance/{r['slug']}]] | {r['relevance']} | {signals} | {r['reason']}")
+        if guidance_file:
+            typer.echo(f"  guidance bundle: {guidance_file}")
+        for w in guidance_warnings:
+            typer.echo(f"  note: {w}", err=True)
+
+    if wn.blockers:
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def advance(
+    slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
+    effort: str = typer.Option("", "--effort", help="xtra-small|small|medium|large|xtra-large"),
+    owner: str = typer.Option("", "--owner", help="Owner handle"),
+    resolved_in: str = typer.Option("", "--resolved-in", help="PR/commit reference"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Apply the routing table's next transition for a work item (passthrough to `gw work advance`)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        result = asyncio.run(
+            run_work_advance(
+                workspace_path=workspace_path,
+                slug=slug,
+                effort=effort or None,
+                owner=owner or None,
+                resolved_in=resolved_in or None,
+            )
+        )
+    except (RuntimeError, FileNotFoundError, ValueError) as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=2)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        typer.echo(f"[ok] {result.slug}: phase={result.phase} status={result.status}")
+        for key, change in result.applied.items():
+            typer.echo(f"  {key}: {change[0]} -> {change[1]}")
+        for key, value in result.stamped.items():
+            typer.echo(f"  stamped {key}: {value}")
+        for f in result.findings:
+            typer.echo(f"  [{f['severity']}] {f['rule_id']} — {f['message']}")
 
 
 # graph command namespace: native Typer subapp for code-graph operations.
