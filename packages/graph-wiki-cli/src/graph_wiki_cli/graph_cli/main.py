@@ -267,6 +267,13 @@ from graph_wiki_core.commands.suggest_resources import (  # noqa: E402
 
 graph_app.command(name="suggest-resources")(_suggest_resources_cmd)
 
+# export is Bedrock-free, so register the core function directly.
+from graph_wiki_core.commands.graph import (  # noqa: E402
+    export_graph_cmd as _export_graph_cmd,
+)
+
+graph_app.command(name="export")(_export_graph_cmd)
+
 
 # propose-domains pulls the Bedrock stack (model_adapter / subagent_runtime) at
 # import. Wrap it so the import stays inside the command body — keeping this
