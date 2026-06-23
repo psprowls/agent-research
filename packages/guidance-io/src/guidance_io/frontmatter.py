@@ -74,6 +74,10 @@ def validate(fm: dict) -> list[str]:
                 if tk in triggers and not isinstance(triggers[tk], list):
                     errors.append(f"triggers.{tk} must be a list, got {type(triggers[tk]).__name__}")
 
+    workflow = fm.get("workflow")
+    if workflow is not None and not isinstance(workflow, list):
+        errors.append(f"workflow must be a list of phase names, got {type(workflow).__name__}")
+
     return errors
 
 

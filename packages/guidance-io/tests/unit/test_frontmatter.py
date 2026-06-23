@@ -145,3 +145,56 @@ def test_keyword_shape_warns_on_prose() -> None:
 def test_keyword_shape_ok_for_identifiers() -> None:
     fm = {"triggers": {"keywords": ["ScrollView", "recursion_limit", "metro.config.js"]}}
     assert keyword_shape_warnings(fm) == []
+
+
+def test_workflow_round_trips_through_parse_emit():
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-23",
+        "tokens": 0,
+        "workflow": ["design", "plan"],
+    }
+    text = emit(fm) + "\nbody\n"
+    parsed_fm, body = parse(text)
+    assert parsed_fm["workflow"] == ["design", "plan"]
+    assert body.strip() == "body"
+
+
+def test_validate_flags_non_list_workflow():
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-23",
+        "tokens": 0,
+        "workflow": "design",  # wrong type
+    }
+    errors = validate(fm)
+    assert any("workflow" in e for e in errors)
+
+
+def test_validate_allows_absent_empty_or_unknown_workflow_values():
+    base = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-23",
+        "tokens": 0,
+    }
+    # absent
+    assert not any("workflow" in e for e in validate(base))
+    # empty list
+    assert not any("workflow" in e for e in validate({**base, "workflow": []}))
+    # unknown value strings are NOT validated here
+    assert not any("workflow" in e for e in validate({**base, "workflow": ["banana"]}))
