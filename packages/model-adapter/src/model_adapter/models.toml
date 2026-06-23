@@ -276,9 +276,9 @@ region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 2
 
-# Guidance page generation — Pass 1. Classifies raw skill/agent/etc. input
-# into discrete guidance-page propositions. Type-branched like skill-planner;
-# uses a cheap, fast classifier tier (mirrors scanner).
+# `gw guidance scan` — per-file closed-vocab classifier. Classifies one source
+# file (path + head + symbols) into the guidance topic/tag vocabulary; high-volume
+# fan-out over file nodes via SubagentPool, so a cheap, fast tier.
 [roles.guidance_classifier]
 model_id        = "openai.gpt-oss-20b-1:0"
 region          = "us-east-1"
@@ -291,10 +291,10 @@ sweep_candidates = [
   "us.amazon.nova-lite-v1:0",
 ]
 
-# Guidance page generation — Pass 2. Synthesizes one guidance page from a
-# single classified proposition; fanned out via SubagentPool. Uses a higher-tier
-# reasoning model to ensure guidance quality. Concurrency capped to 3 because
-# guidance pages are high-cost synthesis (extended output, reasoning overhead).
+# `gw guidance suggest` — Stage-2 ranker. A single structured call (NOT a fan-out)
+# that ranks the deterministic-recall candidate slate against the task. Higher
+# reasoning tier; max_tokens/concurrency are conservative and can be right-sized by
+# an eval sweep.
 [roles.guidance_orchestrator]
 model_id        = "qwen.qwen3-32b-v1:0"
 region          = "us-east-1"
