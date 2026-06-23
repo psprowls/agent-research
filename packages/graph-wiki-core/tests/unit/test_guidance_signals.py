@@ -111,6 +111,36 @@ def test_topup_reaches_k() -> None:
     assert len(cands) == 5
 
 
+def test_loader_populates_workflow_field(tmp_path: Path) -> None:
+    d = tmp_path / "wiki" / "guidance" / "python"
+    d.mkdir(parents=True)
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-23",
+        "tokens": 0,
+        "workflow": ["design", "plan"],
+    }
+    (d / "with-wf.md").write_text(
+        "---\n" + yaml.safe_dump(fm, sort_keys=False) + "---\n\n## Guidance\nDo X.\n",
+        encoding="utf-8",
+    )
+    fm_no = {**fm}
+    del fm_no["workflow"]
+    (d / "no-wf.md").write_text(
+        "---\n" + yaml.safe_dump(fm_no, sort_keys=False) + "---\n\n## Guidance\nDo Y.\n",
+        encoding="utf-8",
+    )
+
+    pages = {p.slug: p for p in load_guidance_pages(tmp_path)}
+    assert pages["python/with-wf"].workflow == ["design", "plan"]
+    assert pages["python/no-wf"].workflow == []
+
+
 def test_index_signal_fires_on_alias_tag(tmp_path: Path) -> None:
     # tags.yaml maps alias "retries" -> canonical "retry"; the page is tagged with
     # the alias form, while a working file was indexed under the canonical form.

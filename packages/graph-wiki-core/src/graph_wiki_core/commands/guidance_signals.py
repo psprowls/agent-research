@@ -43,6 +43,7 @@ class GuidancePage:
     applies_when: str
     impact: str
     guidance_body: str
+    workflow: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -105,6 +106,7 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
                 applies_when=str(fm.get("applies_when", "")),
                 impact=str(fm.get("impact", "medium")),
                 guidance_body=_extract_section(body, "Guidance"),
+                workflow=[str(p) for p in (fm.get("workflow") or [])],
             )
         )
     return pages
