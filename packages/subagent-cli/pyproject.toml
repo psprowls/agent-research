@@ -1,0 +1,41 @@
+[project]
+name = "subagent-cli"
+version = "0.1.0"
+description = "Invoke Bedrock subagents live from the CLI with colored prompt/response/model output."
+requires-python = ">=3.11"
+dependencies = [
+    "graph-wiki-core",
+    "model-adapter",
+    "subagent-runtime",
+    "graph-io",
+    "wiki-io",
+    "workspace-io",
+    "guidance-io",
+    "typer>=0.25.1",
+    "click>=8.0",
+    "rich>=13.7",
+    "python-frontmatter>=1.0",
+    "langchain-core",
+]
+
+[project.scripts]
+subagent = "subagent_cli.cli:app"
+
+[build-system]
+requires = ["uv_build>=0.11.14,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.sources]
+graph-wiki-core = { workspace = true }
+model-adapter = { workspace = true }
+subagent-runtime = { workspace = true }
+graph-io = { workspace = true }
+wiki-io = { workspace = true }
+workspace-io = { workspace = true }
+guidance-io = { workspace = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--import-mode=importlib"
+asyncio_mode = "auto"
+markers = ["integration: requires real Bedrock or subprocess (skipped in CI by default)"]
