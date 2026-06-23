@@ -556,6 +556,7 @@ def next_cmd(
                 assemble=bool(file),
                 budget=budget or None,
                 no_rank=no_rank,
+                phase=wn.phase,
             )
         )
         guidance = [dataclasses.asdict(r) for r in ng.ranked]

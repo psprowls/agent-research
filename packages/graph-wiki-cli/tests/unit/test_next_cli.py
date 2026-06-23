@@ -91,6 +91,27 @@ def test_next_human_is_not_dead():
     assert json.loads(json_res.stdout)["slug"] == "wi"
 
 
+def test_next_passes_resolved_phase_to_guidance():
+    """Regression: CLI must pass wn.phase (resolved by run_work_next) to run_next_guidance
+    so that items without a frontmatter phase still get phase-filtered guidance."""
+    wn = WorkNextResult(
+        slug="wi",
+        status="open",
+        kind="feature",
+        phase="design",  # synthesized by run_work_next, not in frontmatter
+        action={"skill": "brainstorming", "reason": "r"},
+    )
+    ng = NextGuidanceResult(ranked=[])
+    with (
+        patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)),
+        patch("graph_wiki_cli.cli.run_next_guidance", new=AsyncMock(return_value=ng)) as guidance,
+    ):
+        res = runner.invoke(app, ["next", "wi", "--json"])
+    assert res.exit_code == 0
+    assert guidance.called
+    assert guidance.call_args.kwargs["phase"] == "design"
+
+
 def test_advance_passthrough():
     wa = WorkAdvanceResult(
         slug="wi",

@@ -120,3 +120,30 @@ async def test_run_next_guidance_no_guidance_dir(tmp_path: Path):
     (ws / "wiki" / "guidance").mkdir(parents=True)
     result = await run_next_guidance("wi", workspace_path=ws, no_rank=True)
     assert result.ranked == []
+
+
+async def test_run_next_guidance_uses_resolved_phase_override(tmp_path: Path):
+    """Regression: freshly-filed items have no frontmatter phase; the resolved phase
+    from run_work_next must be passed as an override so filter_by_phase uses it."""
+    ws = tmp_path / "ws"
+    # Work item with NO phase field — as it is when first filed.
+    _write_workitem(ws, "wi", {"title": "WI", "summary": "add retry backoff", "affects": ["python"], "status": "open"})
+    _write_guidance(
+        ws, "python", "design-guide", _guidance_fm("python", ["backoff"], ["design"]), "## Guidance\nDesign.\n"
+    )
+    _write_guidance(
+        ws, "python", "execute-guide", _guidance_fm("python", ["backoff"], ["execute"]), "## Guidance\nExecute.\n"
+    )
+
+    # Without override: phase=None → filter_by_phase drops BOTH phase-specific pages.
+    result_no_override = await run_next_guidance("wi", workspace_path=ws, no_rank=True)
+    slugs_no_override = {r.slug for r in result_no_override.ranked}
+    # documents old/current behavior — phase-specific pages are dropped when no phase in frontmatter
+    assert "python/design-guide" not in slugs_no_override
+    assert "python/execute-guide" not in slugs_no_override
+
+    # With phase="design" override: filter_by_phase keeps only design-tagged page.
+    result_with_override = await run_next_guidance("wi", workspace_path=ws, no_rank=True, phase="design")
+    slugs_with_override = {r.slug for r in result_with_override.ranked}
+    assert "python/design-guide" in slugs_with_override, "with phase override, design page must be kept"
+    assert "python/execute-guide" not in slugs_with_override, "with phase override, execute page must still be dropped"

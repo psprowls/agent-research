@@ -93,6 +93,9 @@ async def run_next_guidance(
     no_rank: bool = False,
     model_override: str | None = None,
     make_llm_fn: Any = None,
+    # Caller (CLI) passes the phase resolved by run_work_next so freshly-filed items
+    # (no frontmatter phase yet) still get phase-specific guidance on first dispatch.
+    phase: str | None = None,
 ) -> NextGuidanceResult:
     """Load work item <slug>, phase-filter guidance, recall→rank. See module docstring."""
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
@@ -105,13 +108,15 @@ async def run_next_guidance(
     if not item_path.exists():
         return result
     fm, _body = _frontmatter.parse(item_path.read_text(encoding="utf-8"))
-    message, paths, phase = derive_recall_inputs(fm)
+    message, paths, frontmatter_phase = derive_recall_inputs(fm)
+    # Prefer the caller-supplied resolved phase; fall back to frontmatter-derived one.
+    effective_phase = phase if phase is not None else frontmatter_phase
 
     pages = load_guidance_pages(workspace)
     if not pages:
         return result
 
-    kept, filter_warnings = filter_by_phase(pages, phase)
+    kept, filter_warnings = filter_by_phase(pages, effective_phase)
     result.warnings.extend(filter_warnings)
     if not kept:
         return result
