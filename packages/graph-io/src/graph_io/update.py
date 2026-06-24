@@ -249,7 +249,7 @@ def run(
         if found != str(schema.SCHEMA_VERSION):
             if full:
                 print(
-                    "Schema v1 detected — rebuilding code.db at schema v2.",
+                    f"Schema v{found} detected — rebuilding code.db at schema v{schema.SCHEMA_VERSION}.",
                     file=sys.stderr,
                 )
                 _unlink_db_files(db_path)

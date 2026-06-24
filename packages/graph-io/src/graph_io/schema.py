@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sqlite3
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 # Bumped whenever any node/edge/attr DERIVATION logic changes (e.g. classification.classify,
 # app_kind precedence, derived-edge rules) so existing graphs auto-rebuild without --full.
@@ -27,12 +27,14 @@ _DDL_STATEMENTS = (
         path        TEXT,
         line        INTEGER,
         attrs_json  TEXT,
-        uri         TEXT
+        uri         TEXT,
+        repo        TEXT
     )
     """,
     "CREATE INDEX IF NOT EXISTS idx_nodes_kind_name ON nodes(kind, name)",
     "CREATE INDEX IF NOT EXISTS idx_nodes_path ON nodes(path)",
     "CREATE INDEX IF NOT EXISTS idx_nodes_uri ON nodes(uri)",
+    "CREATE INDEX IF NOT EXISTS idx_nodes_repo ON nodes(repo)",
     """
     CREATE TABLE IF NOT EXISTS edges (
         src         INTEGER NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,

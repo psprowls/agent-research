@@ -95,8 +95,8 @@ def _seed_v1_db(repo_root: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return db_path
 
 
-def test_update_full_rebuilds_v1_db_to_v2(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """`gw graph update --full` on a schema-v1 DB unlinks + rebuilds at v2 (D-01)."""
+def test_update_full_rebuilds_v1_db_to_current(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """`gw graph update --full` on a schema-v1 DB unlinks + rebuilds at current schema version (D-01)."""
     init_repo(tmp_path)
     write_and_commit(tmp_path, {"a.py": "x = 1\n"}, "init")
 
@@ -111,7 +111,7 @@ def test_update_full_rebuilds_v1_db_to_v2(tmp_path: Path, monkeypatch: pytest.Mo
     stderr = buf.getvalue()
     # Discretionary wording per D-01; substrings are the contract.
     assert "v1" in stderr, stderr
-    assert "v2" in stderr, stderr
+    assert f"v{schema.SCHEMA_VERSION}" in stderr, stderr
     assert "rebuild" in stderr.lower(), stderr
 
     assert db_path.exists()
@@ -121,7 +121,7 @@ def test_update_full_rebuilds_v1_db_to_v2(tmp_path: Path, monkeypatch: pytest.Mo
 
     with sqlite3.connect(db_path) as probe:
         row = probe.execute("SELECT value FROM metadata WHERE key='schema_version'").fetchone()
-    assert row == (str(schema.SCHEMA_VERSION),) == ("2",)
+    assert row == (str(schema.SCHEMA_VERSION),)
 
 
 def test_update_incremental_on_v1_db_raises_schema_mismatch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -133,4 +133,4 @@ def test_update_incremental_on_v1_db_raises_schema_mismatch(tmp_path: Path, monk
     with pytest.raises(store.SchemaMismatchError) as excinfo:
         update.run(tmp_path, full=False)
     assert excinfo.value.found == "1"
-    assert excinfo.value.expected == 2
+    assert excinfo.value.expected == schema.SCHEMA_VERSION
