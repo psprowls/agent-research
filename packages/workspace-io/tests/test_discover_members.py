@@ -2,8 +2,6 @@ from pathlib import Path
 
 from workspace_io.config import discover_members, resolve
 
-DEFAULT_SKIP = {".git", "node_modules", ".venv"}
-
 
 def _mk_repo(root: Path, name: str) -> Path:
     d = root / name
@@ -60,3 +58,37 @@ def test_resolve_single_repo_has_empty_members(tmp_path, monkeypatch):
     (ws / ".graph-wiki.yaml").write_text("topic: x\n")
     cfg = resolve(cwd=tmp_path)
     assert cfg.members == ()
+
+
+def test_discover_members_allow_then_exclude(tmp_path):
+    _mk_repo(tmp_path, "alpha")
+    _mk_repo(tmp_path, "beta")
+    ws = tmp_path / "workspace"
+    (ws / ".git").mkdir(parents=True)
+    members = discover_members(tmp_path, workspace=ws, allow=("alpha", "beta"), exclude=("beta",))
+    assert [m.name for m in members] == ["alpha"]
+
+
+def test_resolve_multi_repo_false_disables(tmp_path, monkeypatch):
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    _mk_repo(tmp_path, "alpha")
+    _mk_repo(tmp_path, "beta")
+    (tmp_path / ".git").mkdir()
+    ws = tmp_path / "graph-wiki"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("multi-repo: false\n")
+    cfg = resolve(cwd=tmp_path)
+    assert cfg.members == ()
+
+
+def test_resolve_multi_repo_repos_scalar_restricts_members(tmp_path, monkeypatch):
+    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    _mk_repo(tmp_path, "alpha")
+    _mk_repo(tmp_path, "beta")
+    _mk_repo(tmp_path, "gamma")
+    (tmp_path / ".git").mkdir()
+    ws = tmp_path / "graph-wiki"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("multi-repo: true\nrepos: alpha,beta\n")
+    cfg = resolve(cwd=tmp_path)
+    assert [m.name for m in cfg.members] == ["alpha", "beta"]

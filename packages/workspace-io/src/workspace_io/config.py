@@ -32,8 +32,8 @@ MULTI_REPO_KEY = "multi-repo"
 REPOS_ROOT_KEY = "repos-root"
 REPOS_ALLOW_KEY = "repos"
 REPOS_EXCLUDE_KEY = "exclude"
-# Mirror graph_io._ignore.DEFAULT_SKIP_DIRS for the member-discovery walk; kept
-# local to avoid a workspace-io -> graph-io dependency (wrong layer direction).
+_TRUTHY = {"true", "1", "yes", "on"}
+# Dirs that can never be member repos, regardless of a nested `.git`.
 _MEMBER_SKIP_DIRS = frozenset({".git", "node_modules", ".venv", "__pycache__", ".graph-wiki"})
 
 
@@ -106,6 +106,21 @@ def discover_members(
     return tuple(out)
 
 
+def _to_name_list(val: object) -> tuple[str, ...]:
+    """Coerce a manifest value to a tuple of names.
+
+    `_local_config.read` is a flat parser returning `dict[str, str]`, so a
+    `repos: alpha,beta` line arrives as the string `"alpha,beta"` (and indented
+    YAML-list lines are dropped entirely). Accept either a real list (defensive)
+    or a comma-separated string.
+    """
+    if not val:
+        return ()
+    if isinstance(val, list):
+        return tuple(str(v).strip() for v in val if str(v).strip())
+    return tuple(s.strip() for s in str(val).split(",") if s.strip())
+
+
 def _multi_repo_members(workspace: Path) -> tuple[Path, ...]:
     """Read multi-repo config from the workspace manifest and discover members.
 
@@ -115,7 +130,7 @@ def _multi_repo_members(workspace: Path) -> tuple[Path, ...]:
     committed = _local_config.read(workspace / ".graph-wiki.yaml")
     local = _local_config.read(workspace / LOCAL_CONFIG_FILENAME)
     merged = {**committed, **local}
-    if not bool(merged.get(MULTI_REPO_KEY, False)):
+    if str(merged.get(MULTI_REPO_KEY, "")).strip().lower() not in _TRUTHY:
         return ()
     raw_root = str(merged.get(REPOS_ROOT_KEY, "") or "").strip()
     if raw_root:
@@ -123,8 +138,8 @@ def _multi_repo_members(workspace: Path) -> tuple[Path, ...]:
         repos_root = expanded.resolve() if expanded.is_absolute() else (workspace / expanded).resolve()
     else:
         repos_root = workspace.parent.resolve()
-    allow = tuple(merged.get(REPOS_ALLOW_KEY, []) or [])
-    exclude = tuple(merged.get(REPOS_EXCLUDE_KEY, []) or [])
+    allow = _to_name_list(merged.get(REPOS_ALLOW_KEY))
+    exclude = _to_name_list(merged.get(REPOS_EXCLUDE_KEY))
     return discover_members(repos_root, workspace=workspace, allow=allow, exclude=exclude)
 
 
