@@ -145,6 +145,93 @@ def test_single_repo_uri_less_node_unchanged(tmp_path, make_index_fixture_graph)
 
 
 # ============================================================================
+# Acceptance 1c — a global dependency (repo=NULL, repo-less URI) consumed by
+# packages in MULTIPLE repos places under each consumer's repo (no crash)
+# ============================================================================
+
+
+def test_global_dependency_placed_in_consumer_repos(tmp_path, make_index_fixture_graph):
+    """A single GLOBAL ``dependency`` node (``repo`` NULL, repo-less URI
+    ``dependency:npm/shared-dep``) consumed by packages in TWO different repos
+    must NOT crash ``_place_entities`` and must render nested under each
+    consumer package in its respective repository section.
+
+    Reproduces the StickerGiant e2e crash: external npm deps are ONE global
+    graph node (``repo=NULL``); ``_repo_for`` cannot resolve a repo from the
+    URI or the (NULL) repo column, and with >1 repository node the old
+    ``len(repos)==1`` fallback didn't fire → ValueError. The dep's natural home
+    is the repo(s) of its CONSUMER packages (via ``used_by``).
+    """
+    spec = {
+        "nodes": [
+            ("repository", "repo-a", {"uri": "repo:local/repo-a"}),
+            ("repository", "repo-b", {"uri": "repo:local/repo-b"}),
+            ("package", "pkg-a", {"uri": "pkg:local/repo-a/pkg-a"}),
+            ("package", "pkg-b", {"uri": "pkg:local/repo-b/pkg-b"}),
+            # Global dependency: repo-less URI, repo column left NULL.
+            ("dependency", "shared-dep", {"uri": "dependency:npm/shared-dep"}),
+        ],
+        # used_by edge: (package) -[used_by]-> (dependency); pkg-a and pkg-b
+        # both consume the one shared dependency node.
+        "edges": [
+            ("package", "pkg-a", "dependency", "shared-dep", "used_by", {}),
+            ("package", "pkg-b", "dependency", "shared-dep", "used_by", {}),
+        ],
+    }
+    conn = make_index_fixture_graph(spec)
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir()
+
+    # Must NOT raise — the consumer-repo placement resolves the global dep.
+    result = generate_index(conn, wiki_root)
+
+    assert result.repo_count == 2
+
+    text = (wiki_root / "index.md").read_text(encoding="utf-8")
+    repo_a_idx = text.find("\n## Repository: repo-a")
+    repo_b_idx = text.find("\n## Repository: repo-b")
+    assert repo_a_idx != -1 and repo_b_idx != -1
+
+    repo_a_block = text[repo_a_idx:repo_b_idx]
+    repo_b_block = text[repo_b_idx:]
+    # The dependency nests under its consumer package in EACH repo section.
+    assert "### Package: pkg-a" in repo_a_block
+    assert "shared-dep" in repo_a_block
+    assert "### Package: pkg-b" in repo_b_block
+    assert "shared-dep" in repo_b_block
+
+
+def test_orphan_global_dependency_does_not_crash(tmp_path, make_index_fixture_graph):
+    """A global dependency with ZERO consumer packages must not crash the index.
+
+    Fallback choice: an unconsumed external dep has no natural repo home, so it
+    is SKIPPED from direct placement entirely (it would never render anyway —
+    deps only render nested under consumer packages, and there are none).
+    """
+    spec = {
+        "nodes": [
+            ("repository", "repo-a", {"uri": "repo:local/repo-a"}),
+            ("repository", "repo-b", {"uri": "repo:local/repo-b"}),
+            ("package", "pkg-a", {"uri": "pkg:local/repo-a/pkg-a"}),
+            # Orphan global dependency: no used_by edges at all.
+            ("dependency", "orphan-dep", {"uri": "dependency:npm/orphan-dep"}),
+        ],
+        "edges": [],
+    }
+    conn = make_index_fixture_graph(spec)
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir()
+
+    # Must NOT raise.
+    result = generate_index(conn, wiki_root)
+    assert result.repo_count >= 1
+
+    text = (wiki_root / "index.md").read_text(encoding="utf-8")
+    # The orphan dep has no consumer, so it renders nowhere.
+    assert "orphan-dep" not in text
+
+
+# ============================================================================
 # Acceptance 2 — same-named packages across repos get distinct entity stems
 # ============================================================================
 

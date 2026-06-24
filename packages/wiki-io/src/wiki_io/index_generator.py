@@ -425,11 +425,14 @@ def _place_entities(
         if key:
             repo_key_to_name[key] = r.name
 
-    def _repo_for(uri: str, *, kind: str, name: str, repo: str = "") -> str:
-        # Primary resolver: the entity's own URI carries the {org}/{repo}
-        # segment. Secondary: the authoritative `nodes.repo` column (every
-        # admitted node carries one post-Task-2), which resolves stray nodes
-        # whose URI is repo-less or empty. Single-repo fallback last.
+    def _repo_for_or_none(uri: str, *, repo: str = "") -> str | None:
+        # Non-raising core resolver: the entity's own URI carries the
+        # {org}/{repo} segment. Secondary: the authoritative `nodes.repo`
+        # column (every admitted node carries one post-Task-2), which resolves
+        # stray nodes whose URI is repo-less or empty. Single-repo fallback
+        # last. Returns None when none of those resolve (the caller decides
+        # whether that's fatal or has a fallback — e.g. global dependencies
+        # route to their consumer repos instead).
         key = _parse_repo_key(uri)
         if key and key in repo_key_to_name:
             return repo_key_to_name[key]
@@ -438,6 +441,12 @@ def _place_entities(
             return repo_key_to_name[repo_key]
         if len(repos) == 1:
             return repos[0].name
+        return None
+
+    def _repo_for(uri: str, *, kind: str, name: str, repo: str = "") -> str:
+        resolved = _repo_for_or_none(uri, repo=repo)
+        if resolved is not None:
+            return resolved
         raise ValueError(
             f"cannot resolve repository for {kind} {name!r} "
             f"(uri={uri!r}, repo={repo!r}): "
@@ -509,8 +518,37 @@ def _place_entities(
                 domain_buckets, _ = _buckets_for(domain_repo[the_domain])
                 domain_buckets.setdefault(the_domain, []).append(entity)
             else:
-                _, direct = _buckets_for(_repo_for(uri, kind=kind, name=node.name, repo=node.attrs.get("repo") or ""))
-                direct.append(entity)
+                node_repo = node.attrs.get("repo") or ""
+                resolved = _repo_for_or_none(uri, repo=node_repo)
+                if resolved is not None:
+                    _, direct = _buckets_for(resolved)
+                    direct.append(entity)
+                elif kind == "dependency":
+                    # Global dependency (the StickerGiant case): an external dep
+                    # is ONE ecosystem-global graph node (repo=NULL, repo-less
+                    # URI) shared across repos. It has no repo of its own; its
+                    # natural home is the repository(ies) of the package(s) that
+                    # CONSUME it (D-01 nesting model). Place a copy into each
+                    # distinct consumer repo's direct list so it nests under its
+                    # consumer in every consuming repo section. An unconsumed
+                    # global dep (no consumer_repos) is skipped — it has no
+                    # natural home and would never render (deps only render
+                    # nested under consumers).
+                    consumer_repos: set[str] = set()
+                    for pkg_name in parent_pkgs:
+                        pkg_entity = name_to_entity.get(pkg_name)
+                        if pkg_entity is None:
+                            continue
+                        pkg_repo = _repo_for_or_none(pkg_entity.uri)
+                        if pkg_repo is not None:
+                            consumer_repos.add(pkg_repo)
+                    for repo_name in consumer_repos:
+                        _, direct = _buckets_for(repo_name)
+                        direct.append(entity)
+                else:
+                    # Genuinely unplaceable NON-dependency entity — preserve the
+                    # strict all-or-nothing raise (D-19; no silent drops).
+                    _repo_for(uri, kind=kind, name=node.name, repo=node_repo)
 
     for domain_buckets, direct in per_repo.values():
         for d in domain_buckets:
