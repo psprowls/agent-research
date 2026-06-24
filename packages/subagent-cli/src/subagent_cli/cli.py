@@ -16,7 +16,7 @@ from .adapters import ADAPTERS
 from .runner import run_all, run_single
 
 app = typer.Typer(
-    name="subagent",
+    name="subagents",
     help="Invoke Bedrock subagents live with colored prompt/response/model output.",
     no_args_is_help=True,
 )
@@ -90,7 +90,7 @@ def run(
 
     try:
         if all_:
-            _dispatch_all(adapter, ctx, json_output)
+            _dispatch_all(adapter, ctx)
         else:
             _dispatch_single(adapter, ctx, item, raw=raw, prompt_mode=prompt_mode, json_output=json_output)
     except BedrockAccessDenied as exc:
@@ -121,7 +121,7 @@ def _build_context(workspace: Path, repo_root: Path):
 
 def _dispatch_single(adapter, ctx, item, *, raw, prompt_mode, json_output):
     if json_output:
-        outcome = asyncio.run(run_single(adapter, ctx, item, do_parse=not raw, on_chunk=lambda _t: None))
+        outcome = asyncio.run(run_single(adapter, ctx, item, do_parse=not raw, on_chunk=lambda *_: None))
         typer.echo(json.dumps(render.json_record(outcome), indent=2))
         return
 
@@ -199,7 +199,7 @@ async def _single_with_preface(adapter, ctx, item, raw, prompt_mode, on_chunk):
     )
 
 
-def _dispatch_all(adapter, ctx, json_output):
+def _dispatch_all(adapter, ctx):
     from subagent_runtime.trace_io import render_trace_record
 
     trace_dir = ws_paths.graph_dir(ctx.workspace) / "traces"
