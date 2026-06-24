@@ -54,10 +54,10 @@ The **repo** is the source code being documented. The **workspace** is a *separa
 - `gw scan --workspace <ws>` discovers the repo from cwd.
 - `gw graph update --full --repo <repo> --mode test` — `graph build`/`update` resolve the repo *from the workspace*, so always pass `--repo` explicitly or it dies with "ambiguous argument HEAD". Graph updates are incremental; classification-logic changes need `--full`.
 
-### Bedrock-only model access — never bypass the adapter
+### Model access — never bypass the adapter
 
-- Always get models via `model_adapter.make_llm(role)`. It returns `_GuardedChatBedrockConverse`, which translates `AccessDeniedException` → `BedrockAccessDenied`. Constructing `ChatBedrockConverse` directly loses that guard.
-- **Never** add `langchain-anthropic` or `ChatBedrock` (legacy) — both route outside the Bedrock Converse path; the only langchain pieces in use are `langchain-aws` + `langchain-core` primitives (`@tool`, message types).
+- Always get models via `model_adapter.make_llm(role)`. Bedrock is the **default** backend (`_GuardedChatBedrockConverse`, translating `AccessDeniedException` → `BedrockAccessDenied`). A role may opt into the **Vercel AI Gateway** (`backend = "vercel"`) and receive a `_GuardedChatOpenAI` (a `langchain-openai` `ChatOpenAI` subclass, translating gateway 401s → `GatewayAccessDenied`); credentials come from `AI_GATEWAY_API_KEY` / `AI_GATEWAY_BASE_URL` (env only). Constructing `ChatBedrockConverse` or `ChatOpenAI` directly — outside the adapter — loses the guard and is forbidden.
+- **Never** add `langchain-anthropic` or `ChatBedrock` (legacy) — both route outside the Bedrock Converse path. The langchain pieces in use are `langchain-aws` (Bedrock), `langchain-openai` (gateway, adapter-internal only), and `langchain-core` primitives (`@tool`, message types).
 - Per-role model tiers (orchestrator, librarian, code_reader, scanner, synthesizer, preflight, …) live in `model_adapter/models.toml` with `sweep_candidates` for the eval harness. Per-workspace overrides go in `<workspace>/.graph-wiki.yaml`. Tests pin a workspace via `GRAPH_WIKI_WORKSPACE`.
 
 ### Subagent fan-out
