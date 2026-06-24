@@ -803,3 +803,29 @@ def compute_state_gates(members: list[Path], workspace: Path | None = None) -> d
             continue
         gates[key] = compute_state_gate(Path(member), workspace=workspace)
     return gates
+
+
+def build_repo_paths(members: list[Path]) -> dict[str, Path]:
+    """Per-member checkout-path map keyed by ``'{org}/{repo}'``.
+
+    The companion to ``compute_state_gates``: where that maps each member to its
+    state gate (HEAD/allowed), this maps each member to its checkout ``Path`` so
+    per-entity dirty diffs and drift gating can run ``changed_files_since``
+    against the OWNING member repo. Members whose URI yields no repo key
+    (``_parse_repo_key`` returns None) are skipped. Empty for single-repo.
+
+    Same function-local ``graph_io`` imports / no-cycle rationale as
+    ``compute_state_gates`` — wiki-io -> graph-io is the legitimate direction.
+    """
+    from graph_io.update import _derive_repo_context
+    from graph_io.uri import repo_uri
+
+    from wiki_io.index_generator import _parse_repo_key
+
+    repo_paths: dict[str, Path] = {}
+    for member in members:
+        key = _parse_repo_key(repo_uri(_derive_repo_context(Path(member))))
+        if key is None:
+            continue
+        repo_paths[key] = Path(member)
+    return repo_paths

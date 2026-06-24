@@ -1186,16 +1186,10 @@ async def _build_scan_worklist_body(
     # back to the single-repo `repo`/`head`. Per-entity HEAD gating reads `gates`.
     repo_paths: dict[str, Path] = {}
     if members:
-        from graph_io.update import _derive_repo_context
-        from graph_io.uri import repo_uri as _repo_uri
-        from wiki_io.index_generator import _parse_repo_key
-        from wiki_io.scan_monorepo import compute_state_gates
+        from wiki_io.scan_monorepo import build_repo_paths, compute_state_gates
 
         gates = compute_state_gates(members, workspace=wiki.parent)
-        for m in members:
-            k = _parse_repo_key(_repo_uri(_derive_repo_context(m)))
-            if k:
-                repo_paths[k] = m
+        repo_paths = build_repo_paths(members)
     else:
         gates = {}
 
