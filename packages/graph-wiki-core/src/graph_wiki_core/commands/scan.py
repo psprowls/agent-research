@@ -78,6 +78,7 @@ from wiki_io.scan_monorepo import (
     build_dir_file_map,
     build_file_map,
     compute_state_gate,
+    owning_repo,
 )
 from wiki_io.update_index import update_index
 from wiki_io.update_tokens import update_vault
@@ -742,17 +743,6 @@ def _head_for_uri(uri: str, gates: dict, fallback: str | None) -> str | None:
     return fallback
 
 
-def _owning_repo(uri: str, repo: Path, repo_paths: dict[str, Path]) -> Path:
-    """The member checkout that owns this entity URI; `repo` when not multi-repo."""
-    if repo_paths:
-        from wiki_io.index_generator import _parse_repo_key
-
-        key = _parse_repo_key(uri or "")
-        if key and key in repo_paths:
-            return repo_paths[key]
-    return repo
-
-
 def _commit_dirty_changes(
     wiki: Path,
     repo: Path,
@@ -810,7 +800,7 @@ def _commit_dirty_changes(
                 continue
             # Owning repo checkout path: in multi-repo the member that owns this
             # URI; single-repo (empty repo_paths) falls back to `repo`.
-            owning_repo = _owning_repo(uri, repo, repo_paths)
+            owning_repo_path = owning_repo(uri, repo, repo_paths)
             page_path = _entity_page_path(wiki, kind, node, uri, collision_set)
             if not page_path.exists():
                 continue
@@ -820,7 +810,7 @@ def _commit_dirty_changes(
                 continue
             if not anchor:
                 continue
-            changed = changed_files_since(owning_repo, str(anchor), node_path)
+            changed = changed_files_since(owning_repo_path, str(anchor), node_path)
             if changed is None or changed:
                 dirty[uri] = changed
     return dirty
@@ -1401,7 +1391,7 @@ async def _build_scan_worklist_body(
             if repo_paths:
                 owning_head = _head_for_uri(uri, gates, head)
                 if owning_head:
-                    owning_short_head = short_commit(_owning_repo(uri, repo, repo_paths), owning_head)
+                    owning_short_head = short_commit(owning_repo(uri, repo, repo_paths), owning_head)
             fill_tasks.append(
                 FillTask(
                     uri=uri,

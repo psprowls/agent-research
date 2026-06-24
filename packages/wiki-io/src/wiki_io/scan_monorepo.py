@@ -829,3 +829,20 @@ def build_repo_paths(members: list[Path]) -> dict[str, Path]:
             continue
         repo_paths[key] = Path(member)
     return repo_paths
+
+
+def owning_repo(uri: str, repo: Path, repo_paths: dict[str, Path]) -> Path:
+    """The member checkout that owns this entity URI; `repo` when not multi-repo.
+
+    Resolves the ``'{org}/{repo}'`` key from the URI (``_parse_repo_key``) against
+    ``repo_paths`` (the ``build_repo_paths`` map). Empty ``repo_paths`` (single-repo)
+    or no key match falls back to the single-repo ``repo``. Shared by the scan
+    front-half and the M4 drift producer for per-entity repo routing.
+    """
+    if repo_paths:
+        from wiki_io.index_generator import _parse_repo_key
+
+        key = _parse_repo_key(uri or "")
+        if key and key in repo_paths:
+            return repo_paths[key]
+    return repo

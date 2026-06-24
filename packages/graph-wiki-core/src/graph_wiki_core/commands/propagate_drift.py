@@ -29,7 +29,7 @@ from wiki_io.drift import extract_narrative, section_hash
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
 from wiki_io.git_state import changed_files_since
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals, upsert_proposal
-from wiki_io.scan_monorepo import build_repo_paths
+from wiki_io.scan_monorepo import build_repo_paths, owning_repo
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.prompts.drift_propagator import (
@@ -124,21 +124,6 @@ def _entity_paths_by_uri(conn: Any) -> dict[str, str]:
     return out
 
 
-def _owning_repo(uri: str, repo: Path, repo_paths: dict[str, Path]) -> Path:
-    """The member checkout that owns this entity URI; `repo` when not multi-repo.
-
-    Replicated from ``scan._owning_repo`` (scan imports this module, so importing
-    scan here would cycle) — Task 6's inline-lookup pattern.
-    """
-    if repo_paths:
-        from wiki_io.index_generator import _parse_repo_key
-
-        key = _parse_repo_key(uri or "")
-        if key and key in repo_paths:
-            return repo_paths[key]
-    return repo
-
-
 def propagation_candidates(
     wiki: Path, repo: Path, conn: Any, repo_paths: dict[str, Path] | None = None
 ) -> list[PropagationCandidate]:
@@ -180,8 +165,8 @@ def propagation_candidates(
         narrative = extract_narrative(post.content)
         if not narrative:
             continue  # no ground truth to judge against
-        owning_repo = _owning_repo(str(uri), repo, repo_paths)
-        changed = changed_files_since(owning_repo, str(propagated) if propagated else "", node_path) or []
+        owning_repo_path = owning_repo(str(uri), repo, repo_paths)
+        changed = changed_files_since(owning_repo_path, str(propagated) if propagated else "", node_path) or []
         out.append(
             PropagationCandidate(
                 uri=str(uri),
@@ -283,7 +268,7 @@ async def run_propagate_drift(
     from workspace_io.config import resolve as _resolve_cfg
 
     members = list(_resolve_cfg(repo, require_manifest=False).members)
-    repo_paths = build_repo_paths(members) if members else {}
+    repo_paths = build_repo_paths(members)
     candidates = propagation_candidates(wiki, repo, conn, repo_paths=repo_paths or None)
 
     # The Bedrock stack is required to judge; absent it (plugin branch) we make
