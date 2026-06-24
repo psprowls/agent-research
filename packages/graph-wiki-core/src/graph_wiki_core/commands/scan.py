@@ -1011,7 +1011,7 @@ def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
 
 
 def _build_propagate_tasks(
-    wiki: Path, repo: Path, conn: Any
+    wiki: Path, repo: Path, conn: Any, repo_paths: dict[str, Path] | None = None
 ) -> tuple[list[PropagateTask], dict[str, str], dict[str, str]]:
     """M4 emit: curated propagate targets + per-candidate stamp bookkeeping.
 
@@ -1022,7 +1022,7 @@ def _build_propagate_tasks(
     ``drift_propagated_commit`` for all of them (idempotence), including
     candidates whose targets were all pre-filtered.
     """
-    candidates = propagation_candidates(wiki, repo, conn)
+    candidates = propagation_candidates(wiki, repo, conn, repo_paths=repo_paths)
     if not candidates:
         return [], {}, {}
     targets = _build_targets(candidates, build_entity_backlink_map(wiki))
@@ -1423,7 +1423,9 @@ async def _build_scan_worklist_body(
 
     drift_tasks = _build_drift_tasks(wiki)
     propagate_tasks, propagate_anchors, propagate_pages = (
-        _build_propagate_tasks(wiki, repo, conn) if (propagate_drift and conn is not None) else ([], {}, {})
+        _build_propagate_tasks(wiki, repo, conn, repo_paths=repo_paths)
+        if (propagate_drift and conn is not None)
+        else ([], {}, {})
     )
 
     worklist = ScanWorklist(

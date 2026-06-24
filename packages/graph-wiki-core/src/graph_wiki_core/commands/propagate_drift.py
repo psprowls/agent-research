@@ -123,7 +123,24 @@ def _entity_paths_by_uri(conn: Any) -> dict[str, str]:
     return out
 
 
-def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[PropagationCandidate]:
+def _owning_repo(uri: str, repo: Path, repo_paths: dict[str, Path]) -> Path:
+    """The member checkout that owns this entity URI; `repo` when not multi-repo.
+
+    Replicated from ``scan._owning_repo`` (scan imports this module, so importing
+    scan here would cycle) — Task 6's inline-lookup pattern.
+    """
+    if repo_paths:
+        from wiki_io.index_generator import _parse_repo_key
+
+        key = _parse_repo_key(uri or "")
+        if key and key in repo_paths:
+            return repo_paths[key]
+    return repo
+
+
+def propagation_candidates(
+    wiki: Path, repo: Path, conn: Any, repo_paths: dict[str, Path] | None = None
+) -> list[PropagationCandidate]:
     """Entity pages where ``drift_propagated_commit != last_updated_commit``.
 
     Each candidate carries its current narrative and the git-derived files that
@@ -131,7 +148,13 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
     specific files — empty ``since_sha`` -> ``changed_files_since`` returns None).
     A kind without a graph ``node.path`` (repository/domain/dependency) is not a
     candidate — it has no change signal.
+
+    ``repo_paths`` (``{repo-key -> member checkout path}``) makes the change diff
+    run against each candidate ENTITY's OWNING member repo (multi-repo, Task 7).
+    Empty/None ``repo_paths`` (single-repo) resolves every entity to ``repo`` —
+    byte-identical to the legacy 3-arg path.
     """
+    repo_paths = repo_paths or {}
     entities_dir = wiki / "entities"
     if not entities_dir.is_dir():
         return []
@@ -156,7 +179,8 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
         narrative = extract_narrative(post.content)
         if not narrative:
             continue  # no ground truth to judge against
-        changed = changed_files_since(repo, str(propagated) if propagated else "", node_path) or []
+        owning_repo = _owning_repo(str(uri), repo, repo_paths)
+        changed = changed_files_since(owning_repo, str(propagated) if propagated else "", node_path) or []
         out.append(
             PropagationCandidate(
                 uri=str(uri),
