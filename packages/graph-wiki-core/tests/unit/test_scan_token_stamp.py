@@ -55,7 +55,9 @@ def tmp_workspace(tmp_path, monkeypatch):
 
 def _stub_pipeline(monkeypatch):
     """Stub the cg build, state gate, and Bedrock fan-out so run_scan completes offline."""
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",
@@ -97,7 +99,9 @@ def test_structural_scan_does_not_stamp_tokens(tmp_workspace, monkeypatch):
     workspace = tmp_workspace
     repo = workspace / "repo"
     _seed_minimal_graph(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(
         scan_module,
         "compute_state_gate",

@@ -446,7 +446,9 @@ def test_run_scan_no_narrate_does_not_call_package_reader(monkeypatch, tmp_path:
     repo.mkdir()
     (wiki / "log.md").write_text("", encoding="utf-8")
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(
         scan_mod,
         "read_only_connect",
@@ -738,7 +740,7 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
         return set(), []
 
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (0, "", ""))
+    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (0, "", ""))
     # The split contract opens its own read-only conn (DB-existence guarded), so a
     # placeholder code.db must exist for the FakeConn to be used.
     from workspace_io.paths import graph_dir as _graph_dir
@@ -841,7 +843,9 @@ def test_package_reader_errors_join_scan_result(monkeypatch, tmp_path: Path) -> 
         conn.commit()
     finally:
         conn.close()
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",

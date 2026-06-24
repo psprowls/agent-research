@@ -169,12 +169,20 @@ DESCRIBE_REQUIRES_IDENTIFIER: dict[str, bool] = {
 }
 
 
-def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str]:
+def run_build(repo: Path, workspace: Path, *, full: bool, scope_to_repo: bool = True) -> tuple[int, str, str]:
     """Build/refresh the code graph via the typed `update.run` (D-06).
 
     Multi-repo: when the workspace config declares members, drives
-    `update.run_workspace`. If `repo` names one of the members, scopes to it.
-    Single-repo workspaces unchanged (empty members → existing `update.run` path).
+    `update.run_workspace`. `scope_to_repo` controls member selection:
+      * ``True`` (default — the explicit ``gw graph --repo <member>`` path):
+        if `repo` names one of the members, scopes the build to that single
+        member (deliberate per-member update).
+      * ``False`` (scan / whole-monorepo build): builds ALL members regardless
+        of whether `repo` happens to name one. `gw scan` must build the whole
+        monorepo so the wiki index renders one ``## Repository:`` section per
+        member.
+    Single-repo workspaces unchanged (empty members → existing `update.run`
+    path, taken regardless of `scope_to_repo`).
 
     Returns (exit_code, stdout, stderr). `update.run`/`run_workspace` are silent
     on success (sanctioned by D-06), so stdout is always "". On error, stderr
@@ -185,9 +193,12 @@ def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str
         cfg = resolve(repo, require_manifest=False)
         members = list(cfg.members)
         if members:
-            repo_resolved = Path(repo).resolve()
-            scoped = [m for m in members if m == repo_resolved]
-            update.run_workspace(scoped or members, workspace=workspace, full=full)
+            if scope_to_repo:
+                repo_resolved = Path(repo).resolve()
+                scoped = [m for m in members if m == repo_resolved]
+                update.run_workspace(scoped or members, workspace=workspace, full=full)
+            else:
+                update.run_workspace(members, workspace=workspace, full=full)
         else:
             update.run(repo, workspace=workspace, full=full)
     except update.NotInGitRepoError as exc:

@@ -60,6 +60,25 @@ def test_run_build_scopes_to_single_member_when_repo_named(monkeypatch, tmp_path
     assert captured["members"] == [members[1]]
 
 
+def test_run_build_scope_to_repo_false_builds_all_members(monkeypatch, tmp_path):
+    """scope_to_repo=False (scan/whole-monorepo) builds ALL members even when repo names one."""
+    ws = tmp_path / "workspace"
+    ws.mkdir()
+    members = [tmp_path / "alpha", tmp_path / "beta"]
+    captured = {}
+
+    monkeypatch.setattr(graph_cmd, "resolve", lambda *a, **k: _Cfg(members, ws))
+
+    def _fake_run_workspace(mem, *, workspace, full, lock_timeout_ms=None):
+        captured["members"] = list(mem)
+
+    monkeypatch.setattr(graph_cmd.update, "run_workspace", _fake_run_workspace)
+    # repo == members[0]; with scope_to_repo=False, expect ALL members, not just members[0]
+    graph_cmd.run_build(members[0], ws, full=True, scope_to_repo=False)
+
+    assert captured["members"] == members
+
+
 def test_run_build_uses_run_for_single_repo(monkeypatch, tmp_path):
     """When no members exist, run_build calls update.run (single-repo path)."""
     ws = tmp_path / "workspace"

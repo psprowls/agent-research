@@ -1076,7 +1076,7 @@ async def build_scan_worklist(
         raise_exception=True,
     )
     _workspace_root = wiki.parent
-    _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False)
+    _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False, scope_to_repo=False)
     _graph_ready = False
     if _cg_exit == exit_codes.SUCCESS:
         append_log(
@@ -2165,7 +2165,7 @@ async def _run_scan_structural_only(
         # shim onto the typed run_build core. update.run is silent on success, so
         # _cg_stdout is always "" here (sanctioned by D-06).
         _workspace_root = wiki.parent
-        _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False)
+        _cg_exit, _cg_stdout, _cg_stderr = _cg_run_build(repo, _workspace_root, full=False, scope_to_repo=False)
         _graph_ready = False
         if _cg_exit == exit_codes.SUCCESS:
             append_log(
