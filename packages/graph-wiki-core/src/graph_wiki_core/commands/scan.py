@@ -742,6 +742,17 @@ def _head_for_uri(uri: str, gates: dict, fallback: str | None) -> str | None:
     return fallback
 
 
+def _owning_repo(uri: str, repo: Path, repo_paths: dict[str, Path]) -> Path:
+    """The member checkout that owns this entity URI; `repo` when not multi-repo."""
+    if repo_paths:
+        from wiki_io.index_generator import _parse_repo_key
+
+        key = _parse_repo_key(uri or "")
+        if key and key in repo_paths:
+            return repo_paths[key]
+    return repo
+
+
 def _commit_dirty_changes(
     wiki: Path,
     repo: Path,
@@ -750,7 +761,6 @@ def _commit_dirty_changes(
     collision_set: frozenset[str],
     gates: dict | None = None,
     repo_paths: dict[str, Path] | None = None,
-    head_map: dict[str, str | None] | None = None,
 ) -> dict[str, list[str] | None]:
     """Map `package`/`app`/`test_suite`/`agent_plugin` URIs whose files changed since the commit
     recorded on their page (`last_updated_commit`) to the changed-file list.
@@ -767,17 +777,15 @@ def _commit_dirty_changes(
     (``_head_for_uri``); when empty/None the single-repo ``head`` is used for
     every entity (unchanged behavior).
 
-    Task 6: ``repo_paths`` (``{repo-key -> member checkout path}``) and
-    ``head_map`` (``{repo-key -> head_commit}``) make the dirty check per-owning-
-    repo — a change in member B never flags member A's entities. The owning
-    repo's path/HEAD drive ``changed_files_since`` so the diff is computed
-    against the repo that actually owns the entity. When both maps are empty/None
-    (single-repo), every entity resolves to ``repo``/``head`` — byte-identical to
-    pre-Task-6 behavior.
+    Task 6: ``repo_paths`` (``{repo-key -> member checkout path}``) makes the
+    dirty check per-owning-repo — a change in member B never flags member A's
+    entities. The owning repo's checkout drives ``changed_files_since`` so the
+    diff is computed against the repo that actually owns the entity. When
+    ``repo_paths`` is empty/None (single-repo), every entity resolves to
+    ``repo`` — byte-identical to pre-Task-6 behavior.
     """
     gates = gates or {}
     repo_paths = repo_paths or {}
-    head_map = head_map or {}
     dirty: dict[str, list[str] | None] = {}
     if (head is None and not gates) or conn is None:
         return dirty
@@ -802,13 +810,7 @@ def _commit_dirty_changes(
                 continue
             # Owning repo checkout path: in multi-repo the member that owns this
             # URI; single-repo (empty repo_paths) falls back to `repo`.
-            owning_repo = repo
-            if repo_paths:
-                from wiki_io.index_generator import _parse_repo_key
-
-                key = _parse_repo_key(uri)
-                if key and key in repo_paths:
-                    owning_repo = repo_paths[key]
+            owning_repo = _owning_repo(uri, repo, repo_paths)
             page_path = _entity_page_path(wiki, kind, node, uri, collision_set)
             if not page_path.exists():
                 continue
@@ -1179,11 +1181,10 @@ async def _build_scan_worklist_body(
     from workspace_io.config import resolve as _resolve_cfg
 
     members = list(_resolve_cfg(repo, require_manifest=False).members)
-    # Per-owning-repo maps for Task 6 narrative gating + anchor stamping:
-    # repo-key -> member checkout path / member HEAD. Empty for single-repo so
-    # the dirty check + stamp fall back to the single-repo `repo`/`head`.
+    # `repo_paths` (repo-key -> member checkout path) drives the per-entity dirty
+    # diff and the apply-phase anchor stamp; empty for single-repo so both fall
+    # back to the single-repo `repo`/`head`. Per-entity HEAD gating reads `gates`.
     repo_paths: dict[str, Path] = {}
-    head_map: dict[str, str | None] = {}
     if members:
         from graph_io.update import _derive_repo_context
         from graph_io.uri import repo_uri as _repo_uri
@@ -1195,7 +1196,6 @@ async def _build_scan_worklist_body(
             k = _parse_repo_key(_repo_uri(_derive_repo_context(m)))
             if k:
                 repo_paths[k] = m
-                head_map[k] = gates.get(k, {}).get("head_commit")
     else:
         gates = {}
 
@@ -1230,7 +1230,6 @@ async def _build_scan_worklist_body(
             _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
             gates=gates,
             repo_paths=repo_paths,
-            head_map=head_map,
         )
         if commit_dirty:
             entity_write_result.needs_narrative.update(commit_dirty.keys())
@@ -1406,15 +1405,9 @@ async def _build_scan_worklist_body(
             # repo (empty maps): None -> apply falls back to worklist short_head.
             owning_short_head: str | None = None
             if repo_paths:
-                from wiki_io.index_generator import _parse_repo_key
-
                 owning_head = _head_for_uri(uri, gates, head)
-                owning_repo = repo
-                k = _parse_repo_key(uri)
-                if k and k in repo_paths:
-                    owning_repo = repo_paths[k]
                 if owning_head:
-                    owning_short_head = short_commit(owning_repo, owning_head)
+                    owning_short_head = short_commit(_owning_repo(uri, repo, repo_paths), owning_head)
             fill_tasks.append(
                 FillTask(
                     uri=uri,

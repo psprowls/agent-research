@@ -1,9 +1,9 @@
 """Task 6: per-repo narrative-refresh gating in _commit_dirty_changes.
 
 A change in member repo B must not flag member repo A's entities dirty. The
-dirty check resolves each node's OWNING member repo path + HEAD (via the
-``repo_paths``/``head_map`` maps the scan front-half builds from workspace
-members) and runs ``changed_files_since`` against that repo.
+dirty check resolves each node's OWNING member repo path (via the
+``repo_paths`` map the scan front-half builds from workspace members) and runs
+``changed_files_since`` against that repo.
 """
 
 from __future__ import annotations
@@ -46,7 +46,6 @@ def test_only_changed_repo_is_dirty(monkeypatch, tmp_path) -> None:
     _patch_list_fns(monkeypatch, [_node(uri_a, "packages/alpha"), _node(uri_b, "packages/beta")])
 
     repo_paths = {"local/alpha": tmp_path / "alpha", "local/beta": tmp_path / "beta"}
-    head_map = {"local/alpha": "aaaaaaa", "local/beta": "bbbbbbb"}
     gates = {
         "local/alpha": {"allowed": True, "reason": "", "head_commit": "aaaaaaa"},
         "local/beta": {"allowed": True, "reason": "", "head_commit": "bbbbbbb"},
@@ -68,7 +67,6 @@ def test_only_changed_repo_is_dirty(monkeypatch, tmp_path) -> None:
         frozenset(),
         gates=gates,
         repo_paths=repo_paths,
-        head_map=head_map,
     )
     assert set(dirty) == {uri_a}
 
@@ -82,7 +80,6 @@ def test_anchor_resolved_against_owning_repo_head(monkeypatch, tmp_path) -> None
     _patch_list_fns(monkeypatch, [_node(uri_a, "packages/alpha")])
 
     repo_paths = {"local/alpha": tmp_path / "alpha"}
-    head_map = {"local/alpha": "aaaaaaa"}
     gates = {"local/alpha": {"allowed": True, "reason": "", "head_commit": "aaaaaaa"}}
 
     seen: list[Path] = []
@@ -101,7 +98,6 @@ def test_anchor_resolved_against_owning_repo_head(monkeypatch, tmp_path) -> None
         frozenset(),
         gates=gates,
         repo_paths=repo_paths,
-        head_map=head_map,
     )
     assert seen == [repo_paths["local/alpha"]]
 
