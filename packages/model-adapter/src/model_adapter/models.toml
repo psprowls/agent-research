@@ -45,7 +45,7 @@ sweep_candidates = [
 [roles.scanner]
 # Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
 # Haiku removed for quota exhaustion; per-role defaults chosen in that session.
-model_id        = "openai.gpt-oss-20b-1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 500
 max_concurrency = 10
@@ -116,7 +116,7 @@ sweep_candidates = [
 # Switched from kimi-k2.5 (2026-06-07): extended thinking consumed the 4096-token
 # budget on large packages (graph-wiki-core), leaving only whitespace in the text
 # block and causing "invalid JSON: Expecting value" on the downstream JSON parse.
-model_id        = "openai.gpt-oss-120b-1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
@@ -189,7 +189,7 @@ sweep_candidates = [
 # Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
 # Haiku removed for quota exhaustion; per-role defaults chosen in that session.
 # us.deepseek.r1-v1:0 removed (reasoning model, 7.9M tokens/day cap + toolCalling unsupported).
-model_id        = "qwen.qwen3-32b-v1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
@@ -216,7 +216,7 @@ max_concurrency = 5
 # and returns {stale, reason}. Cost-offload candidate (validated later by the
 # deepeval harness); initial config mirrors the cheap `scanner` tier.
 [roles.drift_judge]
-model_id        = "openai.gpt-oss-20b-1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 256
 max_concurrency = 10
@@ -235,7 +235,7 @@ sweep_candidates = [
 # deepeval sweep (spec §7 open-q #2). max_tokens is a touch higher than
 # drift_judge because the verdict carries one finding per triggering entity.
 [roles.drift_propagator]
-model_id        = "openai.gpt-oss-20b-1:0"
+model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 512
 max_concurrency = 10
