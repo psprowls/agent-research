@@ -20,7 +20,7 @@ import typer
 from graph_wiki_core.commands.log import run_log
 from subagent_runtime.trace_io import render_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.update_tokens import DEFAULT_MODEL_ID, DEFAULT_REGION, update_vault
+from wiki_io.update_tokens import update_vault
 
 util_app = typer.Typer(
     name="util",
@@ -361,10 +361,8 @@ def tokens(
     workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Count without writing the tokens field"),
     json_output: bool = typer.Option(False, "--json", help="Emit the {updated, unchanged, skipped} buckets as JSON"),
-    model_id: str = typer.Option(DEFAULT_MODEL_ID, "--model-id", help="Bedrock model ID for token counting"),
-    region: str = typer.Option(DEFAULT_REGION, "--region", help="AWS region for Bedrock"),
 ) -> None:
-    """Stamp `tokens: <count>` frontmatter across the wiki via Bedrock CountTokens."""
+    """Stamp `tokens: <count>` frontmatter across the wiki via offline tiktoken counting."""
     workspace_path = Path(workspace) if workspace else None
     try:
         wiki, _ = resolve_wiki_and_repo(workspace_path)
@@ -372,7 +370,7 @@ def tokens(
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 
-    result = update_vault(wiki, dry_run=dry_run, model_id=model_id, region=region)
+    result = update_vault(wiki, dry_run=dry_run)
 
     if json_output:
         typer.echo(json.dumps(result, indent=2))
