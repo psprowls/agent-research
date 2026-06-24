@@ -38,6 +38,20 @@ def _normalize_name(name: str) -> str:
     return name.lower().replace("-", "_")
 
 
+def _owning_repo(
+    global_ws: dict[str, tuple[str, str, str, str]],
+    dep_norm: str,
+    current_repo: str | None,
+) -> str | None:
+    """Repo URI that owns the workspace package `dep_norm`.
+
+    Falls back to `current_repo` when the package isn't in the cross-member
+    index (single-repo / local-only), so callers treat it as same-repo.
+    """
+    entry = global_ws.get(dep_norm)
+    return entry[3] if entry else current_repo
+
+
 def _extract_dep_name(pep508_str: str) -> str | None:
     """Extract the bare package name from a PEP 508 specifier.
 
@@ -374,7 +388,7 @@ def refresh(
                 # Record it as an internal package→package relationship instead;
                 # skip self-dependencies.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_repo = global_ws.get(dep_norm, (None, None, None, current_repo))[3]
+                    target_repo = _owning_repo(global_ws, dep_norm, current_repo)
                     if target_repo == current_repo or current_repo is None:
                         target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
                         internal_pkg_edges.append(
@@ -408,7 +422,7 @@ def refresh(
                 dep_norm = _normalize_name(dep_name)
                 # Internal workspace package → depends_on_package; skip self-deps.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_repo = global_ws.get(dep_norm, (None, None, None, current_repo))[3]
+                    target_repo = _owning_repo(global_ws, dep_norm, current_repo)
                     if target_repo == current_repo or current_repo is None:
                         target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
                         internal_pkg_edges.append(

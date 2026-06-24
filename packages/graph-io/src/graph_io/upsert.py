@@ -60,10 +60,12 @@ def _node_id(conn: sqlite3.Connection, key: NodeKey) -> int | None:
             (kind, name, path),
         ).fetchone()
     else:
-        # A path-bearing node is owned by the member that produced it. Match
-        # this member's stamped row OR an as-yet-unstamped row (this member's
-        # own just-written nodes before the end-of-pass repo stamp). Never
-        # match a sibling member's already-stamped row.
+        # A path-bearing node is owned by the member that produced it. In normal
+        # runs path-bearing nodes are stamped at insert (`_insert_node`) once
+        # `set_current_repo` is active, so they already carry this member's
+        # `repo`. The `OR repo IS NULL` is a defensive fallback for the rare
+        # node only stamped by the end-of-pass UPDATE. Either way, never match a
+        # SIBLING member's already-stamped row.
         row = conn.execute(
             "SELECT id FROM nodes WHERE kind=? AND name=? AND path=? AND (repo=? OR repo IS NULL)",
             (kind, name, path, current_repo),

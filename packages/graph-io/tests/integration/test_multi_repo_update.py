@@ -5,7 +5,7 @@ These tests do NOT touch any external network service (no Bedrock, no API) —
 they build tmp_path git repos and drive graph-io's update pipeline against a
 real sqlite DB. They are <2s and safe to run on every PR, so they carry the
 `# integration-gate-allow` marker instead of the canonical
-GRAPH_WIKI_RUN_INTEGRATION env gate (see docs/testing.md). They keep the
+GRAPH_WIKI_RUN_INTEGRATION env gate (see docs/notes/testing.md). They keep the
 `pytest.mark.integration` marker so the default `-m "not integration"` run
 still skips them; opt in with `-m integration`.
 """
@@ -71,6 +71,53 @@ def test_full_rebuild_of_one_member_keeps_other(tmp_path):
     conn = store.read_only_connect(update.graph_dir(ws) / "code.db")
     beta = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='repository' AND name='beta'").fetchone()[0]
     assert beta == 1
+
+
+def test_colliding_relpaths_and_pkg_name_stay_distinct(tmp_path):
+    """Two sibling repos sharing a package name AND relative file paths
+    (`pyproject.toml`, `src/shared/__init__.py`) must NOT merge into one node.
+
+    This is the regression guard for the connection-scoped `upsert` identity:
+    without it the shared `(kind, name, path)` keys collide into single rows,
+    giving e.g. `package:shared` two `physically_contains` parents and raising
+    `StrictTreeInvariantError`. With per-member repo scoping each repo gets its
+    own distinct nodes.
+    """
+    root = tmp_path / "mono"
+    root.mkdir()
+    ws = root / "workspace"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\nmulti-repo: true\n")
+    # Same package name "shared" + identical relative paths in both repos; only
+    # the repo dir name (-> repo URI) differs.
+    a = _mk_py_repo(root, "alpha", "shared")
+    b = _mk_py_repo(root, "beta", "shared")
+
+    # Must not raise StrictTreeInvariantError.
+    update.run_workspace([a, b], workspace=ws, full=True)
+
+    conn = store.read_only_connect(update.graph_dir(ws) / "code.db")
+    a_uri = repo_uri(RepoContext(org="local", repo="alpha"))
+    b_uri = repo_uri(RepoContext(org="local", repo="beta"))
+
+    # The shared package name is two DISTINCT rows, one per repo.
+    pkg_repos = conn.execute("SELECT repo FROM nodes WHERE kind='package' AND name='shared' ORDER BY repo").fetchall()
+    assert [r[0] for r in pkg_repos] == [a_uri, b_uri]
+
+    # The colliding relative file path materializes once per repo.
+    init_rel = "src/shared/__init__.py"
+    init_repos = conn.execute(
+        "SELECT repo FROM nodes WHERE kind='file' AND path=? ORDER BY repo",
+        (init_rel,),
+    ).fetchall()
+    assert [r[0] for r in init_repos] == [a_uri, b_uri]
+
+    # No file node leaked unstamped, and no physically_contains child has >1 parent
+    # (the invariant the scoping protects — re-checked here explicitly).
+    multi_parent = conn.execute(
+        "SELECT dst, COUNT(*) FROM edges WHERE kind='physically_contains' GROUP BY dst HAVING COUNT(*) > 1"
+    ).fetchall()
+    assert multi_parent == []
 
 
 def test_cross_repo_depends_on_package(tmp_path):

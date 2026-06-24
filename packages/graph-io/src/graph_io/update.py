@@ -428,4 +428,7 @@ def run_workspace(
             raise
     finally:
         if conn is not None:
+            # Defense-in-depth: the per-member finally already clears this, but
+            # guard against id(conn) recycling before the connection is closed.
+            upsert.set_current_repo(conn, None)
             conn.close()
