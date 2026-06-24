@@ -128,7 +128,3 @@ def json_record(o: Any) -> dict:
         "interrupted": o.interrupted,
         "note": o.note,
     }
-
-
-def print_json(record: dict) -> None:
-    _console.print(json.dumps(record, indent=2, default=str))
