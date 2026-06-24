@@ -9,6 +9,11 @@ from typing import Any
 from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
 NodeKey = tuple[str, str, str | None]
+# Ecosystem-global node kinds: identity is never repo-scoped and they are never
+# stamped with a member repo (mirrors update.py's end-of-pass stamp exclusion).
+# Their synthetic path is non-None, so without this they'd be treated like a
+# path-bearing member node and forked per repo.
+_GLOBAL_KINDS = frozenset({"builtin", "dependency"})
 _UNRESOLVED_SYMBOL_KIND = "unresolved_symbol"
 _SYMBOL_PLACEHOLDER_KINDS = frozenset({"function", "method", "class", "type"})
 _SYMBOL_PLACEHOLDER_EDGE_KINDS = frozenset({"calls", "exports"})
@@ -54,15 +59,19 @@ def _node_id(conn: sqlite3.Connection, key: NodeKey) -> int | None:
         ).fetchone()
         return row[0] if row else None
     current_repo = _current_repo(conn)
-    if current_repo is None:
+    if current_repo is None or kind in _GLOBAL_KINDS:
+        # Single-repo, OR an ecosystem-global kind (builtin/dependency): identity
+        # is never repo-scoped. Global kinds carry a synthetic non-None path but
+        # are shared across all members (repo IS NULL), so they must resolve to
+        # the one global row regardless of which member is currently active.
         row = conn.execute(
             "SELECT id FROM nodes WHERE kind=? AND name=? AND path=?",
             (kind, name, path),
         ).fetchone()
     else:
-        # A path-bearing node is owned by the member that produced it. In normal
-        # runs path-bearing nodes are stamped at insert (`_insert_node`) once
-        # `set_current_repo` is active, so they already carry this member's
+        # A path-bearing member node is owned by the member that produced it. In
+        # normal runs path-bearing nodes are stamped at insert (`_insert_node`)
+        # once `set_current_repo` is active, so they already carry this member's
         # `repo`. The `OR repo IS NULL` is a defensive fallback for the rare
         # node only stamped by the end-of-pass UPDATE. Either way, never match a
         # SIBLING member's already-stamped row.
@@ -81,10 +90,11 @@ def _insert_node(
     uri: str | None,
 ) -> int:
     kind, name, path = key
-    # Stamp the current member repo at insert time for path-bearing nodes so a
-    # later sibling member can't merge into this row. Pathless / global nodes
-    # (builtin, dependency, unresolved symbols) stay repo=NULL.
-    repo = _current_repo(conn) if path is not None else None
+    # Stamp the current member repo at insert time for path-bearing member nodes
+    # so a later sibling member can't merge into this row. Pathless nodes
+    # (unresolved symbols) and ecosystem-global kinds (builtin, dependency —
+    # which carry a synthetic non-None path) stay repo=NULL.
+    repo = _current_repo(conn) if (path is not None and kind not in _GLOBAL_KINDS) else None
     cursor = conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri, repo) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (kind, name, path, line, attrs_json, uri, repo),

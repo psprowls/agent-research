@@ -177,6 +177,58 @@ def test_root_package_entry_point_has_no_empty_uri_duplicate(tmp_path):
         assert src_uri == pkg_uri_val, f"edge src uri {src_uri!r} != canonical {pkg_uri_val!r}"
 
 
+def test_shared_external_dependency_is_one_global_node(tmp_path):
+    """Two sibling repos that BOTH declare the SAME external dependency must
+    share ONE global (repo IS NULL), uri-bearing `dependency` node — not two
+    per-repo empty-uri stubs.
+
+    Regression guard for the connection-scoped upsert identity stamping/scoping
+    dependency nodes per member. A dependency's synthetic path
+    (`dependency:<eco>:<name>`) is non-None, so without the global-kind
+    exclusion `_insert_node` stamped it with member A's repo and member B's
+    `used_by` edge endpoint missed it under the repo-scoped `_node_id` lookup —
+    forking a second empty-uri stub stamped repo=B. Those uri-less stubs later
+    crash the wiki entity writer (`short_filename: empty uri`). Mirrors the
+    StickerGiant TS monorepo e2e failure where sibling repos share npm deps.
+    """
+    root = tmp_path / "mono"
+    root.mkdir()
+    ws = root / "workspace"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\nmulti-repo: true\n")
+    # "requests" is NOT a workspace package -> a real external `dependency` node.
+    a = _mk_py_repo(root, "alpha", "alpha", dep="requests")
+    b = _mk_py_repo(root, "beta", "beta", dep="requests")
+
+    update.run_workspace([a, b], workspace=ws, full=True)
+
+    conn = store.read_only_connect(update.graph_dir(ws) / "code.db")
+
+    # Exactly ONE dependency node for the shared external name.
+    dep_rows = conn.execute("SELECT repo, uri FROM nodes WHERE kind='dependency' AND name='requests'").fetchall()
+    assert len(dep_rows) == 1, f"expected 1 dependency node, got {len(dep_rows)}: {dep_rows}"
+    (dep_repo, dep_uri_val) = dep_rows[0]
+
+    # It is GLOBAL (repo IS NULL) and carries a non-empty uri.
+    assert dep_repo is None, f"shared dependency node is repo-stamped: {dep_repo!r}"
+    assert dep_uri_val, f"shared dependency node has empty uri: {dep_uri_val!r}"
+
+    # No empty-uri dependency stubs leaked anywhere.
+    empty = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND (uri IS NULL OR uri='')").fetchone()[0]
+    assert empty == 0, f"{empty} empty-uri dependency stub(s) leaked"
+
+    # Both members' package nodes point at the SAME single global dependency
+    # node via `used_by` (one shared node, not two).
+    consumers = conn.execute(
+        "SELECT s.name FROM edges e "
+        "JOIN nodes s ON s.id = e.src "
+        "JOIN nodes d ON d.id = e.dst "
+        "WHERE e.kind='used_by' AND d.kind='dependency' AND d.name='requests' "
+        "ORDER BY s.name"
+    ).fetchall()
+    assert [c[0] for c in consumers] == ["alpha", "beta"], f"unexpected used_by consumers: {consumers}"
+
+
 def test_cross_repo_depends_on_package(tmp_path):
     root = tmp_path / "mono"
     root.mkdir()
