@@ -43,6 +43,7 @@ from graph_io import exit_codes, queries, update
 from graph_io import graphml as _graphml
 from graph_io import render as _render
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
+from workspace_io.config import resolve
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands._paths import _resolve_paths
@@ -171,13 +172,24 @@ DESCRIBE_REQUIRES_IDENTIFIER: dict[str, bool] = {
 def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str]:
     """Build/refresh the code graph via the typed `update.run` (D-06).
 
-    Returns (exit_code, stdout, stderr). `update.run` is silent on success
-    (sanctioned by D-06), so stdout is always "". On error, stderr carries
-    `error: <exc>` and the exit code mirrors `graph_build_cmd`'s mapping.
+    Multi-repo: when the workspace config declares members, drives
+    `update.run_workspace`. If `repo` names one of the members, scopes to it.
+    Single-repo workspaces unchanged (empty members → existing `update.run` path).
+
+    Returns (exit_code, stdout, stderr). `update.run`/`run_workspace` are silent
+    on success (sanctioned by D-06), so stdout is always "". On error, stderr
+    carries `error: <exc>` and the exit code mirrors `graph_build_cmd`'s mapping.
     Does NOT emit the CLI-only `--model` note.
     """
     try:
-        update.run(repo, workspace=workspace, full=full)
+        cfg = resolve(require_manifest=False)
+        members = list(cfg.members)
+        if members:
+            repo_resolved = Path(repo).resolve()
+            scoped = [m for m in members if m == repo_resolved]
+            update.run_workspace(scoped or members, workspace=workspace, full=full)
+        else:
+            update.run(repo, workspace=workspace, full=full)
     except update.NotInGitRepoError as exc:
         return exit_codes.NOT_IN_GIT_REPO, "", f"error: {exc}"
     except update.UpdateInProgressError as exc:
