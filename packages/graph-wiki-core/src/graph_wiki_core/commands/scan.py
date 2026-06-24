@@ -749,6 +749,8 @@ def _commit_dirty_changes(
     head: str | None,
     collision_set: frozenset[str],
     gates: dict | None = None,
+    repo_paths: dict[str, Path] | None = None,
+    head_map: dict[str, str | None] | None = None,
 ) -> dict[str, list[str] | None]:
     """Map `package`/`app`/`test_suite`/`agent_plugin` URIs whose files changed since the commit
     recorded on their page (`last_updated_commit`) to the changed-file list.
@@ -764,8 +766,18 @@ def _commit_dirty_changes(
     per-entity HEAD presence-guard is resolved from the owning repo's gate
     (``_head_for_uri``); when empty/None the single-repo ``head`` is used for
     every entity (unchanged behavior).
+
+    Task 6: ``repo_paths`` (``{repo-key -> member checkout path}``) and
+    ``head_map`` (``{repo-key -> head_commit}``) make the dirty check per-owning-
+    repo — a change in member B never flags member A's entities. The owning
+    repo's path/HEAD drive ``changed_files_since`` so the diff is computed
+    against the repo that actually owns the entity. When both maps are empty/None
+    (single-repo), every entity resolves to ``repo``/``head`` — byte-identical to
+    pre-Task-6 behavior.
     """
     gates = gates or {}
+    repo_paths = repo_paths or {}
+    head_map = head_map or {}
     dirty: dict[str, list[str] | None] = {}
     if (head is None and not gates) or conn is None:
         return dirty
@@ -781,11 +793,22 @@ def _commit_dirty_changes(
             node_path = node.path
             if not uri or not node_path:
                 continue
-            # Pre-wired for Task 6: in multi-repo this skips an entity whose URI
-            # resolves to a repo with no gate entry. No-op for single-repo
-            # (gates == {} -> _head_for_uri returns `head`, never None here).
-            if _head_for_uri(uri, gates, head) is None:
+            # Owning repo HEAD: in multi-repo this is the entity's member-repo
+            # HEAD (and a None means the URI resolves to a repo with no gate
+            # entry -> skip). No-op for single-repo (gates == {} -> returns
+            # `head`, never None here).
+            owning_head = _head_for_uri(uri, gates, head)
+            if owning_head is None:
                 continue
+            # Owning repo checkout path: in multi-repo the member that owns this
+            # URI; single-repo (empty repo_paths) falls back to `repo`.
+            owning_repo = repo
+            if repo_paths:
+                from wiki_io.index_generator import _parse_repo_key
+
+                key = _parse_repo_key(uri)
+                if key and key in repo_paths:
+                    owning_repo = repo_paths[key]
             page_path = _entity_page_path(wiki, kind, node, uri, collision_set)
             if not page_path.exists():
                 continue
@@ -795,7 +818,7 @@ def _commit_dirty_changes(
                 continue
             if not anchor:
                 continue
-            changed = changed_files_since(repo, str(anchor), node_path)
+            changed = changed_files_since(owning_repo, str(anchor), node_path)
             if changed is None or changed:
                 dirty[uri] = changed
     return dirty
@@ -1156,10 +1179,23 @@ async def _build_scan_worklist_body(
     from workspace_io.config import resolve as _resolve_cfg
 
     members = list(_resolve_cfg(repo, require_manifest=False).members)
+    # Per-owning-repo maps for Task 6 narrative gating + anchor stamping:
+    # repo-key -> member checkout path / member HEAD. Empty for single-repo so
+    # the dirty check + stamp fall back to the single-repo `repo`/`head`.
+    repo_paths: dict[str, Path] = {}
+    head_map: dict[str, str | None] = {}
     if members:
+        from graph_io.update import _derive_repo_context
+        from graph_io.uri import repo_uri as _repo_uri
+        from wiki_io.index_generator import _parse_repo_key
         from wiki_io.scan_monorepo import compute_state_gates
 
         gates = compute_state_gates(members, workspace=wiki.parent)
+        for m in members:
+            k = _parse_repo_key(_repo_uri(_derive_repo_context(m)))
+            if k:
+                repo_paths[k] = m
+                head_map[k] = gates.get(k, {}).get("head_commit")
     else:
         gates = {}
 
@@ -1193,6 +1229,8 @@ async def _build_scan_worklist_body(
             head,
             _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
             gates=gates,
+            repo_paths=repo_paths,
+            head_map=head_map,
         )
         if commit_dirty:
             entity_write_result.needs_narrative.update(commit_dirty.keys())
@@ -1363,6 +1401,20 @@ async def _build_scan_worklist_body(
             )
             if not needs.any:
                 continue
+            # Owning member-repo short HEAD for the apply-phase anchor stamp.
+            # Multi-repo: the entity's member HEAD (per its repo path); single-
+            # repo (empty maps): None -> apply falls back to worklist short_head.
+            owning_short_head: str | None = None
+            if repo_paths:
+                from wiki_io.index_generator import _parse_repo_key
+
+                owning_head = _head_for_uri(uri, gates, head)
+                owning_repo = repo
+                k = _parse_repo_key(uri)
+                if k and k in repo_paths:
+                    owning_repo = repo_paths[k]
+                if owning_head:
+                    owning_short_head = short_commit(owning_repo, owning_head)
             fill_tasks.append(
                 FillTask(
                     uri=uri,
@@ -1372,6 +1424,7 @@ async def _build_scan_worklist_body(
                     graph_path=graph_path,
                     language=language,
                     needs=needs,
+                    owning_short_head=owning_short_head,
                 )
             )
 
@@ -1903,7 +1956,11 @@ async def apply_scan_results(
                     or is_overview_unfilled(page_path)
                 ):
                     continue
-                set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, short_head))
+                # Task 6: stamp the OWNING member-repo short HEAD when present
+                # (multi-repo, computed at emit time); single-repo falls back to
+                # the worklist-wide short_head (byte-identical to pre-Task-6).
+                stamp_head = task.owning_short_head or short_head
+                set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, stamp_head))
                 out.stamped += 1
             except Exception as exc:  # noqa: BLE001 — non-fatal stamp
                 logger.warning("anchor stamp failed for %s: %s", uri, exc)

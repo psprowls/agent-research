@@ -66,6 +66,10 @@ class FillTask:
     graph_path: str
     language: str
     needs: FillNeeds
+    # Task 6: owning member-repo short HEAD stamped on `last_updated_commit` when
+    # the apply phase refills this page. None for single-repo (apply falls back
+    # to the worklist-wide `short_head`, byte-identical to pre-Task-6).
+    owning_short_head: str | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -76,6 +80,7 @@ class FillTask:
             "graph_path": self.graph_path,
             "language": self.language,
             "needs": self.needs.to_dict(),
+            "owning_short_head": self.owning_short_head,
         }
 
     @classmethod
@@ -88,6 +93,7 @@ class FillTask:
             graph_path=d["graph_path"],
             language=d.get("language", "unknown"),
             needs=FillNeeds.from_dict(d.get("needs") or {}),
+            owning_short_head=d.get("owning_short_head"),
         )
 
 
