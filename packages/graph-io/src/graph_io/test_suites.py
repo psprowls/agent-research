@@ -34,7 +34,7 @@ from graph_io.records import as_graph_records
 from graph_io.structural_nodes import (
     _owning_package,
 )
-from graph_io.uri import RepoContext, test_suite_uri
+from graph_io.uri import RepoContext, repo_uri, test_suite_uri
 
 # --- Module-private constants ---
 
@@ -250,8 +250,12 @@ def emit(
 
     # Phase 50 D-04: include both package and app nodes — apps are tested
     # the same way packages are.
+    # Multi-repo (Task 2): scope to this member (see structural_nodes.emit).
+    member_repo = repo_uri(ctx)
     pkg_rows_raw = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app') "
+        "AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
     ).fetchall()
     pkg_rows: list[tuple[str, str | None, str | None]] = [(r[0], r[1], r[2]) for r in pkg_rows_raw]
     # Side-table mapping pkg name -> kind so the tests-edge dst tuple uses
@@ -264,7 +268,9 @@ def emit(
     root_files: dict[str, list[str]] = {r.rel_path: [] for r in roots}
 
     test_file_rows = conn.execute(
-        "SELECT id, path FROM nodes WHERE kind='file' AND json_extract(attrs_json, '$.is_test') = 1"
+        "SELECT id, path FROM nodes WHERE kind='file' AND json_extract(attrs_json, '$.is_test') = 1 "
+        "AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
     ).fetchall()
 
     def _assign_root(file_rel: str) -> _TestRoot | None:
@@ -294,8 +300,12 @@ def emit(
             continue
         root_files[r.rel_path].append(file_rel)
 
-    # Find Repository node id (parent for repo-owned suites).
-    repo_row = conn.execute("SELECT id, name, path FROM nodes WHERE kind='repository'").fetchone()
+    # Find Repository node id (parent for repo-owned suites). Multi-repo: scope
+    # to THIS member's repository so suites re-parent under the right repo.
+    repo_row = conn.execute(
+        "SELECT id, name, path FROM nodes WHERE kind='repository' AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
+    ).fetchone()
     if repo_row is None:
         # Defensive: structural_nodes.emit hasn't run yet — abort.
         return

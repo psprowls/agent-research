@@ -314,7 +314,15 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         try:
             # Unpinned discovery: the container layout block is gone (decontainerize),
             # so code-drift enumerates packages via the heuristic workspace walk.
-            workspaces = _scan_discover(repo_path)
+            # In a multi-repo workspace, on-disk packages span every member root,
+            # so enumerate the UNION across all members (``members or [repo_path]``
+            # keeps single-repo byte-identical: iterate the one repo).
+            from workspace_io.config import resolve as _resolve_cfg
+
+            members = list(_resolve_cfg(repo_path, require_manifest=False).members) or [repo_path]
+            workspaces = []
+            for member in members:
+                workspaces.extend(_scan_discover(member))
             # Normalize scoped names (``@psprowls/foo`` -> ``foo``) so the diff
             # compares like-for-like against vault slugs/titles.
             disk_names = {_unscope(w["name"]) for w in workspaces}

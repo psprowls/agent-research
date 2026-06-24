@@ -203,7 +203,7 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
     order: list[str] = []
     captured_call: dict = {}
 
-    def _recorder_run_build(repo_arg, workspace_arg, *, full):
+    def _recorder_run_build(repo_arg, workspace_arg, *, full, scope_to_repo=True):
         order.append("cg_update")
         captured_call["repo"] = repo_arg
         captured_call["workspace"] = workspace_arg
@@ -240,7 +240,9 @@ def test_cg_update_logs_success(tmp_workspace_with_packages, monkeypatch):
     wiki = workspace / "wiki"
     repo = workspace / "repo"
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
 
@@ -267,7 +269,9 @@ def test_hard_abort_on_runtime_failure(tmp_workspace_with_packages, monkeypatch,
     workspace / "wiki"
     repo = workspace / "repo"
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_code, "", stderr))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_code, "", stderr)
+    )
 
     # Stub the pool with a recorder that proves it was NEVER called.
     pool_calls: list[int] = []
@@ -301,7 +305,7 @@ def test_hard_abort_on_generic_runtime_failure(tmp_workspace_with_packages, monk
     monkeypatch.setattr(
         scan_module,
         "_cg_run_build",
-        lambda repo, workspace, *, full: (
+        lambda repo, workspace, *, full, scope_to_repo=True: (
             exit_codes.GENERIC,
             "",
             "sqlite3.OperationalError: database is locked",
@@ -335,7 +339,7 @@ def test_graceful_fallback_on_init_failure(tmp_workspace_with_packages, monkeypa
     monkeypatch.setattr(
         scan_module,
         "_cg_run_build",
-        lambda repo, workspace, *, full: (exit_codes.GENERIC, "", init_stderr),
+        lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.GENERIC, "", init_stderr),
     )
 
     # read_only_connect should NEVER be called when init fallback fired.
@@ -370,7 +374,9 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     # Substitute read_only_connect with a MagicMock so we can assert close().
     mock_conn = MagicMock()
@@ -415,7 +421,9 @@ def test_file_map_injected_into_package_entity_page(tmp_workspace_with_packages,
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     # Deterministic file-map block as build_file_map would emit it for pkg-a.
     pkg_a_block = (
@@ -483,7 +491,9 @@ async def test_file_map_injected_into_app_entity_page(tmp_workspace_with_package
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     # Deterministic file-map block as build_file_map would emit it for app-x.
     app_x_block = (
@@ -551,7 +561,9 @@ def test_file_map_descriptions_survive_rescan(tmp_workspace_with_packages, monke
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     pkg_a_block = (
         "## File map - pkg-a\n"
@@ -618,7 +630,9 @@ def test_code_reader_fanout_fills_todo_descriptions(tmp_workspace_with_packages,
     db = workspace / ".graph-wiki" / "code.db"
     _seed_minimal_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     pkg_a_block = (
         "## File map - pkg-a\n"
@@ -691,7 +705,9 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(tmp_workspace_with
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     app_x_block = (
         "## File map - app-x\n"
@@ -765,7 +781,9 @@ async def test_app_file_map_descriptions_survive_rescan(tmp_workspace_with_packa
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     app_x_block = (
         "## File map - app-x\n"
@@ -833,7 +851,9 @@ async def test_description_fill_log_uses_entity_noun(tmp_workspace_with_packages
     db = workspace / ".graph-wiki" / "code.db"
     _seed_app_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     app_x_block = (
         "## File map - app-x\n"
@@ -958,7 +978,9 @@ async def test_file_map_injected_into_test_suite_entity_page(tmp_workspace_with_
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     # Deterministic suite block as build_dir_file_map would emit it. The heading
     # label is the suite-root basename ("tests").
@@ -1014,7 +1036,9 @@ async def test_code_reader_fills_test_suite_todo_descriptions(tmp_workspace_with
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     suite_block = (
         "## File map - tests\n"
@@ -1082,7 +1106,9 @@ async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_wit
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     suite_block = (
         "## File map - tests\n"
@@ -1179,7 +1205,9 @@ async def test_suite_filemap_skipped_under_no_file_map(tmp_workspace_with_packag
     db = workspace / ".graph-wiki" / "code.db"
     _seed_test_suite_graph(db)
 
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, workspace, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     # build_dir_file_map would inject deterministic rows if the branch fires.
     suite_block = (

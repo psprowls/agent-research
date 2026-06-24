@@ -15,7 +15,7 @@ from source_parser.projections.graph import GraphEdge, GraphNode
 from graph_io import _ignore, upsert
 from graph_io.classification import classify
 from graph_io.records import as_graph_records
-from graph_io.uri import RepoContext, app_uri, dependency_uri, pkg_uri
+from graph_io.uri import RepoContext, app_uri, dependency_uri, pkg_uri, repo_uri
 
 # PEP 508 bare-name prefix: identifier characters before any version/extra/marker.
 _DEP_NAME_RE = re.compile(r"^[A-Za-z0-9_.\-]+")
@@ -36,6 +36,20 @@ def _normalize_name(name: str) -> str:
     ``import_scan._build_importable_maps``.
     """
     return name.lower().replace("-", "_")
+
+
+def _owning_repo(
+    global_ws: dict[str, tuple[str, str, str, str]],
+    dep_norm: str,
+    current_repo: str | None,
+) -> str | None:
+    """Repo URI that owns the workspace package `dep_norm`.
+
+    Falls back to `current_repo` when the package isn't in the cross-member
+    index (single-repo / local-only), so callers treat it as same-repo.
+    """
+    entry = global_ws.get(dep_norm)
+    return entry[3] if entry else current_repo
 
 
 def _extract_dep_name(pep508_str: str) -> str | None:
@@ -179,15 +193,52 @@ def _discover_manifests(repo_root: Path, skip_dirs: frozenset[str]) -> list[tupl
     return found
 
 
-def _file_nodes_under(conn: sqlite3.Connection, prefix: str) -> list[str]:
-    rows = conn.execute(
-        "SELECT path FROM nodes WHERE kind='file' AND path LIKE ? AND attrs_json IS NOT NULL",
-        (f"{prefix}%",),
-    ).fetchall()
+def _file_nodes_under(conn: sqlite3.Connection, prefix: str, current_repo: str | None) -> list[str]:
+    if current_repo is None:
+        rows = conn.execute(
+            "SELECT path FROM nodes WHERE kind='file' AND path LIKE ? AND attrs_json IS NOT NULL",
+            (f"{prefix}%",),
+        ).fetchall()
+    else:
+        rows = conn.execute(
+            "SELECT path FROM nodes WHERE kind='file' AND path LIKE ? AND attrs_json IS NOT NULL "
+            "AND (repo = ? OR repo IS NULL)",
+            (f"{prefix}%", current_repo),
+        ).fetchall()
     return [row[0] for row in rows]
 
 
-def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> None:
+def build_workspace_index(members: list[Path]) -> dict[str, tuple[str, str, str, str]]:
+    """Union package index across member repos for cross-repo dep resolution.
+
+    Maps normalized package name -> (stored_kind, real_name, rel_path, repo_uri),
+    rel_path relative to the package's OWN member repo root.
+    """
+    from graph_io.update import _derive_repo_context  # noqa: PLC0415 — avoid import cycle at module load
+
+    index: dict[str, tuple[str, str, str, str]] = {}
+    for member in members:
+        member = Path(member).resolve()
+        ctx = _derive_repo_context(member)
+        ruri = repo_uri(ctx)
+        skip_dirs = _ignore.load_skip_dirs(member)
+        for pkg_dir, info in _discover_manifests(member, skip_dirs):
+            rel = pkg_dir.resolve().relative_to(member).as_posix()
+            rel = "" if rel == "." else rel
+            ws_kind, _app_kind, _sig = classify(info, pkg_dir)
+            index[_normalize_name(info["name"])] = (ws_kind, info["name"], rel, ruri)
+    return index
+
+
+def refresh(
+    conn: sqlite3.Connection,
+    *,
+    repo_root: Path,
+    ctx: RepoContext,
+    current_repo: str | None = None,
+    global_workspace: dict[str, tuple[str, str, str, str]] | None = None,
+    deferred_cross_repo: list | None = None,
+) -> None:
     """Rescan manifests under `repo_root` and upsert kind:package nodes + contains edges.
 
     `ctx` carries the (org, repo) identifiers used to compose the
@@ -222,6 +273,15 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         # the edge dst must match the real node so it resolves instead of
         # inserting a stub.
         workspace_kinds[norm] = (ws_kind, info["name"], rel)
+
+    # Multi-repo (Task 3): merge the cross-member package index so a dependency
+    # naming a sibling-repo package is recognized as internal (not emitted as an
+    # external `dependency` node). Local entries win on name collision — the
+    # branch below uses global_ws[...][3] only to decide same-repo vs cross-repo.
+    global_ws = global_workspace or {}
+    for norm, (g_kind, g_name, g_rel, _g_repo) in global_ws.items():
+        workspace_names.add(norm)
+        workspace_kinds.setdefault(norm, (g_kind, g_name, g_rel))
 
     # Accumulator for Phase 43 dependency ingestion: (ecosystem, name) -> {versions_in_use}
     dep_acc: dict[tuple[str, str], dict[str, list[str]]] = {}
@@ -294,7 +354,7 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         ]
         edges = []
         prefix = f"{rel_prefix}/" if rel_prefix else ""
-        for file_path in _file_nodes_under(conn, prefix):
+        for file_path in _file_nodes_under(conn, prefix, current_repo):
             edges.append(
                 GraphEdge(
                     src=(new_kind, info["name"], package_path),
@@ -328,17 +388,24 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 # Record it as an internal package→package relationship instead;
                 # skip self-dependencies.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
-                    internal_pkg_edges.append(
-                        (
-                            consumer_name,
-                            consumer_rel_path,
-                            consumer_kind,
-                            target_name,
-                            target_rel_path,
-                            target_kind,
+                    target_repo = _owning_repo(global_ws, dep_norm, current_repo)
+                    if target_repo == current_repo or current_repo is None:
+                        target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
+                        internal_pkg_edges.append(
+                            (
+                                consumer_name,
+                                consumer_rel_path,
+                                consumer_kind,
+                                target_name,
+                                target_rel_path,
+                                target_kind,
+                            )
                         )
-                    )
+                    elif deferred_cross_repo is not None:
+                        g_kind, g_name, g_rel, _ = global_ws[dep_norm]
+                        deferred_cross_repo.append(
+                            (consumer_kind, consumer_name, consumer_rel_path, g_kind, g_name, g_rel)
+                        )
                     continue
                 key = ("pypi", dep_name)
                 bucket = dep_acc.setdefault(key, {"versions_in_use": []})
@@ -355,17 +422,24 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
                 dep_norm = _normalize_name(dep_name)
                 # Internal workspace package → depends_on_package; skip self-deps.
                 if dep_norm in workspace_names and dep_norm != consumer_norm:
-                    target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
-                    internal_pkg_edges.append(
-                        (
-                            consumer_name,
-                            consumer_rel_path,
-                            consumer_kind,
-                            target_name,
-                            target_rel_path,
-                            target_kind,
+                    target_repo = _owning_repo(global_ws, dep_norm, current_repo)
+                    if target_repo == current_repo or current_repo is None:
+                        target_kind, target_name, target_rel_path = workspace_kinds[dep_norm]
+                        internal_pkg_edges.append(
+                            (
+                                consumer_name,
+                                consumer_rel_path,
+                                consumer_kind,
+                                target_name,
+                                target_rel_path,
+                                target_kind,
+                            )
                         )
-                    )
+                    elif deferred_cross_repo is not None:
+                        g_kind, g_name, g_rel, _ = global_ws[dep_norm]
+                        deferred_cross_repo.append(
+                            (consumer_kind, consumer_name, consumer_rel_path, g_kind, g_name, g_rel)
+                        )
                     continue
                 key = ("npm", dep_name)
                 bucket = dep_acc.setdefault(key, {"versions_in_use": []})
@@ -444,3 +518,27 @@ def refresh(conn: sqlite3.Connection, *, repo_root: Path, ctx: RepoContext) -> N
         dep_edges.append(GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={}))
     if dep_nodes or dep_edges:
         upsert.upsert_records(conn, as_graph_records(nodes=dep_nodes, edges=dep_edges))
+
+
+def link_cross_repo_packages(conn: sqlite3.Connection, deferred: list) -> None:
+    """Emit cross-repo used_by + depends_on_package edges after all members exist.
+
+    `deferred` carries (consumer_kind, consumer_name, consumer_rel, target_kind,
+    target_name, target_rel) tuples collected across members in `refresh`. The
+    (kind, name, rel) endpoint tuples match the existing internal-edge node-key
+    convention, so dst resolves to the sibling member's real package/app node
+    rather than inserting a stub. Run once, after every member is stamped.
+    """
+    if not deferred:
+        return
+    edges: list[GraphEdge] = []
+    seen: set[tuple[str, str, str]] = set()
+    for consumer_kind, consumer_name, consumer_rel, target_kind, target_name, target_rel in deferred:
+        if (consumer_name, target_kind, target_name) in seen:
+            continue
+        seen.add((consumer_name, target_kind, target_name))
+        src = (consumer_kind, consumer_name, consumer_rel)
+        dst = (target_kind, target_name, target_rel)
+        edges.append(GraphEdge(src=src, dst=dst, kind="used_by", attrs={}))
+        edges.append(GraphEdge(src=src, dst=dst, kind=_DEPENDS_ON_PACKAGE_KIND, attrs={}))
+    upsert.upsert_records(conn, as_graph_records(nodes=[], edges=edges))

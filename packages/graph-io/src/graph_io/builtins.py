@@ -39,7 +39,7 @@ from workspace_io.paths import graph_dir
 
 from graph_io import _ignore, upsert
 from graph_io.records import as_graph_records
-from graph_io.uri import RepoContext, builtin_uri
+from graph_io.uri import RepoContext, builtin_uri, repo_uri
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -327,8 +327,12 @@ def refresh(
 
     # Load all Package/App rows from the graph (written by packages.refresh before us).
     # Phase 50 D-04: apps also import builtins; include them.
+    # Multi-repo (Task 2): scope to this member (see structural_nodes.emit).
+    member_repo = repo_uri(ctx)
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app') "
+        "AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
     ).fetchall()
     if not pkg_rows:
         return

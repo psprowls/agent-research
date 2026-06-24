@@ -29,6 +29,7 @@ from wiki_io.drift import extract_narrative, section_hash
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
 from wiki_io.git_state import changed_files_since
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals, upsert_proposal
+from wiki_io.scan_monorepo import build_repo_paths, owning_repo
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.prompts.drift_propagator import (
@@ -123,7 +124,9 @@ def _entity_paths_by_uri(conn: Any) -> dict[str, str]:
     return out
 
 
-def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[PropagationCandidate]:
+def propagation_candidates(
+    wiki: Path, repo: Path, conn: Any, repo_paths: dict[str, Path] | None = None
+) -> list[PropagationCandidate]:
     """Entity pages where ``drift_propagated_commit != last_updated_commit``.
 
     Each candidate carries its current narrative and the git-derived files that
@@ -131,7 +134,13 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
     specific files — empty ``since_sha`` -> ``changed_files_since`` returns None).
     A kind without a graph ``node.path`` (repository/domain/dependency) is not a
     candidate — it has no change signal.
+
+    ``repo_paths`` (``{repo-key -> member checkout path}``) makes the change diff
+    run against each candidate ENTITY's OWNING member repo (multi-repo, Task 7).
+    Empty/None ``repo_paths`` (single-repo) resolves every entity to ``repo`` —
+    byte-identical to the legacy 3-arg path.
     """
+    repo_paths = repo_paths or {}
     entities_dir = wiki / "entities"
     if not entities_dir.is_dir():
         return []
@@ -156,7 +165,8 @@ def propagation_candidates(wiki: Path, repo: Path, conn: Any) -> list[Propagatio
         narrative = extract_narrative(post.content)
         if not narrative:
             continue  # no ground truth to judge against
-        changed = changed_files_since(repo, str(propagated) if propagated else "", node_path) or []
+        owning_repo_path = owning_repo(str(uri), repo, repo_paths)
+        changed = changed_files_since(owning_repo_path, str(propagated) if propagated else "", node_path) or []
         out.append(
             PropagationCandidate(
                 uri=str(uri),
@@ -248,8 +258,18 @@ async def run_propagate_drift(
     candidates → curated backlink targets → kind-aware judge → upsert one origin
     per finding → stamp drift_propagated_commit per processed candidate. Both
     surfaces call this; it computes its own candidates off the on-disk anchors.
+
+    Multi-repo: this is a first-class "re-run drift without a full scan" entry
+    point (CLI ``gw wiki propagate-drift`` / MCP ``wiki_propagate_drift``), so it
+    rebuilds the ``{repo-key -> member checkout}`` map the scan front-half builds
+    and gates each candidate's change diff on its OWNING member repo. Single-repo
+    (no members) -> empty map -> every candidate resolves to ``repo`` unchanged.
     """
-    candidates = propagation_candidates(wiki, repo, conn)
+    from workspace_io.config import resolve as _resolve_cfg
+
+    members = list(_resolve_cfg(repo, require_manifest=False).members)
+    repo_paths = build_repo_paths(members)
+    candidates = propagation_candidates(wiki, repo, conn, repo_paths=repo_paths or None)
 
     # The Bedrock stack is required to judge; absent it (plugin branch) we make
     # no proposals and stamp nothing (mirrors scan._drift_flag_pass early-out).

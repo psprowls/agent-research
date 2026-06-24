@@ -241,6 +241,46 @@ def test_code_drift_recognizes_entity_pages(tmp_path: Path, monkeypatch) -> None
     assert cd["orphaned_in_vault"] == []
 
 
+def test_code_drift_unions_packages_across_members(tmp_path: Path, monkeypatch) -> None:
+    """In a multi-repo workspace, on-disk package discovery is the UNION across
+    every member root. Two members each carrying one package, both listed in the
+    vault, must produce ``packages_on_disk == 2`` and no false drift — otherwise
+    each sibling repo's package false-flags as ``missing_in_vault``."""
+    from wiki_io import lint_wiki as lw
+    from workspace_io import config as ws_config
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    (wiki / "entities").mkdir(parents=True)
+    for name in ("alpha", "beta"):
+        (wiki / "entities" / f"pkg_{name}.md").write_text(
+            f"---\ntitle: {name}\nuri: pkg:org/repo/{name}\nkind: package\n"
+            f"graph_name: {name}\nupdated: 2099-01-01\n---\n\n## Narrative\n_(scanner will populate)_\n",
+            encoding="utf-8",
+        )
+
+    member_a = tmp_path / "repo-a"
+    member_b = tmp_path / "repo-b"
+    per_member = {member_a: [{"name": "alpha"}], member_b: [{"name": "beta"}]}
+    monkeypatch.setattr(lw, "_scan_discover", lambda repo, pinned_containers=None: per_member.get(Path(repo), []))
+    monkeypatch.setattr(
+        ws_config,
+        "resolve",
+        lambda cwd=None, require_manifest=True: ws_config.GraphWikiConfig(
+            workspace=workspace, repo_root=member_a, members=(member_a, member_b)
+        ),
+    )
+
+    result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=member_a)
+    cd = result["code_drift"]
+
+    assert cd["packages_on_disk"] == 2
+    assert cd["packages_in_vault"] == 2
+    assert cd["missing_in_vault"] == []
+    assert cd["orphaned_in_vault"] == []
+
+
 def test_entity_pages_use_entity_frontmatter_contract(tmp_path: Path, monkeypatch) -> None:
     """A well-formed entities/ page (title/uri/kind/updated, no category/tokens)
     must NOT be flagged for missing_frontmatter or missing_tokens; a curated

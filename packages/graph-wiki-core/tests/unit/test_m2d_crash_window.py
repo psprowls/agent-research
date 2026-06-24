@@ -76,7 +76,7 @@ def crash_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod,
         "_cg_run_build",
-        lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""),
+        lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", ""),
     )
     monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(

@@ -454,8 +454,17 @@ def emit(
     # --- Read existing Package/App rows ---
     # Phase 50 D-04: apps are physically contained by the repository the same
     # way packages are.
+    # Multi-repo (Task 2): scope to THIS member's packages. Path-bearing
+    # package/app nodes are stamped with their `repo` at insert time (while
+    # `upsert.set_current_repo` is active for the member pass), so in normal
+    # runs they already carry this member's URI and a sibling member's packages
+    # are excluded. The `OR repo IS NULL` is a defensive fallback for any row
+    # stamped only by the end-of-pass UPDATE.
+    member_repo = repo_uri(ctx)
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app') "
+        "AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
     ).fetchall()
 
     # Repository -> Package/App edges (D-03)

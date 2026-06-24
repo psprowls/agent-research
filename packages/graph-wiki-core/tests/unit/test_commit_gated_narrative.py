@@ -151,7 +151,9 @@ def m2a_workspace(tmp_path, monkeypatch):
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     # Minimal deterministic file map so the package page gets a File map section.
     monkeypatch.setattr(
@@ -219,7 +221,9 @@ def m2a_workspace_two(tmp_path, monkeypatch):
     repo.mkdir()
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_two_packages(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
 
     # Per-package deterministic file map for either pkg-a or pkg-b paths.
@@ -458,7 +462,9 @@ def m2a_workspace_gitrepo(tmp_path, monkeypatch):
 
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     _seed_one_package(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
     monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,

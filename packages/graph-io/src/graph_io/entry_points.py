@@ -24,7 +24,7 @@ from source_parser.projections.graph import GraphEdge, GraphNode
 from graph_io import upsert
 from graph_io.records import as_graph_records
 from graph_io.structural_nodes import _resolve_import_root
-from graph_io.uri import RepoContext, entry_point_uri
+from graph_io.uri import RepoContext, entry_point_uri, repo_uri
 
 # --- Module-private constants (D-07) ---
 
@@ -425,8 +425,12 @@ def emit(
 
     # Phase 50 D-04: include both Package and App nodes; apps still declare
     # entry points via the same pyproject.toml / package.json manifest fields.
+    # Multi-repo (Task 2): scope to this member (see structural_nodes.emit).
+    member_repo = repo_uri(ctx)
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app') "
+        "AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
     ).fetchall()
 
     for pkg_name, pkg_rel, pkg_attrs_json, pkg_kind in pkg_rows:

@@ -54,7 +54,9 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
     repo = workspace / "repo"
 
     _seed_minimal_graph(workspace / ".graph-wiki" / "code.db")
-    monkeypatch.setattr(scan_module, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+    monkeypatch.setattr(
+        scan_module, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
 
     run_all_calls: list = []
 
@@ -128,7 +130,9 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
         assert reloaded.SubagentPool is None
 
         reloaded_setattr = monkeypatch.setattr
-        reloaded_setattr(reloaded, "_cg_run_build", lambda repo, ws, *, full: (exit_codes.SUCCESS, "", ""))
+        reloaded_setattr(
+            reloaded, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+        )
         reloaded_setattr(
             reloaded,
             "compute_state_gate",

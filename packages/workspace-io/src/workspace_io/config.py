@@ -28,12 +28,20 @@ LOCAL_CONFIG_FILENAME = ".graph-wiki.local.yaml"
 WORKSPACE_DIRECTORY_KEY = "workspace-directory"
 REPO_DIRECTORY_KEY = "repo-directory"
 DEFAULT_WORKSPACE_NAME = "graph-wiki"
+MULTI_REPO_KEY = "multi-repo"
+REPOS_ROOT_KEY = "repos-root"
+REPOS_ALLOW_KEY = "repos"
+REPOS_EXCLUDE_KEY = "exclude"
+_TRUTHY = {"true", "1", "yes", "on"}
+# Dirs that can never be member repos, regardless of a nested `.git`.
+_MEMBER_SKIP_DIRS = frozenset({".git", "node_modules", ".venv", "__pycache__", ".graph-wiki"})
 
 
 @dataclass(frozen=True)
 class GraphWikiConfig:
     workspace: Path
     repo_root: Path
+    members: tuple[Path, ...] = ()
 
 
 def _find_repo_root(start: Path) -> Path | None:
@@ -61,6 +69,78 @@ def _repo_directory_override(workspace: Path, repo_root_default: Path) -> Path:
     if expanded.is_absolute():
         return expanded.resolve()
     return (workspace / expanded).resolve()
+
+
+def discover_members(
+    repos_root: Path,
+    *,
+    workspace: Path,
+    allow: tuple[str, ...] = (),
+    exclude: tuple[str, ...] = (),
+) -> tuple[Path, ...]:
+    """Immediate child dirs of `repos_root` that are git repos, as member repos.
+
+    Excludes the workspace dir itself and `_MEMBER_SKIP_DIRS`. When `allow` is
+    non-empty, only those names are kept (intersection); `exclude` names are
+    then removed. Result is sorted by directory name for stable ordering.
+    """
+    repos_root = Path(repos_root).resolve()
+    workspace = Path(workspace).resolve()
+    allow_set = set(allow)
+    exclude_set = set(exclude)
+    out: list[Path] = []
+    for child in sorted(repos_root.iterdir(), key=lambda p: p.name):
+        if not child.is_dir():
+            continue
+        if child.resolve() == workspace:
+            continue
+        if child.name in _MEMBER_SKIP_DIRS:
+            continue
+        if not (child / ".git").exists():
+            continue
+        if allow_set and child.name not in allow_set:
+            continue
+        if child.name in exclude_set:
+            continue
+        out.append(child.resolve())
+    return tuple(out)
+
+
+def _to_name_list(val: object) -> tuple[str, ...]:
+    """Coerce a manifest value to a tuple of names.
+
+    `_local_config.read` is a flat parser returning `dict[str, str]`, so a
+    `repos: alpha,beta` line arrives as the string `"alpha,beta"` (and indented
+    YAML-list lines are dropped entirely). Accept either a real list (defensive)
+    or a comma-separated string.
+    """
+    if not val:
+        return ()
+    if isinstance(val, list):
+        return tuple(str(v).strip() for v in val if str(v).strip())
+    return tuple(s.strip() for s in str(val).split(",") if s.strip())
+
+
+def _multi_repo_members(workspace: Path) -> tuple[Path, ...]:
+    """Read multi-repo config from the workspace manifest and discover members.
+
+    Returns () when `multi-repo` is absent/false. `repos-root` defaults to the
+    workspace's parent; `repos:`/`exclude:` are optional allow/deny lists.
+    """
+    committed = _local_config.read(workspace / ".graph-wiki.yaml")
+    local = _local_config.read(workspace / LOCAL_CONFIG_FILENAME)
+    merged = {**committed, **local}
+    if str(merged.get(MULTI_REPO_KEY, "")).strip().lower() not in _TRUTHY:
+        return ()
+    raw_root = str(merged.get(REPOS_ROOT_KEY, "") or "").strip()
+    if raw_root:
+        expanded = Path(raw_root).expanduser()
+        repos_root = expanded.resolve() if expanded.is_absolute() else (workspace / expanded).resolve()
+    else:
+        repos_root = workspace.parent.resolve()
+    allow = _to_name_list(merged.get(REPOS_ALLOW_KEY))
+    exclude = _to_name_list(merged.get(REPOS_EXCLUDE_KEY))
+    return discover_members(repos_root, workspace=workspace, allow=allow, exclude=exclude)
 
 
 def resolve_workspace(repo_root: Path) -> Path:
@@ -91,7 +171,10 @@ def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWiki
         # manifest's `repo-directory:` (if set) override.
         repo_root = _find_repo_root(workspace) or workspace.parent.resolve()
         repo_root = _repo_directory_override(workspace, repo_root)
-        return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
+        members = _multi_repo_members(workspace)
+        if members:
+            repo_root = members[0]
+        return GraphWikiConfig(workspace=workspace, repo_root=repo_root, members=members)
 
     # Normal discovery path
     cwd = Path(cwd) if cwd is not None else Path.cwd()
@@ -104,4 +187,7 @@ def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWiki
             raise RuntimeError(f"No .graph-wiki.yaml found in {workspace}. Run: gw bootstrap <path>")
     # Workspace manifest may pin a different repo_root explicitly.
     repo_root = _repo_directory_override(workspace, repo_root)
-    return GraphWikiConfig(workspace=workspace, repo_root=repo_root)
+    members = _multi_repo_members(workspace)
+    if members:
+        repo_root = members[0]
+    return GraphWikiConfig(workspace=workspace, repo_root=repo_root, members=members)

@@ -17,7 +17,7 @@ from workspace_io.manifest import read_graph_domains, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_io import _ignore, builtins, packages, resolve, schema, store, tokens, upsert
-from graph_io.uri import RepoContext, parse_remote_url
+from graph_io.uri import RepoContext, parse_remote_url, repo_uri
 
 # The `.graph-wiki/` dir holds only local machine state (graph DB + cache,
 # subagent traces, search index); ignore it wholesale.
@@ -95,8 +95,11 @@ def _is_parseable(path: str) -> bool:
     return Path(path).suffix in EXTENSIONS
 
 
-def _delete_file_nodes(conn, path: str) -> None:
-    conn.execute("DELETE FROM nodes WHERE path = ?", (path,))
+def _delete_file_nodes(conn, path: str, repo_uri_val: str) -> None:
+    conn.execute(
+        "DELETE FROM nodes WHERE path = ? AND (repo = ? OR repo IS NULL)",
+        (path, repo_uri_val),
+    )
 
 
 def _set_metadata(conn, key: str, value: str) -> None:
@@ -129,6 +132,7 @@ def _process_files(
     repo_root: Path,
     changed: Iterable[tuple[str, str]],
     skip_dirs: frozenset[str],
+    repo_uri_val: str,
 ) -> None:
     for status, rel in changed:
         if _ignore.should_skip(rel, skip_dirs):
@@ -136,7 +140,7 @@ def _process_files(
         if not _is_parseable(rel):
             continue
         if status == "D":
-            _delete_file_nodes(conn, rel)
+            _delete_file_nodes(conn, rel, repo_uri_val)
             continue
         full = repo_root / rel
         if not full.exists():
@@ -224,10 +228,116 @@ def _unlink_db_files(db_path: Path) -> None:
     (db_path.parent / "code.db-shm").unlink(missing_ok=True)
 
 
+def _update_one_repo(
+    conn,
+    repo_root: Path,
+    workspace: Path,
+    *,
+    full: bool,
+    global_workspace: dict,
+    deferred: list,
+) -> None:
+    """Run the single-repo pipeline for one member, then stamp its nodes.
+
+    Lifts the per-repo body of the former monolithic `run()` into a function
+    invoked once per workspace member. Global steps (resolve.sweep, strict-tree
+    invariant, workspace-level metadata, cross-repo link pass) stay in
+    `run_workspace`. After the pipeline runs, every node this member produced
+    that is still unstamped (`repo IS NULL`, excluding the global builtin /
+    dependency nodes) is stamped with this member's `repo:` URI, and the
+    per-repo `last_indexed_commit:<uri>` metadata key is written.
+    """
+    head = _head(repo_root)
+    ctx = _derive_repo_context(repo_root)
+    repo_uri_val = repo_uri(ctx)
+    skip_dirs = _ignore.load_skip_dirs(repo_root)
+    commit_key = f"last_indexed_commit:{repo_uri_val}"
+    prev = _get_metadata(conn, commit_key)
+    changed = _changed_files(repo_root, full=full, prev=prev)
+    if not changed and prev == head and not full:
+        return
+
+    # Scope path-bearing node identity to this member for the whole pass so two
+    # sibling repos sharing a relative path (e.g. `pyproject.toml`) don't merge
+    # into one node. Cleared in `finally` so the global post-loop steps run
+    # unscoped.
+    upsert.set_current_repo(conn, repo_uri_val)
+    try:
+        _process_files(conn, repo_root, changed, skip_dirs, repo_uri_val)
+        packages.refresh(
+            conn,
+            repo_root=repo_root,
+            ctx=ctx,
+            current_repo=repo_uri_val,
+            global_workspace=global_workspace,
+            deferred_cross_repo=deferred,
+        )
+        builtins.refresh(conn, repo_root=repo_root, workspace=workspace, ctx=ctx)
+        # Resolve file-import edges to real file nodes BEFORE the full-mode cleanup
+        # DELETE (below). The cleanup purges specifier-path stub file nodes (not in
+        # tracked_paths), cascade-deleting every imports edge still pointing at them.
+        # Running resolution first repoints edges onto the real (tracked) file nodes
+        # that survive the DELETE; the orphaned stubs are then cleaned up safely.
+        # (quick-260530-nsr D-2)
+        resolve.resolve_file_imports(conn, repo_root)
+        if full:
+            tracked_paths = [
+                rel for _, rel in changed if _is_parseable(rel) and not _ignore.should_skip(rel, skip_dirs)
+            ]
+            if tracked_paths:
+                placeholders = ",".join("?" for _ in tracked_paths)
+                conn.execute(
+                    "DELETE FROM nodes WHERE repo = ? "
+                    "AND kind NOT IN ('package', 'app', 'builtin', 'dependency') "
+                    f"AND path IS NOT NULL AND path NOT IN ({placeholders})",
+                    (repo_uri_val, *tracked_paths),
+                )
+            else:
+                conn.execute(
+                    "DELETE FROM nodes WHERE repo = ? "
+                    "AND kind NOT IN ('package', 'app', 'builtin', 'dependency') "
+                    "AND path IS NOT NULL",
+                    (repo_uri_val,),
+                )
+        # Deferred imports to avoid the structural_nodes / entry_points /
+        # test_suites -> update -> ... cycle (each reuses update._git /
+        # NotInGitRepoError or imports from structural_nodes which imports from
+        # update).
+        from graph_io import (  # noqa: PLC0415
+            agent_plugins,
+            derived_edges,
+            domains,
+            entry_points,
+            resources,
+            structural_nodes,
+            test_suites,
+        )
+
+        structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+        agent_plugins.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+        entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+        test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
+        domains_config = read_graph_domains(manifest_path(workspace))
+        domains.emit(conn, domains_config=domains_config, ctx=ctx)
+        resources_config = read_graph_resources(manifest_path(workspace))
+        resources.emit(conn, resources_config=resources_config, ctx=ctx)
+        resolve.sweep_skip_dir_files(conn, skip_dirs)
+        derived_edges.compute(conn, repo_root=repo_root, ctx=ctx)
+        # Repo stamp: claim every node this member produced that isn't already
+        # owned. builtin / dependency nodes stay global (repo NULL).
+        conn.execute(
+            "UPDATE nodes SET repo = ? WHERE repo IS NULL AND kind NOT IN ('builtin', 'dependency')",
+            (repo_uri_val,),
+        )
+        _set_metadata(conn, commit_key, head)
+    finally:
+        upsert.set_current_repo(conn, None)
+
+
 def run(
     repo_root: Path, *, workspace: Path | None = None, full: bool = False, lock_timeout_ms: int | None = None
 ) -> None:
-    """Run an update against `repo_root`. Single SQLite transaction.
+    """Single-repo update — delegates to `run_workspace` with one member.
 
     If `workspace` is provided (e.g. already resolved at the CLI layer), it is
     used as-is. Otherwise, the workspace is resolved from `repo_root` with
@@ -239,17 +349,29 @@ def run(
         workspace = resolve_workspace(repo_root, require_manifest=False).workspace
     else:
         workspace = Path(workspace).resolve()
-    head = _head(repo_root)
-    ctx = _derive_repo_context(repo_root)
-    skip_dirs = _ignore.load_skip_dirs(repo_root)
+    run_workspace([repo_root], workspace=workspace, full=full, lock_timeout_ms=lock_timeout_ms)
 
+
+def run_workspace(
+    members: list[Path], *, workspace: Path, full: bool = False, lock_timeout_ms: int | None = None
+) -> None:
+    """Update the code graph for one or more member repos into one DB.
+
+    Each member runs the per-repo pipeline (`_update_one_repo`) in sequence
+    inside one SQLite transaction; nodes are stamped with the producing
+    member's `repo:` URI. After the member loop, cross-repo internal-package
+    edges collected in `deferred` are emitted, then the global resolve /
+    strict-tree / workspace-metadata steps run once.
+    """
+    members = [Path(m).resolve() for m in members]
+    workspace = Path(workspace).resolve()
     db_path = graph_dir(workspace) / "code.db"
     if db_path.exists():
         found = _read_schema_version_or_none(db_path)
         if found != str(schema.SCHEMA_VERSION):
             if full:
                 print(
-                    "Schema v1 detected — rebuilding code.db at schema v2.",
+                    f"Schema v{found} detected — rebuilding code.db at schema v{schema.SCHEMA_VERSION}.",
                     file=sys.stderr,
                 )
                 _unlink_db_files(db_path)
@@ -262,74 +384,39 @@ def run(
         try:
             conn = store.connect(db_path, create=True, busy_timeout_ms=lock_timeout_ms)
             _ensure_gitignore(workspace)
-            prev = _get_metadata(conn, "last_indexed_commit")
             stored_deriver = _get_metadata(conn, "deriver_version")
-            if prev is not None and stored_deriver != str(schema.DERIVER_VERSION):
+            db_nonempty = stored_deriver is not None
+            if db_nonempty and stored_deriver != str(schema.DERIVER_VERSION):
                 print(
                     f"Deriver logic changed (deriver_version {stored_deriver} → {schema.DERIVER_VERSION})"
                     " — forcing full rebuild.",
                     file=sys.stderr,
                 )
                 full = True
-            changed = _changed_files(repo_root, full=full, prev=prev)
-            if not changed and prev == head and not full:
-                return
-
+            global_workspace = packages.build_workspace_index(members)
+            deferred: list = []
             with store.transaction(conn):
-                _process_files(conn, repo_root, changed, skip_dirs)
-                packages.refresh(conn, repo_root=repo_root, ctx=ctx)
-                builtins.refresh(conn, repo_root=repo_root, workspace=workspace, ctx=ctx)
-                # Resolve file-import edges to real file nodes BEFORE the
-                # full-mode cleanup DELETE (below). The cleanup purges
-                # specifier-path stub file nodes (not in tracked_paths),
-                # cascade-deleting every imports edge still pointing at them.
-                # Running resolution first repoints edges onto the real
-                # (tracked) file nodes that survive the DELETE; the orphaned
-                # stubs are then cleaned up safely. (quick-260530-nsr D-2)
-                resolve.resolve_file_imports(conn, repo_root)
-                if full:
-                    tracked_paths = [
-                        rel for _, rel in changed if _is_parseable(rel) and not _ignore.should_skip(rel, skip_dirs)
-                    ]
-                    if tracked_paths:
-                        placeholders = ",".join("?" for _ in tracked_paths)
-                        conn.execute(
-                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin', 'dependency') "
-                            f"AND path IS NOT NULL AND path NOT IN ({placeholders})",
-                            tracked_paths,
-                        )
-                    else:
-                        conn.execute(
-                            "DELETE FROM nodes WHERE kind NOT IN ('package', 'app', 'builtin', 'dependency') "
-                            "AND path IS NOT NULL"
-                        )
-                # Deferred imports to avoid the structural_nodes / entry_points /
-                # test_suites -> update -> ... cycle (each reuses
-                # update._git / NotInGitRepoError or imports from structural_nodes
-                # which imports from update).
-                from graph_io import (  # noqa: PLC0415
-                    agent_plugins,
-                    derived_edges,
-                    domains,
-                    entry_points,
-                    resources,
-                    structural_nodes,
-                    test_suites,
-                )
-
-                structural_nodes.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
-                agent_plugins.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
-                entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
-                test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
-                domains_config = read_graph_domains(manifest_path(workspace))
-                domains.emit(conn, domains_config=domains_config, ctx=ctx)
-                resources_config = read_graph_resources(manifest_path(workspace))
-                resources.emit(conn, resources_config=resources_config, ctx=ctx)
+                for repo_root in members:
+                    _update_one_repo(
+                        conn,
+                        repo_root,
+                        workspace,
+                        full=full,
+                        global_workspace=global_workspace,
+                        deferred=deferred,
+                    )
+                packages.link_cross_repo_packages(conn, deferred)
                 resolve.sweep(conn)
-                resolve.sweep_skip_dir_files(conn, skip_dirs)
                 _enforce_strict_tree_invariant(conn)
-                derived_edges.compute(conn, repo_root=repo_root, ctx=ctx)
-                _set_metadata(conn, "last_indexed_commit", head)
+                # Single-repo back-compat: mirror the lone member's per-repo
+                # commit into the legacy unscoped `last_indexed_commit` key that
+                # downstream tooling (and the existing test suite) reads. Multi-
+                # repo workspaces have no single HEAD, so the key is left unset.
+                if len(members) == 1:
+                    only_uri = repo_uri(_derive_repo_context(members[0]))
+                    only_commit = _get_metadata(conn, f"last_indexed_commit:{only_uri}")
+                    if only_commit is not None:
+                        _set_metadata(conn, "last_indexed_commit", only_commit)
                 _set_metadata(conn, "last_indexed_at", _dt.datetime.now(_dt.UTC).isoformat())
                 _set_metadata(conn, "deriver_version", str(schema.DERIVER_VERSION))
         except sqlite3.OperationalError as exc:
@@ -341,4 +428,7 @@ def run(
             raise
     finally:
         if conn is not None:
+            # Defense-in-depth: the per-member finally already clears this, but
+            # guard against id(conn) recycling before the connection is closed.
+            upsert.set_current_repo(conn, None)
             conn.close()

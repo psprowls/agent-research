@@ -28,6 +28,7 @@ def test_apply_schema_creates_indexes(conn: sqlite3.Connection) -> None:
         "idx_nodes_kind_name",
         "idx_nodes_path",
         "idx_nodes_uri",
+        "idx_nodes_repo",
         "idx_edges_dst_kind",
         "idx_edges_src_kind",
     }
@@ -47,8 +48,17 @@ def test_apply_schema_is_idempotent(conn: sqlite3.Connection) -> None:
     assert rows == (1,)
 
 
-def test_schema_version_is_two() -> None:
-    assert schema.SCHEMA_VERSION == 2
+def test_schema_version_is_three() -> None:
+    assert schema.SCHEMA_VERSION == 3
+
+
+def test_nodes_has_repo_column(tmp_path) -> None:
+    conn = sqlite3.connect(tmp_path / "t.db")
+    schema.apply_schema(conn)
+    cols = {row[1] for row in conn.execute("PRAGMA table_info(nodes)")}
+    assert "repo" in cols
+    idx = {row[1] for row in conn.execute("PRAGMA index_list(nodes)")}
+    assert "idx_nodes_repo" in idx
 
 
 def test_nodes_table_has_uri_column(conn: sqlite3.Connection) -> None:

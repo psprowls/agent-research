@@ -217,6 +217,47 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
     assert mock_workflow.called, "check_workflow_hints not called"
 
 
+def test_module_pass_code_drift_unions_packages_across_members(tmp_path: Path) -> None:
+    """_module_pass code-drift discovery is the UNION across every member root in
+    a multi-repo workspace. Two members each carrying one package, both in the
+    vault, must yield packages_on_disk == 2 with no false missing_in_vault drift.
+    """
+    from graph_wiki_core.commands.lint import _module_pass
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    repo = tmp_path / "repo-a"
+    member_b = tmp_path / "repo-b"
+
+    # Vault lists both packages (folder-shorthand <container>/<slug>/<slug>).
+    pages = {
+        "packages/alpha/alpha": {"fm": {"category": "package", "status": None}, "text": ""},
+        "packages/beta/beta": {"fm": {"category": "package", "status": None}, "text": ""},
+    }
+
+    per_member = {repo: [{"name": "alpha"}], member_b: [{"name": "beta"}]}
+
+    from workspace_io.config import GraphWikiConfig
+
+    with (
+        patch(
+            "wiki_io.scan_monorepo._discover_heuristic",
+            side_effect=lambda m, *a, **k: per_member.get(Path(m), []),
+        ),
+        patch(
+            "workspace_io.config.resolve",
+            return_value=GraphWikiConfig(workspace=wiki.parent, repo_root=repo, members=(repo, member_b)),
+        ),
+    ):
+        result = _module_pass(repo, wiki, wiki.parent, pages)
+
+    cd = result["code_drift"]
+    assert cd["packages_on_disk"] == 2
+    assert cd["packages_in_vault"] == 2
+    assert cd["missing_in_vault"] == []
+    assert cd["orphaned_in_vault"] == []
+
+
 # ---------------------------------------------------------------------------
 # Test 7: semantic fan-out runs 3 groups with role="linter"
 # ---------------------------------------------------------------------------
