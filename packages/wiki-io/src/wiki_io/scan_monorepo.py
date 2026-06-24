@@ -785,9 +785,10 @@ def compute_state_gates(members: list[Path], workspace: Path | None = None) -> d
     Single-repo callers can keep using ``compute_state_gate`` directly; this is
     the multi-repo building block consumed by the per-repo narrative/drift gating.
 
-    The ``graph_io`` imports are function-local to avoid a module-load cycle
-    (graph_io depends on the lower layers; wiki-io must not import it at module
-    scope).
+    The ``graph_io`` imports are function-local (precautionary/stylistic — they
+    defer the import to call time). There is no cycle: wiki-io declares graph-io
+    as a dependency and ``index_generator`` already imports ``graph_io`` at
+    module scope, so wiki-io -> graph-io is the legitimate direction.
     """
     from graph_io.update import _derive_repo_context
     from graph_io.uri import repo_uri

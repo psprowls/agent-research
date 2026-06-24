@@ -724,9 +724,11 @@ def _head_for_uri(uri: str, gates: dict, fallback: str | None) -> str | None:
     """Resolve the owning repo's ``head_commit`` for an entity URI.
 
     Parses ``'{org}/{repo}'`` from the URI (``_parse_repo_key``) and returns the
-    matching gate's HEAD. In single-repo mode (one gate entry) the sole entry's
-    HEAD is used regardless of the URI; otherwise (no match, empty ``gates``) the
-    provided ``fallback`` is returned — keeping the single-repo path unchanged.
+    matching gate's HEAD. When the workspace has exactly one member and the URI's
+    repo key isn't in ``gates`` (e.g. a remote-URL key mismatch), the sole gate's
+    HEAD is returned as a best-effort fallback. Otherwise — no key match with
+    multiple gates, or empty ``gates`` (single-repo mode, ``gates == {}``) — the
+    provided ``fallback`` is returned, keeping the single-repo path unchanged.
 
     Consumed by per-repo narrative/drift gating (Tasks 6/7).
     """
@@ -779,6 +781,9 @@ def _commit_dirty_changes(
             node_path = node.path
             if not uri or not node_path:
                 continue
+            # Pre-wired for Task 6: in multi-repo this skips an entity whose URI
+            # resolves to a repo with no gate entry. No-op for single-repo
+            # (gates == {} -> _head_for_uri returns `head`, never None here).
             if _head_for_uri(uri, gates, head) is None:
                 continue
             page_path = _entity_page_path(wiki, kind, node, uri, collision_set)
@@ -1146,15 +1151,15 @@ async def _build_scan_worklist_body(
     # Multi-repo per-repo state-gate map: one HEAD per workspace member, keyed by
     # '{org}/{repo}'. Single-repo workspaces have no members → `gates == {}` and
     # downstream gating uses the single-repo `head`/`state_gate` unchanged. Tasks
-    # 6/7 consume `gates` (via `_head_for_uri`) and `_members` for per-repo
-    # narrative-refresh and drift gating.
+    # 6/7 consume `gates` (via `_head_for_uri`) for per-repo narrative-refresh and
+    # drift gating.
     from workspace_io.config import resolve as _resolve_cfg
 
-    _members = list(_resolve_cfg(repo, require_manifest=False).members)
-    if _members:
+    members = list(_resolve_cfg(repo, require_manifest=False).members)
+    if members:
         from wiki_io.scan_monorepo import compute_state_gates
 
-        gates = compute_state_gates(_members, workspace=wiki.parent)
+        gates = compute_state_gates(members, workspace=wiki.parent)
     else:
         gates = {}
 

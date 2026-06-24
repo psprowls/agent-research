@@ -21,3 +21,5 @@ def test_compute_state_gates_one_per_member(tmp_path):
     gates = compute_state_gates([a, b], workspace=ws)
     assert set(gates) == {"local/alpha", "local/beta"}
     assert all(g["head_commit"] for g in gates.values())
+    # Full gate-dict contract is load-bearing downstream.
+    assert all("allowed" in g and "reason" in g for g in gates.values())
