@@ -25,7 +25,7 @@ INPUT=$(cat)
 # Fast path: only the two doc-writing skills matter. Cheap match on the raw
 # payload — no jq, no uv spin-up for any other skill.
 # Match is deliberately payload-wide (not name-scoped): trading a rare spurious uv spin-up for independence from the skill-id field name and namespacing.
-if ! printf '%s' "$INPUT" | grep -qE '(brainstorming|writing-plans)'; then
+if ! printf '%s' "$INPUT" | grep -qE '(brainstorming|writing-plans|workflow)'; then
     allow; exit 0
 fi
 
