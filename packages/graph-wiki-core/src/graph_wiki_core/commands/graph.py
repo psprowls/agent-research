@@ -182,7 +182,7 @@ def run_build(repo: Path, workspace: Path, *, full: bool) -> tuple[int, str, str
     Does NOT emit the CLI-only `--model` note.
     """
     try:
-        cfg = resolve(require_manifest=False)
+        cfg = resolve(repo, require_manifest=False)
         members = list(cfg.members)
         if members:
             repo_resolved = Path(repo).resolve()
