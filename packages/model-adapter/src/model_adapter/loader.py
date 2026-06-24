@@ -23,9 +23,11 @@ from importlib import resources
 from typing import Any
 
 import botocore.exceptions
+import openai
 from langchain_aws import ChatBedrockConverse
+from langchain_openai import ChatOpenAI
 
-from model_adapter.exceptions import BedrockAccessDenied
+from model_adapter.exceptions import BedrockAccessDenied, GatewayAccessDenied
 
 
 def _load_models_config() -> dict:
@@ -71,6 +73,15 @@ def _format_access_denied_message(model_id: str, original: Exception) -> str:
         "  Add an IAM policy with: "
         '{"Effect":"Allow","Action":"bedrock:InvokeModel",'
         '"Resource":"arn:aws:bedrock:*::foundation-model/*"}\n'
+        f"  Original error: {original}"
+    )
+
+
+def _format_gateway_access_denied_message(base_url: str, original: Exception | None) -> str:
+    return (
+        "Vercel AI Gateway access denied.\n"
+        f"  Gateway base URL: {base_url}\n"
+        "  Set a valid bearer key in the AI_GATEWAY_API_KEY environment variable.\n"
         f"  Original error: {original}"
     )
 
@@ -162,6 +173,42 @@ class _GuardedChatBedrockConverse(ChatBedrockConverse):
             if wrapped is not None:
                 raise wrapped from e
             raise
+        return _normalize_content(response)
+
+
+class _GuardedChatOpenAI(ChatOpenAI):
+    """ChatOpenAI subclass for the Vercel AI Gateway that translates gateway
+    auth failures into GatewayAccessDenied and normalizes list-shaped content.
+
+    Symmetric with `_GuardedChatBedrockConverse`: `invoke()`/`ainvoke()` defer
+    to the parent via `_original_invoke`/`_original_ainvoke` (the monkeypatch
+    seam), translate `openai.AuthenticationError` → GatewayAccessDenied, and
+    pass successful responses through the shared `_normalize_content`. All other
+    errors propagate raw (the gateway path is opt-in; debuggers see real errors).
+    """
+
+    # Bound per-instance by `make_llm` via `object.__setattr__` (Pydantic v2
+    # forbids normal field assignment).
+    _base_url_for_errors: str = ""
+
+    def _original_invoke(self, *args: Any, **kwargs: Any) -> Any:
+        return ChatOpenAI.invoke(self, *args, **kwargs)
+
+    async def _original_ainvoke(self, *args: Any, **kwargs: Any) -> Any:
+        return await ChatOpenAI.ainvoke(self, *args, **kwargs)
+
+    def invoke(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            response = self._original_invoke(*args, **kwargs)
+        except openai.AuthenticationError as e:
+            raise GatewayAccessDenied(_format_gateway_access_denied_message(self._base_url_for_errors, e)) from e
+        return _normalize_content(response)
+
+    async def ainvoke(self, *args: Any, **kwargs: Any) -> Any:
+        try:
+            response = await self._original_ainvoke(*args, **kwargs)
+        except openai.AuthenticationError as e:
+            raise GatewayAccessDenied(_format_gateway_access_denied_message(self._base_url_for_errors, e)) from e
         return _normalize_content(response)
 
 
