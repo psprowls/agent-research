@@ -128,10 +128,17 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
     if repo is not None:
         try:
             from wiki_io.scan_monorepo import _discover_heuristic, unscope
+            from workspace_io.config import resolve as _resolve_cfg
 
             # Container-free discovery: heuristic walk of on-disk package dirs.
-            workspaces = _discover_heuristic(repo)
-            disk_names = {unscope(w["name"]) for w in workspaces}
+            # In a multi-repo workspace, on-disk packages span every member root,
+            # so enumerate the UNION across all members (``members or [repo]``
+            # keeps single-repo byte-identical: iterate the one repo).
+            members = list(_resolve_cfg(repo, require_manifest=False).members) or [repo]
+            disk_names = set()
+            for member in members:
+                workspaces = _discover_heuristic(member)
+                disk_names |= {unscope(w["name"]) for w in workspaces}
             vault_pkg_pages = {
                 k: p
                 for k, p in pages.items()
