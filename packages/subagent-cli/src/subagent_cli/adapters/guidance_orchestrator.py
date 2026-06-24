@@ -21,7 +21,7 @@ _TOP_N = 8  # number of recall candidates to pass to the ranking prompt
 
 class GuidanceOrchestratorAdapter:
     name = "guidance_orchestrator"
-    role = "orchestrator"
+    role = "guidance_orchestrator"
     selector = "query"
     supports_all = False
 
