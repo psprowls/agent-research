@@ -120,6 +120,63 @@ def test_colliding_relpaths_and_pkg_name_stay_distinct(tmp_path):
     assert multi_parent == []
 
 
+def _mk_js_repo_with_main(root: Path, name: str, pkg_name: str):
+    """A ROOT JS package (package.json at repo root) declaring a `main` entry
+    point. Stays kind=package (no `bin` → not an app)."""
+    import json as _json
+
+    d = root / name
+    (d / "src").mkdir(parents=True)
+    (d / "package.json").write_text(_json.dumps({"name": pkg_name, "version": "0.1.0", "main": "src/index.js"}))
+    (d / "src" / "index.js").write_text("module.exports = {};\n")
+    _git(["init", "-q"], d)
+    _git(["add", "-A"], d)
+    _git(["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"], d)
+    return d
+
+
+def test_root_package_entry_point_has_no_empty_uri_duplicate(tmp_path):
+    """A ROOT package that declares an entry point must NOT spawn a duplicate,
+    empty-uri package node.
+
+    Regression guard for the entry_points emitter coercing a root package's
+    rel-path `''` to `None`: the `declares_entry_point` edge's src key then
+    mismatched `packages.refresh`'s canonical `path=''` node identity, stubbing
+    a second uri-less `package` node. Benign in single-repo (index `_repo_for`
+    falls back to repos[0]) but fatal in multi-repo (StickerGiant TS monorepo
+    e2e gate). Uses two members so the empty-uri stub survives the global
+    sweep, mirroring the real multi-repo failure.
+    """
+    root = tmp_path / "mono"
+    root.mkdir()
+    ws = root / "workspace"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\nmulti-repo: true\n")
+    a = _mk_js_repo_with_main(root, "common", "@sg/frontend-common")
+    _mk_js_repo_with_main(root, "other", "@sg/other")
+
+    update.run_workspace([a, root / "other"], workspace=ws, full=True)
+
+    conn = store.read_only_connect(update.graph_dir(ws) / "code.db")
+
+    # Exactly ONE package node named '@sg/frontend-common' — no empty-uri stub.
+    rows = conn.execute("SELECT uri FROM nodes WHERE kind='package' AND name='@sg/frontend-common'").fetchall()
+    assert len(rows) == 1, f"expected 1 package node, got {len(rows)}: {rows}"
+    (pkg_uri_val,) = rows[0]
+    assert pkg_uri_val, f"package node has empty uri: {pkg_uri_val!r}"
+
+    # The declares_entry_point edge resolves to that same uri-bearing node.
+    src_rows = conn.execute(
+        "SELECT s.uri FROM edges e "
+        "JOIN nodes s ON s.id = e.src "
+        "JOIN nodes ep ON ep.id = e.dst "
+        "WHERE e.kind='declares_entry_point' AND s.kind='package' AND s.name='@sg/frontend-common'"
+    ).fetchall()
+    assert src_rows, "no declares_entry_point edge from package '@sg/frontend-common'"
+    for (src_uri,) in src_rows:
+        assert src_uri == pkg_uri_val, f"edge src uri {src_uri!r} != canonical {pkg_uri_val!r}"
+
+
 def test_cross_repo_depends_on_package(tmp_path):
     root = tmp_path / "mono"
     root.mkdir()

@@ -296,14 +296,21 @@ class AgentPluginDescription:
 def _row_to_node(row) -> NodeRecord:
     """Project a SQL row into a NodeRecord.
 
-    Accepts both 5-column shape `(kind, name, path, line, attrs_json)` and
-    6-column shape with `uri` appended. When `uri` is present, it is folded
-    back into `attrs` under the `"uri"` key so callers can read it uniformly
-    from `node.attrs["uri"]` (the upsert layer pops `uri` out of attrs and
-    into a dedicated column at write time — projecting it back keeps the
-    read surface symmetric for downstream code, e.g. wiki_io.entity_writer).
+    Accepts 5-column shape `(kind, name, path, line, attrs_json)`, 6-column
+    shape with `uri` appended, or 7-column shape with `repo` appended. When
+    `uri` is present, it is folded back into `attrs` under the `"uri"` key so
+    callers can read it uniformly from `node.attrs["uri"]` (the upsert layer
+    pops `uri` out of attrs and into a dedicated column at write time —
+    projecting it back keeps the read surface symmetric for downstream code,
+    e.g. wiki_io.entity_writer). The 7-column shape additionally folds the
+    `repo` column into `attrs["repo"]` so multi-repo placement (wiki_io index
+    generation) can resolve an entity's repository from the authoritative
+    `repo` column even when its URI doesn't carry a repo segment.
     """
-    if len(row) == 6:
+    repo = None
+    if len(row) == 7:
+        kind, name, path, line, attrs_json, uri, repo = row
+    elif len(row) == 6:
         kind, name, path, line, attrs_json, uri = row
     else:
         kind, name, path, line, attrs_json = row
@@ -311,6 +318,8 @@ def _row_to_node(row) -> NodeRecord:
     attrs = json.loads(attrs_json) if attrs_json else {}
     if uri:
         attrs["uri"] = uri
+    if repo:
+        attrs["repo"] = repo
     return NodeRecord(kind=kind, name=name, path=path, line=line, attrs=attrs)
 
 
@@ -1410,7 +1419,7 @@ def describe_agent_plugin(conn: sqlite3.Connection, *, name: str) -> AgentPlugin
 
 def _list_by_kind(conn: sqlite3.Connection, kind: str) -> list[NodeRecord]:
     rows = conn.execute(
-        "SELECT kind, name, path, line, attrs_json, uri FROM nodes WHERE kind = ? ORDER BY name",
+        "SELECT kind, name, path, line, attrs_json, uri, repo FROM nodes WHERE kind = ? ORDER BY name",
         (kind,),
     ).fetchall()
     return [_row_to_node(r) for r in rows]

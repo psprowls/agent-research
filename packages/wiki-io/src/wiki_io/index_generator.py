@@ -425,20 +425,30 @@ def _place_entities(
         if key:
             repo_key_to_name[key] = r.name
 
-    def _repo_for(uri: str, *, kind: str, name: str) -> str:
+    def _repo_for(uri: str, *, kind: str, name: str, repo: str = "") -> str:
+        # Primary resolver: the entity's own URI carries the {org}/{repo}
+        # segment. Secondary: the authoritative `nodes.repo` column (every
+        # admitted node carries one post-Task-2), which resolves stray nodes
+        # whose URI is repo-less or empty. Single-repo fallback last.
         key = _parse_repo_key(uri)
         if key and key in repo_key_to_name:
             return repo_key_to_name[key]
+        repo_key = _parse_repo_key(repo)
+        if repo_key and repo_key in repo_key_to_name:
+            return repo_key_to_name[repo_key]
         if len(repos) == 1:
             return repos[0].name
         raise ValueError(
-            f"cannot resolve repository for {kind} {name!r} (uri={uri!r}): "
-            f"{len(repos)} repository nodes and no URI match"
+            f"cannot resolve repository for {kind} {name!r} "
+            f"(uri={uri!r}, repo={repo!r}): "
+            f"{len(repos)} repository nodes and no URI/repo-column match"
         )
 
     domain_repo: dict[str, str] = {}
     for d in list_domains(conn):
-        domain_repo[d.name] = _repo_for(d.attrs.get("uri") or "", kind="domain", name=d.name)
+        domain_repo[d.name] = _repo_for(
+            d.attrs.get("uri") or "", kind="domain", name=d.name, repo=d.attrs.get("repo") or ""
+        )
 
     per_repo: dict[str, tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]] = {}
     name_to_entity: dict[str, PlacedEntity] = {}
@@ -499,7 +509,7 @@ def _place_entities(
                 domain_buckets, _ = _buckets_for(domain_repo[the_domain])
                 domain_buckets.setdefault(the_domain, []).append(entity)
             else:
-                _, direct = _buckets_for(_repo_for(uri, kind=kind, name=node.name))
+                _, direct = _buckets_for(_repo_for(uri, kind=kind, name=node.name, repo=node.attrs.get("repo") or ""))
                 direct.append(entity)
 
     for domain_buckets, direct in per_repo.values():

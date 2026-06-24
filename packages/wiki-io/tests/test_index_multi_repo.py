@@ -65,6 +65,86 @@ def test_generate_index_two_repositories_render_two_sections(tmp_path, make_inde
 
 
 # ============================================================================
+# Acceptance 1b — a URI-less node resolves via the authoritative repo column
+# ============================================================================
+
+
+def test_uri_less_node_resolved_via_repo_column(tmp_path, make_index_fixture_graph):
+    """A package node whose URI carries no ``{org}/{repo}`` segment but has a
+    valid ``repo`` column must place under the repo named by its ``repo``
+    column — ``_place_entities`` must NOT raise in a multi-repo graph.
+
+    Defense-in-depth for the multi-repo index ``_repo_for``: previously such a
+    node raised ``ValueError`` when >1 repository existed and the URI failed to
+    resolve. The fallback to the authoritative ``nodes.repo`` column keeps the
+    whole index from crashing on one stray node. A real entity-page URI is
+    given so the downstream rendering / collision machinery is exercised
+    normally — only the *repo resolution* depends on the column here.
+    """
+    from wiki_io.entity_writer import ADMITTED_KINDS as _ADMITTED_KINDS
+    from wiki_io.entity_writer import _compute_collision_set, _kind_list_fns
+    from wiki_io.index_generator import _place_entities
+
+    spec = {
+        "nodes": [
+            ("repository", "repo-alpha", {"uri": "repo:local/repo-alpha"}),
+            ("repository", "repo-beta", {"uri": "repo:local/repo-beta"}),
+            ("package", "pkg-beta", {"uri": "pkg:local/repo-beta/pkg-beta"}),
+            # A repo-less URI shape (only 2 segments after the scheme -> no
+            # {org}/{repo} match in _parse_repo_key); resolvable only via the
+            # repo column.
+            ("package", "stub-pkg", {"uri": "pkg:stub-pkg"}),
+        ],
+        "edges": [],
+    }
+    conn = make_index_fixture_graph(spec)
+    # Stamp the stray node's authoritative repo column (the only resolver).
+    conn.execute(
+        "UPDATE nodes SET repo = ? WHERE kind='package' AND name='stub-pkg'",
+        ("repo:local/repo-alpha",),
+    )
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir()
+
+    collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
+    # Must NOT raise — the repo column resolves the stray node.
+    per_repo, _name_to_entity, _domain_repo = _place_entities(conn, wiki_root, collision_set)
+
+    # The stub package is bucketed under repo-alpha (its repo column), direct.
+    _, alpha_direct = per_repo["repo-alpha"]
+    assert any(e.name == "stub-pkg" for e in alpha_direct)
+    # And NOT under repo-beta.
+    if "repo-beta" in per_repo:
+        _, beta_direct = per_repo["repo-beta"]
+        assert all(e.name != "stub-pkg" for e in beta_direct)
+
+
+def test_single_repo_uri_less_node_unchanged(tmp_path, make_index_fixture_graph):
+    """Single-repo behavior is unaffected: a node with an unresolvable URI still
+    falls into the lone repository via the ``len(repos) == 1`` fallback (no repo
+    column needed). Asserts the column fallback is a no-op for single-repo."""
+    from wiki_io.entity_writer import ADMITTED_KINDS as _ADMITTED_KINDS
+    from wiki_io.entity_writer import _compute_collision_set, _kind_list_fns
+    from wiki_io.index_generator import _place_entities
+
+    spec = {
+        "nodes": [
+            ("repository", "solo", {"uri": "repo:local/solo"}),
+            ("package", "stub-pkg", {"uri": "pkg:stub-pkg"}),
+        ],
+        "edges": [],
+    }
+    conn = make_index_fixture_graph(spec)
+    wiki_root = tmp_path / "wiki"
+    wiki_root.mkdir()
+
+    collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
+    per_repo, _name_to_entity, _domain_repo = _place_entities(conn, wiki_root, collision_set)
+    _, solo_direct = per_repo["solo"]
+    assert any(e.name == "stub-pkg" for e in solo_direct)
+
+
+# ============================================================================
 # Acceptance 2 — same-named packages across repos get distinct entity stems
 # ============================================================================
 
