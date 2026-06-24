@@ -21,6 +21,12 @@ If `gw` is not on PATH, run it as
 
 Run `gw next <slug> --json --file <workspace>/raw/guidance/<slug>.md`.
 
+`gw next` wraps the read-only `gw work next` and adds two keys to the JSON:
+`guidance` (ranked phase-relevant pages) and `guidance_warnings`. It also writes
+the assembled guidance bodies to the `--file` path when any matched. The
+`--file` parent dir is created on demand. All the blocker / terminal / dispatch
+fields the steps below read are unchanged from `gw work next`.
+
 - If `blockers` is non-empty:
   - If a blocker reports a **terminal status** (`resolved`, `wontfix`, or
     `superseded`) or **`phase=done`**, run **Terminal handling** (below): the
