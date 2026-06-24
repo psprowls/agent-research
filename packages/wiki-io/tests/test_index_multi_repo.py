@@ -19,7 +19,6 @@ feature). These tests lock that behavior against regression. They reuse the
 
 from __future__ import annotations
 
-import hashlib
 import sqlite3
 
 from graph_io import upsert
@@ -47,7 +46,7 @@ def test_generate_index_two_repositories_render_two_sections(tmp_path, make_inde
     }
     conn = make_index_fixture_graph(spec)
     wiki_root = tmp_path / "wiki"
-    wiki_root.mkdir(parents=True, exist_ok=True)
+    wiki_root.mkdir()
 
     result = generate_index(conn, wiki_root)
 
@@ -107,24 +106,18 @@ def test_same_named_packages_across_repos_get_distinct_filenames(tmp_path):
     )
     upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=()))
     wiki_root = tmp_path / "wiki"
-    wiki_root.mkdir(parents=True, exist_ok=True)
+    wiki_root.mkdir()
 
     write_entities(conn, wiki_root, ADMITTED_KINDS)
 
     entities = wiki_root / "entities"
-    h_alpha = hashlib.sha256(b"pkg:local/repo-alpha/common").hexdigest()[:6]
-    h_beta = hashlib.sha256(b"pkg:local/repo-beta/common").hexdigest()[:6]
-
-    page_alpha = entities / f"pkg_common__{h_alpha}.md"
-    page_beta = entities / f"pkg_common__{h_beta}.md"
-    assert page_alpha.exists()
-    assert page_beta.exists()
-    # Two DISTINCT stems — the collision suffix differs per repo URI.
-    assert page_alpha.name != page_beta.name
-    # D-04 symmetric: no plain-stem winner (neither package keeps `pkg_common.md`).
+    # Assert structurally (glob), NOT by recomputing the production hash —
+    # so the test keeps catching regressions if the disambiguator algorithm,
+    # encoding, or slice length ever changes (and pytest prints the real
+    # filenames on failure).
+    common_pages = sorted(entities.glob("pkg_common*.md"))
+    assert len(common_pages) == 2  # two distinct entity files, one per repo
+    assert common_pages[0].name != common_pages[1].name  # disambiguated stems differ
+    # collision rule: both URIs collide on `pkg_common`, so neither keeps the
+    # plain stem — both carry the `__<6hex>` suffix.
     assert not (entities / "pkg_common.md").exists()
-
-    # Defensive: exactly two `common` package pages on disk.
-    common_pages = sorted(p.name for p in entities.glob("pkg_common*.md"))
-    assert len(common_pages) == 2
-    assert common_pages == sorted([page_alpha.name, page_beta.name])
