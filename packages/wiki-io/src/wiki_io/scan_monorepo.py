@@ -773,3 +773,32 @@ def compute_state_gate(repo: Path, workspace: Path | None = None) -> dict:
         "reason": reason,
         "head_commit": head_commit(repo),
     }
+
+
+def compute_state_gates(members: list[Path], workspace: Path | None = None) -> dict[str, dict]:
+    """Per-member state-gate map keyed by ``'{org}/{repo}'``.
+
+    Each value is the dict returned by ``compute_state_gate(member, workspace)``
+    (``{allowed, reason, head_commit}``) — one HEAD per member. Members whose URI
+    yields no repo key (``_parse_repo_key`` returns None) are skipped.
+
+    Single-repo callers can keep using ``compute_state_gate`` directly; this is
+    the multi-repo building block consumed by the per-repo narrative/drift gating.
+
+    The ``graph_io`` imports are function-local to avoid a module-load cycle
+    (graph_io depends on the lower layers; wiki-io must not import it at module
+    scope).
+    """
+    from graph_io.update import _derive_repo_context
+    from graph_io.uri import repo_uri
+
+    from wiki_io.index_generator import _parse_repo_key
+
+    gates: dict[str, dict] = {}
+    for member in members:
+        ctx = _derive_repo_context(Path(member))
+        key = _parse_repo_key(repo_uri(ctx))
+        if key is None:
+            continue
+        gates[key] = compute_state_gate(Path(member), workspace=workspace)
+    return gates

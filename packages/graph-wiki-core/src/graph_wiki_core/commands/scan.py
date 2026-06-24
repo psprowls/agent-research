@@ -720,12 +720,33 @@ def _changed_rel_paths(changed: list[str], node_path: str) -> set[str]:
     return rel
 
 
+def _head_for_uri(uri: str, gates: dict, fallback: str | None) -> str | None:
+    """Resolve the owning repo's ``head_commit`` for an entity URI.
+
+    Parses ``'{org}/{repo}'`` from the URI (``_parse_repo_key``) and returns the
+    matching gate's HEAD. In single-repo mode (one gate entry) the sole entry's
+    HEAD is used regardless of the URI; otherwise (no match, empty ``gates``) the
+    provided ``fallback`` is returned — keeping the single-repo path unchanged.
+
+    Consumed by per-repo narrative/drift gating (Tasks 6/7).
+    """
+    from wiki_io.index_generator import _parse_repo_key
+
+    key = _parse_repo_key(uri or "")
+    if key and key in gates:
+        return gates[key].get("head_commit")
+    if len(gates) == 1:
+        return next(iter(gates.values())).get("head_commit")
+    return fallback
+
+
 def _commit_dirty_changes(
     wiki: Path,
     repo: Path,
     conn: Any,
     head: str | None,
     collision_set: frozenset[str],
+    gates: dict | None = None,
 ) -> dict[str, list[str] | None]:
     """Map `package`/`app`/`test_suite`/`agent_plugin` URIs whose files changed since the commit
     recorded on their page (`last_updated_commit`) to the changed-file list.
@@ -736,9 +757,15 @@ def _commit_dirty_changes(
     to this repo (D-D self-correction). Pages WITHOUT an anchor are skipped
     (D-C). M2a used only the keys; M2b consumes the values to drop changed rows
     from the File-map ``preserved`` map (§3.1).
+
+    ``gates`` is the multi-repo ``{repo-key -> gate}`` map. When non-empty the
+    per-entity HEAD presence-guard is resolved from the owning repo's gate
+    (``_head_for_uri``); when empty/None the single-repo ``head`` is used for
+    every entity (unchanged behavior).
     """
+    gates = gates or {}
     dirty: dict[str, list[str] | None] = {}
-    if head is None or conn is None:
+    if (head is None and not gates) or conn is None:
         return dirty
     list_fns = _kind_list_fns()
     for kind in ("package", "app", "test_suite", "agent_plugin"):
@@ -751,6 +778,8 @@ def _commit_dirty_changes(
             uri = node.attrs.get("uri")
             node_path = node.path
             if not uri or not node_path:
+                continue
+            if _head_for_uri(uri, gates, head) is None:
                 continue
             page_path = _entity_page_path(wiki, kind, node, uri, collision_set)
             if not page_path.exists():
@@ -1114,6 +1143,21 @@ async def _build_scan_worklist_body(
     head = state_gate.get("head_commit")
     short_head = short_commit(repo, head) if head else head
 
+    # Multi-repo per-repo state-gate map: one HEAD per workspace member, keyed by
+    # '{org}/{repo}'. Single-repo workspaces have no members → `gates == {}` and
+    # downstream gating uses the single-repo `head`/`state_gate` unchanged. Tasks
+    # 6/7 consume `gates` (via `_head_for_uri`) and `_members` for per-repo
+    # narrative-refresh and drift gating.
+    from workspace_io.config import resolve as _resolve_cfg
+
+    _members = list(_resolve_cfg(repo, require_manifest=False).members)
+    if _members:
+        from wiki_io.scan_monorepo import compute_state_gates
+
+        gates = compute_state_gates(_members, workspace=wiki.parent)
+    else:
+        gates = {}
+
     entity_write_result = None
     commit_dirty: dict[str, list[str] | None] = {}
 
@@ -1143,6 +1187,7 @@ async def _build_scan_worklist_body(
             conn,
             head,
             _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
+            gates=gates,
         )
         if commit_dirty:
             entity_write_result.needs_narrative.update(commit_dirty.keys())
