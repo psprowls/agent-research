@@ -18,6 +18,33 @@ def _serialize(attrs: dict[str, Any]) -> str | None:
     return json.dumps(attrs, sort_keys=True) if attrs else None
 
 
+# Connection-scoped current member repo URI (sqlite3.Connection forbids
+# arbitrary attributes, so key by id(conn)). Set/cleared by set_current_repo.
+_CURRENT_REPO: dict[int, str] = {}
+
+
+def _current_repo(conn: sqlite3.Connection) -> str | None:
+    """Connection-scoped current member repo URI, or None for single-repo.
+
+    Multi-repo (Task 2): set by `update._update_one_repo` for the duration of
+    one member's pipeline via `set_current_repo`. When set, path-bearing node
+    identity is scoped by `repo` so two sibling repos that share a relative
+    path (e.g. both have `pyproject.toml`) materialize as DISTINCT nodes
+    instead of merging into one (which would give it two physically_contains
+    parents and violate the strict-tree invariant). None → identical to the
+    historical single-repo behavior.
+    """
+    return _CURRENT_REPO.get(id(conn))
+
+
+def set_current_repo(conn: sqlite3.Connection, repo_uri: str | None) -> None:
+    """Set (or clear) the connection-scoped current member repo URI."""
+    if repo_uri is None:
+        _CURRENT_REPO.pop(id(conn), None)
+    else:
+        _CURRENT_REPO[id(conn)] = repo_uri
+
+
 def _node_id(conn: sqlite3.Connection, key: NodeKey) -> int | None:
     kind, name, path = key
     if path is None:
@@ -25,10 +52,21 @@ def _node_id(conn: sqlite3.Connection, key: NodeKey) -> int | None:
             "SELECT id FROM nodes WHERE kind=? AND name=? AND path IS NULL",
             (kind, name),
         ).fetchone()
-    else:
+        return row[0] if row else None
+    current_repo = _current_repo(conn)
+    if current_repo is None:
         row = conn.execute(
             "SELECT id FROM nodes WHERE kind=? AND name=? AND path=?",
             (kind, name, path),
+        ).fetchone()
+    else:
+        # A path-bearing node is owned by the member that produced it. Match
+        # this member's stamped row OR an as-yet-unstamped row (this member's
+        # own just-written nodes before the end-of-pass repo stamp). Never
+        # match a sibling member's already-stamped row.
+        row = conn.execute(
+            "SELECT id FROM nodes WHERE kind=? AND name=? AND path=? AND (repo=? OR repo IS NULL)",
+            (kind, name, path, current_repo),
         ).fetchone()
     return row[0] if row else None
 
@@ -41,9 +79,13 @@ def _insert_node(
     uri: str | None,
 ) -> int:
     kind, name, path = key
+    # Stamp the current member repo at insert time for path-bearing nodes so a
+    # later sibling member can't merge into this row. Pathless / global nodes
+    # (builtin, dependency, unresolved symbols) stay repo=NULL.
+    repo = _current_repo(conn) if path is not None else None
     cursor = conn.execute(
-        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, ?, ?)",
-        (kind, name, path, line, attrs_json, uri),
+        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri, repo) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (kind, name, path, line, attrs_json, uri, repo),
     )
     if cursor.lastrowid is None:
         raise RuntimeError("SQLite did not return a row id for inserted graph node")

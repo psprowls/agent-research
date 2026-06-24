@@ -398,24 +398,36 @@ def test_strict_tree_invariant_class_and_helper_exist() -> None:
 
 
 def test_update_run_calls_emitters_in_correct_order() -> None:
-    """Task 2: update.run sources contains entry_points.emit + test_suites.emit +
-    the invariant call in the required order (D-21)."""
+    """Task 2: the update pipeline calls structural_nodes / entry_points /
+    test_suites emitters per member (in `_update_one_repo`), then the global
+    resolve.sweep + strict-tree invariant (in `run_workspace`), in the required
+    order (D-21). Multi-repo refactor split the monolithic `run()` body across
+    `_update_one_repo` (per-member emitters) and `run_workspace` (global tail);
+    `run` now just delegates, so introspect both functions."""
     import inspect
 
     from graph_io import update
 
-    src = inspect.getsource(update.run)
-    assert "entry_points.emit" in src
-    assert "test_suites.emit" in src
-    assert "_enforce_strict_tree_invariant" in src
+    member_src = inspect.getsource(update._update_one_repo)
+    workspace_src = inspect.getsource(update.run_workspace)
+    assert "entry_points.emit" in member_src
+    assert "test_suites.emit" in member_src
+    assert "_enforce_strict_tree_invariant" in workspace_src
 
-    i_struct = src.index("structural_nodes.emit")
-    i_entry = src.index("entry_points.emit")
-    i_test = src.index("test_suites.emit")
-    i_resolve = src.index("resolve.sweep")
-    i_inv = src.index("_enforce_strict_tree_invariant")
-    assert i_struct < i_entry < i_test < i_resolve < i_inv, (
-        f"wrong order in update.run: struct={i_struct} entry={i_entry} test={i_test} resolve={i_resolve} inv={i_inv}"
+    # Per-member emitter order (within _update_one_repo).
+    i_struct = member_src.index("structural_nodes.emit")
+    i_entry = member_src.index("entry_points.emit")
+    i_test = member_src.index("test_suites.emit")
+    assert i_struct < i_entry < i_test, (
+        f"wrong emitter order in _update_one_repo: struct={i_struct} entry={i_entry} test={i_test}"
+    )
+    # Global tail order (within run_workspace): the per-member loop runs before
+    # resolve.sweep, which runs before the invariant check.
+    i_loop = workspace_src.index("_update_one_repo")
+    i_resolve = workspace_src.index("resolve.sweep")
+    i_inv = workspace_src.index("_enforce_strict_tree_invariant")
+    assert i_loop < i_resolve < i_inv, (
+        f"wrong tail order in run_workspace: loop={i_loop} resolve={i_resolve} inv={i_inv}"
     )
 
 

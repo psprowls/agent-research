@@ -454,8 +454,15 @@ def emit(
     # --- Read existing Package/App rows ---
     # Phase 50 D-04: apps are physically contained by the repository the same
     # way packages are.
+    # Multi-repo (Task 2): scope to THIS member's packages. Prior members'
+    # nodes already carry their `repo`; the current member's just-written rows
+    # are still `repo IS NULL` (the repo stamp runs at the end of the per-member
+    # pipeline). Single-repo build: all rows are NULL here, so this matches all.
+    member_repo = repo_uri(ctx)
     pkg_rows = conn.execute(
-        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app')"
+        "SELECT name, path, attrs_json, kind FROM nodes WHERE kind IN ('package', 'app') "
+        "AND (repo = ? OR repo IS NULL)",
+        (member_repo,),
     ).fetchall()
 
     # Repository -> Package/App edges (D-03)
