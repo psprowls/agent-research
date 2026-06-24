@@ -120,6 +120,115 @@ def test_colliding_relpaths_and_pkg_name_stay_distinct(tmp_path):
     assert multi_parent == []
 
 
+def _mk_js_repo_with_main(root: Path, name: str, pkg_name: str):
+    """A ROOT JS package (package.json at repo root) declaring a `main` entry
+    point. Stays kind=package (no `bin` → not an app)."""
+    import json as _json
+
+    d = root / name
+    (d / "src").mkdir(parents=True)
+    (d / "package.json").write_text(_json.dumps({"name": pkg_name, "version": "0.1.0", "main": "src/index.js"}))
+    (d / "src" / "index.js").write_text("module.exports = {};\n")
+    _git(["init", "-q"], d)
+    _git(["add", "-A"], d)
+    _git(["-c", "user.email=t@t", "-c", "user.name=t", "commit", "-qm", "init"], d)
+    return d
+
+
+def test_root_package_entry_point_has_no_empty_uri_duplicate(tmp_path):
+    """A ROOT package that declares an entry point must NOT spawn a duplicate,
+    empty-uri package node.
+
+    Regression guard for the entry_points emitter coercing a root package's
+    rel-path `''` to `None`: the `declares_entry_point` edge's src key then
+    mismatched `packages.refresh`'s canonical `path=''` node identity, stubbing
+    a second uri-less `package` node. Benign in single-repo (index `_repo_for`
+    falls back to repos[0]) but fatal in multi-repo (StickerGiant TS monorepo
+    e2e gate). Uses two members so the empty-uri stub survives the global
+    sweep, mirroring the real multi-repo failure.
+    """
+    root = tmp_path / "mono"
+    root.mkdir()
+    ws = root / "workspace"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\nmulti-repo: true\n")
+    a = _mk_js_repo_with_main(root, "common", "@sg/frontend-common")
+    _mk_js_repo_with_main(root, "other", "@sg/other")
+
+    update.run_workspace([a, root / "other"], workspace=ws, full=True)
+
+    conn = store.read_only_connect(update.graph_dir(ws) / "code.db")
+
+    # Exactly ONE package node named '@sg/frontend-common' — no empty-uri stub.
+    rows = conn.execute("SELECT uri FROM nodes WHERE kind='package' AND name='@sg/frontend-common'").fetchall()
+    assert len(rows) == 1, f"expected 1 package node, got {len(rows)}: {rows}"
+    (pkg_uri_val,) = rows[0]
+    assert pkg_uri_val, f"package node has empty uri: {pkg_uri_val!r}"
+
+    # The declares_entry_point edge resolves to that same uri-bearing node.
+    src_rows = conn.execute(
+        "SELECT s.uri FROM edges e "
+        "JOIN nodes s ON s.id = e.src "
+        "JOIN nodes ep ON ep.id = e.dst "
+        "WHERE e.kind='declares_entry_point' AND s.kind='package' AND s.name='@sg/frontend-common'"
+    ).fetchall()
+    assert src_rows, "no declares_entry_point edge from package '@sg/frontend-common'"
+    for (src_uri,) in src_rows:
+        assert src_uri == pkg_uri_val, f"edge src uri {src_uri!r} != canonical {pkg_uri_val!r}"
+
+
+def test_shared_external_dependency_is_one_global_node(tmp_path):
+    """Two sibling repos that BOTH declare the SAME external dependency must
+    share ONE global (repo IS NULL), uri-bearing `dependency` node — not two
+    per-repo empty-uri stubs.
+
+    Regression guard for the connection-scoped upsert identity stamping/scoping
+    dependency nodes per member. A dependency's synthetic path
+    (`dependency:<eco>:<name>`) is non-None, so without the global-kind
+    exclusion `_insert_node` stamped it with member A's repo and member B's
+    `used_by` edge endpoint missed it under the repo-scoped `_node_id` lookup —
+    forking a second empty-uri stub stamped repo=B. Those uri-less stubs later
+    crash the wiki entity writer (`short_filename: empty uri`). Mirrors the
+    StickerGiant TS monorepo e2e failure where sibling repos share npm deps.
+    """
+    root = tmp_path / "mono"
+    root.mkdir()
+    ws = root / "workspace"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\nmulti-repo: true\n")
+    # "requests" is NOT a workspace package -> a real external `dependency` node.
+    a = _mk_py_repo(root, "alpha", "alpha", dep="requests")
+    b = _mk_py_repo(root, "beta", "beta", dep="requests")
+
+    update.run_workspace([a, b], workspace=ws, full=True)
+
+    conn = store.read_only_connect(update.graph_dir(ws) / "code.db")
+
+    # Exactly ONE dependency node for the shared external name.
+    dep_rows = conn.execute("SELECT repo, uri FROM nodes WHERE kind='dependency' AND name='requests'").fetchall()
+    assert len(dep_rows) == 1, f"expected 1 dependency node, got {len(dep_rows)}: {dep_rows}"
+    (dep_repo, dep_uri_val) = dep_rows[0]
+
+    # It is GLOBAL (repo IS NULL) and carries a non-empty uri.
+    assert dep_repo is None, f"shared dependency node is repo-stamped: {dep_repo!r}"
+    assert dep_uri_val, f"shared dependency node has empty uri: {dep_uri_val!r}"
+
+    # No empty-uri dependency stubs leaked anywhere.
+    empty = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND (uri IS NULL OR uri='')").fetchone()[0]
+    assert empty == 0, f"{empty} empty-uri dependency stub(s) leaked"
+
+    # Both members' package nodes point at the SAME single global dependency
+    # node via `used_by` (one shared node, not two).
+    consumers = conn.execute(
+        "SELECT s.name FROM edges e "
+        "JOIN nodes s ON s.id = e.src "
+        "JOIN nodes d ON d.id = e.dst "
+        "WHERE e.kind='used_by' AND d.kind='dependency' AND d.name='requests' "
+        "ORDER BY s.name"
+    ).fetchall()
+    assert [c[0] for c in consumers] == ["alpha", "beta"], f"unexpected used_by consumers: {consumers}"
+
+
 def test_cross_repo_depends_on_package(tmp_path):
     root = tmp_path / "mono"
     root.mkdir()

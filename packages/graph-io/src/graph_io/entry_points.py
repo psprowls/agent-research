@@ -90,7 +90,10 @@ def _emit_pyproject_entries(
 
     # Phase 50 D-04: pkg_key uses the caller-supplied kind so apps emit
     # src=("app", ...) for their declares_entry_point edges.
-    pkg_key = (pkg_kind, pkg_name, pkg_rel if pkg_rel else None)
+    # Root packages carry rel-path '' (packages.refresh canonical form, never
+    # None); pass it through verbatim so the edge resolves to the EXISTING
+    # package/app node instead of stubbing an empty-uri duplicate.
+    pkg_key = (pkg_kind, pkg_name, pkg_rel)
 
     def _resolve_callable(value: str) -> tuple[str | None, str | None]:
         """Return (file_rel_to_repo, callable_name) or (None, callable_or_None)."""
@@ -279,7 +282,10 @@ def _emit_packagejson_entries(
 
     # Phase 50 D-04: pkg_key uses the caller-supplied kind so apps emit
     # src=("app", ...) for their declares_entry_point edges.
-    pkg_key = (pkg_kind, pkg_name, pkg_rel if pkg_rel else None)
+    # Root packages carry rel-path '' (packages.refresh canonical form, never
+    # None); pass it through verbatim so the edge resolves to the EXISTING
+    # package/app node instead of stubbing an empty-uri duplicate.
+    pkg_key = (pkg_kind, pkg_name, pkg_rel)
     pkgjson_name = data.get("name", pkg_name) if isinstance(data, dict) else pkg_name
 
     def _resolve_path(value: str) -> str | None:
