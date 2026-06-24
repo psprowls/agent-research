@@ -280,7 +280,7 @@ max_concurrency = 2
 # file (path + head + symbols) into the guidance topic/tag vocabulary; high-volume
 # fan-out over file nodes via SubagentPool, so a cheap, fast tier.
 [roles.guidance_classifier]
-model_id        = "openai.gpt-oss-20b-1:0"
+model_id        = "moonshotai.kimi-k2.5" #"openai.gpt-oss-20b-1:0"
 region          = "us-east-1"
 max_tokens      = 256
 max_concurrency = 20
@@ -296,7 +296,7 @@ sweep_candidates = [
 # reasoning tier; max_tokens/concurrency are conservative and can be right-sized by
 # an eval sweep.
 [roles.guidance_orchestrator]
-model_id        = "qwen.qwen3-32b-v1:0"
+model_id        = "moonshotai.kimi-k2.5" #"qwen.qwen3-32b-v1:0"
 region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
