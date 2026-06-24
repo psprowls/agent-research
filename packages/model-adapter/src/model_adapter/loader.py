@@ -25,9 +25,12 @@ from typing import Any
 import botocore.exceptions
 import openai
 from langchain_aws import ChatBedrockConverse
+from langchain_core.language_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 
 from model_adapter.exceptions import BedrockAccessDenied, GatewayAccessDenied
+
+_DEFAULT_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
 
 
 def _load_models_config() -> dict:
@@ -212,10 +215,44 @@ class _GuardedChatOpenAI(ChatOpenAI):
         return _normalize_content(response)
 
 
-def make_llm(role: str, *, model_override: str | None = None) -> ChatBedrockConverse:
-    """Return a ChatBedrockConverse configured for the given role.
+def _make_gateway_llm(role_cfg: dict, model_override: str | None) -> _GuardedChatOpenAI:
+    """Build a _GuardedChatOpenAI for a `backend = "vercel"` role.
 
-    Resolution order:
+    Credentials come from the environment only — never from TOML:
+      AI_GATEWAY_API_KEY  (required; raises GatewayAccessDenied if unset)
+      AI_GATEWAY_BASE_URL (optional; defaults to the Vercel gateway endpoint)
+    """
+    import os
+
+    base_url = os.environ.get("AI_GATEWAY_BASE_URL", _DEFAULT_GATEWAY_BASE_URL)
+    api_key = os.environ.get("AI_GATEWAY_API_KEY")
+    if not api_key:
+        raise GatewayAccessDenied(_format_gateway_access_denied_message(base_url, None))
+
+    model_id = model_override if model_override is not None else role_cfg["model_id"]
+    kwargs: dict[str, Any] = dict(model=model_id, api_key=api_key, base_url=base_url)
+    max_tokens = role_cfg.get("max_tokens")
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+
+    llm = _GuardedChatOpenAI(**kwargs)
+    object.__setattr__(llm, "_base_url_for_errors", base_url)
+    return llm
+
+
+def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
+    """Return a chat model configured for the given role.
+
+    Backend selection is driven by the resolved role's ``backend`` key
+    (default ``"bedrock"``):
+      - ``"bedrock"`` (default): a ``_GuardedChatBedrockConverse`` built from
+        the role's ``model_id``/``region``/``max_tokens``.
+      - ``"vercel"``: a ``_GuardedChatOpenAI`` pointed at the Vercel AI
+        Gateway. Gateway credentials are read from the environment ONLY
+        (``AI_GATEWAY_API_KEY`` required, ``AI_GATEWAY_BASE_URL`` optional) —
+        never from TOML. Raises ``GatewayAccessDenied`` when the key is unset.
+
+    Resolution order (unchanged, applies to both backends):
       1. Workspace manifest (`<workspace>/.graph-wiki.yaml`
          `plugins[].roles[]` for plugin "graph-wiki-agent") if a role
          entry with `name == role` is present.
@@ -223,13 +260,15 @@ def make_llm(role: str, *, model_override: str | None = None) -> ChatBedrockConv
 
     Args:
         role: Role name (e.g. ``"librarian"``, ``"domain-proposer"``).
-        model_override: Optional Bedrock model id (ARN or short form) that
-            replaces the resolved role's ``model_id``. Other role config
-            (region, max_tokens, etc.) is preserved. Phase 48 D-21 wires
+        model_override: Optional model id (Bedrock ARN/short form, or gateway
+            slug) that replaces the resolved role's ``model_id``. Other role
+            config (region, max_tokens, etc.) is preserved. Phase 48 D-21 wires
             the ``--model`` CLI flag through this parameter.
 
     Raises:
         KeyError: when `role` is not present in either source.
+        GatewayAccessDenied: for a ``vercel`` role when ``AI_GATEWAY_API_KEY``
+            is unset.
     """
     workspace_cfg = _workspace_role_override(role)
     if workspace_cfg is not None:
@@ -238,6 +277,11 @@ def make_llm(role: str, *, model_override: str | None = None) -> ChatBedrockConv
         config = _load_models_config()
         role_cfg = config["roles"][role]  # KeyError if absent
 
+    backend = role_cfg.get("backend", "bedrock")
+    if backend == "vercel":
+        return _make_gateway_llm(role_cfg, model_override)
+
+    # --- Bedrock path (default, unchanged) ---
     model_id = model_override if model_override is not None else role_cfg["model_id"]
     region = role_cfg.get("region", "us-east-1")
 
