@@ -14,3 +14,17 @@ class BedrockAccessDenied(Exception):
     `bedrock:InvokeModel` IAM action so the user can fix permissions without
     a CloudTrail hunt.
     """
+
+
+class GatewayAccessDenied(Exception):
+    """Raised when the Vercel AI Gateway rejects a request for auth reasons.
+
+    Covers two cases, both surfaced with an actionable message:
+      - The `AI_GATEWAY_API_KEY` environment variable is unset when a
+        `backend = "vercel"` role is built (preflight config error).
+      - The gateway returns 401 / `openai.AuthenticationError` on invoke.
+
+    The message always names `AI_GATEWAY_API_KEY` and the gateway base URL so
+    the user can fix credentials without a server-log hunt. Mirrors
+    `BedrockAccessDenied` for the Bedrock path.
+    """
