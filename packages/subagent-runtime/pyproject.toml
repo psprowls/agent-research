@@ -1,7 +1,7 @@
 [project]
 name = "subagent-runtime"
 version = "0.1.1"
-description = "Async fan-out primitive for graph-wiki-agent subagent dispatch"
+description = "Async fan-out primitive for role-bound LLM subagent dispatch (langchain-core based)"
 requires-python = ">=3.11"
 dependencies = [
     "langchain-core>=1.4.0",
