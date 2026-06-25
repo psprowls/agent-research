@@ -202,12 +202,12 @@ ALL_ROLES = [
 # per-LLM-call cost is trackable under a distinct trace tag and the model can
 # be tuned independently of `scanner`. Initial config mirrors scanner; v1.9
 # eval will refine.
-DOMAIN_PROPOSER_ROLE = "domain-proposer"
+DOMAIN_PROPOSER_ROLE = "domain_proposer"
 NOVA_LITE_ARN = "us.amazon.nova-lite-v1:0"
 
 
 def test_domain_proposer_role():
-    """Phase 48 D-19 + D-21: `[roles.domain-proposer]` is present with the
+    """Phase 48 D-19 + D-21: `[roles.domain_proposer]` is present with the
     expected config, `make_llm` instantiates successfully, and `model_override`
     swaps the model_id while preserving the rest of the role config.
     """
@@ -221,7 +221,7 @@ def test_domain_proposer_role():
     assert cfg["max_tokens"] == 1024
     assert cfg["max_concurrency"] == 5
 
-    # D-19: `make_llm("domain-proposer")` returns a working LLM handle.
+    # D-19: `make_llm("domain_proposer")` returns a working LLM handle.
     llm = make_llm(DOMAIN_PROPOSER_ROLE)
     assert isinstance(llm, ChatBedrockConverse)
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)

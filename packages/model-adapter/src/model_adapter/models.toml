@@ -205,7 +205,7 @@ sweep_candidates = [
 # Phase 48 D-19 — LLM proposal for `graph propose-domains`. Separate from
 # scanner so cost-per-role is trackable and the model can be tuned
 # independently. Initial config mirrors scanner; revisit in v1.9 eval.
-[roles.domain-proposer]
+[roles.domain_proposer]
 model_id        = "moonshotai.kimi-k2.5"
 region          = "us-east-1"
 max_tokens      = 1024

@@ -259,7 +259,7 @@ def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
       2. Packaged `model_adapter/models.toml` `[roles.<role>]`.
 
     Args:
-        role: Role name (e.g. ``"librarian"``, ``"domain-proposer"``).
+        role: Role name (e.g. ``"librarian"``, ``"domain_proposer"``).
         model_override: Optional model id (Bedrock ARN/short form, or gateway
             slug) that replaces the resolved role's ``model_id``. Other role
             config (region, max_tokens, etc.) is preserved. Phase 48 D-21 wires

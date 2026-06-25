@@ -284,7 +284,7 @@ def propose_domains_cmd(
     hub_threshold: float = typer.Option(
         0.5, "--hub-threshold", help="Fraction-of-packages threshold for cross-cutting hub detection"
     ),
-    model: Optional[str] = typer.Option(None, "--model", help="Override domain-proposer model_id"),
+    model: Optional[str] = typer.Option(None, "--model", help="Override domain_proposer model_id"),
 ) -> None:
     """Propose candidate domains from domain-clusters via an LLM fan-out."""
     from graph_wiki_core.commands.propose_domains import propose_domains_cmd as _core

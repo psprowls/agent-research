@@ -29,9 +29,9 @@ Decision references (see .planning/phases/48-graph-propose-domains/48-CONTEXT.md
   D-14 top-level key `graph:` → `domains:` (paste-ready); run-metadata as leading `#` comments only
   D-15 yaml.safe_dump(sort_keys=True, default_flow_style=False); deterministic
   D-16 overwrite on each invocation
-  D-19 new domain-proposer role
+  D-19 new domain_proposer role
   D-20 cost records via SubagentPool.run_all trace pipeline
-  D-21 --model override via make_llm("domain-proposer", model_override=...)
+  D-21 --model override via make_llm("domain_proposer", model_override=...)
   D-23 in-process import of compute_clusters
   D-24 module contents
   D-25 no new third-party dependencies
@@ -545,7 +545,7 @@ def propose_domains_cmd(
     hub_threshold: float = typer.Option(
         0.5, "--hub-threshold", help="Fraction-of-packages threshold for cross-cutting hub detection"
     ),
-    model: Optional[str] = typer.Option(None, "--model", help="Override domain-proposer model_id (D-21)"),
+    model: Optional[str] = typer.Option(None, "--model", help="Override domain_proposer model_id (D-21)"),
 ) -> None:
     """Propose candidate domains from cg domain-clusters via an LLM fan-out.
 
@@ -583,8 +583,8 @@ def propose_domains_cmd(
     hubs_by_cluster_id_tuple = {cid: tuple(sorted(names)) for cid, names in hubs_by_cluster_id.items()}
 
     # D-19/D-21: LLM construction.
-    llm = make_llm("domain-proposer", model_override=model)
-    role_cfg = load_role_config("domain-proposer")
+    llm = make_llm("domain_proposer", model_override=model)
+    role_cfg = load_role_config("domain_proposer")
     effective_model_id = model if model is not None else role_cfg["model_id"]
     bound_llm = llm.bind_tools([_PROPOSE_DOMAIN_TOOL])
 
@@ -607,7 +607,7 @@ def propose_domains_cmd(
         pool.run_all(
             items=list(cluster_result.clusters),
             task=cluster_task,
-            role="domain-proposer",
+            role="domain_proposer",
             model_id=effective_model_id,
             max_concurrency=role_cfg["max_concurrency"],
         )
