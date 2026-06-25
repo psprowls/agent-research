@@ -5,9 +5,14 @@ from __future__ import annotations
 import re
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
-from model_adapter import make_llm
+from model_adapter import make_bedrock_llm
 
 from claude_code_evals.schemas import AutoUser
+
+# user_simulator role defaults, formerly resolved from model_adapter's models.toml.
+# cc-evals depends only on model-adapter, so the role default lives here.
+_USER_SIM_MODEL = "moonshotai.kimi-k2.5"
+_USER_SIM_MAX_TOKENS = 512
 
 
 class AutoUserSimulator:
@@ -36,7 +41,7 @@ class AutoUserSimulator:
 
     def __init__(self, config: AutoUser, task_prompt: str) -> None:
         self._config = config
-        self._llm = make_llm("user_simulator", model_override=config.model)
+        self._llm = make_bedrock_llm(config.model or _USER_SIM_MODEL, max_tokens=_USER_SIM_MAX_TOKENS)
         self._history: list[BaseMessage] = [
             SystemMessage(content=f"{config.system_prompt}\n\nThe agent was given this task:\n{task_prompt}")
         ]
