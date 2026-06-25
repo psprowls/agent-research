@@ -223,6 +223,62 @@ def test_run_work_file_omits_optional_scalars_when_unset(tmp_path: Path) -> None
         assert k not in fm
 
 
+def test_run_work_file_writes_parseable_plan_table(tmp_path: Path) -> None:
+    """A freshly filed item's body carries the scaffolding sections and an
+    (empty) ## Plan table — not the one-line stub."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+    from work_io import frontmatter as _frontmatter
+    from work_io.plan_table import parse_plan
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Scaffolded bug",
+            kind="bug",
+            summary="Something is broken",
+        )
+    )
+
+    page = wiki / result.page_path
+    _fm, body = _frontmatter.parse(page.read_text(encoding="utf-8"))
+    assert "## Summary" in body
+    assert "## Notes / log" in body
+    assert parse_plan(body).state == "empty"
+
+
+def test_run_work_file_item_passes_accepted_without_plan(tmp_path: Path) -> None:
+    """A filed item promoted to accepted does not trip lint rule 4
+    (accepted-without-plan) — the real downstream contract."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+    from work_io import frontmatter as _frontmatter
+    from work_io.lifecycle_lint import run_lint
+    from work_io.plan_table import parse_plan
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Accepted bug",
+            kind="bug",
+            summary="Something is broken",
+        )
+    )
+
+    page = wiki / result.page_path
+    fm, body = _frontmatter.parse(page.read_text(encoding="utf-8"))
+    fm["status"] = "accepted"
+    item = {"slug": "accepted-bug", "fm": fm, "plan": parse_plan(body)}
+    findings = run_lint([item], None, None)
+    assert "accepted-without-plan" not in {f.rule_id for f in findings}
+
+
 def test_run_work_file_best_effort_skips_missing_index_and_log(tmp_path: Path) -> None:
     """Filing into a wiki with no index.md/log.md still writes page + sidecar."""
     import asyncio

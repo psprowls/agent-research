@@ -32,6 +32,7 @@ from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.update_index import update_index
 from work_io import archive as _archive
+from work_io import body as _body
 from work_io import doc_pointers as _doc_pointers
 from work_io import filing as _filing
 from work_io import frontmatter as _frontmatter
@@ -535,7 +536,7 @@ async def run_work_file(
     fm["updated"] = today
     fm["tags"] = tags or []
 
-    item_body = body or f"## Summary\n{summary}\n"
+    item_body = body or _body.render_default_work_body(summary, kind)
 
     result = _filing.write_work_item(wiki, fm, item_body, force=force)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
