@@ -140,7 +140,7 @@ class _GuardedChatBedrockConverse(ChatBedrockConverse):
     through `_normalize_content`.
     """
 
-    # Default ARN for error messages; overridden per-instance by `make_llm`
+    # Default ARN for error messages; overridden per-instance by `make_bedrock_llm`
     # via `object.__setattr__` (Pydantic v2 forbids normal field assignment).
     _model_id_for_errors: str = ""
 
@@ -190,7 +190,7 @@ class _GuardedChatOpenAI(ChatOpenAI):
     errors propagate raw (the gateway path is opt-in; debuggers see real errors).
     """
 
-    # Bound per-instance by `make_llm` via `object.__setattr__` (Pydantic v2
+    # Bound per-instance by `make_gateway_llm` via `object.__setattr__` (Pydantic v2
     # forbids normal field assignment).
     _base_url_for_errors: str = ""
 
@@ -215,10 +215,27 @@ class _GuardedChatOpenAI(ChatOpenAI):
         return _normalize_content(response)
 
 
-def _make_gateway_llm(role_cfg: dict, model_override: str | None) -> _GuardedChatOpenAI:
-    """Build a _GuardedChatOpenAI for a `backend = "vercel"` role.
+def make_bedrock_llm(model_id: str, *, region: str = "us-east-1", max_tokens: int | None = None) -> BaseChatModel:
+    """Build a guarded Bedrock Converse chat model from explicit config.
 
-    Credentials come from the environment only — never from TOML:
+    The returned model translates AccessDeniedException -> BedrockAccessDenied
+    and normalizes list-shaped content. No role concept -- callers that resolve
+    a logical role to config live in graph_wiki_core.roles.
+    """
+    kwargs: dict[str, Any] = dict(model=model_id, region_name=region)
+    if max_tokens is not None:
+        kwargs["max_tokens"] = max_tokens
+    llm = _GuardedChatBedrockConverse(**kwargs)
+    # Bind the ARN to the instance so error messages name the exact model.
+    # object.__setattr__ bypasses Pydantic v2's extra='forbid' validator.
+    object.__setattr__(llm, "_model_id_for_errors", model_id)
+    return llm
+
+
+def make_gateway_llm(model_id: str, *, max_tokens: int | None = None) -> BaseChatModel:
+    """Build a guarded Vercel AI Gateway chat model from explicit config.
+
+    Credentials come from the environment ONLY:
       AI_GATEWAY_API_KEY  (required; raises GatewayAccessDenied if unset)
       AI_GATEWAY_BASE_URL (optional; defaults to the Vercel gateway endpoint)
     """
@@ -229,9 +246,7 @@ def _make_gateway_llm(role_cfg: dict, model_override: str | None) -> _GuardedCha
     if not api_key:
         raise GatewayAccessDenied(_format_gateway_access_denied_message(base_url, None))
 
-    model_id = model_override if model_override is not None else role_cfg["model_id"]
     kwargs: dict[str, Any] = dict(model=model_id, api_key=api_key, base_url=base_url)
-    max_tokens = role_cfg.get("max_tokens")
     if max_tokens is not None:
         kwargs["max_tokens"] = max_tokens
 
@@ -278,23 +293,11 @@ def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
         role_cfg = config["roles"][role]  # KeyError if absent
 
     backend = role_cfg.get("backend", "bedrock")
-    if backend == "vercel":
-        return _make_gateway_llm(role_cfg, model_override)
-
-    # --- Bedrock path (default, unchanged) ---
     model_id = model_override if model_override is not None else role_cfg["model_id"]
-    region = role_cfg.get("region", "us-east-1")
-
-    kwargs: dict[str, Any] = dict(model=model_id, region_name=region)
     max_tokens = role_cfg.get("max_tokens")
-    if max_tokens is not None:
-        kwargs["max_tokens"] = max_tokens
-    llm = _GuardedChatBedrockConverse(**kwargs)
-    # Bind the ARN to the instance so error messages name the exact model.
-    # `object.__setattr__` bypasses Pydantic v2's `extra='forbid'` validator
-    # that would otherwise reject the assignment.
-    object.__setattr__(llm, "_model_id_for_errors", model_id)
-    return llm
+    if backend == "vercel":
+        return make_gateway_llm(model_id, max_tokens=max_tokens)
+    return make_bedrock_llm(model_id, region=role_cfg.get("region", "us-east-1"), max_tokens=max_tokens)
 
 
 def load_role_config(role: str) -> dict:
