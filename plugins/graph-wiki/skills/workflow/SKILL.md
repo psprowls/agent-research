@@ -70,6 +70,18 @@ Invoke the stage skill named by `action.skill` via the Skill tool (namespaced
 
   Omit this block entirely when `guidance` is empty (guidance skipped or no
   matches). Surface any `guidance_warnings` to the user as plain notes.
+- when the dispatched `action.skill` is a chained-handoff skill, add the
+  matching STOP line so its pipeline-stage guard fires (without it the skill
+  self-chains into the next stage, collapsing two stages into one session):
+  - dispatching `brainstorming` → add: *"STOP after writing the spec — do not
+    invoke writing-plans. This is a single pipeline stage; the workflow skill
+    advances the item."*
+  - dispatching `writing-plans` → add: *"STOP after writing the plan — do not
+    run the Execution Handoff. This is a single pipeline stage; the workflow
+    skill advances the item."*
+  - `systematic-debugging`, `test-driven-development`,
+    `subagent-driven-development`, and `finishing-a-development-branch` need no
+    STOP line — they do not self-chain into the next stage.
 
 The stock skills honor user-preference path overrides; they stay unmodified.
 

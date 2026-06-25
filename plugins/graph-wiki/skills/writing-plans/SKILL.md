@@ -183,6 +183,8 @@ Suppress entirely if no user-gate tasks were tagged. Do NOT turn this into an `A
 
 ## Execution Handoff
 
+**Pipeline-stage guard — check FIRST.** If your dispatch brief states you are running as the `plan` stage of the graph-wiki work pipeline (it will contain the line *"STOP after writing the plan — do not run the Execution Handoff"*), then SKIP this entire Execution Handoff section: do **not** call `AskUserQuestion`, do **not** invoke `subagent-driven-development` or `executing-plans`. After Task Persistence, announce that the plan and `.tasks.json` are saved and STOP. Control returns to the `graph-wiki:workflow` skill, which advances the item and hands off for `/clear` + `/graph-wiki:next`.
+
 <HARD-GATE>
 STOP. You are about to complete the plan. DO NOT call EnterPlanMode or ExitPlanMode. You MUST call AskUserQuestion below. Both are FORBIDDEN — EnterPlanMode traps the session, ExitPlanMode skips the user's execution choice.
 </HARD-GATE>
