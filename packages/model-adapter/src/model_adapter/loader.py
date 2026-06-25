@@ -175,8 +175,8 @@ def make_bedrock_llm(model_id: str, *, region: str = "us-east-1", max_tokens: in
     """Build a guarded Bedrock Converse chat model from explicit config.
 
     The returned model translates AccessDeniedException -> BedrockAccessDenied
-    and normalizes list-shaped content. No role concept -- callers that resolve
-    a logical role to config live in graph_wiki_core.roles.
+    and normalizes list-shaped content. No role concept -- resolving a logical
+    role to concrete config is the caller's responsibility.
     """
     kwargs: dict[str, Any] = dict(model=model_id, region_name=region)
     if max_tokens is not None:
