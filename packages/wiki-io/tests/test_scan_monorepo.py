@@ -122,6 +122,45 @@ def test_discover_heuristic_default_workspace_dir_none(tmp_path: Path) -> None:
     assert "stray-pkg" in names, f"Without workspace_dir, 'stray-pkg' must appear (additive default). Got: {names}"
 
 
+def test_discover_heuristic_pnpm_dot_member_returns_root(tmp_path: Path) -> None:
+    """A pnpm '.' member (repo root is itself a package) is discovered, not a crash.
+
+    pnpm uses '.' in pnpm-workspace.yaml to mark the repo root as a workspace
+    member. pathlib's ``repo.glob('.')`` raises IndexError, so _expand_globs must
+    special-case '.'/'' instead of globbing it.
+    """
+    from wiki_io.scan_monorepo import _discover_heuristic
+
+    repo = tmp_path / "repo"
+    _write(repo / "package.json", '{"name": "root-pkg", "version": "0.0.1"}')
+    _write(repo / "pnpm-workspace.yaml", "packages:\n  - .\n")
+
+    workspaces = _discover_heuristic(repo)
+    names = {w["name"] for w in workspaces}
+
+    assert "root-pkg" in names, f"Expected '.'-member root package in results, got: {names}"
+
+
+def test_discover_heuristic_pnpm_out_of_tree_member(tmp_path: Path) -> None:
+    """An out-of-tree '../sibling' pnpm member is discovered, not a crash.
+
+    pnpm legitimately allows workspace members outside the repo tree.
+    _collect_node_package's ``pkg_path.relative_to(repo)`` raises ValueError for
+    such paths, so it must guard relative_to and fall back to a usable path.
+    """
+    from wiki_io.scan_monorepo import _discover_heuristic
+
+    repo = tmp_path / "repo"
+    _write(repo / "package.json", '{"name": "root-pkg", "version": "0.0.1"}')
+    _write(repo / "pnpm-workspace.yaml", "packages:\n  - ../sibling\n")
+    _write(tmp_path / "sibling" / "package.json", '{"name": "sibling-pkg", "version": "0.0.1"}')
+
+    workspaces = _discover_heuristic(repo)
+    names = {w["name"] for w in workspaces}
+
+    assert "sibling-pkg" in names, f"Expected out-of-tree sibling package in results, got: {names}"
+
+
 # ---------------------------------------------------------------------------
 # _collect_python_package() — pyproject deps
 # ---------------------------------------------------------------------------

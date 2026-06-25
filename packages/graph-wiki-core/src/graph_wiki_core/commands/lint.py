@@ -154,7 +154,9 @@ def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) ->
                 "planned_in_vault": sorted(planned_names),
             }
         except Exception as exc:
-            logger.debug("Code-drift check failed: %s", exc)
+            # warning (not debug): a swallowed failure here silently drops the
+            # whole code-drift pass, so surface it in normal lint output.
+            logger.warning("Code-drift check failed: %s", exc)
 
     return {
         "file_map_drift": file_map_drift,
