@@ -7,8 +7,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from graph_wiki_core.roles import load_role_config, make_llm
 from langchain_core.messages import HumanMessage, SystemMessage
-from model_adapter import load_role_config, make_llm
 from subagent_runtime.pool import SubagentPool, TaskResult
 
 from .adapters.base import Adapter, RunContext

@@ -259,7 +259,7 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
     from eval_harness.two_gate import (
         score_two_gate as original_score_two_gate,
     )
-    from model_adapter.loader import load_role_config
+    from graph_wiki_core.roles import load_role_config
 
     roles = ["librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor"]
     role_candidates: dict[str, list[str]] = {}

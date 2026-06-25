@@ -56,12 +56,12 @@ from graph_io.cluster import (
 from graph_io.queries import list_packages
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage
-from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from workspace_io.manifest import read_graph_domains
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands._paths import _resolve_paths
+from graph_wiki_core.roles import load_role_config, make_llm
 
 # --------------------------------------------------------------------------- #
 # Constants

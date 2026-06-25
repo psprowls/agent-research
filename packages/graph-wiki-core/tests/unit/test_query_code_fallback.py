@@ -20,7 +20,7 @@ import pytest
 
 def test_code_reader_role_in_models_toml() -> None:
     """load_role_config('code_reader') returns a dict with the expected keys."""
-    from model_adapter.loader import load_role_config
+    from graph_wiki_core.roles import load_role_config
 
     cfg = load_role_config("code_reader")
     assert isinstance(cfg, dict)

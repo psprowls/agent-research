@@ -28,8 +28,9 @@ from graph_wiki_core.prompts.guidance_classifier import (
 )
 
 try:  # Bedrock stack — guarded so the plugin/non-Bedrock import path stays light
-    from model_adapter.loader import load_role_config, make_llm
     from subagent_runtime.pool import SubagentPool, TaskResult
+
+    from graph_wiki_core.roles import load_role_config, make_llm
 except ImportError:  # pragma: no cover
     load_role_config = make_llm = None  # type: ignore[assignment]
     SubagentPool = TaskResult = None  # type: ignore[assignment]

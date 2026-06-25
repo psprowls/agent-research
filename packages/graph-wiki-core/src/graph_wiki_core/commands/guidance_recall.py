@@ -23,7 +23,7 @@ from graph_wiki_core.prompts.guidance_orchestrator import (
 )
 
 try:  # Bedrock stack — guarded
-    from model_adapter.loader import make_llm
+    from graph_wiki_core.roles import make_llm
 except ImportError:  # pragma: no cover
     make_llm = None  # type: ignore[assignment]
 

@@ -48,7 +48,6 @@ from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_aws import BedrockEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
-from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
@@ -59,6 +58,7 @@ from graph_wiki_core.graph_tools import build_graph_tools
 from graph_wiki_core.prompts.code_reader import CODE_READER_SYSTEM  # noqa: F401
 from graph_wiki_core.prompts.librarian import LIBRARIAN_SYSTEM  # noqa: F401
 from graph_wiki_core.prompts.synthesizer import SYNTHESIZER_SYSTEM  # noqa: F401
+from graph_wiki_core.roles import load_role_config, make_llm
 
 logger = logging.getLogger(__name__)
 

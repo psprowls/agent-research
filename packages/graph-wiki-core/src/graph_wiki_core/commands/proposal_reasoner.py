@@ -8,7 +8,6 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool, tool
-from model_adapter.loader import make_llm
 
 from graph_wiki_core.agent_loop import run_tool_loop
 from graph_wiki_core.agent_tools import (
@@ -22,6 +21,7 @@ from graph_wiki_core.agent_tools import (
     search_wiki_catalog as search_catalog_rows,
 )
 from graph_wiki_core.prompts.proposal_reasoner import PROPOSAL_REASONER_SYSTEM
+from graph_wiki_core.roles import make_llm
 
 FULL_SOURCE_MAX_CHARS = 120_000
 SOURCE_CHUNK_CHARS = 20_000

@@ -840,7 +840,7 @@ async def run_full_matrix(
     import subprocess
     import tempfile
 
-    from model_adapter.loader import load_role_config
+    from graph_wiki_core.roles import load_role_config
 
     from eval_harness.report import render_index_md, render_recommendation_block, render_role_doc
 

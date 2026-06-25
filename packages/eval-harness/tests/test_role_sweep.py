@@ -181,7 +181,7 @@ async def test_single_role_swap_scanner(tmp_path: Path, fixture_workspace_path: 
 
 async def test_sweep_candidates_read_from_models_toml(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """run_role_sweep can be called with candidates read from load_role_config."""
-    from model_adapter.loader import load_role_config
+    from graph_wiki_core.roles import load_role_config
 
     # Verify that load_role_config returns a sweep_candidates key for roles that have it.
     # If not present, the caller falls back to [] — test that the contract holds.
