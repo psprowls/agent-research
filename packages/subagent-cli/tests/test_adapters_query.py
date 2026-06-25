@@ -1,3 +1,5 @@
+from unittest.mock import MagicMock
+
 import graph_wiki_core.commands.query as query_mod
 import pytest
 from graph_io import store
@@ -129,4 +131,37 @@ async def test_input_assembly_and_mapping(tmp_path, monkeypatch):
     assert outcome.trace_metadata["status"] == "ok"
     assert outcome.structured["confidence"] == "high"
     assert outcome.role == "query_orchestrator"
+    ctx.close()
+
+
+async def test_graph_conn_closed_on_orchestrator_failure(tmp_path, monkeypatch):
+    ctx = _ctx(tmp_path)
+    wiki = ctx.wiki
+    conn = MagicMock()
+
+    monkeypatch.setattr(
+        query_mod,
+        "_prepare_query_retrieval",
+        lambda query, ws, top_k: PreparedQueryRetrieval(
+            wiki=wiki,
+            repo_root=ctx.repo_root,
+            top_pages=["entities/pkg_foo.md", "entities/pkg_bar.md"],
+            search_scores={
+                "entities/pkg_foo.md": {"bm25": 1.0, "embed": 0.5, "rrf": 0.9},
+                "entities/pkg_bar.md": {"bm25": 0.2, "embed": 0.1, "rrf": 0.3},
+            },
+        ),
+    )
+    monkeypatch.setattr(query_mod, "_load_query_graph_tools", lambda ws: (conn, []))
+    monkeypatch.setattr(query_mod, "_read_candidate_excerpt", lambda w, p, **k: f"excerpt::{p}")
+
+    async def fake_orch(**kwargs):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(query_mod, "run_query_orchestrator", fake_orch)
+
+    with pytest.raises(RuntimeError, match="boom"):
+        await QueryOrchestratorLoopAdapter(top_k=5).run(ctx, "q")
+
+    conn.close.assert_called_once()
     ctx.close()
