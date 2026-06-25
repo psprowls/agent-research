@@ -1,11 +1,4 @@
-"""Bedrock model loader.
-
-Reads role-keyed model configuration with workspace-aware override layer.
-
-Resolution order for `make_llm(role)`:
-  1. Workspace manifest (`<workspace>/.graph-wiki.yaml` `plugins[].roles[]` for
-     plugin "graph-wiki-agent") if a role entry with `name == role` is present.
-  2. Packaged `model_adapter/models.toml` `[roles.<role>]` (per-role fallback).
+"""Generic Bedrock / Vercel AI Gateway chat-model client.
 
 Strategy choice (per Phase 1 RESEARCH A1):
     `ChatBedrockConverse` is a Pydantic v2 BaseModel with `extra='forbid'` and
@@ -18,8 +11,6 @@ Strategy choice (per Phase 1 RESEARCH A1):
 
 from __future__ import annotations
 
-import tomllib
-from importlib import resources
 from typing import Any
 
 import botocore.exceptions
@@ -31,41 +22,6 @@ from langchain_openai import ChatOpenAI
 from model_adapter.exceptions import BedrockAccessDenied, GatewayAccessDenied
 
 _DEFAULT_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1"
-
-
-def _load_models_config() -> dict:
-    # models.toml is bundled inside the model_adapter package
-    # (src/model_adapter/models.toml) so it is accessible under any
-    # install mode (editable, wheel, or zip).
-    with resources.files("model_adapter").joinpath("models.toml").open("rb") as f:
-        return tomllib.load(f)
-
-
-def _workspace_role_override(role: str) -> dict | None:
-    """Return the workspace-defined role dict for `role`, or None.
-
-    Resolution order:
-      1. Locate the workspace via `workspace_io.resolve()` — raises
-         RuntimeError when no `.graph-wiki.yaml` is reachable.
-      2. Read the role list via `workspace_io.read_roles(
-         "graph-wiki-agent", workspace/".graph-wiki.yaml")`.
-      3. Return the first role dict whose `name` matches.
-      4. Return None on any failure (no workspace, plugin absent, role
-         absent, ImportError in restricted test contexts).
-    """
-    try:
-        from workspace_io import read_roles, resolve
-    except ImportError:
-        return None
-    try:
-        cfg = resolve()
-    except RuntimeError:
-        return None
-    manifest_path = cfg.workspace / ".graph-wiki.yaml"
-    for entry in read_roles("graph-wiki-agent", manifest_path):
-        if entry.get("name") == role:
-            return entry
-    return None
 
 
 def _format_access_denied_message(model_id: str, original: Exception) -> str:
@@ -253,66 +209,3 @@ def make_gateway_llm(model_id: str, *, max_tokens: int | None = None) -> BaseCha
     llm = _GuardedChatOpenAI(**kwargs)
     object.__setattr__(llm, "_base_url_for_errors", base_url)
     return llm
-
-
-def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
-    """Return a chat model configured for the given role.
-
-    Backend selection is driven by the resolved role's ``backend`` key
-    (default ``"bedrock"``):
-      - ``"bedrock"`` (default): a ``_GuardedChatBedrockConverse`` built from
-        the role's ``model_id``/``region``/``max_tokens``.
-      - ``"vercel"``: a ``_GuardedChatOpenAI`` pointed at the Vercel AI
-        Gateway. Gateway credentials are read from the environment ONLY
-        (``AI_GATEWAY_API_KEY`` required, ``AI_GATEWAY_BASE_URL`` optional) —
-        never from TOML. Raises ``GatewayAccessDenied`` when the key is unset.
-
-    Resolution order (unchanged, applies to both backends):
-      1. Workspace manifest (`<workspace>/.graph-wiki.yaml`
-         `plugins[].roles[]` for plugin "graph-wiki-agent") if a role
-         entry with `name == role` is present.
-      2. Packaged `model_adapter/models.toml` `[roles.<role>]`.
-
-    Args:
-        role: Role name (e.g. ``"librarian"``, ``"domain_proposer"``).
-        model_override: Optional model id (Bedrock ARN/short form, or gateway
-            slug) that replaces the resolved role's ``model_id``. Other role
-            config (region, max_tokens, etc.) is preserved. Phase 48 D-21 wires
-            the ``--model`` CLI flag through this parameter.
-
-    Raises:
-        KeyError: when `role` is not present in either source.
-        GatewayAccessDenied: for a ``vercel`` role when ``AI_GATEWAY_API_KEY``
-            is unset.
-    """
-    workspace_cfg = _workspace_role_override(role)
-    if workspace_cfg is not None:
-        role_cfg = workspace_cfg
-    else:
-        config = _load_models_config()
-        role_cfg = config["roles"][role]  # KeyError if absent
-
-    backend = role_cfg.get("backend", "bedrock")
-    model_id = model_override if model_override is not None else role_cfg["model_id"]
-    max_tokens = role_cfg.get("max_tokens")
-    if backend == "vercel":
-        return make_gateway_llm(model_id, max_tokens=max_tokens)
-    return make_bedrock_llm(model_id, region=role_cfg.get("region", "us-east-1"), max_tokens=max_tokens)
-
-
-def load_role_config(role: str) -> dict:
-    """Return the raw config dict for a role from models.toml.
-
-    Note: this accessor reads packaged defaults only. Workspace overrides
-    via `<workspace>/.graph-wiki.yaml` apply to `make_llm()` only, not to
-    this raw role-config accessor (eval-harness consumers depend on the
-    packaged shape including `sweep_candidates`).
-
-    Raises:
-        KeyError: when `role` is not present in `models.toml`.
-
-    Returns a dict with all keys present for the role in models.toml:
-        model_id, region, max_tokens, max_concurrency
-    """
-    config = _load_models_config()
-    return config["roles"][role]  # KeyError if role absent — intentional

@@ -10,18 +10,11 @@ Public API:
 from __future__ import annotations
 
 from model_adapter.exceptions import BedrockAccessDenied, GatewayAccessDenied
-from model_adapter.loader import (
-    load_role_config,
-    make_bedrock_llm,
-    make_gateway_llm,
-    make_llm,
-)
+from model_adapter.loader import make_bedrock_llm, make_gateway_llm
 
 __all__ = [
     "BedrockAccessDenied",
     "GatewayAccessDenied",
-    "load_role_config",
     "make_bedrock_llm",
     "make_gateway_llm",
-    "make_llm",
 ]

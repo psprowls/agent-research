@@ -19,6 +19,11 @@ from __future__ import annotations
 import pytest
 from graph_wiki_core import roles as _roles
 
+# Capture the real helper ONCE at conftest import time, BEFORE any test or
+# autouse fixture has had a chance to stub it. Tests opt into the real
+# workspace path by requesting the `real_workspace_role_override` fixture.
+_REAL_WORKSPACE_ROLE_OVERRIDE = _roles._workspace_role_override
+
 
 @pytest.fixture(autouse=True)
 def _offline_count_tokens(monkeypatch):
@@ -37,3 +42,12 @@ def _isolate_roles_from_workspace(monkeypatch):
     make_llm() reads packaged defaults deterministically.
     """
     monkeypatch.setattr(_roles, "_workspace_role_override", lambda role: None)
+
+
+@pytest.fixture
+def real_workspace_role_override(monkeypatch):
+    """Restore the real `_workspace_role_override` so the test exercises
+    the production resolution path (`workspace_io.resolve` + `read_roles`).
+    """
+    monkeypatch.setattr(_roles, "_workspace_role_override", _REAL_WORKSPACE_ROLE_OVERRIDE)
+    return _REAL_WORKSPACE_ROLE_OVERRIDE
