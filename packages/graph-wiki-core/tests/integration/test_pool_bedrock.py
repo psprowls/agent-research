@@ -9,8 +9,8 @@ unless the environment variable GRAPH_WIKI_RUN_INTEGRATION=1 is set.
 This ensures the suite is CI-safe and never incurs unexpected AWS costs.
 
 To run:
-    GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package subagent-runtime pytest \\
-        packages/subagent-runtime/tests/integration/test_pool_bedrock.py -v
+    GRAPH_WIKI_RUN_INTEGRATION=1 uv run --package graph-wiki-core pytest \\
+        packages/graph-wiki-core/tests/integration/test_pool_bedrock.py -v
 
 Estimated cost per full run: <<$0.05 against Haiku (short prompts only).
 Estimated runtime: well under 120 seconds.
@@ -39,7 +39,7 @@ async def test_partial_failure_real_bedrock(tmp_path: Path) -> None:
     Verifies SUB-02 / SUB-07 partial-failure isolation against live Bedrock.
     Also asserts the trace JSONL file has exactly 4 records.
     """
-    from model_adapter.loader import load_role_config, make_llm
+    from graph_wiki_core.roles import load_role_config, make_llm
     from subagent_runtime.pool import SubagentPool
 
     role = "scanner"
@@ -89,7 +89,7 @@ async def test_no_throttling_at_max_concurrency_real_bedrock(tmp_path: Path) -> 
     ROADMAP success criterion #3 uses 5 parallel subagents as the floor;
     testing at 10 (the cap) is strictly stronger and still satisfies the criterion.
     """
-    from model_adapter.loader import load_role_config, make_llm
+    from graph_wiki_core.roles import load_role_config, make_llm
     from subagent_runtime.pool import SubagentPool
 
     role = "linter"
@@ -133,7 +133,7 @@ async def test_recursion_limit_propagated_real_bedrock(tmp_path: Path) -> None:
 
     Cost: ~30 minimal Haiku calls (<$0.01 at 5-10 tokens per prompt).
     """
-    from model_adapter.loader import load_role_config, make_llm
+    from graph_wiki_core.roles import load_role_config, make_llm
     from subagent_runtime.pool import SubagentPool
 
     role = "scanner"
