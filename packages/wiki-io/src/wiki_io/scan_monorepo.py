@@ -31,6 +31,7 @@ Other helpers: ``unscope`` (normalize ``@scope/foo`` -> ``foo``),
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -180,13 +181,42 @@ def _discover_pnpm_workspace(repo):
 
 
 def _expand_globs(repo, globs):
-    """Turn glob patterns like 'packages/*' or 'domains/**' into dirs."""
+    """Turn glob patterns like 'packages/*' or 'domains/**' into dirs.
+
+    Handles two pnpm-workspace idioms that crash a naive ``repo.glob(g)``:
+      - ``.``/``./``/``''`` means "the repo root is itself a package" — pathlib's
+        ``glob('.')`` raises IndexError, so map it to the repo root directly.
+      - any glob is expanded defensively (per-pattern try/except) so one bad
+        pattern can't abort discovery of the rest.
+    """
     dirs = set()
     for g in globs:
-        for p in repo.glob(g):
+        if g.strip().strip("/") in ("", "."):
+            if (repo / "package.json").exists():
+                dirs.add(repo.resolve())
+            continue
+        try:
+            matches = list(repo.glob(g))
+        except (IndexError, ValueError):
+            continue
+        for p in matches:
             if p.is_dir() and (p / "package.json").exists():
                 dirs.add(p.resolve())
     return sorted(dirs)
+
+
+def _rel_to_repo(pkg_path: Path, repo: Path) -> str:
+    """Package path relative to ``repo``, forward-slash normalized.
+
+    pnpm legitimately allows out-of-tree workspace members (``../sibling``);
+    ``Path.relative_to`` raises ValueError for those, so fall back to
+    ``os.path.relpath`` (yielding a ``../``-prefixed path) instead of crashing
+    discovery. Shared by every ``_collect_*`` collector.
+    """
+    try:
+        return str(pkg_path.relative_to(repo)).replace("\\", "/")
+    except ValueError:
+        return os.path.relpath(pkg_path, repo).replace("\\", "/")
 
 
 def _infer_package_type(pkg_path, pkg_json):
@@ -235,7 +265,7 @@ def _collect_node_package(repo, pkg_path):
         exports = [exports_field]
     return {
         "name": name,
-        "path": str(pkg_path.relative_to(repo)).replace("\\", "/"),
+        "path": _rel_to_repo(pkg_path, repo),
         "type": _infer_package_type(pkg_path, pj),
         "language": _infer_language(pkg_path),
         "version": pj.get("version"),
@@ -258,7 +288,7 @@ def _collect_python_package(repo, pkg_path):
     workspace_deps, external_deps = _parse_pyproject_deps(text)
     return {
         "name": name,
-        "path": str(pkg_path.relative_to(repo)).replace("\\", "/"),
+        "path": _rel_to_repo(pkg_path, repo),
         "type": "library",
         "language": "python",
         "version": None,
@@ -289,7 +319,7 @@ def _collect_claude_plugin(repo, pkg_path):
     keywords = pj.get("keywords") or []
     return {
         "name": name,
-        "path": str(pkg_path.relative_to(repo)).replace("\\", "/"),
+        "path": _rel_to_repo(pkg_path, repo),
         "type": "tool",
         "language": "claude-code-plugin",
         "version": pj.get("version"),
@@ -310,7 +340,7 @@ def _collect_rust_crate(repo, pkg_path):
         return None
     return {
         "name": name,
-        "path": str(pkg_path.relative_to(repo)).replace("\\", "/"),
+        "path": _rel_to_repo(pkg_path, repo),
         "type": "library",
         "language": "rust",
         "version": None,
