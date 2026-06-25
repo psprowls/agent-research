@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +11,9 @@ from typing import Any, Callable
 from langchain_core.messages import HumanMessage, SystemMessage
 from model_adapter import load_role_config, make_llm
 from subagent_runtime.pool import SubagentPool, TaskResult
+from workspace_io import paths as ws_paths
 
-from .adapters.base import Adapter, RunContext
+from .adapters.base import Adapter, LoopAdapter, LoopOutcome, RunContext
 
 
 @dataclass
@@ -158,4 +160,29 @@ async def run_all(adapter: Adapter, ctx: RunContext, *, trace_dir: Path):
         role=adapter.role,
         model_id=cfg["model_id"],
         max_concurrency=int(cfg.get("max_concurrency", 3)),
+    )
+
+
+def _newest_trace(trace_dir: Path) -> str | None:
+    if not trace_dir.exists():
+        return None
+    traces = sorted(trace_dir.glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
+    return str(traces[-1]) if traces else None
+
+
+async def run_loop(adapter: LoopAdapter, ctx: RunContext, item: str) -> LoopOutcome:
+    """Run a tool-loop adapter; overlay model/region/latency/trace onto its outcome."""
+    cfg = load_role_config(adapter.role)
+    model_id = cfg["model_id"]
+    region = cfg.get("region", "us-east-1")
+    trace_dir = ws_paths.graph_dir(ctx.workspace) / "traces"
+    start = time.monotonic()
+    partial = await adapter.run(ctx, item)
+    latency = time.monotonic() - start
+    return dataclasses.replace(
+        partial,
+        model_id=model_id,
+        region=region,
+        latency_s=latency,
+        trace_path=_newest_trace(trace_dir),
     )
