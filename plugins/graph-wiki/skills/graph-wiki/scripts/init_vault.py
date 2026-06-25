@@ -30,6 +30,7 @@ def main() -> None:
     if _backend_for("init") == "bedrock":
         _run_bedrock()
 
+    from graph_wiki_core.page_kind_templates import kind_template_dirs
     from wiki_io._workspace import resolve_wiki_and_repo
     from wiki_io.init_vault import TOOL_FILES, init_wiki
 
@@ -73,6 +74,7 @@ def main() -> None:
         force=args.force,
         as_json=args.json_output,
         non_interactive=args.non_interactive,
+        extra_template_dirs=kind_template_dirs(),
     )
 
 

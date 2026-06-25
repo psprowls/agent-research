@@ -15,11 +15,11 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from guidance_io import templates as guidance_templates
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.init_vault import init_wiki
-from work_io import templates as work_templates
 from workspace_io import init as _ws_init
+
+from graph_wiki_core.page_kind_templates import kind_template_dirs
 
 logger = logging.getLogger(__name__)
 
@@ -87,13 +87,10 @@ async def run_init(
     if repo is None:
         repo = Path.cwd()
     logger.debug("run_init: wiki=%s repo=%s topic=%r tool=%r force=%r", wiki, repo, topic, tool, force)
-    # Each page-kind package owns its own template; core (which already depends
-    # on every page-kind package) gathers them so wiki-io stays unaware of
-    # page-kinds it doesn't own. No new dependency edges introduced.
-    kind_template_dirs = [
-        work_templates.templates_dir(),
-        guidance_templates.templates_dir(),
-    ]
+    # Page-kind templates (work.md, guidance.md) live in their owning packages,
+    # not wiki-io's page-templates/. kind_template_dirs() is the single source of
+    # truth the plugin shim shares — wiki-io stays unaware of page-kinds it
+    # doesn't own; core gathers them. No new dependency edges introduced.
     result = init_wiki(
         wiki_path=wiki,
         repo_path=repo,
@@ -102,7 +99,7 @@ async def run_init(
         force=force,
         non_interactive=not interactive,
         as_json=False,  # MCP safety: as_json=True emits print(json.dumps(...)) which trips _StdoutGuard
-        extra_template_dirs=kind_template_dirs,
+        extra_template_dirs=kind_template_dirs(),
     )
     return InitResult(
         status=result["status"],
