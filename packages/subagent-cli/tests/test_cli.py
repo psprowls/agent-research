@@ -102,3 +102,54 @@ def test_loop_renders_and_json(tmp_path, monkeypatch):
     assert result_json.exit_code == 0
     rec = json.loads(result_json.stdout)
     assert rec["answer"] == "## Answer\nFoo." and rec["trace_metadata"]["status"] == "ok"
+
+
+def test_loop_bedrock_access_denied_exits_2(tmp_path, monkeypatch):
+    import subagent_cli.cli as cli_mod
+    from model_adapter import BedrockAccessDenied
+
+    class _FakeCtx:
+        workspace = tmp_path
+        repo_root = tmp_path
+
+        def close(self):
+            pass
+
+    async def fake_run_loop(adapter, ctx, item):
+        raise BedrockAccessDenied("denied")
+
+    monkeypatch.setattr(cli_mod, "run_loop", fake_run_loop)
+    monkeypatch.setattr(cli_mod, "_build_context", lambda ws, repo: _FakeCtx())
+    monkeypatch.setattr(
+        cli_mod,
+        "resolve",
+        lambda cwd: type("C", (), {"workspace": tmp_path, "repo_root": tmp_path})(),
+    )
+
+    result = runner.invoke(app, ["loop", "query_orchestrator", "--query", "q"])
+    assert result.exit_code == 2
+
+
+def test_loop_runtime_error_exits_1(tmp_path, monkeypatch):
+    import subagent_cli.cli as cli_mod
+
+    class _FakeCtx:
+        workspace = tmp_path
+        repo_root = tmp_path
+
+        def close(self):
+            pass
+
+    async def fake_run_loop(adapter, ctx, item):
+        raise RuntimeError("boom")
+
+    monkeypatch.setattr(cli_mod, "run_loop", fake_run_loop)
+    monkeypatch.setattr(cli_mod, "_build_context", lambda ws, repo: _FakeCtx())
+    monkeypatch.setattr(
+        cli_mod,
+        "resolve",
+        lambda cwd: type("C", (), {"workspace": tmp_path, "repo_root": tmp_path})(),
+    )
+
+    result = runner.invoke(app, ["loop", "query_orchestrator", "--query", "q"])
+    assert result.exit_code == 1
