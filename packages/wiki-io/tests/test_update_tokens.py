@@ -1,44 +1,13 @@
-"""Tests for wiki_io.update_tokens — Bedrock CountTokens API shape.
+"""Tests for wiki_io.update_tokens — offline token counting via tiktoken.
 
-Requirements: TOK-01, TOK-02 (mocked).
+Token counts come from graph_io.tokens.count_tokens (tiktoken o200k_base), so
+counting is local, deterministic, and needs no Bedrock/network call. There is no
+"unsupported model" / `tokens: null` path anymore.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from unittest.mock import MagicMock, patch
-
-
-def test_count_tokens_request_shape() -> None:
-    from wiki_io.update_tokens import count_tokens
-
-    fake_client = MagicMock()
-    fake_client.count_tokens.return_value = {"inputTokens": 42}
-
-    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client) as mock_factory:
-        result = count_tokens("hello world", model_id="m1", region="us-east-1")
-
-    mock_factory.assert_called_once_with("bedrock-runtime", region_name="us-east-1")
-    fake_client.count_tokens.assert_called_once_with(
-        modelId="m1",
-        input={"converse": {"messages": [{"role": "user", "content": [{"text": "hello world"}]}]}},
-    )
-    assert result == 42
-
-
-def test_count_tokens_returns_input_tokens() -> None:
-    from wiki_io.update_tokens import count_tokens
-
-    fake_client = MagicMock()
-    fake_client.count_tokens.return_value = {"inputTokens": 99}
-
-    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client):
-        result = count_tokens("test text", model_id="m1", region="us-east-1")
-
-    assert result == 99
-
-
-# F2 — tokens: null on unsupported model.
 
 
 def _seed_page(path: Path, tokens_value: str | int | None = 5) -> None:
@@ -61,118 +30,123 @@ def _seed_page(path: Path, tokens_value: str | int | None = 5) -> None:
     path.write_text("\n".join(fm_lines) + "\n\nBody.\n", encoding="utf-8")
 
 
-def _validation_client_error(message: str = "Model does not support count tokens operation"):
-    from botocore.exceptions import ClientError
+def test_count_tokens_is_graph_io_offline_counter() -> None:
+    """update_tokens reuses graph_io's offline tiktoken counter rather than its
+    own Bedrock call — same encoder the code-graph nodes are counted with."""
+    from graph_io.tokens import count_tokens as graph_count
+    from wiki_io.update_tokens import count_tokens
 
-    return ClientError(
-        error_response={
-            "Error": {
-                "Code": "ValidationException",
-                "Message": message,
-            }
-        },
-        operation_name="CountTokens",
-    )
+    assert count_tokens is graph_count
 
 
-def test_unsupported_model_detector_handles_modern_phrasing() -> None:
-    """As of 2026-05 Bedrock returns 'The provided model doesn't support
-    counting tokens.' for Claude 4.x models. The detector must recognise both
-    that and the older 'count tokens operation' wording so the run gracefully
-    stamps `tokens: null` instead of crashing the whole vault refresh.
-    Regression for the 2026-05-23 lint finding (8 concept pages stuck without
-    tokens because every CountTokens call surfaced as ('skipped', 0))."""
-    from wiki_io.update_tokens import _is_unsupported_model_error
-
-    legacy = _validation_client_error("Model does not support count tokens operation")
-    modern = _validation_client_error("The provided model doesn't support counting tokens.")
-    unrelated = _validation_client_error("Inference profile ARN is malformed")
-
-    assert _is_unsupported_model_error(legacy) is True
-    assert _is_unsupported_model_error(modern) is True
-    assert _is_unsupported_model_error(unrelated) is False
-
-
-def test_unsupported_model_writes_tokens_null(tmp_path: Path) -> None:
-    """When CountTokens raises ValidationException with the unsupported-operation
-    message, the page is rewritten with `tokens: null` and update_page returns
-    ('updated', None)."""
+def test_update_page_stamps_positive_int_offline(tmp_path: Path) -> None:
+    """A page is stamped with a real positive int count with no network call
+    (no boto3/Bedrock mocking needed — counting is local)."""
     import frontmatter
     from wiki_io.update_tokens import update_page
 
     page = tmp_path / "page.md"
     _seed_page(page, tokens_value=5)
 
-    fake_client = MagicMock()
-    fake_client.count_tokens.side_effect = _validation_client_error()
-
-    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client):
-        status, count = update_page(page, dry_run=False, model_id="m1", region="us-east-1")
+    status, count = update_page(page, dry_run=False)
 
     assert status == "updated"
-    assert count is None
-    rewritten = page.read_text(encoding="utf-8")
-    assert "tokens: null" in rewritten
-    assert frontmatter.loads(rewritten).metadata["tokens"] is None
+    assert isinstance(count, int) and count > 0
+    meta = frontmatter.load(str(page)).metadata
+    assert meta["tokens"] == count
+    assert "tokens: null" not in page.read_text(encoding="utf-8")
 
 
-def test_legitimate_zero_writes_tokens_zero(tmp_path: Path) -> None:
-    """count_tokens returning 0 must write `tokens: 0` (NOT `tokens: null`)."""
+def test_update_page_idempotent_on_rerun(tmp_path: Path) -> None:
+    """Re-running on an already-stamped page reports 'unchanged' and leaves the
+    bytes identical (deterministic count)."""
     from wiki_io.update_tokens import update_page
 
     page = tmp_path / "page.md"
     _seed_page(page, tokens_value=5)
 
-    fake_client = MagicMock()
-    fake_client.count_tokens.return_value = {"inputTokens": 0}
+    update_page(page, dry_run=False)
+    stamped = page.read_text(encoding="utf-8")
 
-    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client):
-        status, count = update_page(page, dry_run=False, model_id="m1", region="us-east-1")
+    status, _ = update_page(page, dry_run=False)
 
-    assert status == "updated"
-    assert count == 0
-    rewritten = page.read_text(encoding="utf-8")
-    assert "tokens: 0" in rewritten
-    assert "tokens: null" not in rewritten
+    assert status == "unchanged"
+    assert page.read_text(encoding="utf-8") == stamped
 
 
-def test_null_idempotent_on_rerun(tmp_path: Path) -> None:
-    """A page already at `tokens: null` re-encountering an unsupported model
-    stays at `tokens: null` and reports 'unchanged'."""
+def test_tokens_null_remigrated_to_int(tmp_path: Path) -> None:
+    """A page left at the old `tokens: null` sentinel is re-stamped with a real
+    integer count — the null path is gone."""
+    import frontmatter
     from wiki_io.update_tokens import update_page
 
     page = tmp_path / "page.md"
     _seed_page(page, tokens_value="null")
-    original = page.read_text(encoding="utf-8")
 
-    fake_client = MagicMock()
-    fake_client.count_tokens.side_effect = _validation_client_error()
+    status, count = update_page(page, dry_run=False)
 
-    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client):
-        status, count = update_page(page, dry_run=False, model_id="m1", region="us-east-1")
-
-    assert status == "unchanged"
-    assert count is None
-    # Bytes unchanged.
-    assert page.read_text(encoding="utf-8") == original
+    assert status == "updated"
+    assert isinstance(count, int) and count > 0
+    assert frontmatter.load(str(page)).metadata["tokens"] == count
 
 
-def test_non_validation_errors_still_skip(tmp_path: Path) -> None:
-    """Generic exceptions (network errors, etc.) preserve existing
-    ('skipped', 0) behavior — the page is NOT mutated."""
+def test_update_page_delegates_to_module_count_tokens(tmp_path: Path, monkeypatch) -> None:
+    """update_page stamps whatever the module-level count_tokens returns — proving
+    it routes through the (now offline) counter, not a hardcoded path."""
+    import frontmatter
+    from wiki_io import update_tokens
+
+    page = tmp_path / "page.md"
+    _seed_page(page, tokens_value=5)
+    monkeypatch.setattr(update_tokens, "count_tokens", lambda text: 4242)
+
+    status, count = update_tokens.update_page(page, dry_run=False)
+
+    assert status == "updated"
+    assert count == 4242
+    assert frontmatter.load(str(page)).metadata["tokens"] == 4242
+
+
+def test_dry_run_does_not_write(tmp_path: Path) -> None:
+    """--dry-run counts but leaves the page bytes untouched."""
     from wiki_io.update_tokens import update_page
 
     page = tmp_path / "page.md"
     _seed_page(page, tokens_value=5)
     original = page.read_text(encoding="utf-8")
 
-    fake_client = MagicMock()
-    fake_client.count_tokens.side_effect = RuntimeError("network down")
+    status, count = update_page(page, dry_run=True)
 
-    with patch("wiki_io.update_tokens.boto3.client", return_value=fake_client):
-        status, count = update_page(page, dry_run=False, model_id="m1", region="us-east-1")
+    assert status == "updated"
+    assert isinstance(count, int) and count > 0
+    assert page.read_text(encoding="utf-8") == original
+
+
+def test_file_without_frontmatter_skipped(tmp_path: Path) -> None:
+    """A file with no leading `---` is skipped and never mutated."""
+    from wiki_io.update_tokens import update_page
+
+    page = tmp_path / "plain.md"
+    page.write_text("No frontmatter here.\n", encoding="utf-8")
+    original = page.read_text(encoding="utf-8")
+
+    status, count = update_page(page, dry_run=False)
 
     assert status == "skipped"
     assert count == 0
-    # Page must not have been rewritten.
+    assert page.read_text(encoding="utf-8") == original
+
+
+def test_truncated_frontmatter_skipped(tmp_path: Path) -> None:
+    """Frontmatter with no closing fence is skipped (not mutated)."""
+    from wiki_io.update_tokens import update_page
+
+    page = tmp_path / "truncated.md"
+    page.write_text("---\ntitle: T\nno closing fence\n", encoding="utf-8")
+    original = page.read_text(encoding="utf-8")
+
+    status, count = update_page(page, dry_run=False)
+
+    assert status == "skipped"
+    assert count == 0
     assert page.read_text(encoding="utf-8") == original
