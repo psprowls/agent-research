@@ -9,7 +9,7 @@ KIMI_MODEL_ID = "moonshotai.kimi-k2.5"
 
 def test_narrator_role_in_models_toml():
     """Phase 45 D-06: [roles.narrator] is present with the four expected keys."""
-    from model_adapter.loader import _load_models_config
+    from graph_wiki_core.roles import _load_models_config
 
     config = _load_models_config()
     assert "narrator" in config["roles"], "Phase 45 D-06 requires a [roles.narrator] section in models.toml"
@@ -21,7 +21,7 @@ def test_narrator_role_in_models_toml():
 
 
 def test_load_role_config_narrator_returns_dict():
-    from model_adapter.loader import load_role_config
+    from graph_wiki_core.roles import load_role_config
 
     cfg = load_role_config("narrator")
     assert isinstance(cfg, dict)
@@ -36,8 +36,8 @@ def test_make_llm_narrator_does_not_raise_keyerror():
 
     Pure object construction — no Bedrock network calls.
     """
+    from graph_wiki_core.roles import make_llm
     from langchain_aws import ChatBedrockConverse
-    from model_adapter.loader import make_llm
 
     try:
         llm = make_llm("narrator")

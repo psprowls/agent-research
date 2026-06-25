@@ -1,0 +1,308 @@
+# Dedicated handle for the BED-01 connectivity ping in eval_harness.preflight.
+# Pin a cheap, fast model here — this role is invoked once per sweep purely to
+# confirm AWS credentials and bedrock:InvokeModel permission before spending.
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; qwen3-32b is the new cheap/fast ping model.
+[roles.preflight]
+model_id        = "qwen.qwen3-32b-v1:0"
+region          = "us-east-1"
+max_tokens      = 64
+max_concurrency = 1
+
+[roles.librarian]
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "qwen.qwen3-next-80b-a3b",
+  "deepseek.v3.2",
+  "moonshotai.kimi-k2.5",
+  "zai.glm-5",
+]
+
+[roles.code_reader]
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+# Plan 03-09: vault-thin code-fallback role. Reads source files directly when
+# the librarian fan-out returns no useful excerpts. Conservative defaults —
+# the fallback is opt-in and bounded (max 5 tool-call iterations per page).
+model_id        = "minimax.minimax-m2.5"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 3
+sweep_candidates = [
+  "qwen.qwen3-coder-30b-a3b-v1:0",
+  "qwen.qwen3-coder-next",
+  "mistral.devstral-2-123b",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+]
+
+[roles.scanner]
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 500
+max_concurrency = 10
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "mistral.ministral-3-14b-instruct",
+  "qwen.qwen3-32b-v1:0",
+  "qwen.qwen3-coder-30b-a3b-v1:0",
+]
+
+# Phase 45 D-06 — prose-only narrative generation for entity pages.
+# Initial config matches `scanner` for v1.8; eval-driven refinement deferred
+# to v1.9. `max_tokens` is lower than scanner because narrator emits prose
+# only (no frontmatter, no headings — just the body between `## Narrative`
+# and the next H2 on an entity page).
+[roles.narrator]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 600
+max_concurrency = 10
+
+[roles.linter]
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+# Default us.amazon.nova-lite-v1:0 is now also included as a candidate
+# (nova-lite stays default AND is a sweep candidate — decision made 2026-05-30).
+model_id        = "us.amazon.nova-lite-v1:0"
+region          = "us-east-1"
+max_tokens      = 3000
+max_concurrency = 10
+sweep_candidates = [
+  "us.amazon.nova-lite-v1:0",
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "zai.glm-4.7-flash",
+]
+
+[roles.ingestor]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.proposal_reasoner]
+# Ingest proposal reasoning pass. Uses Kimi K2.5 through Bedrock runtime;
+# Kimi K2 Thinking and Bedrock Mantle are deferred.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.package_reader]
+# Narrated scan pass that initializes TODO-like human-owned entity-page sections.
+# Separate from code_reader because it writes multi-section markdown and uses a
+# page-initialization JSON contract rather than one-line file-map descriptions.
+# Switched from kimi-k2.5 (2026-06-07): extended thinking consumed the 4096-token
+# budget on large packages (graph-wiki-core), leaving only whitespace in the text
+# block and causing "invalid JSON: Expecting value" on the downstream JSON parse.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "openai.gpt-oss-120b-1:0",
+  "qwen.qwen3-32b-v1:0",
+  "minimax.minimax-m2.5",
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.query_orchestrator]
+# Default planner/synthesizer for agentic `gw query`. One orchestrator owns
+# each query session; worker parallelism is controlled by librarian/code_reader.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 1
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.extractor]
+# Normalizes proposal_reasoner analysis into strict proposal YAML.
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
+# Type-branched ingest — Pass 1. Reads a full agent skill and emits a YAML chunk
+# plan (one entry per guidance page). One call per ingest, so concurrency 1.
+# Initial config mirrors `ingestor` (the closest precedent — long structured
+# input, YAML output); revisit after a deepeval sweep.
+[roles.skill_planner]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 1
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
+# Type-branched ingest — Pass 2. Synthesizes one guidance page from one chunk
+# plan entry; fanned out via SubagentPool. Mirrors `extractor` (structured
+# single-purpose generation); concurrency matches the synthesis fan-out.
+[roles.skill_synthesizer]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 5
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-120b-1:0",
+  "minimax.minimax-m2.5",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshotai.kimi-k2.5",
+]
+
+[roles.synthesizer]
+# Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
+# Haiku removed for quota exhaustion; per-role defaults chosen in that session.
+# us.deepseek.r1-v1:0 removed (reasoning model, 7.9M tokens/day cap + toolCalling unsupported).
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "zai.glm-5",
+  "moonshotai.kimi-k2.5",
+  "deepseek.v3.2",
+  "qwen.qwen3-next-80b-a3b",
+  "moonshot.kimi-k2-thinking",
+]
+
+# Phase 48 D-19 — LLM proposal for `graph propose-domains`. Separate from
+# scanner so cost-per-role is trackable and the model can be tuned
+# independently. Initial config mirrors scanner; revisit in v1.9 eval.
+[roles.domain_proposer]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 1024
+max_concurrency = 5
+
+# Living Wiki M2e — intra-page human-section drift judge. Cheap classification
+# role: compares a human-owned section against the page's regenerated narrative
+# and returns {stale, reason}. Cost-offload candidate (validated later by the
+# deepeval harness); initial config mirrors the cheap `scanner` tier.
+[roles.drift_judge]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 256
+max_concurrency = 10
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "qwen.qwen3-32b-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "mistral.ministral-3-14b-instruct",
+]
+
+# Living Wiki M4 — cross-page drift propagator. Judges a whole curated page
+# (concept/adr/architecture) against the CURRENT narratives of the changed
+# entities that backlink it, and proposes ledger notes for stale claims. Cheap
+# classification tier (mirrors drift_judge); settle the default after a
+# deepeval sweep (spec §7 open-q #2). max_tokens is a touch higher than
+# drift_judge because the verdict carries one finding per triggering entity.
+[roles.drift_propagator]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 512
+max_concurrency = 10
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "qwen.qwen3-32b-v1:0",
+  "us.amazon.nova-lite-v1:0",
+  "mistral.ministral-3-14b-instruct",
+]
+
+# Auto-user simulator for claude-code-evals multi-turn runs. Replies as the
+# simulated user; short replies only. Haiku avoided on Bedrock (service limits).
+[roles.user_simulator]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 512
+max_concurrency = 2
+sweep_candidates = [
+  "moonshotai.kimi-k2.5",
+  "qwen.qwen3-32b-v1:0",
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+]
+
+# NOTE: the binding judge configuration lives in eval_harness/judge.py
+# (JUDGE_PANEL_CONFIG). These blocks are kept in sync for reference only
+# and are NOT read by the judge harness.
+[roles.judge_a]
+model_id        = "mistral.mistral-large-3-675b-instruct"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2
+
+[roles.judge_b]
+model_id        = "us.amazon.nova-pro-v1:0"
+region          = "us-east-1"
+max_tokens      = 2048
+max_concurrency = 2
+
+# `gw guidance scan` — per-file closed-vocab classifier. Classifies one source
+# file (path + head + symbols) into the guidance topic/tag vocabulary; high-volume
+# fan-out over file nodes via SubagentPool, so a cheap, fast tier.
+[roles.guidance_classifier]
+model_id        = "moonshotai.kimi-k2.5" #"openai.gpt-oss-20b-1:0"
+region          = "us-east-1"
+max_tokens      = 256
+max_concurrency = 20
+sweep_candidates = [
+  "openai.gpt-oss-20b-1:0",
+  "zai.glm-4.7-flash",
+  "qwen.qwen3-32b-v1:0",
+  "us.amazon.nova-lite-v1:0",
+]
+
+# `gw guidance suggest` — Stage-2 ranker. A single structured call (NOT a fan-out)
+# that ranks the deterministic-recall candidate slate against the task. Higher
+# reasoning tier; max_tokens/concurrency are conservative and can be right-sized by
+# an eval sweep.
+[roles.guidance_orchestrator]
+model_id        = "moonshotai.kimi-k2.5" #"qwen.qwen3-32b-v1:0"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 3
+sweep_candidates = [
+  "qwen.qwen3-32b-v1:0",
+  "moonshotai.kimi-k2.5",
+  "deepseek.v3.2",
+  "qwen.qwen3-next-80b-a3b",
+]
