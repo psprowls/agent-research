@@ -134,6 +134,8 @@ Wait for the user's response. If they request changes, make them and re-run the 
 
 **Implementation:**
 
+**Pipeline-stage guard — check FIRST.** If your dispatch brief states you are running as the `design` stage of the graph-wiki work pipeline (it will contain the line *"STOP after writing the spec — do not invoke writing-plans"*), then after writing the spec, STOP. Do **not** invoke `writing-plans`. Control returns to the `graph-wiki:workflow` skill, which advances the item and hands off for `/clear` + `/graph-wiki:next`.
+
 - Invoke the writing-plans skill to create a detailed implementation plan
 - Do NOT invoke any other skill. writing-plans is the next step.
 
