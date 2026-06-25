@@ -7,6 +7,7 @@ import types
 from pathlib import Path
 
 import pytest
+from graph_wiki_core.page_kind_templates import kind_template_dirs
 
 _SCRIPT_DIR = Path(__file__).resolve().parents[4] / "plugins" / "graph-wiki" / "skills" / "graph-wiki" / "scripts"
 
@@ -266,7 +267,9 @@ def test_init_vault_script_claude_branch_calls_init_wiki(
     module = types.ModuleType("wiki_io.init_vault")
     module.TOOL_FILES = {"claude-code": [], "codex": [], "all": []}  # type: ignore[attr-defined]
 
-    def fake_init_wiki(wiki_path, repo_path, topic, tool, force, as_json=False, non_interactive=False):
+    def fake_init_wiki(
+        wiki_path, repo_path, topic, tool, force, as_json=False, non_interactive=False, extra_template_dirs=()
+    ):
         calls.append(
             {
                 "wiki_path": wiki_path,
@@ -276,6 +279,7 @@ def test_init_vault_script_claude_branch_calls_init_wiki(
                 "force": force,
                 "as_json": as_json,
                 "non_interactive": non_interactive,
+                "extra_template_dirs": extra_template_dirs,
             }
         )
         result = {"status": "ok", "wiki_path": str(wiki_path), "repo_path": str(repo_path), "topic": topic}
@@ -318,9 +322,51 @@ def test_init_vault_script_claude_branch_calls_init_wiki(
             "force": True,
             "as_json": True,
             "non_interactive": True,
+            "extra_template_dirs": kind_template_dirs(),
         }
     ]
     assert json.loads(capsys.readouterr().out)["status"] == "ok"
+
+
+def test_init_vault_script_claude_branch_lands_kind_templates(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """The plugin shim's Claude branch must land the work.md + guidance.md
+    page-kind templates in <wiki>/.templates/, just like the Bedrock path.
+
+    Runs the REAL wiki_io.init_wiki (not stubbed) end-to-end through the shim,
+    so it would fail if the shim forgot to forward the kind-template dirs. This
+    mirrors core's test_bootstrap_copies_all_16_templates but exercises the
+    Claude path. Regression guard for the plugin bootstrap dropping them.
+    """
+    _install_claude_backend(monkeypatch)
+
+    workspace = tmp_path / "ws"
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "init_vault.py",
+            "--repo",
+            str(repo),
+            "--workspace",
+            str(workspace),
+            "--topic",
+            "Demo",
+            "--tool",
+            "claude-code",
+            "--force",
+        ],
+    )
+
+    runpy.run_path(str(_SCRIPT_DIR / "init_vault.py"), run_name="__main__")
+
+    templates = workspace / "wiki" / ".templates"
+    assert (templates / "work.md").is_file(), "work.md kind template missing from plugin .templates/"
+    assert (templates / "guidance.md").is_file(), "guidance.md kind template missing from plugin .templates/"
 
 
 @pytest.mark.parametrize(
@@ -449,7 +495,9 @@ def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
     module = types.ModuleType("wiki_io.init_vault")
     module.TOOL_FILES = {"claude-code": [], "codex": [], "all": []}  # type: ignore[attr-defined]
 
-    def fake_init_wiki(wiki_path, repo_path, topic, tool, force, as_json=False, non_interactive=False):
+    def fake_init_wiki(
+        wiki_path, repo_path, topic, tool, force, as_json=False, non_interactive=False, extra_template_dirs=()
+    ):
         calls.append(
             {
                 "wiki_path": wiki_path,
@@ -459,6 +507,7 @@ def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
                 "force": force,
                 "as_json": as_json,
                 "non_interactive": non_interactive,
+                "extra_template_dirs": extra_template_dirs,
             }
         )
         return {"status": "ok"}
@@ -491,6 +540,7 @@ def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
             "force": False,
             "as_json": False,
             "non_interactive": False,
+            "extra_template_dirs": kind_template_dirs(),
         }
     ]
 
