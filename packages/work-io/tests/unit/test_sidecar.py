@@ -139,3 +139,38 @@ def test_is_stale_false_when_all_items_older(tmp_path: Path) -> None:
     sidecar = {"generated_at": "2026-06-01T00:00:00+00:00", "items": []}
 
     assert is_stale(sidecar, work_dir) is False
+
+
+def test_sidecar_epic_children_rollup(tmp_path) -> None:
+    from work_io.sidecar import SCHEMA_VERSION, build_sidecar
+
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "2026-01-01-epic.md").write_text(
+        "---\ntitle: E\nkind: epic\nstatus: accepted\nopened: 2026-01-01\nupdated: 2026-01-01\n---\nbody\n",
+        encoding="utf-8",
+    )
+    (work / "2026-01-02-child-a.md").write_text(
+        "---\ntitle: A\nkind: feature\nstatus: resolved\nparent: 2026-01-01-epic\n"
+        "opened: 2026-01-02\nupdated: 2026-01-02\n---\nbody\n",
+        encoding="utf-8",
+    )
+    (work / "2026-01-03-child-b.md").write_text(
+        "---\ntitle: B\nkind: feature\nstatus: open\nparent: 2026-01-01-epic\n"
+        "opened: 2026-01-03\nupdated: 2026-01-03\n---\nbody\n",
+        encoding="utf-8",
+    )
+
+    sc = build_sidecar(work, vault_commit=None)
+    assert sc["schema_version"] == SCHEMA_VERSION == 2
+
+    by_slug = {it["slug"]: it for it in sc["items"]}
+    epic = by_slug["2026-01-01-epic"]
+    assert epic["children"]["total"] == 2
+    assert epic["children"]["terminal"] == 1
+    assert epic["children"]["blocking"] == 1
+    assert epic["children"]["by_status"] == {"resolved": 1, "open": 1}
+
+    child = by_slug["2026-01-02-child-a"]
+    assert child["parent"] == "2026-01-01-epic"
+    assert "children" not in child

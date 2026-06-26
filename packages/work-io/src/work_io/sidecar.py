@@ -8,7 +8,9 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
-SCHEMA_VERSION = 1
+from work_io.hierarchy import child_rollup
+
+SCHEMA_VERSION = 2
 
 
 def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
@@ -28,6 +30,7 @@ def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
                 "slug": md.stem,
                 "title": str(fm.get("title", "")),
                 "kind": str(fm.get("kind", "")),
+                "parent": fm.get("parent") or None,
                 "status": str(fm.get("status", "")),
                 "severity": fm.get("severity") or None,
                 "blast_radius": fm.get("blast_radius") or None,
@@ -37,6 +40,17 @@ def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
         )
 
     items.sort(key=lambda x: (-_date_int(x["opened"]), x["slug"]))
+
+    for it in items:
+        if it["kind"] == "epic":
+            roll = child_rollup(items, it["slug"])
+            child_statuses = Counter(c["status"] for c in items if c.get("parent") == it["slug"] and c["status"])
+            it["children"] = {
+                "total": roll.total,
+                "by_status": dict(child_statuses),
+                "terminal": roll.terminal,
+                "blocking": roll.total - roll.terminal,
+            }
 
     by_status = Counter(i["status"] for i in items if i["status"])
     by_kind = Counter(i["kind"] for i in items if i["kind"])
