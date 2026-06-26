@@ -1,4 +1,4 @@
-"""23 lifecycle lint rules for work items."""
+"""Lifecycle lint rules for work items (per-item schema/state rules plus cross-item hierarchy rules)."""
 
 from __future__ import annotations
 
@@ -97,7 +97,7 @@ def run_lint(
             )
 
         # 6. resolved-without-ref
-        if status == "resolved" and not fm.get("resolved_in"):
+        if status == "resolved" and kind != "epic" and not fm.get("resolved_in"):
             findings.append(
                 LintFinding("resolved-without-ref", "warn", slug, "status=resolved but resolved_in is blank")
             )
@@ -235,6 +235,65 @@ def run_lint(
                         )
                     )
 
+    # 24-29. hierarchy rules (cross-item; resolved against the full item set)
+    by_slug = {it["slug"]: it["fm"] for it in items}
+    dep_graph: dict[str, list[str]] = {}
+    for item in items:
+        slug = item["slug"]
+        fm = item["fm"]
+        kind = str(fm.get("kind", ""))
+        parent = fm.get("parent")
+        depends_on = list(fm.get("depends_on") or [])
+        dep_graph[slug] = [str(dep) for dep in depends_on]
+
+        # 24. parent-missing / 25. parent-not-epic
+        if parent:
+            parent_fm = by_slug.get(str(parent))
+            if parent_fm is None:
+                findings.append(
+                    LintFinding("parent-missing", "error", slug, f"parent {parent!r} has no matching work item")
+                )
+            elif str(parent_fm.get("kind", "")) != "epic":
+                findings.append(
+                    LintFinding(
+                        "parent-not-epic",
+                        "error",
+                        slug,
+                        f"parent {parent!r} resolves but its kind is {parent_fm.get('kind')!r}, not 'epic'",
+                    )
+                )
+
+        # 26. depends-on-missing / 27. depends-on-not-sibling
+        for dep in depends_on:
+            dep_fm = by_slug.get(str(dep))
+            if dep_fm is None:
+                findings.append(
+                    LintFinding("depends-on-missing", "error", slug, f"depends_on {dep!r} has no matching work item")
+                )
+            elif parent and dep_fm.get("parent") != parent:
+                findings.append(
+                    LintFinding(
+                        "depends-on-not-sibling",
+                        "warn",
+                        slug,
+                        f"depends_on {dep!r} has parent {dep_fm.get('parent')!r}, not this item's parent {parent!r}",
+                    )
+                )
+
+        # 29. epic-without-children
+        if kind == "epic" and str(fm.get("phase", "")) in {"execute", "finish", "done"}:
+            has_children = any(it["fm"].get("parent") == slug for it in items)
+            if not has_children:
+                findings.append(
+                    LintFinding(
+                        "epic-without-children", "warn", slug, f"epic at phase={fm.get('phase')!r} has no children"
+                    )
+                )
+
+    # 28. depends-on-cycle
+    for slug in _cycle_nodes(dep_graph):
+        findings.append(LintFinding("depends-on-cycle", "error", slug, "depends_on participates in a cycle"))
+
     # 18. sidecar-missing (global)
     if sidecar is None:
         findings.append(
@@ -259,6 +318,33 @@ def run_lint(
             )
 
     return findings
+
+
+def _cycle_nodes(graph: dict[str, list[str]]) -> list[str]:
+    """Return the sorted set of nodes that participate in any depends_on cycle."""
+    WHITE, GRAY, BLACK = 0, 1, 2
+    color = {n: WHITE for n in graph}
+    in_cycle: set[str] = set()
+    stack: list[str] = []
+
+    def visit(node: str) -> None:
+        color[node] = GRAY
+        stack.append(node)
+        for nxt in graph.get(node, []):
+            if nxt not in graph:
+                continue
+            if color[nxt] == GRAY:
+                idx = stack.index(nxt)
+                in_cycle.update(stack[idx:])
+            elif color[nxt] == WHITE:
+                visit(nxt)
+        stack.pop()
+        color[node] = BLACK
+
+    for node in graph:
+        if color[node] == WHITE:
+            visit(node)
+    return sorted(in_cycle)
 
 
 def _days_since(date_str: str) -> int:
