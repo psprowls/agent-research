@@ -43,7 +43,7 @@ def run_lint(
     sidecar: dict | None,
     workspace_root: Path | None = None,
 ) -> list[LintFinding]:
-    """Run all 23 lifecycle rules. Each item dict has keys: slug, fm, plan (PlanResult).
+    """Run all lifecycle rules. Each item dict has keys: slug, fm, plan (PlanResult).
 
     workspace_root enables the workspace-relative checks (rule 23, and the
     workspace fallback in rule 11); when None those checks are skipped.
@@ -97,6 +97,7 @@ def run_lint(
             )
 
         # 6. resolved-without-ref
+        # Epics are exempt: they resolve via the children-terminal gate, not a resolved_in ref.
         if status == "resolved" and kind != "epic" and not fm.get("resolved_in"):
             findings.append(
                 LintFinding("resolved-without-ref", "warn", slug, "status=resolved but resolved_in is blank")
