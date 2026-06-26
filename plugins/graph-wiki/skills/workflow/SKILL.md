@@ -12,7 +12,7 @@ decision (routing, transitions, validation); this skill only relays.
 stage gets a fresh context window. The work item plus `raw/` artifacts are the
 durable state between sessions; nothing depends on conversation memory.
 
-The workspace doc-routing hook injects the resolved absolute workspace path into your context — use it if present when you see `<workspace>` present.
+The workspace doc-routing hook injects the resolved absolute workspace path into your context — use it if present when you see `<workspace>` mentioned in a command or instruction.
 
 If `gw` is not on PATH, run it as
 `uv run --package graph-wiki-cli gw …`.
