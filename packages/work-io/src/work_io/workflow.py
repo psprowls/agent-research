@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from work_io.hierarchy import ChildRollup
 from work_io.lifecycle_lint import (
     BUG_LIKE_KINDS,
     TERMINAL_STATUSES,
@@ -35,6 +36,9 @@ class WorkItemState:
     phase: str | None = None
     effort: str | None = None
     has_plan_doc: bool = False
+    depends_on: tuple[str, ...] = ()
+    unmet_deps: tuple[str, ...] = ()
+    child_rollup: ChildRollup | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +78,14 @@ def route(state: WorkItemState) -> RouteResult:
             skill=None,
             reason="disposition is human-owned",
             blockers=(f"status {state.status!r} never dispatches; set status to 'open' to re-enter the pipeline",),
+        )
+    if state.unmet_deps:
+        return RouteResult(
+            skill=None,
+            reason="blocked on dependencies",
+            blockers=(
+                "blocked on dependencies (not terminal): " + ", ".join(state.unmet_deps) + "; finish them first",
+            ),
         )
     if state.phase is None:
         return _entry(state)
@@ -149,6 +161,9 @@ def _design_complete(state: WorkItemState) -> Transition:
             return Transition(phase=PLAN_OR_EXECUTE, requires=("effort",), stamp_doc="spec_doc")
         if state.effort in SMALL_EFFORTS:
             return Transition(phase="execute", stamp_doc="spec_doc")
+    # NOTE: epic is feature-like (NOT in BUG_LIKE_KINDS), so it falls through to
+    # phase="plan" here for every effort. Do NOT add epic to the small-effort
+    # skip path above — decomposition happens at plan and is mandatory for epics.
     return Transition(phase="plan", stamp_doc="spec_doc")
 
 
@@ -163,6 +178,14 @@ def _design(state: WorkItemState) -> RouteResult:
 
 
 def _plan(state: WorkItemState) -> RouteResult:
+    if state.kind == "epic":
+        # Epics decompose into children at plan; no plan table to sync.
+        return RouteResult(
+            skill="planning-epics",
+            reason="epic at plan stage",
+            artifact_slot="plans",
+            on_complete=Transition(phase="execute", status="accepted", stamp_doc="plan_doc"),
+        )
     return RouteResult(
         skill="writing-plans",
         reason=f"{state.kind} at plan stage",
@@ -171,7 +194,33 @@ def _plan(state: WorkItemState) -> RouteResult:
     )
 
 
+def _epic_execute_gate(state: WorkItemState) -> RouteResult:
+    """Satisfied-gate logic for an epic in execute: advance only when children finish."""
+    rollup = state.child_rollup
+    if rollup is None or rollup.total == 0:
+        return RouteResult(
+            skill=None,
+            reason="epic execute: no children",
+            blockers=("epic has no children; run the plan stage to decompose it",),
+        )
+    if rollup.terminal < rollup.total:
+        return RouteResult(
+            skill=None,
+            reason="epic execute: waiting on children",
+            blockers=(
+                f"waiting on children: {rollup.terminal}/{rollup.total} terminal; open: {', '.join(rollup.open_slugs)}",
+            ),
+        )
+    return RouteResult(
+        skill=None,
+        reason="epic children complete",
+        on_complete=Transition(phase="finish"),
+    )
+
+
 def _execute(state: WorkItemState) -> RouteResult:
+    if state.kind == "epic":
+        return _epic_execute_gate(state)
     if state.has_plan_doc:
         skill, reason = "subagent-driven-development", "execute stage with a written plan"
     else:
@@ -188,6 +237,13 @@ def _execute(state: WorkItemState) -> RouteResult:
 
 
 def _finish(state: WorkItemState) -> RouteResult:
+    if state.kind == "epic":
+        # Epics own no branch — children carry resolved_in. Satisfied-gate to done.
+        return RouteResult(
+            skill=None,
+            reason="epic at finish stage",
+            on_complete=Transition(phase="done", status="resolved"),
+        )
     return RouteResult(
         skill="finishing-a-development-branch",
         reason=f"{state.kind} at finish stage",
