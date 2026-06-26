@@ -1,28 +1,36 @@
 """Render the default body for a freshly filed work item.
 
-Emits the scaffolding sections the work pipeline and humans fill in, instead of
-the one-line ## Summary stub. The ## Plan header is shared with plan_table so
-filing and ensure_plan_row keep one definition; an empty (header+separator, no
-data rows) table parses as state="empty", satisfying the accepted-without-plan
-lint rule.
+The body comes from a per-kind markdown template under assets/bodies/. Each
+template is a body fragment (no frontmatter, no H1) with two placeholders:
+{summary} (the item's summary text) and {plan_table} (the canonical empty Plan
+table). An unknown/missing kind falls back to bodies/default.md.
+
+The ## Plan header + empty table is shared with plan_table via the single
+_PLAN_TABLE_HEADER definition, kept as a {plan_table} placeholder so the table
+is never copied into the template files (9 copies could drift and break the
+accepted-without-plan lint rule, which needs an empty table to parse as
+state="empty").
 """
 
 from __future__ import annotations
 
-from work_io.lifecycle_lint import BUG_LIKE_KINDS
 from work_io.plan_table import _PLAN_TABLE_HEADER
+from work_io.templates import templates_dir
 
 
 def render_default_work_body(summary: str, kind: str) -> str:
     """Build the default work-item body for the given kind.
 
-    Always emits ## Summary, an empty ## Plan table, and ## Notes / log.
-    Feature-shaped kinds also get an ## Options considered section; bug-shaped
-    kinds design via debugging, not option-weighing, so it is omitted.
+    Resolves bodies/<kind>.md, falling back to bodies/default.md for an unknown
+    kind, then substitutes the {summary} and {plan_table} placeholders. Uses
+    str.replace (not str.format) so stray { } in template prose cannot raise.
     """
-    sections = [f"## Summary\n{summary}\n"]
-    if kind not in BUG_LIKE_KINDS:
-        sections.append("## Options considered\n")
-    sections.append("## Plan\n\n" + "\n".join(_PLAN_TABLE_HEADER) + "\n")
-    sections.append("## Notes / log\n")
-    return "\n".join(sections)
+    bodies_dir = templates_dir() / "bodies"
+    template_path = bodies_dir / f"{kind}.md"
+    if not template_path.exists():
+        template_path = bodies_dir / "default.md"
+
+    text = template_path.read_text(encoding="utf-8")
+    text = text.replace("{plan_table}", "\n".join(_PLAN_TABLE_HEADER))
+    text = text.replace("{summary}", summary)
+    return text
