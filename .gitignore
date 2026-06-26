@@ -177,7 +177,6 @@ yarn-error.log
 .kiro/
 .envrc
 .turbo/
-.superpowers
 worktrees
 .worktrees
 

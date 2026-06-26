@@ -7,7 +7,7 @@
 #
 # Options:
 #   --project-dir <path>  Override: store session files under
-#                         <path>/.superpowers/brainstorm/. Without it, the session
+#                         <path>/.brainstorming. Without it, the session
 #                         dir is resolved (graph-wiki workspace -> repo -> /tmp);
 #                         see the SESSION_DIR block below.
 #   --host <bind-host>    Host/interface to bind (default: 127.0.0.1).
@@ -80,11 +80,11 @@ fi
 SESSION_ID="$$-$(date +%s)"
 
 if [[ -n "$PROJECT_DIR" ]]; then
-  SESSION_DIR="${PROJECT_DIR}/.superpowers/brainstorm/${SESSION_ID}"
+  SESSION_DIR="${PROJECT_DIR}/.brainstorming/${SESSION_ID}"
 else
   # No explicit --project-dir. Resolve where the session lives, in order:
   #   1. graph-wiki workspace resolves -> <workspace>/brainstorm/
-  #   2. else inside a git repo        -> <repo>/.superpowers/brainstorm/  (persists, as before)
+  #   2. else inside a git repo        -> <repo>/.brainstorming/  (persists, as before)
   #   3. else                          -> /tmp/brainstorm-<session>        (ephemeral)
   # The resolver echoes its result and exits 0, so capture it (don't source —
   # its `exit 0` would terminate this script). PWD is still the caller's cwd
@@ -93,7 +93,7 @@ else
   if [[ -n "$WORKSPACE" ]]; then
     SESSION_DIR="${WORKSPACE}/brainstorm/${SESSION_ID}"
   elif REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" && [[ -n "$REPO_ROOT" ]]; then
-    SESSION_DIR="${REPO_ROOT}/.superpowers/brainstorm/${SESSION_ID}"
+    SESSION_DIR="${REPO_ROOT}/.brainstorming/${SESSION_ID}"
   else
     SESSION_DIR="/tmp/brainstorm-${SESSION_ID}"
   fi

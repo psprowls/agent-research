@@ -38,25 +38,25 @@ scripts/start-server.sh
 
 # Returns (graph-wiki workspace resolves):
 # {"type":"server-started","port":52341,"url":"http://localhost:52341",
-#  "screen_dir":"<workspace>/brainstorm/12345-1706000000/content",
-#  "state_dir":"<workspace>/brainstorm/12345-1706000000/state"}
+#  "screen_dir":"<workspace>/.graph-wiki/brainstorming/12345-1706000000/content",
+#  "state_dir":"<workspace>/.graph-wiki/brainstorming/12345-1706000000/state"}
 ```
 
 Save `screen_dir` and `state_dir` from the response. Tell user to open the URL.
 
 **Where sessions are saved (default, no `--project-dir`):** the script resolves a
 fallback chain — (1) a graph-wiki workspace (`GRAPH_WIKI_WORKSPACE` env var, or a
-`.graph-wiki.local.yaml` found by walking up) → `<workspace>/brainstorm/`; (2) else
-the enclosing git repo → `<repo>/.superpowers/brainstorm/`; (3) else `/tmp` (ephemeral,
-cleaned up on stop). The workspace and `.superpowers/` locations both persist across
+`.graph-wiki.local.yaml` found by walking up) → `<workspace>/.graph-wiki/brainstorming/`; (2) else
+the enclosing git repo → `<repo>/.brainstorming/`; (3) else `/tmp` (ephemeral,
+cleaned up on stop). The workspace and `.brainstorming/` locations both persist across
 server restarts.
 
 **Finding connection info:** The server writes its startup JSON to `$STATE_DIR/server-info`. If you launched the server in the background and didn't capture stdout, read that file to get the URL and port. Otherwise use the `state_dir` from the returned JSON to locate the session directory.
 
 **Override with `--project-dir`:** pass an explicit project root to force
-`<project>/.superpowers/brainstorm/` regardless of workspace resolution. In the
-non-graph-wiki fallback case (sessions under `<repo>/.superpowers/brainstorm/`), remind
-the user to add `.superpowers/` to `.gitignore` if it's not already there. The workspace
+`<project>/.brainstorming/` regardless of workspace resolution. In the
+non-graph-wiki fallback case (sessions under `<repo>/.brainstorming`), remind
+the user to add `.brainstorming/` to `.gitignore` if it's not already there. The workspace
 location lives outside the repo and needs no gitignore entry.
 
 **Launching the server by platform:**
@@ -290,7 +290,7 @@ If `$STATE_DIR/events` doesn't exist, the user didn't interact with the browser 
 scripts/stop-server.sh $SESSION_DIR
 ```
 
-Sessions saved under a workspace (`<workspace>/brainstorm/`) or repo (`<repo>/.superpowers/brainstorm/`) persist for later reference. Only `/tmp` sessions get deleted on stop.
+Sessions saved under a workspace (`<workspace>/.graph-wiki/brainstorming/`) or repo (`<repo>/.brainstorming/`) persist for later reference. Only `/tmp` sessions get deleted on stop.
 
 ## Reference
 

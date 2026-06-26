@@ -19,7 +19,29 @@
                 "IS_LOCAL": "true"
             },
             "args": [
-                "scan"              
+                "scan"
+            ]
+        },
+        {
+            "name": "gw guidance suggest",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/.venv/bin/gw",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "AWS_PROFILE": "pat-dev",
+                "AWS_REGION": "us-east-1",
+                "IS_LOCAL": "true"
+            },
+            "args": [
+                "guidance",
+                "suggest",
+                "harden test isolation",
+                "--path",
+                "packages/claude-code-evals/src/claude_code_evals/isolation.py"
             ]
         },
     ]

@@ -19,7 +19,7 @@ Assume they are a skilled developer, but know almost nothing about our toolset o
 
 **Context:** If working in an isolated worktree, it should have been created via the `graph-wiki:using-git-worktrees` skill at execution time.
 
-**Save plans to:** `<workspace>/raw/plans/YYYY-MM-DD-<feature-name>.md` — the graph-wiki workspace plan inbox (overrides the stock `docs/superpowers/plans/` path; the workspace doc-routing hook injects the resolved absolute path into your context — use it if present)
+**Save plans to:** `<workspace>/raw/plans/YYYY-MM-DD-<feature-name>.md` — the graph-wiki workspace plan inbox path; the workspace doc-routing hook injects the resolved absolute path into your context — use it if present
 - (User preferences for plan location override this default)
 
 ## Scope Check

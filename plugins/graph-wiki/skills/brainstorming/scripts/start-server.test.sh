@@ -41,13 +41,13 @@ run_case() {
   printf '%s' "$session_dir"
 }
 
-# --- case 1: GRAPH_WIKI_WORKSPACE set -> <ws>/brainstorm/ ------------------
+# --- case 1: GRAPH_WIKI_WORKSPACE set -> <ws>/.graph-wki/brainstorming/ ------------------
 WS="$TMP/ws"
 mkdir -p "$WS"
 sd="$(cd "$TMP" && run_case env GRAPH_WIKI_WORKSPACE="$WS" bash "$START")"
-assert_prefix "env workspace -> <ws>/brainstorm/" "$WS/brainstorm/" "$sd"
+assert_prefix "env workspace -> <ws>/.graph-wiki/brainstorming/" "$WS/.graph-wiki/brainstorming/" "$sd"
 
-# --- case 2: no env, inside a git repo -> <repo>/.superpowers/brainstorm/ --
+# --- case 2: no env, inside a git repo -> <repo>/.brainstorming/ --
 REPO="$TMP/repo"
 mkdir -p "$REPO"
 git -C "$REPO" init -q
@@ -55,15 +55,15 @@ git -C "$REPO" init -q
 # on macOS); resolve the fixture the same way so the prefix matches.
 REPO="$(cd "$REPO" && pwd -P)"
 sd="$(cd "$REPO" && run_case env -u GRAPH_WIKI_WORKSPACE bash "$START")"
-assert_prefix "git repo, no workspace -> <repo>/.superpowers/brainstorm/" \
-  "$REPO/.superpowers/brainstorm/" "$sd"
+assert_prefix "git repo, no workspace -> <repo>/.brainstorming/" \
+  "$REPO/.brainstorming/" "$sd"
 
-# --- case 3: explicit --project-dir -> <dir>/.superpowers/brainstorm/ ------
+# --- case 3: explicit --project-dir -> <dir>/.brainstorming/ ------
 PROJ="$TMP/proj"
 mkdir -p "$PROJ"
 sd="$(cd "$TMP" && run_case env -u GRAPH_WIKI_WORKSPACE bash "$START" --project-dir "$PROJ")"
-assert_prefix "--project-dir -> <dir>/.superpowers/brainstorm/" \
-  "$PROJ/.superpowers/brainstorm/" "$sd"
+assert_prefix "--project-dir -> <dir>/.brainstorming/" \
+  "$PROJ/.brainstorming/" "$sd"
 
 echo "-------------------------------------"
 echo "pass=$pass fail=$fail"

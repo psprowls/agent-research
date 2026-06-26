@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse hook on Skill: route superpowers spec/plan docs to the
+# PreToolUse hook on Skill: route graph-wiki workflow spec/plan docs to the
 # graph-wiki workspace raw inbox. Mirrors hooks/session-start's escaping
 # and 3-way platform JSON branching. Fail-open: never blocks a Skill call.
 set -uo pipefail
@@ -61,7 +61,7 @@ fi
 SPECS_DIR="${RESOLVED%%$'\t'*}"
 PLANS_DIR="${RESOLVED#*$'\t'}"
 
-context="GRAPH-WIKI WORKSPACE ROUTING: Write superpowers artifacts into the graph-wiki workspace, not the repo's docs/superpowers/ directory.\n- brainstorming spec -> ${SPECS_DIR}/YYYY-MM-DD-<topic>-design.md\n- writing-plans plan (and its co-located .tasks.json) -> ${PLANS_DIR}/YYYY-MM-DD-<feature>.md\nKeep the skills' filename conventions; only the directory changes. These directories already exist."
+context="GRAPH-WIKI WORKSPACE ROUTING: Write graph-wiki workflow artifacts into the graph-wiki workspace.\n- brainstorming spec -> ${SPECS_DIR}/YYYY-MM-DD-<topic>-design.md\n- writing-plans plan (and its co-located .tasks.json) -> ${PLANS_DIR}/YYYY-MM-DD-<feature>.md\nKeep the skills' filename conventions; only the directory changes. These directories already exist."
 context_escaped=$(escape_for_json "$context")
 
 # Cursor expects additional_context (snake_case); Claude Code expects nested

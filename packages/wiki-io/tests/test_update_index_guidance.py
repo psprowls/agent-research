@@ -1,4 +1,4 @@
-"""Guidance index generation (spec: docs/superpowers/specs/2026-06-09-guidance-index-pages-design.md)."""
+"""Guidance index generation (spec: <workspace>raw/specs/_archived/2026-06-09-guidance-index-pages-design.md)."""
 
 from __future__ import annotations
 
