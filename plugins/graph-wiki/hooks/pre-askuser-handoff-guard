@@ -1,0 +1,293 @@
+#!/usr/bin/env bash
+# PreToolUse hook on AskUserQuestion: enforce the writing-plans Execution Handoff structure.
+#
+# When writing-plans completes and creates tasks, the skill's HARD-GATE mandates exactly
+# one AskUserQuestion structure at the handoff point:
+#
+#   question: "Plan complete and saved to ... How would you like to execute it?"
+#   options:
+#     - label: "Subagent-Driven (this session)"
+#     - label: "Parallel Session (separate)"
+#
+# Agents under load frequently improvise a custom phased menu instead — bypassing the
+# execution-method choice and skipping the subagent pipeline (where model routing operates).
+# The live failure that motivated this gate: session 2013ea56 wrote a 19-task plan, produced
+# a custom four-option menu, and the subagent pipeline never engaged.
+#
+# Decision order:
+#   1. GRAPH_WIKI_ROUTING_GUARD=0 → allow.
+#   2. tool_name != "AskUserQuestion" → allow.
+#   3. Routing file absent (two-location lookup, same as sibling gates) → allow (dormant).
+#   4. Scan transcript: compute arm_pos (last writing-plans signal + TaskCreate after it).
+#      Not armed → allow.
+#   5. Armed + this call carries compliant two-option structure → allow.
+#   6. Armed + question contains "CLARIFICATION" token → allow (legitimate mid-plan question).
+#   7. Otherwise → block (exit 2) with teach message and verbatim required YAML.
+#
+# Opt-in umbrella: same routing file that gates model-routing (<workspace>/docs/graph-wiki/model-routing.json
+# or ~/.claude/graph-wiki/model-routing.json). Present → active. Absent → dormant.
+#
+# Escape hatch: GRAPH_WIKI_ROUTING_GUARD=0
+
+TRACE_LOG="${GRAPH_WIKI_USERGATE_TRACE_LOG:-/tmp/claude-hooks/user-gate-trace.log}"
+mkdir -p "$(dirname "$TRACE_LOG")" 2>/dev/null || true
+trace() {
+    local tid="${1:-?}" event="${2:-?}" reason="${3:-}"
+    printf '%s | pre-handoff | task=%s | %s%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$tid" "$event" \
+        "${reason:+ | $reason}" >> "$TRACE_LOG" 2>/dev/null || true
+}
+
+ALLOW='{"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow"}}'
+
+if [[ "${GRAPH_WIKI_ROUTING_GUARD:-1}" == "0" ]]; then
+    trace "?" "skip" "guard=0"
+    echo "$ALLOW"; exit 0
+fi
+
+trap 'trace "?" "error" "trap-ERR"; echo "$ALLOW"; exit 0' ERR
+
+INPUT=$(cat)
+
+# One jq pass for the scalar input fields (was three separate jq spawns).
+# One field per line, embedded CR/LF flattened to spaces. NOTE: \x01
+# separators are not an option here — bash 3.2 uses \x01 internally
+# (CTLESC) and IFS=$'\x01' silently fails to split on stock macOS bash.
+# jq parse failure fails the assignment → ERR trap → allow.
+FIELDS=$(echo "$INPUT" | jq -r '[(.tool_name // ""), (.cwd // ""), (.transcript_path // "")] | map(tostring | gsub("\\r|\\n"; " ")) | .[]' 2>/dev/null)
+{ IFS= read -r TOOL_NAME; IFS= read -r CWD; IFS= read -r TRANSCRIPT_PATH; } <<< "$FIELDS" || true
+
+[[ "$TOOL_NAME" != "AskUserQuestion" ]] && { trace "?" "skip" "tool=$TOOL_NAME"; echo "$ALLOW"; exit 0; }
+
+# Resolve workspace raw dirs. Prints "specs<TAB>plans" on success, or a line
+# starting with ERR: on failure. Runs in the session cwd so discovery works.
+RESOLVED=$(uv run --project "$ROOT" python -c '
+import sys
+from pathlib import Path
+try:
+    from workspace_io import config, paths
+    raw = paths.raw_dir(config.resolve(Path.cwd()).workspace)
+    sys.stdout.write(str(raw))
+except Exception as e:
+    sys.stdout.write("ERR:" + str(e).replace("\n", " "))
+' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
+
+
+# Locate routing file: project first, then user-level default. First found wins.
+[[ -z "$RESULVED" ]]
+ROUTING_FILE="${RESOLVED}/.graph-wiki/model-routing.json"
+if [[ ! -f "$ROUTING_FILE" ]]; then
+    ROUTING_FILE="$HOME/.claude/graph-wiki/model-routing.json"
+fi
+
+if [[ ! -f "$ROUTING_FILE" ]]; then
+    trace "?" "skip" "no-routing-file"
+    echo "$ALLOW"; exit 0
+fi
+
+[[ -z "$TRANSCRIPT_PATH" || ! -f "$TRANSCRIPT_PATH" ]] && {
+    trace "?" "skip" "no-transcript"
+    echo "$ALLOW"; exit 0
+}
+
+# Walk the transcript to determine armed state.
+# arm_pos:    last position of a writing-plans signal (Skill tool_use OR user message
+#             containing the skill invocation string, as slash commands inject user messages)
+# disarm_pos: last position of an execution signal (subagent-driven-development /
+#             executing-plans / execute-plan Skill tool_use, matching user messages,
+#             OR a prior compliant handoff AskUserQuestion with both required option labels)
+# last_taskcreate_pos: position of the most recent TaskCreate tool_use. Armed
+#             requires it AFTER arm_pos — a stale TaskCreate from an earlier,
+#             already-handed-off plan cycle must not arm the guard again when
+#             writing-plans is re-invoked for a second plan in the same session.
+#
+# Note: user message content may be a plain string OR a list of {"type":"text","text":"..."}
+# blocks — both are handled.
+#
+# The file is streamed in BINARY with a substring pre-filter: a line that
+# contains none of the signal substrings cannot change arm/disarm state, so it
+# skips json.loads. Keeps the scan linear-in-bytes, avoids loading hundreds of
+# MB into memory, and — unlike text-mode readlines() — one invalid-UTF-8 byte
+# poisons only its own line instead of silently disarming the whole guard.
+PY_SCAN='
+import json, re, sys
+
+path = sys.argv[1]
+
+# Pre-filter: every signal this scan reacts to lives on a line containing one
+# of these literals. Tool_use signals always carry the tool name
+# ("Skill"/"TaskCreate"/"AskUserQuestion"); every user-message signal string
+# starts with "graph-wiki:". One compiled-regex search per line
+# is the cheapest formulation that needs no per-line Python overhead.
+SIG = re.compile(b"Skill|TaskCreate|AskUserQuestion|graph-wiki:")
+
+try:
+    f = open(path, "rb")
+except Exception:
+    print("false\nerror")
+    sys.exit(0)
+
+arm_pos = None
+disarm_pos = None
+last_taskcreate_pos = None
+
+def extract_text(content_val):
+    """Return plain text from a content field that is either a string or a list of blocks."""
+    if isinstance(content_val, str):
+        return content_val
+    if isinstance(content_val, list):
+        parts = []
+        for block in content_val:
+            if isinstance(block, dict) and block.get("type") == "text":
+                parts.append(block.get("text", ""))
+        return " ".join(parts)
+    return ""
+
+with f:
+    for pos, line in enumerate(f):
+        if not SIG.search(line):
+            continue
+        try:
+            e = json.loads(line)
+        except Exception:
+            continue
+
+        etype = e.get("type", "")
+
+        # --- assistant messages: scan tool_use entries ---
+        if etype == "assistant":
+            for c in (e.get("message") or {}).get("content") or []:
+                if not isinstance(c, dict) or c.get("type") != "tool_use":
+                    continue
+                name = c.get("name", "")
+                inp = c.get("input") or {}
+
+                # writing-plans arm signals
+                if name == "Skill":
+                    skill_val = inp.get("skill", "") or ""
+                    if (skill_val == "writing-plans"
+                            or skill_val.endswith(":write-plan")
+                            or "writing-plans" in skill_val):
+                        arm_pos = pos
+
+                # TaskCreate (compared against arm_pos at the end)
+                if name == "TaskCreate":
+                    last_taskcreate_pos = pos
+
+                # Execution disarm signals — Skill tool_use
+                if name == "Skill":
+                    skill_val = inp.get("skill", "") or ""
+                    if (skill_val in ("subagent-driven-development", "executing-plans", "execute-plan")
+                            or skill_val.endswith(":subagent-driven-development")
+                            or skill_val.endswith(":executing-plans")
+                            or skill_val.endswith(":execute-plan")):
+                        disarm_pos = pos
+
+                # Compliant prior handoff: AskUserQuestion whose options include both required labels
+                if name == "AskUserQuestion":
+                    questions = inp.get("questions") or []
+                    if questions:
+                        q0 = questions[0] if isinstance(questions[0], dict) else {}
+                        options = q0.get("options") or []
+                        labels = [str(o.get("label", "")) if isinstance(o, dict) else str(o) for o in options]
+                        has_subagent = any("Subagent-Driven" in lbl for lbl in labels)
+                        has_parallel = any("Parallel Session" in lbl for lbl in labels)
+                        if has_subagent and has_parallel:
+                            disarm_pos = pos
+
+        # --- user messages: check for slash-command skill invocations ---
+        if etype == "user":
+            msg = e.get("message") or {}
+            # content may be string or list of blocks
+            raw_content = msg.get("content", "")
+            text = extract_text(raw_content)
+
+            # writing-plans arm via user message (slash command injection pattern)
+            if "graph-wiki:writing-plans" in text or "graph-wiki:write-plan" in text:
+                arm_pos = pos
+
+            # execution disarm via user message
+            if ("graph-wiki:subagent-driven-development" in text
+                    or "graph-wiki:executing-plans" in text):
+                disarm_pos = pos
+
+# armed iff: arm_pos set AND (no disarm OR disarm before arm)
+#            AND the most recent TaskCreate came after the most recent arm
+armed = (
+    arm_pos is not None
+    and (disarm_pos is None or disarm_pos < arm_pos)
+    and last_taskcreate_pos is not None
+    and last_taskcreate_pos > arm_pos
+)
+
+print(("true" if armed else "false") + "\n" + str(arm_pos))
+'
+
+SCAN_RESULT=$(python3 -c "$PY_SCAN" "$TRANSCRIPT_PATH" 2>/dev/null) || SCAN_RESULT=$'false\nerror'
+{ IFS= read -r ARMED; IFS= read -r ARM_POS; } <<< "$SCAN_RESULT" || true
+
+if [[ "$ARMED" != "true" ]]; then
+    trace "?" "not-armed" "arm_pos=${ARM_POS:-null}"
+    echo "$ALLOW"; exit 0
+fi
+
+# Armed — inspect this call's questions[0]. Two jq passes (was five); the
+# label fallback is evaluated per option element so a mixed label/text list
+# no longer drops the fallback keys.
+Q0_QUESTION=$(echo "$INPUT" | jq -r '.tool_input.questions[0].question // ""' 2>/dev/null)
+OPTIONS_LABELS=$(echo "$INPUT" | jq -r '.tool_input.questions[0].options // [] | .[] | (.label // .text // .value // empty)' 2>/dev/null)
+
+# Check for the two required label strings.
+HAS_SUBAGENT=0
+HAS_PARALLEL=0
+while IFS= read -r lbl; do
+    case "$lbl" in
+        *"Subagent-Driven"*) HAS_SUBAGENT=1 ;;
+        *"Parallel Session"*) HAS_PARALLEL=1 ;;
+    esac
+done <<< "$OPTIONS_LABELS"
+
+if [[ "$HAS_SUBAGENT" == "1" && "$HAS_PARALLEL" == "1" ]]; then
+    trace "?" "handoff-compliant" "both required labels present"
+    echo "$ALLOW"; exit 0
+fi
+
+# Escape hatch: legitimate mid-plan clarification question.
+if [[ "$Q0_QUESTION" == *"CLARIFICATION"* ]]; then
+    trace "?" "clarification-escape" "CLARIFICATION token in question"
+    echo "$ALLOW"; exit 0
+fi
+
+trace "?" "block" "armed=true, required labels missing"
+
+{
+    echo "EXECUTION HANDOFF VIOLATION — WRONG AskUserQuestion STRUCTURE"
+    echo ""
+    echo "writing-plans was invoked and tasks were created, but this AskUserQuestion"
+    echo "is not the mandated Execution Handoff. The skill's HARD-GATE permits exactly"
+    echo "one structure here."
+    echo ""
+    echo "Required structure (copy this exactly):"
+    echo ""
+    echo "  AskUserQuestion:"
+    echo "    question: \"Plan complete and saved to <workspace>/raw/plans/<filename>.md. How would you like to execute it?\""
+    echo "    header: \"Execution\""
+    echo "    options:"
+    echo "      - label: \"Subagent-Driven (this session)\""
+    echo "        description: \"I dispatch fresh subagent per task, review between tasks, fast iteration\""
+    echo "      - label: \"Parallel Session (separate)\""
+    echo "        description: \"Open new session in worktree with executing-plans, batch execution with checkpoints\""
+    echo ""
+    echo "Options:"
+    echo "  1. Re-issue AskUserQuestion with exactly that structure. This is the"
+    echo "     mandated handoff — both options feed the subagent pipeline where"
+    echo "     model routing and task dispatch operate."
+    echo "  2. If this is a genuine mid-plan clarification (not the handoff), include"
+    echo "     the literal token CLARIFICATION in the question text and retry."
+    echo "  3. The user can disable with GRAPH_WIKI_ROUTING_GUARD=0."
+    echo ""
+    echo "Tier/handoff rationale: docs/model-routing-flow.md"
+    echo "(Trace log: $TRACE_LOG)"
+} >&2
+
+exit 2
