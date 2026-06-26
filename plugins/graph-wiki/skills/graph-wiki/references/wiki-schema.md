@@ -180,21 +180,21 @@ Field divergences:
 
 ### Work pages
 
-Unified namespace replacing `issues/` + `roadmap/`. `category: work`. `kind:` discriminates between bug-shaped and feature-shaped items; a single status lifecycle covers both. Slugs follow `<YYYY-MM-DD>-<short-slug>.md` for items where date-of-filing matters (most bugs and spikes); `<short-slug>.md` for evergreen feature/initiative items.
+Unified namespace replacing `issues/` + `roadmap/`. `category: work`. `kind:` discriminates between bug-shaped and feature-shaped items; a single status lifecycle covers both. Slugs follow `<YYYY-MM-DD>-<short-slug>.md` for items where date-of-filing matters (most bugs and spikes); `<short-slug>.md` for evergreen feature/epic items.
 
 ```yaml
 ---
 title: <Title>
 category: work
-kind: bug                       # bug | tech-debt | test-gap | security | perf | feature | initiative | spike
+kind: bug                       # bug | tech-debt | test-gap | security | perf | feature | epic | spike
 summary: <one-line>
 status: open                    # open | accepted | in-progress | mitigated | resolved | wontfix | superseded
-severity: medium                # bug | security | perf — leave blank for feature/initiative/spike
+severity: medium                # bug | security | perf — leave blank for feature/epic/spike
 effort: small                   # xtra-small | small | medium | large | xtra-large
 blast_radius: package           # file | package | domain | system
 affects:
   - packages/location-aws-node-ts
-target: 2026-Q2                 # feature | initiative — optional otherwise
+target: 2026-Q2                 # feature | epic — optional otherwise
 owner: pat                      # populate when in-progress
 opened: 2026-04-21
 updated: 2026-05-03
@@ -307,7 +307,7 @@ updated: 2026-04-20
 - **ADRs:** `adrs/<NNNN>-<slug>.md` — e.g. `adrs/0012-move-to-esm.md`. Zero-padded ID, monotonically increasing.
 - **Architecture syntheses:** `concepts/<topic>.md` with `kind: architecture` — e.g. `concepts/request-flow.md`
 - **Dependencies:** `entities/dep_<package-name>.md` — use the registry name (`dep_react.md`, `dep_react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`dep_@tanstack__react-query.md`). Service pages use a slug derived from the service name (`dep_mongodb-atlas.md`).
-- **Work:** `work/<YYYY-MM-DD>-<slug>.md` for date-of-filing-meaningful items (most bugs, most spikes); `work/<slug>.md` for evergreen feature/initiative items.
+- **Work:** `work/<YYYY-MM-DD>-<slug>.md` for date-of-filing-meaningful items (most bugs, most spikes); `work/<slug>.md` for evergreen feature/epic items.
 
 ## Taxonomies
 
@@ -325,7 +325,7 @@ Eight values, two origins:
 | `security` | discovered | exposure + remediation |
 | `perf` | discovered or measured | regression + budget + fix |
 | `feature` | intended | user-driven capability + scope |
-| `initiative` | intended | multi-feature effort spanning weeks/quarters |
+| `epic` | intended | multi-feature effort spanning weeks/quarters |
 | `spike` | intended | time-boxed exploration with a question |
 
 Schema/structure problems are `kind: bug` + `tag: data-model`. Wiki↔code drift filed by lint is `kind: tech-debt` + `tag: doc-drift`. Lifecycle and required fields are identical to the underlying kind; the discriminating live in tags rather than spawning new kinds.
@@ -342,7 +342,7 @@ Values: `low | medium | high | critical`.
 |---|---|---|
 | Common | `bug`, `security`, `perf` | severity expected, not enforced |
 | Possible | `tech-debt`, `test-gap` | severity allowed when known |
-| Disallowed | `feature`, `initiative`, `spike` | `severity-on-non-bug` (info) |
+| Disallowed | `feature`, `epic`, `spike` | `severity-on-non-bug` (info) |
 
 ### Effort (work)
 
@@ -351,8 +351,8 @@ Values: `low | medium | high | critical`.
 | `xtra-small` | minutes — one-line change, no test, no review needed |
 | `small` | hours — single file, tests, single PR |
 | `medium` | days — multiple files, possibly cross-package, single PR |
-| `large` | weeks — multiple PRs, possibly an initiative |
-| `xtra-large` | months — multi-initiative, large team or quarter-long scope |
+| `large` | weeks — multiple PRs, possibly an epic |
+| `xtra-large` | months — multi-epic, large team or quarter-long scope |
 
 Anchors are advisory. Missing field = unknown; no `unknown` value.
 
@@ -364,8 +364,8 @@ Anchors are advisory. Missing field = unknown; no `unknown` value.
 
 | Field | Required for | Allowed for | Disallowed for |
 |---|---|---|---|
-| `severity` | none | `bug`, `security`, `perf`, `tech-debt`, `test-gap` | `feature`, `initiative`, `spike` |
-| `target` | none | all kinds — only meaningful for `feature`, `initiative` | — |
+| `severity` | none | `bug`, `security`, `perf`, `tech-debt`, `test-gap` | `feature`, `epic`, `spike` |
+| `target` | none | all kinds — only meaningful for `feature`, `epic` | — |
 | `owner` | none | all kinds — populated when `in-progress` | — |
 | `effort` | none | all kinds | — |
 | `blast_radius` | none | all kinds | — |
@@ -404,7 +404,7 @@ Three categories use markdown tables in the body for structured rows. Header row
 
 - Header row exact: `| Action | Done when | Rationale |`.
 - One row per step. Order is significant.
-- `Done when` is required (lint `warn`) for `kind: feature` and `kind: initiative`; optional otherwise.
+- `Done when` is required (lint `warn`) for `kind: feature` and `kind: epic`; optional otherwise.
 - Pipes inside cell content escape as `\|`.
 - File paths and `path:line` references in the `Action` cell are checked for existence by lint; line numbers are advisory.
 

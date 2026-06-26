@@ -64,7 +64,7 @@ In-progress features and initiatives:
 ```dataview
 list
 from "work"
-where status = "in-progress" and (kind = "feature" or kind = "initiative")
+where status = "in-progress" and (kind = "feature" or kind = "epic")
 sort target asc
 ```
 
@@ -105,7 +105,7 @@ git commit -m "init wiki"
 ## Tips
 
 - **Graph view daily** — spot structural drift. Clusters per domain; concept pages with `kind: architecture` as hubs.
-- **Pin `index.md`, `log.md`, and the active architecture concept page or current `work/<initiative>` item**
+- **Pin `index.md`, `log.md`, and the active architecture concept page or current `work/<epic>` item**
 - **Split view** — code on the left, vault on the right. Browse the vault while the LLM edits.
 - **Strict line breaks** — so your LLM's markdown renders as expected
 - **Templater plugin (optional)** — auto-fill `package_path`, `updated:`, etc. when creating new pages manually

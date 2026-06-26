@@ -52,7 +52,7 @@ def test_phase_done_reports_complete() -> None:
 # --- First dispatch (entry) ---
 
 
-@pytest.mark.parametrize("kind", ["feature", "initiative", "spike", "tech-debt"])
+@pytest.mark.parametrize("kind", ["feature", "epic", "spike", "tech-debt"])
 def test_entry_design_first_kinds_get_brainstorming(kind: str) -> None:
     r = route(_state(kind=kind))
     assert r.skill == "brainstorming"
@@ -118,7 +118,7 @@ def test_design_bug_like_missing_effort_reports_fork_sentinel() -> None:
     assert r.on_complete == Transition(phase=PLAN_OR_EXECUTE, requires=("effort",), stamp_doc="spec_doc")
 
 
-@pytest.mark.parametrize("kind", ["feature", "initiative", "spike"])
+@pytest.mark.parametrize("kind", ["feature", "epic", "spike"])
 def test_design_feature_like_always_plans_even_when_small(kind: str) -> None:
     r = route(_state(kind=kind, phase="design", effort="xtra-small"))
     assert r.on_complete == Transition(phase="plan", stamp_doc="spec_doc")

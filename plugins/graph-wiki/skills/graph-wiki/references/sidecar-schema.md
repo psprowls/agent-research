@@ -27,14 +27,14 @@ Always present, all keys always present, zeroed when no items match.
 ```json
 {
   "by_status":       {"open": N, "accepted": N, "in-progress": N, "mitigated": N, "resolved": N, "wontfix": N, "superseded": N},
-  "by_kind":         {"bug": N, "tech-debt": N, "test-gap": N, "security": N, "perf": N, "feature": N, "initiative": N, "spike": N},
+  "by_kind":         {"bug": N, "tech-debt": N, "test-gap": N, "security": N, "perf": N, "feature": N, "epic": N, "spike": N},
   "by_severity":     {"low": N, "medium": N, "high": N, "critical": N},
   "by_blast_radius": {"file": N, "package": N, "domain": N, "system": N}
 }
 ```
 
 `by_severity` only counts items where `severity:` is set — `feature`,
-`initiative`, and `spike` typically don't contribute. This is by design.
+`epic`, and `spike` typically don't contribute. This is by design.
 
 ## `items` — per-item digest
 

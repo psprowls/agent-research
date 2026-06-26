@@ -18,7 +18,7 @@ Gathers required fields conversationally, then invokes `gw work file`.
 ## What happens
 
 1. Prompt for **title** (required) — a short description of the issue or feature.
-2. Prompt for **kind** (required) — one of: `bug`, `tech-debt`, `test-gap`, `security`, `perf`, `feature`, `initiative`, `spike`.
+2. Prompt for **kind** (required) — one of: `bug`, `tech-debt`, `test-gap`, `security`, `perf`, `feature`, `epic`, `spike`.
 3. Prompt for **summary** (required) — one line, <=100 chars.
 4. Prompt for **affects** (required) — comma-separated paths or package names (e.g. `packages/graph-io, packages/wiki-io`).
 5. **Estimate effort** — based on the title, kind, and summary, propose an effort value (`xtra-small|small|medium|large|xtra-large`) with a one-line rationale. Present it to the user: "I'd estimate this as **medium** — multiple files across packages, likely one PR. Does that sound right?" The user can accept or name a different size.
@@ -45,8 +45,8 @@ gw work file \
 | `xtra-small` | minutes — one-line change, no test, no review needed |
 | `small` | hours — single file, tests, single PR |
 | `medium` | days — multiple files, possibly cross-package, single PR |
-| `large` | weeks — multiple PRs, possibly an initiative |
-| `xtra-large` | months — multi-initiative, large team or quarter-long scope |
+| `large` | weeks — multiple PRs, possibly an epic |
+| `xtra-large` | months — multi-epic, large team or quarter-long scope |
 
 ## Skill Reference
 

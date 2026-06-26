@@ -368,12 +368,12 @@ File a new work item into the wiki.
 
 - `--title TEXT` **(required)** — work-item title.
 - `--kind TEXT` **(required)** — `bug`/`tech-debt`/`test-gap`/`security`/`perf`/
-  `feature`/`initiative`/`spike`.
+  `feature`/`epic`/`spike`.
 - `--summary TEXT` **(required)** — one-line summary (≤100 chars).
 - `--status TEXT` (default `open`) — `open`/`accepted`/`in-progress`/`done`/
   `wont-fix`/`deferred`.
 - `--affects TEXT` — comma-separated paths or package names.
-- `--severity TEXT` — `bug`/`security`/`perf` (blank for feature/initiative/spike).
+- `--severity TEXT` — `bug`/`security`/`perf` (blank for feature/epic/spike).
 - `--effort TEXT` — `xtra-small`/`small`/`medium`/`large`/`xtra-large`.
 - `--blast-radius TEXT` — `file`/`package`/`domain`/`system`.
 - `--target TEXT` — `YYYY-QN` or `YYYY-MM`.

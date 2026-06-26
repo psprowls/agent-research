@@ -498,7 +498,7 @@ One paragraph: what this library does, why we use it, which surfaces.
 
 ## 9. Work page
 
-Unified namespace for everything "to do, doing, or done" — bugs, tech debt, test gaps, security/perf items, features, initiatives, spikes. `kind:` discriminates; a single 7-state lifecycle covers all. The committed plan lives in a `## Plan` markdown table. Slugs are `<YYYY-MM-DD>-<short-slug>.md` for date-of-filing-meaningful items and `<short-slug>.md` for evergreen feature/initiative items.
+Unified namespace for everything "to do, doing, or done" — bugs, tech debt, test gaps, security/perf items, features, initiatives, spikes. `kind:` discriminates; a single 7-state lifecycle covers all. The committed plan lives in a `## Plan` markdown table. Slugs are `<YYYY-MM-DD>-<short-slug>.md` for date-of-filing-meaningful items and `<short-slug>.md` for evergreen feature/epic items.
 
 `graph-wiki` owns the schema, template, folder, lifecycle lint, and `<workspace>/work/.work-index.json` sidecar.
 
@@ -582,4 +582,4 @@ Add Bedrock to the provider seam so the agent can run against open-weight cloud-
 - **2026-05-03** — accepted after spike on IAM permissions.
 ```
 
-Severity is allowed for `bug | security | perf | tech-debt | test-gap` and disallowed for `feature | initiative | spike`. State-conditional fields (`resolved_in`, `mitigation`, `superseded_by`, `rationale`) are populated only in their corresponding state. See `wiki-schema.md` for the full taxonomy and lifecycle.
+Severity is allowed for `bug | security | perf | tech-debt | test-gap` and disallowed for `feature | epic | spike`. State-conditional fields (`resolved_in`, `mitigation`, `superseded_by`, `rationale`) are populated only in their corresponding state. See `wiki-schema.md` for the full taxonomy and lifecycle.

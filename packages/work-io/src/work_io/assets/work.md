@@ -1,14 +1,14 @@
 ---
 title: <Work item title>
 category: work
-kind: bug                        # bug | tech-debt | test-gap | security | perf | feature | initiative | spike
+kind: bug                        # bug | tech-debt | test-gap | security | perf | feature | epic | spike
 summary: <one-line — symptom for bug-shaped, capability for feature-shaped>
 status: open                     # open | accepted | in-progress | mitigated | resolved | wontfix | superseded
-severity:                        # bug | security | perf — leave blank for feature/initiative/spike
+severity:                        # bug | security | perf — leave blank for feature/epic/spike
 effort:                          # xs | s | m | l | xl
 blast_radius:                    # file | package | domain | system
 affects: []                      # paths or packages this work touches
-target:                          # YYYY-QN | YYYY-MM — meaningful for feature/initiative
+target:                          # YYYY-QN | YYYY-MM — meaningful for feature/epic
 owner:                           # populate when in-progress
 opened: <YYYY-MM-DD>
 updated: <YYYY-MM-DD>

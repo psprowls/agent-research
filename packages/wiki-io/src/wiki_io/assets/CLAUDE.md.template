@@ -38,7 +38,7 @@ entities/                 → one page per code-graph entity, written by scan:
 concepts/                 → cross-cutting technical concepts; optional kind: concept | pattern | architecture
 sources/                  → one summary per ingested source (cites files in ../raw/)
 adrs/                     → architecture decision records
-work/                     → unified bug / tech-debt / feature / initiative / spike tracker
+work/                     → unified bug / tech-debt / feature / epic / spike tracker
 guidance/                 → ingested skill content for injection 
 .templates/               → page templates (reference only)
 ```

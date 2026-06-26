@@ -13,12 +13,12 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 **Remedy:** map the value to its closest valid state. `proposed`/`planned` → `open` (downgrade — don't claim acceptance without a `## Plan`). `done` → `resolved`. `cancelled` → `wontfix`.
 
 ### `kind-not-in-enum` — error
-**Trigger:** `kind:` outside `{bug, tech-debt, test-gap, security, perf, feature, initiative, spike}`.
+**Trigger:** `kind:` outside `{bug, tech-debt, test-gap, security, perf, feature, epic, spike}`.
 **Rationale:** kind drives per-kind rules (severity allowed, target required) and consumer queries.
 **Remedy:** pick the closest match. `data-model-defect` folds to `bug` + a `data-model` tag. `doc-drift` folds to `tech-debt` + `docs`.
 
 ### `severity-on-non-bug` — info
-**Trigger:** `severity:` set on `kind: feature | initiative | spike`.
+**Trigger:** `severity:` set on `kind: feature | epic | spike`.
 **Rationale:** severity is a triage knob for things that broke; intent doesn't have severity.
 **Remedy:** remove `severity:` from the frontmatter.
 
@@ -86,12 +86,12 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 ## Body shape (3)
 
 ### `done-when-missing` — warn
-**Trigger:** a `## Plan` row on `kind: feature | initiative` has empty `Done when` cell.
+**Trigger:** a `## Plan` row on `kind: feature | epic` has empty `Done when` cell.
 **Rationale:** features need observable completion criteria; bug fixes' completion is implicit (the bug stops happening).
 **Remedy:** populate the cell.
 
 ### `feature-without-target` — warn
-**Trigger:** `kind: feature | initiative` and `target:` empty.
+**Trigger:** `kind: feature | epic` and `target:` empty.
 **Rationale:** features without a target window slide indefinitely.
 **Remedy:** populate `target:` with a quarter (`2026-Q3`) or month.
 

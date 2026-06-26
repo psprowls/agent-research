@@ -10,7 +10,7 @@ PAGE_CATEGORIES = """\
 | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
 | `concept` | Cross-cutting technical idea, pattern, or architecture synthesis. Optional `kind:` frontmatter — `concept` (default), `pattern`, or `architecture` — selects the page template. Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
 | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
-| `work` | Unified bug / tech-debt / feature / initiative / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
+| `work` | Unified bug / tech-debt / feature / epic / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
 | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `vault_path/sources/` |
 | `adr` | Architecture Decision Record — a dated, citable decision with context + consequences | `vault_path/adrs/` |\
 """

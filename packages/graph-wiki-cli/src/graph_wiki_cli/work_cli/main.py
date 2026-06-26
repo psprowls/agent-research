@@ -32,11 +32,11 @@ def _split_csv(value: str) -> list[str]:
 @work_app.command()
 def file(
     title: str = typer.Option(..., "--title", help="Work item title"),
-    kind: str = typer.Option(..., "--kind", help="bug|tech-debt|test-gap|security|perf|feature|initiative|spike"),
+    kind: str = typer.Option(..., "--kind", help="bug|tech-debt|test-gap|security|perf|feature|epic|spike"),
     summary: str = typer.Option(..., "--summary", help="One-line summary (<=100 chars)"),
     status: str = typer.Option("open", "--status", help="open|accepted|in-progress|done|wont-fix|deferred"),
     affects: str = typer.Option("", "--affects", help="Comma-separated paths or package names"),
-    severity: str = typer.Option("", "--severity", help="bug|security|perf — blank for feature/initiative/spike"),
+    severity: str = typer.Option("", "--severity", help="bug|security|perf — blank for feature/epic/spike"),
     effort: str = typer.Option("", "--effort", help="xtra-small|small|medium|large|xtra-large"),
     blast_radius: str = typer.Option("", "--blast-radius", help="file|package|domain|system"),
     target: str = typer.Option("", "--target", help="YYYY-QN or YYYY-MM"),
