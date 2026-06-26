@@ -20,7 +20,7 @@ def _state(
 @pytest.mark.parametrize(
     "state",
     [
-        _state(kind="epic"),
+        _state(kind="initiative"),
         _state(status="todo"),
         _state(phase="designing"),
         _state(effort="s"),

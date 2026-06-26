@@ -1,6 +1,7 @@
-"""End-to-end check that core's bootstrap orchestration reassembles all 16
-page templates in <wiki>/.templates/, including the work.md + guidance.md
-that now live in work-io / guidance-io."""
+"""End-to-end check that core's bootstrap orchestration reassembles all page
+templates in <wiki>/.templates/, including the work.md + guidance.md that now
+live in work-io / guidance-io, plus the 9 per-kind work-item body templates
+seeded under .templates/bodies/."""
 
 from __future__ import annotations
 
@@ -28,7 +29,7 @@ EXPECTED_TEMPLATES = {
 }
 
 
-async def test_bootstrap_copies_all_16_templates(tmp_path: Path) -> None:
+async def test_bootstrap_copies_all_templates(tmp_path: Path) -> None:
     ws = tmp_path / "ws"
     repo = tmp_path / "repo"
     repo.mkdir()
@@ -45,4 +46,6 @@ async def test_bootstrap_copies_all_16_templates(tmp_path: Path) -> None:
     assert templates == EXPECTED_TEMPLATES
     assert "work.md" in templates
     assert "guidance.md" in templates
-    assert result.page_templates_copied == 16
+    # 16 top-level page templates + 9 per-kind work-item body templates
+    # (.templates/bodies/*.md), counted recursively by the bootstrap copier.
+    assert result.page_templates_copied == 25

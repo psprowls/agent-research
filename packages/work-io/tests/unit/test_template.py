@@ -15,4 +15,4 @@ def test_templates_dir_contains_work_md() -> None:
 def test_shipped_template_parses() -> None:
     fm, body = parse(_template_text())
     assert fm["category"] == "work"
-    assert "## Plan" in body
+    assert "## Summary" in body
