@@ -19,19 +19,73 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 
 Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
 
+## Auto-file Mode (standalone invocations)
+
+Brainstorming runs in two contexts. **Step 0 below decides which, before anything else.** When dispatched as the `design` stage of the work pipeline, a work item already exists — behave exactly as today. When invoked standalone, auto-file a work item so the design enters the tracked pipeline instead of leaking outside it.
+
+### Step 0 — Mode check (run FIRST, before "Explore project context")
+
+Decide the mode purely from your dispatch brief — a doc check, no new tooling:
+
+- **A work item already exists** when the brief contains a work-item brief (a title / kind / summary block) **or** the line *"STOP after writing the spec — do not invoke writing-plans."* These are the canonical "work item exists" signals the `graph-wiki:workflow` skill prepends when it dispatches the `design` stage.
+  → **Skip auto-file entirely.** Run the legacy flow (Checklist steps 1-9) unchanged. Do **not** file a work item. Ignore the rest of this section.
+- **Standalone** when neither signal is present.
+  → **Enter auto-file mode:** perform Steps 2a, 3a, and 4a below in addition to the normal flow.
+
+### Step 2a — Early stub + one quick confirm (auto-file mode only)
+
+After "Explore project context" (Checklist step 1) and before asking clarifying questions, derive a proposed **title / kind / summary** from the opening request and present them in a single confirm:
+
+> "I'll track this as a work item — **title** / **kind** / **summary**. Good, or adjust? (or say 'don't file')"
+
+This one confirm does two things:
+
+- **Locks the title**, from which `gw work file` derives the **permanent slug**. Slugs never change when the title is edited later, so the title is confirmed here — where it is decided — not at finalize.
+- **Is the opt-out.** If the user says "don't file", skip auto-file and run the legacy standalone flow (chain into `writing-plans` at the end; nothing tracked).
+
+On confirm, file the item and capture the slug from the JSON result:
+
+```bash
+gw work file --json --title "<title>" --kind <kind> --summary "<summary>"
+```
+
+Read the `slug` field from the JSON. Announce: *"Auto-filed as `<slug>`."* Then continue the normal brainstorming flow (clarifying questions → approaches → design) unchanged.
+
+**Error fallback:** if `gw work file` fails (e.g. duplicate slug, validation error), report the error and fall back to plain brainstorming with no work item. Do not block the session.
+
+### Step 3a — Finalize at spec time (auto-file mode only)
+
+When the design is approved and you are about to write the spec (Checklist step 6), **before** writing it:
+
+1. **Refine the item's frontmatter** from the now-complete design — `summary`, `affects`, and `effort`. There is no `gw work edit` command: edit `<workspace>/wiki/work/<slug>.md` directly. Derive the values and announce them — no second confirm. Set `effort` here so `/graph-wiki:next` is not later blocked waiting for it.
+2. **Write the spec to the item's path:** `<workspace>/raw/specs/<slug>.md` (not the default `YYYY-MM-DD-<topic>-design.md` name), so the stamped `spec_doc` pointer and the ingestor line up.
+3. **Advance the item:** `gw work advance <slug>`. This is the same design-complete transition the `workflow` skill applies — it stamps `spec_doc` and moves the phase `design → plan`.
+
+**Error fallback:** if `gw work advance` fails, report it. The spec is already at `raw/specs/<slug>.md`, so the user can recover with `/graph-wiki:next <slug>`.
+
+### Step 4a — Terminal behavior (auto-file mode only)
+
+Once auto-filed, brainstorming follows pipeline rules: **STOP after the spec — do not invoke `writing-plans`.** End with the pipeline hand-off line:
+
+> "Phase advanced to `plan`. Clear context (`/clear`) and run `/graph-wiki:next <slug>` to continue."
+
 ## Checklist
 
 You MUST create a task for each of these items and complete them in order:
 
+0. **Mode check** — standalone or pipeline-dispatched? (see Auto-file Mode → Step 0). Determines whether the auto-file deltas on steps 1, 6, and 9 apply.
 1. **Explore project context** — check files, docs, recent commits
+   - **(auto-file mode only)** then run the early-stub confirm and `gw work file --json` (Auto-file Mode → Step 2a)
 2. **Offer visual companion** (if topic will involve visual questions) — this is its own message, not combined with a clarifying question. See the Visual Companion section below.
 3. **Ask clarifying questions** — one at a time, understand purpose/constraints/success criteria
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to the graph-wiki workspace spec inbox: `<workspace>/raw/specs/YYYY-MM-DD-<topic>-design.md`. The workspace doc-routing hook injects the resolved absolute path into your context — use it if present. Then commit.
+   - **(auto-file mode only)** instead refine the item's frontmatter, write the spec to `<workspace>/raw/specs/<slug>.md`, and run `gw work advance <slug>` (Auto-file Mode → Step 3a)
 7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
 8. **User reviews written spec** — ask user to review the spec file before proceeding
 9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
+   - **(auto-file mode OR pipeline-dispatched)** do NOT invoke writing-plans; STOP after the spec and emit the pipeline hand-off line (Auto-file Mode → Step 4a)
 
 ## Process Flow
 
@@ -65,7 +119,7 @@ digraph brainstorming {
 }
 ```
 
-**The terminal state is invoking writing-plans.** Do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.
+**The terminal state is invoking writing-plans** — *except* in auto-file mode or when pipeline-dispatched, where the terminal state is writing the spec and emitting the `/graph-wiki:next` hand-off line (see Auto-file Mode → Step 4a). Otherwise: do NOT invoke frontend-design, mcp-builder, or any other implementation skill. The ONLY skill you invoke after brainstorming is writing-plans.
 
 ## The Process
 
@@ -134,7 +188,14 @@ Wait for the user's response. If they request changes, make them and re-run the 
 
 **Implementation:**
 
-**Pipeline-stage guard — check FIRST.** If your dispatch brief states you are running as the `design` stage of the graph-wiki work pipeline (it will contain the line *"STOP after writing the spec — do not invoke writing-plans"*), then after writing the spec, STOP. Do **not** invoke `writing-plans`. Control returns to the `graph-wiki:workflow` skill, which advances the item and hands off for `/clear` + `/graph-wiki:next`.
+**Pipeline-stage guard — check FIRST.** STOP after writing the spec — do **not** invoke `writing-plans` — in EITHER of these cases:
+
+- **Pipeline-dispatched:** your dispatch brief contains the line *"STOP after writing the spec — do not invoke writing-plans"* (you are the `design` stage). Control returns to the `graph-wiki:workflow` skill, which advances the item and hands off for `/clear` + `/graph-wiki:next`.
+- **Auto-filed:** you entered auto-file mode (see Auto-file Mode) and ran `gw work advance <slug>`. You own the hand-off — emit the pipeline hand-off line yourself (Auto-file Mode → Step 4a).
+
+In both cases end with the hand-off line and do not chain into `writing-plans`.
+
+**Only when standalone AND the user opted out** with "don't file" (untracked, legacy flow):
 
 - Invoke the writing-plans skill to create a detailed implementation plan
 - Do NOT invoke any other skill. writing-plans is the next step.

@@ -78,6 +78,9 @@ Invoke the stage skill named by `action.skill` via the Skill tool (namespaced
   - dispatching `brainstorming` → add: *"STOP after writing the spec — do not
     invoke writing-plans. This is a single pipeline stage; the workflow skill
     advances the item."*
+    This prepended work-item brief and STOP line are the canonical "a work item
+    already exists" signal that `brainstorming` keys off of to suppress its
+    standalone auto-file path — no dispatch-logic change is needed here.
   - dispatching `writing-plans` → add: *"STOP after writing the plan — do not
     run the Execution Handoff. This is a single pipeline stage; the workflow
     skill advances the item."*
