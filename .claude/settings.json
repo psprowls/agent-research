@@ -1,5 +1,32 @@
 {
   "enabledPlugins": {
     "graph-wiki@agent-research": true
+  },
+  "permissions": {
+    "deny": ["EnterPlanMode"]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "TaskUpdate",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/pat/Personal/agent-research/plugins/graph-wiki/hooks/examples/post-task-complete-revalidate.sh"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash /Users/pat/Personal/agent-research/plugins/graph-wiki/hooks/examples/stop-revalidate-user-gates.sh"
+          }
+        ]
+      }
+    ]
   }
 }
