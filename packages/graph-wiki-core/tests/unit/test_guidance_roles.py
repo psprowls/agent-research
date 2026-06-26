@@ -8,7 +8,7 @@ guidance_classifier has higher or equal concurrency than guidance_orchestrator.
 from __future__ import annotations
 
 import pytest
-from model_adapter.loader import load_role_config
+from graph_wiki_core.roles import load_role_config
 
 
 @pytest.mark.parametrize("role", ["guidance_classifier", "guidance_orchestrator"])

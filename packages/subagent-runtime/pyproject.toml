@@ -1,20 +1,15 @@
 [project]
 name = "subagent-runtime"
 version = "0.1.1"
-description = "Async fan-out primitive for graph-wiki-agent subagent dispatch"
+description = "Async fan-out primitive for role-bound LLM subagent dispatch (langchain-core based)"
 requires-python = ">=3.11"
 dependencies = [
-    "langchain-aws>=1.4.6",
     "langchain-core>=1.4.0",
-    "model-adapter",
 ]
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
-
-[tool.uv.sources]
-model-adapter = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -49,7 +49,7 @@ def test_parse_verdict_fails_safe_on_garbage():
 
 
 def test_drift_judge_role_in_models_toml():
-    from model_adapter.loader import load_role_config
+    from graph_wiki_core.roles import load_role_config
 
     cfg = load_role_config("drift_judge")
     assert cfg["model_id"]

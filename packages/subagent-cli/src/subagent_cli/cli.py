@@ -7,7 +7,8 @@ import json
 from pathlib import Path
 
 import typer
-from model_adapter import BedrockAccessDenied, load_role_config
+from graph_wiki_core.roles import load_role_config
+from model_adapter import BedrockAccessDenied
 from workspace_io import paths as ws_paths
 from workspace_io.config import resolve
 
@@ -210,7 +211,7 @@ def _dispatch_single(adapter, ctx, item, *, raw, prompt_mode, json_output):
 
 
 async def _single_with_preface(adapter, ctx, item, raw, prompt_mode, on_chunk):
-    from model_adapter import make_llm
+    from graph_wiki_core.roles import make_llm
 
     from .runner import RunOutcome, _cost, stream_and_parse
 

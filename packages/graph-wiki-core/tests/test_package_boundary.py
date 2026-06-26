@@ -32,6 +32,7 @@ def test_migrated_core_python_source_uses_core_namespace() -> None:
     stale_references = []
     allowed_plugin_identity_paths = {
         Path("src/graph_wiki_core/commands/init.py"),
+        Path("src/graph_wiki_core/roles.py"),
     }
     for path in SOURCE_ROOT.rglob("*.py"):
         text = path.read_text()

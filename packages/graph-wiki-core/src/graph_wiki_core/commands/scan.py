@@ -27,8 +27,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 # workspace members installed. When absent, the narrator/file-describer blocks
 # are unreachable (gated on `narrate`), so the None bindings are never called.
 try:
-    from model_adapter.loader import load_role_config, make_llm
     from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
+
+    from graph_wiki_core.roles import load_role_config, make_llm
 except ImportError:  # pragma: no cover — exercised by the lazy-import test via reload
     load_role_config = make_llm = None  # type: ignore[assignment]
     SubagentPool = TaskResult = FanOutResult = None  # type: ignore[assignment]

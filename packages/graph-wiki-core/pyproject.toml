@@ -24,6 +24,9 @@ dependencies = [
 requires = ["uv_build>=0.11.14,<0.12"]
 build-backend = "uv_build"
 
+[tool.uv.build.include]
+include = ["src/graph_wiki_core/models.toml"]
+
 [tool.uv.sources]
 wiki-io         = { workspace = true }
 graph-io        = { workspace = true }

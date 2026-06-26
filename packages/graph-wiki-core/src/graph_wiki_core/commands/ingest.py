@@ -33,7 +33,6 @@ import yaml
 from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
 from graph_io.store import GraphNotInitializedError, read_only_connect
 from langchain_core.messages import HumanMessage, SystemMessage
-from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
@@ -66,6 +65,7 @@ from graph_wiki_core.prompts.ingestor import build_ingestor_system
 from graph_wiki_core.prompts.project_context import render_project_context
 from graph_wiki_core.prompts.skill_planner import build_skill_planner_system
 from graph_wiki_core.prompts.skill_synthesizer import build_skill_synthesizer_system
+from graph_wiki_core.roles import load_role_config, make_llm
 
 logger = logging.getLogger(__name__)
 

@@ -9,8 +9,8 @@ Requirements: D-13 (conservative per-tier token constants), SWEEP-02 (BED-01 pin
 
 from __future__ import annotations
 
+from graph_wiki_core.roles import make_llm
 from model_adapter.exceptions import BedrockAccessDenied
-from model_adapter.loader import make_llm
 
 from eval_harness.pricing import UnknownModelError, cost_for_usage
 

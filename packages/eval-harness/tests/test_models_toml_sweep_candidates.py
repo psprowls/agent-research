@@ -20,7 +20,7 @@ from pathlib import Path
 
 import pytest
 from eval_harness.pricing import UnknownModelError, cost_for_usage
-from model_adapter.loader import load_role_config, make_llm
+from graph_wiki_core.roles import load_role_config, make_llm
 
 # D-01: six in-scope agent roles only
 IN_SCOPE_ROLES = ("librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor")

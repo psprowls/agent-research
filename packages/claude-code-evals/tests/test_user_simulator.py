@@ -35,23 +35,23 @@ def _llm_response(text: str, input_tokens: int = 5, output_tokens: int = 3) -> M
 def _make_sim(
     config: AutoUser | None = None, task_prompt: str = "Build the thing."
 ) -> tuple[AutoUserSimulator, MagicMock]:
-    """Construct a simulator with make_llm mocked; returns (sim, mock_llm)."""
+    """Construct a simulator with make_bedrock_llm mocked; returns (sim, mock_llm)."""
     llm = MagicMock()
-    with patch("claude_code_evals.user_simulator.make_llm", return_value=llm):
+    with patch("claude_code_evals.user_simulator.make_bedrock_llm", return_value=llm):
         sim = AutoUserSimulator(config or _make_auto_user(), task_prompt=task_prompt)
     return sim, llm
 
 
-def test_make_llm_called_with_role_and_none_override():
-    with patch("claude_code_evals.user_simulator.make_llm", return_value=MagicMock()) as mk:
+def test_make_bedrock_llm_called_with_default_model():
+    with patch("claude_code_evals.user_simulator.make_bedrock_llm", return_value=MagicMock()) as mk:
         AutoUserSimulator(_make_auto_user(), task_prompt="t")
-    mk.assert_called_once_with("user_simulator", model_override=None)
+    mk.assert_called_once_with("moonshotai.kimi-k2.5", max_tokens=512)
 
 
-def test_make_llm_receives_model_override():
-    with patch("claude_code_evals.user_simulator.make_llm", return_value=MagicMock()) as mk:
+def test_make_bedrock_llm_receives_model_override():
+    with patch("claude_code_evals.user_simulator.make_bedrock_llm", return_value=MagicMock()) as mk:
         AutoUserSimulator(_make_auto_user(model="qwen.qwen3-32b-v1:0"), task_prompt="t")
-    mk.assert_called_once_with("user_simulator", model_override="qwen.qwen3-32b-v1:0")
+    mk.assert_called_once_with("qwen.qwen3-32b-v1:0", max_tokens=512)
 
 
 def test_stop_on_scans_full_text_returns_none():

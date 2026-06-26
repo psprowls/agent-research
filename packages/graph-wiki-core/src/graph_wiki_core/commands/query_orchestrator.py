@@ -12,7 +12,6 @@ from typing import Any, Mapping
 import frontmatter
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import BaseTool, tool
-from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, PerItemError, SubagentPool, TaskResult
 
 from graph_wiki_core.agent_loop import run_tool_loop
@@ -29,6 +28,7 @@ from graph_wiki_core.commands.query import _read_file_bounded
 from graph_wiki_core.prompts.code_reader import ORCHESTRATED_CODE_READER_SYSTEM
 from graph_wiki_core.prompts.librarian import LIBRARIAN_SYSTEM
 from graph_wiki_core.prompts.query_orchestrator import QUERY_ORCHESTRATOR_SYSTEM
+from graph_wiki_core.roles import load_role_config, make_llm
 
 ALLOWED_SOURCE_TYPES = {"wiki", "code"}
 ALLOWED_FRESHNESS = {"fresh", "stale", "unknown"}

@@ -31,7 +31,6 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from model_adapter.loader import load_role_config, make_llm
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.lint.common import strip_frontmatter
@@ -45,6 +44,8 @@ from wiki_io.lint.workflow_hints import check as check_workflow_hints
 from wiki_io.lint_wiki import mechanical_scan
 from wiki_io.proposals import list_proposals
 from workspace_io.paths import graph_dir
+
+from graph_wiki_core.roles import load_role_config, make_llm
 
 logger = logging.getLogger(__name__)
 

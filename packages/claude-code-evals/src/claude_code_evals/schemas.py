@@ -262,7 +262,7 @@ class AutoUser(BaseModel):
     model: str | None = Field(
         default=None,
         description=(
-            "Bedrock model id override for the user_simulator role; None uses the role default from models.toml."
+            "Bedrock model id override for the user_simulator role; None uses the cc-evals user-simulator default."
         ),
     )
     max_replies: int = 5

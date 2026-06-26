@@ -39,8 +39,9 @@ from graph_wiki_core.prompts.drift_propagator import (
 
 # Bedrock fan-out stack — imported only for the judged path (mirrors scan.py).
 try:
-    from model_adapter.loader import load_role_config, make_llm
     from subagent_runtime.pool import SubagentPool, TaskResult
+
+    from graph_wiki_core.roles import load_role_config, make_llm
 except ImportError:  # pragma: no cover — exercised when the Bedrock stack is absent
     load_role_config = make_llm = None  # type: ignore[assignment]
     SubagentPool = TaskResult = None  # type: ignore[assignment]

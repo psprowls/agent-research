@@ -2819,17 +2819,11 @@ name = "subagent-runtime"
 version = "0.1.1"
 source = { editable = "packages/subagent-runtime" }
 dependencies = [
-    { name = "langchain-aws" },
     { name = "langchain-core" },
-    { name = "model-adapter" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "langchain-aws", specifier = ">=1.4.6" },
-    { name = "langchain-core", specifier = ">=1.4.0" },
-    { name = "model-adapter", editable = "packages/model-adapter" },
-]
+requires-dist = [{ name = "langchain-core", specifier = ">=1.4.0" }]
 
 [[package]]
 name = "syrupy"

@@ -21,7 +21,6 @@ from pathlib import Path
 
 import yaml
 from langchain_core.messages import HumanMessage, SystemMessage
-from model_adapter.loader import make_llm
 from wiki_io.concept_kinds import CONCEPT_KINDS, DEFAULT_CONCEPT_KIND
 from wiki_io.ingest_source import slugify
 from wiki_io.proposals import upsert_proposal
@@ -29,6 +28,7 @@ from wiki_io.update_index import parse_frontmatter
 
 from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult, run_proposal_reasoner
 from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
+from graph_wiki_core.roles import make_llm
 
 logger = logging.getLogger(__name__)
 
