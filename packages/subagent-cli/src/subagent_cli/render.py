@@ -93,10 +93,18 @@ def info(message: str) -> None:
 
 def list_table(rows: list[dict]) -> None:
     table = Table(show_header=True, header_style="bold cyan")
-    for col in ("name", "role", "model_id", "region", "selector", "status"):
+    for col in ("name", "kind", "role", "model_id", "region", "selector", "status"):
         table.add_column(col)
     for r in rows:
-        table.add_row(r["name"], r["role"], r["model_id"], r["region"], r["selector"], r["status"])
+        table.add_row(
+            r["name"],
+            r.get("kind", ""),
+            r["role"],
+            r["model_id"],
+            r["region"],
+            r["selector"],
+            r["status"],
+        )
     _console.print(table)
 
 
@@ -126,5 +134,52 @@ def json_record(o: Any) -> dict:
         "latency_s": o.latency_s,
         "cost_usd": o.cost_usd,
         "interrupted": o.interrupted,
+        "note": o.note,
+    }
+
+
+def loop_result(o: Any) -> None:
+    """Render a tool-loop outcome: header, summary line, answer, trace pointer."""
+    _console.print(
+        f"[cyan]●[/cyan] [bold cyan]{o.role}[/bold cyan]  →  [cyan]{o.model_id}[/cyan]  [dim](region {o.region})[/dim]"
+    )
+    _console.print(f"  [dim]item:[/dim] {o.item_id}")
+    if o.note:
+        _console.print(f"  [yellow]note:[/yellow] [dim]{o.note}[/dim]")
+
+    structured = o.structured or {}
+    status = o.trace_metadata.get("status", "—")
+    batches = o.trace_metadata.get("worker_batches", "—")
+    confidence = structured.get("confidence", "—")
+    n_cites = len(structured.get("citations") or [])
+    n_gaps = len(structured.get("gaps") or [])
+    _console.print(
+        f"  [dim]status[/dim] {status} · [dim]worker_batches[/dim] {batches} · "
+        f"[dim]confidence[/dim] {confidence} · [dim]citations[/dim] {n_cites} · [dim]gaps[/dim] {n_gaps}"
+    )
+
+    _rule("ANSWER")
+    _console.print(o.answer)
+
+    where = o.trace_path if o.trace_path else "—"
+    _console.print(f"[dim]──── trace: {where} · {o.latency_s:.2f}s ────[/dim]")
+
+
+def loop_json_record(o: Any) -> dict:
+    try:
+        structured_val: Any = json.loads(json.dumps(o.structured, default=str))
+    except (TypeError, ValueError):
+        structured_val = None
+    return {
+        "name": o.role,
+        "role": o.role,
+        "model_id": o.model_id,
+        "region": o.region,
+        "item_id": o.item_id,
+        "answer": o.answer,
+        "structured": structured_val,
+        "trace_metadata": dict(o.trace_metadata),
+        "latency_s": o.latency_s,
+        "trace_path": o.trace_path,
         "note": o.note,
     }

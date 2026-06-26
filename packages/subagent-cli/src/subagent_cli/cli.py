@@ -13,8 +13,8 @@ from workspace_io import paths as ws_paths
 from workspace_io.config import resolve
 
 from . import render
-from .adapters import ADAPTERS
-from .runner import run_all, run_single
+from .adapters import ADAPTERS, LOOP_ADAPTERS
+from .runner import run_all, run_loop, run_single
 
 app = typer.Typer(
     name="subagents",
@@ -35,6 +35,21 @@ def list_cmd(json_output: bool = typer.Option(False, "--json", help="Emit the ta
         rows.append(
             {
                 "name": name,
+                "kind": "single-shot",
+                "role": adapter.role,
+                "model_id": cfg["model_id"],
+                "region": cfg.get("region", "us-east-1"),
+                "selector": adapter.selector,
+                "status": "ready",
+            }
+        )
+    for name, cls in LOOP_ADAPTERS.items():
+        adapter = cls()
+        cfg = load_role_config(adapter.role)
+        rows.append(
+            {
+                "name": name,
+                "kind": "tool-loop",
                 "role": adapter.role,
                 "model_id": cfg["model_id"],
                 "region": cfg.get("region", "us-east-1"),
@@ -103,6 +118,57 @@ def run(
     except KeyboardInterrupt:
         raise typer.Exit(code=130)
     except (FileNotFoundError, RuntimeError) as exc:  # missing page, no retrieval, etc.
+        render.error(str(exc))
+        raise typer.Exit(code=1)
+    finally:
+        ctx.close()
+
+
+@app.command()
+def loop(
+    name: str = typer.Argument(..., help="Loop adapter name (see `subagents list`, kind=tool-loop)"),
+    query: str = typer.Option("", "--query", help="Query text selector"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: resolve from cwd / env)"),
+    top_k: int = typer.Option(5, "--top-k", help="Initial retrieval depth (3-10)"),
+    no_color: bool = typer.Option(False, "--no-color", help="Plain text (also honors NO_COLOR)"),
+    json_output: bool = typer.Option(False, "--json", help="Emit a machine record; suppresses styling"),
+):
+    """Run a tool-loop subagent (real agentic orchestration) and render its outcome."""
+    render.configure(no_color=no_color or json_output)
+
+    cls = LOOP_ADAPTERS.get(name)
+    if cls is None:
+        render.error(f"unknown loop adapter '{name}'. valid names: {', '.join(sorted(LOOP_ADAPTERS))}")
+        raise typer.Exit(code=1)
+
+    adapter = cls(top_k=top_k)
+
+    selectors = {"query": query}
+    item = selectors[adapter.selector]
+    if not item:
+        render.error(f"{name} requires {_SELECTOR_FLAG[adapter.selector]} <value>")
+        raise typer.Exit(code=1)
+
+    try:
+        cwd = Path(workspace) if workspace else Path.cwd()
+        cfg = resolve(cwd)
+        ctx = _build_context(cfg.workspace, cfg.repo_root)
+    except Exception as exc:  # RuntimeError on missing manifest, etc.
+        render.error(str(exc))
+        raise typer.Exit(code=1)
+
+    try:
+        outcome = asyncio.run(run_loop(adapter, ctx, item))
+        if json_output:
+            typer.echo(json.dumps(render.loop_json_record(outcome), indent=2))
+        else:
+            render.loop_result(outcome)
+    except BedrockAccessDenied as exc:
+        render.error(str(exc))
+        raise typer.Exit(code=2)
+    except KeyboardInterrupt:
+        raise typer.Exit(code=130)
+    except (ValueError, RuntimeError, FileNotFoundError) as exc:
         render.error(str(exc))
         raise typer.Exit(code=1)
     finally:

@@ -2,6 +2,7 @@ import io
 import json
 
 from subagent_cli import render
+from subagent_cli.adapters.base import LoopOutcome
 from subagent_cli.runner import RunOutcome
 
 
@@ -107,3 +108,71 @@ def test_list_table_renders_rows():
     )
     text = buf.getvalue()
     assert "librarian" in text and "moonshotai.kimi-k2.5" in text
+
+
+def _loop_outcome(**over):
+    base = dict(
+        item_id="what does foo do?",
+        role="query_orchestrator",
+        model_id="vendor.model-1:0",
+        region="us-east-1",
+        answer="## Answer\nFoo does X. `foo.py:10`",
+        structured={"confidence": "high", "citations": ["a", "b"], "gaps": [{"question": "?"}]},
+        trace_metadata={"status": "ok", "worker_batches": 2},
+        latency_s=3.5,
+        trace_path="/ws/.graph-wiki/traces/new.jsonl",
+        note="loop note",
+    )
+    base.update(over)
+    return LoopOutcome(**base)
+
+
+def test_loop_result_renders_summary_and_answer():
+    buf = _plain_console()
+    render.loop_result(_loop_outcome())
+    text = buf.getvalue()
+    assert "\x1b[" not in text
+    assert "query_orchestrator" in text and "vendor.model-1:0" in text
+    assert "ok" in text  # status
+    assert "high" in text  # confidence
+    assert "Foo does X." in text  # answer body
+    assert "new.jsonl" in text  # trace pointer
+    assert "3.5" in text  # latency
+    assert "tok" not in text  # no token footer
+
+
+def test_loop_json_record_schema():
+    rec = render.loop_json_record(_loop_outcome())
+    assert set(rec) == {
+        "name",
+        "role",
+        "model_id",
+        "region",
+        "item_id",
+        "answer",
+        "structured",
+        "trace_metadata",
+        "latency_s",
+        "trace_path",
+        "note",
+    }
+    assert json.loads(json.dumps(rec))["trace_metadata"]["status"] == "ok"
+
+
+def test_list_table_with_kind_column():
+    buf = _plain_console()
+    render.list_table(
+        [
+            {
+                "name": "query_orchestrator",
+                "role": "query_orchestrator",
+                "model_id": "vendor.model-1:0",
+                "region": "us-east-1",
+                "selector": "query",
+                "status": "ready",
+                "kind": "tool-loop",
+            }
+        ]
+    )
+    text = buf.getvalue()
+    assert "query_orchestrator" in text and "tool-loop" in text

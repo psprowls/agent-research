@@ -5,7 +5,7 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable, Protocol, runtime_checkable
+from typing import Any, Callable, Mapping, Protocol, runtime_checkable
 
 from graph_io import store
 
@@ -54,3 +54,32 @@ class Adapter(Protocol):
     def items(self, ctx: RunContext) -> list[str]:
         """Real worklist for --all; raises for single-query adapters."""
         ...
+
+
+@dataclass
+class LoopOutcome:
+    """Result of one tool-loop adapter run (real agentic orchestration).
+
+    Unlike RunOutcome there is no token/cost footer: the orchestration spans
+    many model calls across worker batches and returns no aggregate usage.
+    """
+
+    item_id: str
+    role: str
+    model_id: str
+    region: str
+    answer: str  # OrchestratorOutput.answer_markdown
+    structured: dict | None  # OrchestratorOutput as a plain dict
+    trace_metadata: Mapping[str, Any]
+    latency_s: float
+    trace_path: str | None
+    note: str | None = None
+
+
+@runtime_checkable
+class LoopAdapter(Protocol):
+    name: str
+    role: str  # model-adapter role → resolves the model
+    selector: str  # "query" for query_orchestrator
+
+    async def run(self, ctx: RunContext, item: str) -> LoopOutcome: ...
