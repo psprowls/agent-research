@@ -3,8 +3,6 @@
 
 ## Goal
 
-## Sub-items
-
 ## Plan
 
 {plan_table}

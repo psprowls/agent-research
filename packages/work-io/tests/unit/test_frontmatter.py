@@ -59,3 +59,24 @@ def test_emit_parse_roundtrip() -> None:
     emitted = emit(fm)
     parsed_fm, _ = parse(emitted + "\n\nbody\n")
     assert parsed_fm == fm
+
+
+def test_parent_and_depends_on_round_trip() -> None:
+    src = (
+        "---\n"
+        "title: Child A\n"
+        "kind: feature\n"
+        "status: open\n"
+        "parent: 2026-06-26-some-epic\n"
+        "depends_on:\n"
+        "- 2026-06-26-child-b\n"
+        "---\n"
+        "body\n"
+    )
+    fm, _body = parse(src)
+    assert fm["parent"] == "2026-06-26-some-epic"
+    assert fm["depends_on"] == ["2026-06-26-child-b"]
+    # re-emit then re-parse: keys survive
+    fm2, _ = parse(emit(fm) + "\nbody\n")
+    assert fm2["parent"] == "2026-06-26-some-epic"
+    assert fm2["depends_on"] == ["2026-06-26-child-b"]
