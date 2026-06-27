@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from pathlib import Path
 
 import yaml
 from graph_wiki_core.commands.guidance_signals import (
     GuidancePage,
     PathContext,
+    _derive_path_language,
     compute_candidates,
     load_guidance_pages,
 )
@@ -226,3 +229,26 @@ def test_language_filter_message_only_is_noop() -> None:
     slugs = {c.page.slug for c in cands}
     assert "code-review/checks-python" in slugs
     assert "general/pattern" in slugs
+
+
+def test_derive_path_language_extension_fallback() -> None:
+    # conn=None → pure extension-map lookup.
+    assert _derive_path_language(None, "pkg/mod.py") == "python"
+    # unknown extension and extension-less paths → None.
+    assert _derive_path_language(None, "pkg/data.xyz") is None
+    assert _derive_path_language(None, "Makefile") is None
+
+
+def test_derive_path_language_db_hit_normalized() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE nodes (kind TEXT, path TEXT, attrs_json TEXT)")
+    conn.execute(
+        "INSERT INTO nodes (kind, path, attrs_json) VALUES (?, ?, ?)",
+        ("file", "pkg/widget.tsx", json.dumps({"language": "TypeScript"})),
+    )
+    conn.commit()
+    # DB language wins and is normalized to lowercase, regardless of the extension.
+    assert _derive_path_language(conn, "pkg/widget.tsx") == "typescript"
+    # A path with no matching file node falls back to the extension map.
+    assert _derive_path_language(conn, "pkg/other.py") == "python"
+    conn.close()

@@ -15,19 +15,18 @@ import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 
-from guidance_io.frontmatter import parse
+from guidance_io.frontmatter import normalize_language, parse
 from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
 from guidance_io.vocab import canonical_tag, load_vocab
-from source_parser.parsers import PARSERS
+from source_parser.parsers import EXTENSIONS
 from wiki_io.entity_lookup import entity_filename_for_uri, lookup_entity_by_path
 
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
-# Extension → language name, built from source_parser's registered parsers.
-# PARSERS: dict[lang_name, parser]; parser.file_extensions is a tuple of ".ext" strings.
-_EXT_TO_LANG: dict[str, str] = {ext: lang for lang, parser in PARSERS.items() for ext in parser.file_extensions}
+# Extension (".ext") → language name, from source_parser's canonical extension map.
+_EXT_TO_LANG: dict[str, str] = {ext: parser.name for ext, parser in EXTENSIONS.items()}
 
 # Per-signal score weights.
 _W_GLOB = 3.0
@@ -102,8 +101,8 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
         for raw in triggers.get("entities") or []:
             m = _ENTITY_STEM_RE.search(str(raw))
             entities.append(m.group(1) if m else str(raw))
-        _lang = fm.get("language")
-        page_language = _lang.strip().lower() if isinstance(_lang, str) and _lang.strip() else None
+        normalize_language(fm)  # Task 1 canonical helper: trim+lowercase in place, drop empty/whitespace
+        page_language = fm.get("language")
         pages.append(
             GuidancePage(
                 slug=f"{rel.parent.as_posix()}/{page_path.stem}",
@@ -135,7 +134,8 @@ def _derive_path_language(conn: sqlite3.Connection | None, rel: str) -> str | No
                 lang = json.loads(row[0]).get("language")
                 if lang:
                     return str(lang).strip().lower()
-        except Exception:
+        except (sqlite3.Error, ValueError):
+            # JSONDecodeError is a ValueError subclass; fall back to the extension map.
             pass
     return _EXT_TO_LANG.get(Path(rel).suffix)
 
