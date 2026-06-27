@@ -105,6 +105,48 @@ def test_run_lint_flags_off_vocab_tag(tmp_path: Path) -> None:
     assert any(f.rule_id == "guidance-tag-not-allowlisted" and "bogus" in f.message for f in findings)
 
 
+def test_run_lint_flags_non_normalized_language(tmp_path: Path) -> None:
+    page = """---
+title: Lang Page
+category: guidance
+summary: s
+topic: python
+applies_when: a
+impact: high
+language: Python
+updated: 2026-06-15
+tokens: 0
+---
+
+## Guidance
+x.
+"""
+    _write(tmp_path, "python", "lang-page", page)
+    findings = run_lint(tmp_path)
+    assert any(f.rule_id == "guidance-language-normalization" and f.severity == "error" for f in findings)
+
+
+def test_run_lint_clean_for_normalized_language(tmp_path: Path) -> None:
+    page = """---
+title: Lang Page
+category: guidance
+summary: s
+topic: python
+applies_when: a
+impact: high
+language: python
+updated: 2026-06-15
+tokens: 0
+---
+
+## Guidance
+x.
+"""
+    _write(tmp_path, "python", "lang-page", page)
+    findings = run_lint(tmp_path)
+    assert not any(f.rule_id == "guidance-language-normalization" for f in findings)
+
+
 def test_run_lint_warns_on_prose_keyword(tmp_path: Path) -> None:
     import yaml
     from guidance_io.lint import run_lint

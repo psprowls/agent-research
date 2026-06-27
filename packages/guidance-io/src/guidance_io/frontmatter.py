@@ -78,7 +78,26 @@ def validate(fm: dict) -> list[str]:
     if workflow is not None and not isinstance(workflow, list):
         errors.append(f"workflow must be a list of phase names, got {type(workflow).__name__}")
 
+    language = fm.get("language")
+    if language is not None and not isinstance(language, str):
+        errors.append(f"language must be a string, got {type(language).__name__}")
+
     return errors
+
+
+def normalize_language(fm: dict) -> None:
+    """Lowercase + trim a present scalar ``language`` in place.
+
+    No-op when ``language`` is absent or not a string. An empty/whitespace-only
+    value is removed so it reads as agnostic rather than the empty string.
+    """
+    lang = fm.get("language")
+    if isinstance(lang, str):
+        norm = lang.strip().lower()
+        if norm:
+            fm["language"] = norm
+        else:
+            fm.pop("language", None)
 
 
 _KEYWORD_MAX_LEN = 40

@@ -16,6 +16,18 @@ from guidance_io.paths import guidance_dir, list_all_pages, slugify
 from guidance_io.vocab import load_vocab
 
 
+def language_normalization_warnings(fm: dict) -> list[str]:
+    """Flag a present ``language`` that is non-string or not normalized."""
+    lang = fm.get("language")
+    if lang is None:
+        return []
+    if not isinstance(lang, str):
+        return [f"language must be a string, got {type(lang).__name__}"]
+    if lang != lang.strip().lower():
+        return [f"language {lang!r} is not normalized (expected {lang.strip().lower()!r})"]
+    return []
+
+
 @dataclass
 class LintFinding:
     rule_id: str
@@ -50,6 +62,9 @@ def run_lint(workspace: Path) -> list[LintFinding]:
 
         for msg in keyword_shape_warnings(fm):
             findings.append(LintFinding("guidance-keyword-shape", "warn", slug, msg))
+
+        for msg in language_normalization_warnings(fm):
+            findings.append(LintFinding("guidance-language-normalization", "error", slug, msg))
 
         topic = fm.get("topic")
         if isinstance(topic, str) and topic.strip() and slugify(topic) != topic_dir:
