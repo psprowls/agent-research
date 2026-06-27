@@ -243,7 +243,8 @@ tokens: 0
 critical/high/medium/low. Use the `suggested_summary_path` from the brief (minus the
 `sources/` prefix and `.md` suffix) as the `source:` target. `language` is optional —
 omit it for language-agnostic guidance; when set, use a lowercase scalar matching
-source-parser language names (e.g. `python`, `typescript`, `javascript`).
+source-parser language names (e.g. `python`, `typescript`, `javascript`), which lets the
+page participate in code-graph/file matching during guidance suggestion.
 
 Body sections:
 

@@ -152,7 +152,7 @@ the user first — a scripts-heavy skill is a weak guidance candidate.
 **Multi-language guidance.** When a guidance source covers more than one language
 (e.g. a checklist with separate Python and TypeScript sections), do NOT bundle
 them into one page. Write one single-language page per language — each stamped
-with an optional `language:` frontmatter key (lowercase scalar, e.g. `python`,
+with a `language:` frontmatter key (lowercase scalar, e.g. `python`,
 `typescript`, `javascript`) and only that language's content — using the slug
 convention `<base-slug>-<language>.md` under the same topic folder. When there is
 genuinely shared/cross-language advice, additionally write one agnostic page with
