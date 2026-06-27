@@ -61,3 +61,11 @@ def test_security_body_has_threat() -> None:
     body = render_default_work_body("x", "security")
     assert "## Threat" in body
     assert "## Impact" in body
+
+
+def test_epic_body_has_no_sub_items() -> None:
+    out = render_default_work_body("decompose the thing", "epic")
+    assert "Sub-items" not in out
+    assert "## Goal" in out
+    assert "## Plan" in out
+    assert "## Notes / log" in out

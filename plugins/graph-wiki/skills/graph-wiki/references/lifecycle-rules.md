@@ -1,6 +1,6 @@
 # Lifecycle rules — work_layer
 
-The 23 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
+The 29 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
 plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 
 > **Note:** The work-layer subsystem (archive, regen-index, status commands) is not ported in graph-wiki v1.2. This reference doc is retained for parity with upstream; the rules apply when/if work-layer support is added in a future version.
@@ -35,8 +35,8 @@ plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 **Remedy:** populate `branch:` (preferred for early work) or `pr:` (once a PR is open).
 
 ### `resolved-without-ref` — warn
-**Trigger:** `status: resolved` and `resolved_in:` empty.
-**Rationale:** future readers need to find the change that resolved the item.
+**Trigger:** `status: resolved`, `kind` is not `epic`, and `resolved_in:` empty.
+**Rationale:** future readers need to find the change that resolved the item. Epics are exempt: they resolve via the children-terminal gate (every child reaches a terminal status), not by landing a single change, so they carry no `resolved_in`.
 **Remedy:** populate `resolved_in:` with the PR number, commit SHA, or merged branch name.
 
 ### `superseded-without-link` — error
@@ -136,3 +136,39 @@ outside the workflow lint clean.
 **Trigger:** `spec_doc:` or `plan_doc:` set but the workspace-relative file does not exist.
 **Rationale:** fresh-context workflow sessions locate prior output through these pointers; a dangling pointer strands the next stage.
 **Remedy:** restore the file under `<workspace>/raw/`, or clear the key.
+
+## Hierarchy (6)
+
+These cross-item rules resolve `parent:` and `depends_on:` references against the
+full set of work items in `<vault>/work/`. They fire only when those keys are
+present — flat items filed without a parent or dependencies lint clean.
+
+### `parent-missing` — error
+**Trigger:** `parent:` set but no work item has that slug.
+**Rationale:** a child pointing at a non-existent epic is orphaned — rollups and the children-terminal resolve gate can't find it.
+**Remedy:** fix the slug (check for renames first), file the missing epic, or clear `parent:` if the item is standalone.
+
+### `parent-not-epic` — error
+**Trigger:** `parent:` resolves to a work item whose `kind` is not `epic`.
+**Rationale:** the hierarchy is exactly one level — only epics own children. A non-epic parent breaks the decomposition contract.
+**Remedy:** repoint `parent:` at the owning epic, or promote the referenced item to `kind: epic` if it is in fact the umbrella.
+
+### `depends-on-missing` — error
+**Trigger:** a `depends_on:` slug has no matching work item.
+**Rationale:** a dependency on something that doesn't exist can never be satisfied; ordering logic silently skips it.
+**Remedy:** fix the slug (check for renames first), file the missing item, or remove the dangling entry.
+
+### `depends-on-cycle` — error
+**Trigger:** the `depends_on:` graph contains a cycle (e.g. A depends on B depends on A). Every slug in the cycle is flagged.
+**Rationale:** a dependency cycle has no valid execution order — nothing in the cycle can start.
+**Remedy:** break the cycle by dropping the edge that shouldn't be there; reconsider which item truly blocks which.
+
+### `depends-on-not-sibling` — warn
+**Trigger:** a `depends_on:` target resolves but its `parent:` differs from this item's `parent:`.
+**Rationale:** dependencies are expected within a single epic's children; a cross-epic dependency usually signals a mis-scoped boundary, though it can be legitimate.
+**Remedy:** confirm the dependency is intentional. If the work belongs together, move the items under the same epic; otherwise leave it and treat the warning as acknowledged.
+
+### `epic-without-children` — warn
+**Trigger:** `kind: epic` at `phase: execute | finish | done` with no work item naming it as `parent:`.
+**Rationale:** an epic that has advanced past planning but owns no children is either undecomposed or had its children deleted — its rollup is empty.
+**Remedy:** decompose the epic into child items, or close it if the work is no longer planned.

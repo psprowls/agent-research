@@ -42,6 +42,8 @@ def file(
     target: str = typer.Option("", "--target", help="YYYY-QN or YYYY-MM"),
     owner: str = typer.Option("", "--owner", help="Owner handle"),
     tags: str = typer.Option("", "--tags", help="Comma-separated tags"),
+    parent: str = typer.Option("", "--parent", help="Owning epic slug (this item becomes its child)"),
+    depends_on: str = typer.Option("", "--depends-on", help="Comma-separated sibling slugs that must finish first"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -63,6 +65,8 @@ def file(
                 target=target or None,
                 owner=owner or None,
                 tags=_split_csv(tags),
+                parent=parent or None,
+                depends_on=_split_csv(depends_on) or None,
             )
         )
     except (RuntimeError, ValueError, FileExistsError) as e:
@@ -159,6 +163,10 @@ def status(
         typer.echo(f"Stuck ({len(result.stuck)}):")
         for item in result.stuck:
             typer.echo(f"  - {item['slug']}: {item.get('_age_days', '?')}d old")
+        if result.epics:
+            typer.echo(f"Epics ({len(result.epics)}):")
+            for e in result.epics:
+                typer.echo(f"  - {e['slug']}: {e['terminal']}/{e['total']} children terminal, {e['blocking']} blocking")
 
     if result.sidecar_missing:
         raise typer.Exit(code=4)

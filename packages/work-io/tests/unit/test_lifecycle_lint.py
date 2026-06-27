@@ -296,3 +296,66 @@ def test_plan_action_target_missing_in_both_roots_fails_rule_11(tmp_path) -> Non
     )
     findings = run_lint([_item(status="accepted", plan=plan)], repo, None, workspace_root=workspace)
     assert "plan-action-target-missing" in _rule_ids(findings)
+
+
+# --- Hierarchy rules ---
+
+
+def test_resolved_without_ref_skips_epic() -> None:
+    findings = run_lint([_item(kind="epic", status="resolved")], None, None)
+    assert "resolved-without-ref" not in _rule_ids(findings)
+    findings2 = run_lint([_item(kind="feature", status="resolved")], None, None)
+    assert "resolved-without-ref" in _rule_ids(findings2)
+
+
+def test_parent_missing_and_not_epic() -> None:
+    items = [_item(slug="child", kind="feature", parent="ghost-epic")]
+    assert "parent-missing" in _rule_ids(run_lint(items, None, None))
+
+    items2 = [
+        _item(slug="not-an-epic", kind="feature"),
+        _item(slug="child", kind="feature", parent="not-an-epic"),
+    ]
+    ids2 = _rule_ids(run_lint(items2, None, None))
+    assert "parent-not-epic" in ids2
+    assert "parent-missing" not in ids2
+
+
+def test_parent_present_and_epic_is_clean() -> None:
+    items = [
+        _item(slug="epic-x", kind="epic"),
+        _item(slug="child", kind="feature", parent="epic-x"),
+    ]
+    ids = _rule_ids(run_lint(items, None, None))
+    assert "parent-missing" not in ids and "parent-not-epic" not in ids
+
+
+def test_depends_on_missing() -> None:
+    items = [_item(slug="child", kind="feature", depends_on=["ghost"])]
+    assert "depends-on-missing" in _rule_ids(run_lint(items, None, None))
+
+
+def test_depends_on_cycle() -> None:
+    items = [
+        _item(slug="a", kind="feature", parent="e", depends_on=["b"]),
+        _item(slug="b", kind="feature", parent="e", depends_on=["a"]),
+        _item(slug="e", kind="epic"),
+    ]
+    assert "depends-on-cycle" in _rule_ids(run_lint(items, None, None))
+
+
+def test_depends_on_not_sibling_warns() -> None:
+    items = [
+        _item(slug="e1", kind="epic"),
+        _item(slug="e2", kind="epic"),
+        _item(slug="a", kind="feature", parent="e1"),
+        _item(slug="b", kind="feature", parent="e2", depends_on=["a"]),
+    ]
+    assert "depends-on-not-sibling" in _rule_ids(run_lint(items, None, None))
+
+
+def test_epic_without_children_warns_at_execute() -> None:
+    items = [_item(slug="e", kind="epic", phase="execute")]
+    assert "epic-without-children" in _rule_ids(run_lint(items, None, None))
+    items2 = [_item(slug="e2", kind="epic", phase="design")]
+    assert "epic-without-children" not in _rule_ids(run_lint(items2, None, None))

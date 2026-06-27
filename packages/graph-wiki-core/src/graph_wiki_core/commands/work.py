@@ -36,6 +36,7 @@ from work_io import body as _body
 from work_io import doc_pointers as _doc_pointers
 from work_io import filing as _filing
 from work_io import frontmatter as _frontmatter
+from work_io import hierarchy as _hierarchy
 from work_io import lifecycle_lint as _lint
 from work_io import plan_table as _plan_table
 from work_io import sidecar as _sidecar
@@ -78,6 +79,7 @@ class WorkStatusResult:
     counts: dict = field(default_factory=dict)
     in_flight: list[dict] = field(default_factory=list)
     stuck: list[dict] = field(default_factory=list)
+    epics: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -104,6 +106,7 @@ class WorkNextResult:
     on_dispatch: dict | None = None  # {"phase", "status", "requires"}
     on_complete: dict | None = None
     blockers: list[str] = field(default_factory=list)
+    child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics
 
 
 @dataclass
@@ -116,6 +119,7 @@ class WorkAdvanceResult:
     applied: dict = field(default_factory=dict)  # {"phase": [before, after], "status": [before, after]}
     stamped: dict = field(default_factory=dict)  # frontmatter keys written (effort/owner/resolved_in/spec_doc/plan_doc)
     findings: list[dict] = field(default_factory=list)  # lint findings for this slug after the write
+    child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics
 
 
 # ---------------------------------------------------------------------------
@@ -160,6 +164,15 @@ def _load_items(work_dir: Path) -> list[dict]:
     return items
 
 
+def _hierarchy_view(items: list[dict]) -> list[dict]:
+    """Project loaded items ({slug, fm, plan}) to the {slug, status, parent} shape
+    the work_io.hierarchy helpers consume."""
+    return [
+        {"slug": it["slug"], "status": str(it["fm"].get("status", "")), "parent": it["fm"].get("parent")}
+        for it in items
+    ]
+
+
 def _load_item(wiki: Path, slug: str) -> tuple[Path, dict, str]:
     """Load wiki/work/<slug>.md; returns (path, frontmatter, body)."""
     path = wiki / "work" / f"{slug}.md"
@@ -169,14 +182,32 @@ def _load_item(wiki: Path, slug: str) -> tuple[Path, dict, str]:
     return path, fm, body
 
 
-def _state_from_fm(fm: dict, effort_override: str | None = None) -> _workflow.WorkItemState:
+def _state_from_fm(
+    fm: dict,
+    effort_override: str | None = None,
+    *,
+    items: list[dict] | None = None,
+    slug: str | None = None,
+) -> _workflow.WorkItemState:
     effort = effort_override or (str(fm["effort"]) if fm.get("effort") else None)
+    depends_on = tuple(str(d) for d in (fm.get("depends_on") or []))
+    unmet_deps: tuple[str, ...] = ()
+    rollup = None
+    if items is not None:
+        view = _hierarchy_view(items)
+        if depends_on:
+            unmet_deps = _hierarchy.dep_states(view, depends_on)
+        if str(fm.get("kind", "")) == "epic" and slug:
+            rollup = _hierarchy.child_rollup(view, slug)
     return _workflow.WorkItemState(
         kind=str(fm.get("kind", "")),
         status=str(fm.get("status", "")),
         phase=str(fm["phase"]) if fm.get("phase") else None,
         effort=effort,
         has_plan_doc=bool(fm.get("plan_doc")),
+        depends_on=depends_on,
+        unmet_deps=unmet_deps,
+        child_rollup=rollup,
     )
 
 
@@ -185,6 +216,12 @@ def _transition_dict(t: _workflow.Transition | None, current_status: str) -> dic
     if t is None:
         return None
     return {"phase": t.phase, "status": t.status or current_status, "requires": list(t.requires)}
+
+
+def _rollup_dict(rollup: _hierarchy.ChildRollup | None) -> dict | None:
+    if rollup is None:
+        return None
+    return {"total": rollup.total, "terminal": rollup.terminal, "open_slugs": list(rollup.open_slugs)}
 
 
 async def _apply_work_item_side_effects(
@@ -294,11 +331,23 @@ async def run_work_status(workspace_path: Path | None = None) -> WorkStatusResul
         elif status == "accepted" and age > _STUCK_ACCEPTED_DAYS:
             stuck.append(i)
 
+    epics = [
+        {
+            "slug": i["slug"],
+            "total": i["children"]["total"],
+            "terminal": i["children"]["terminal"],
+            "blocking": i["children"]["blocking"],
+        }
+        for i in items
+        if i.get("kind") == "epic" and i.get("children")
+    ]
+
     return WorkStatusResult(
         sidecar_missing=False,
         counts=sidecar.get("counts", {}),
         in_flight=in_flight,
         stuck=stuck,
+        epics=epics,
     )
 
 
@@ -365,7 +414,7 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
     except (FileNotFoundError, ValueError) as e:
         return WorkNextResult(slug=slug, blockers=[str(e)])
 
-    state = _state_from_fm(fm)
+    state = _state_from_fm(fm, items=_load_items(wiki / "work"), slug=slug)
     r = _workflow.route(state)
     phase = state.phase or (r.on_dispatch.phase if r.on_dispatch else None)
     artifact = None
@@ -383,6 +432,7 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
         on_dispatch=_transition_dict(r.on_dispatch, state.status),
         on_complete=_transition_dict(r.on_complete, state.status),
         blockers=list(r.blockers),
+        child_rollup=_rollup_dict(state.child_rollup),
     )
 
 
@@ -412,7 +462,8 @@ async def run_work_advance(
     workspace = wiki.parent
     path, fm, body = _load_item(wiki, slug)
 
-    state = _state_from_fm(fm, effort_override=effort)
+    items_before = _load_items(wiki / "work")
+    state = _state_from_fm(fm, effort_override=effort, items=items_before, slug=slug)
     r = _workflow.route(state)
     if r.blockers:
         raise ValueError("; ".join(r.blockers))
@@ -472,6 +523,7 @@ async def run_work_advance(
             for f in findings
             if f.slug == slug
         ],
+        child_rollup=_rollup_dict(state.child_rollup),
     )
 
 
@@ -494,6 +546,8 @@ async def run_work_file(
     target: str | None = None,
     owner: str | None = None,
     tags: list[str] | None = None,
+    parent: str | None = None,
+    depends_on: list[str] | None = None,
     body: str = "",
     force: bool = False,
 ) -> IngestResult:
@@ -509,6 +563,20 @@ async def run_work_file(
     today = date.today().isoformat()
 
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
+
+    # Validate the parent epic before writing anything: --parent must point at an
+    # existing work item whose kind is "epic" (the integrity guard the lint rules
+    # also enforce). `parent` is the epic's full file stem by construction.
+    if parent:
+        parent_path = wiki / "work" / f"{parent}.md"
+        if not parent_path.exists():
+            raise ValueError(f"--parent {parent!r}: no work item at {parent_path}")
+        parent_fm, _parent_body = _frontmatter.parse(parent_path.read_text(encoding="utf-8"))
+        if str(parent_fm.get("kind", "")) != "epic":
+            raise ValueError(
+                f"--parent {parent!r}: kind is {parent_fm.get('kind')!r}, "
+                "not 'epic'; children may only attach to an epic"
+            )
 
     # Build frontmatter in wiki-schema.md ("Work pages") key order. Optional
     # scalars are omitted when unset rather than emitted as null placeholders;
@@ -528,6 +596,10 @@ async def run_work_file(
     if blast_radius:
         fm["blast_radius"] = blast_radius
     fm["affects"] = affects
+    if parent:
+        fm["parent"] = parent
+    if depends_on:
+        fm["depends_on"] = depends_on
     if target:
         fm["target"] = target
     if owner:
@@ -537,6 +609,9 @@ async def run_work_file(
     fm["tags"] = tags or []
 
     item_body = body or _body.render_default_work_body(summary, kind)
+    if parent:
+        pointer = f"Designed as part of epic `{parent}` — see its spec for the seed design."
+        item_body = item_body.rstrip("\n") + "\n\n" + pointer + "\n"
 
     result = _filing.write_work_item(wiki, fm, item_body, force=force)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)

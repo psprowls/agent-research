@@ -19,6 +19,19 @@ Do NOT invoke any implementation skill, write any code, scaffold any project, or
 
 Every project goes through this process. A todo list, a single-function utility, a config change — all of them. "Simple" projects are where unexamined assumptions cause the most wasted work. The design can be short (a few sentences for truly simple projects), but you MUST present it and get approval.
 
+## Epic-mode note (kind: epic)
+
+When the dispatch brief's work-item block says `kind: epic`, the design you
+produce is a decomposition spec, not a single-feature design. Structure the spec
+as: an overall epic goal + one **medium-detail section per anticipated child**
+(each a feature/bug the plan stage will turn into its own child work item). The
+`planning-epics` skill reads these per-child sections at the plan stage to file
+the children, so name them clearly and note likely ordering/dependencies between
+them. Still file nothing here — design produces prose only.
+
+This applies to both flows below — most often the `design` stage dispatched by
+`graph-wiki:workflow` for an epic — so it sits above the mode split.
+
 ## Auto-file Mode (standalone invocations)
 
 Brainstorming runs in two contexts. **Step 0 below decides which, before anything else.** When dispatched as the `design` stage of the work pipeline, a work item already exists — behave exactly as today. When invoked standalone, auto-file a work item so the design enters the tracked pipeline instead of leaking outside it.

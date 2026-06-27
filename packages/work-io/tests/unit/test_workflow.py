@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from work_io.hierarchy import ChildRollup
 from work_io.workflow import PLAN_OR_EXECUTE, Transition, WorkItemState, route
 
 
@@ -163,3 +164,77 @@ def test_finish_routes_to_finishing_a_development_branch() -> None:
     r = route(_state(kind="feature", status="in-progress", phase="finish"))
     assert r.skill == "finishing-a-development-branch"
     assert r.on_complete == Transition(phase="done", status="resolved", requires=("resolved_in",))
+
+
+# --- Epic routing + dependency gate ---
+
+
+def _epic_state(
+    phase: str | None = None,
+    effort: str | None = "large",
+    rollup: ChildRollup | None = None,
+    unmet_deps: tuple[str, ...] = (),
+    depends_on: tuple[str, ...] = (),
+) -> WorkItemState:
+    return WorkItemState(
+        kind="epic",
+        status="open" if phase in (None, "design") else "accepted",
+        phase=phase,
+        effort=effort,
+        depends_on=depends_on,
+        unmet_deps=unmet_deps,
+        child_rollup=rollup,
+    )
+
+
+def test_dependency_gate_blocks_when_unmet() -> None:
+    state = WorkItemState(kind="feature", status="open", depends_on=("sib",), unmet_deps=("sib",))
+    r = route(state)
+    assert r.skill is None and r.on_dispatch is None and r.on_complete is None
+    assert any("sib" in b for b in r.blockers)
+
+
+def test_dependency_gate_passes_when_all_terminal() -> None:
+    state = WorkItemState(kind="feature", status="open", depends_on=("sib",), unmet_deps=())
+    r = route(state)
+    assert r.skill == "brainstorming"
+
+
+def test_epic_never_skips_plan_any_effort() -> None:
+    for eff in ("xtra-small", "small", "medium", "large", "xtra-large"):
+        r = route(_epic_state(phase="design", effort=eff))
+        assert r.on_complete == Transition(phase="plan", stamp_doc="spec_doc")
+
+
+def test_epic_plan_dispatches_planning_epics() -> None:
+    r = route(_epic_state(phase="plan"))
+    assert r.skill == "planning-epics"
+    assert r.artifact_slot == "plans"
+    assert r.on_complete == Transition(phase="execute", status="accepted", stamp_doc="plan_doc")
+    assert r.on_complete.sync_plan_table is False
+
+
+def test_epic_execute_no_children_blocks() -> None:
+    r = route(_epic_state(phase="execute", rollup=ChildRollup(0, 0, ())))
+    assert r.skill is None and r.blockers
+
+
+def test_epic_execute_partial_waits_with_open_slugs() -> None:
+    r = route(_epic_state(phase="execute", rollup=ChildRollup(2, 1, ("child-b",))))
+    assert r.skill is None
+    assert r.on_complete is None
+    assert any("child-b" in b for b in r.blockers)
+
+
+def test_epic_execute_all_terminal_is_satisfied_gate() -> None:
+    r = route(_epic_state(phase="execute", rollup=ChildRollup(2, 2, ())))
+    assert r.skill is None
+    assert r.blockers == ()
+    assert r.on_complete == Transition(phase="finish")
+
+
+def test_epic_finish_satisfied_gate_to_done() -> None:
+    r = route(_epic_state(phase="finish"))
+    assert r.skill is None and r.blockers == ()
+    assert r.on_complete == Transition(phase="done", status="resolved")
+    assert r.on_complete.requires == ()
