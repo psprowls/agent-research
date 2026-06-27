@@ -28,7 +28,14 @@ _CHUNKING = (
     "- **How-to / instructional flow** (a single coherent procedure or technique): emit "
     "ONE entry for the whole skill.\n\n"
     "Never split tightly-coupled instructions across multiple entries. When in doubt, "
-    "prefer fewer, larger pages over many fragments."
+    "prefer fewer, larger pages over many fragments.\n\n"
+    "When a single guidance topic contains distinct per-language sections (e.g. a\n"
+    '"Python" block and a "TypeScript" block of the same checklist), SPLIT it into\n'
+    "one entry per language — each carrying the same `topic` and `slug` base plus a\n"
+    "`language` field — and, when there is genuinely shared/cross-language advice,\n"
+    "optionally one additional entry with no `language`. Keep the `slug` base\n"
+    "identical across the split entries; the writer appends the `-<language>` suffix\n"
+    "deterministically, so do not add language suffixes to `slug` yourself."
 )
 
 _TOPIC = (
@@ -45,6 +52,8 @@ _SCHEMA = (
     "- title: Use a List Virtualizer for Any List   # human-readable page title\n"
     "  slug: use-list-virtualizer                    # kebab-case; filename stem\n"
     "  topic: react-native                           # domain slug → folder\n"
+    "  language: python            # OPTIONAL — omit for shared/agnostic advice.\n"
+    "                              # lowercase: python | typescript | javascript | ...\n"
     "  summary: One-line summary for the wiki spine.\n"
     "  applies_when: Rendering any scrollable list in React Native.\n"
     "  impact: high                                  # critical | high | medium | low\n"

@@ -2059,6 +2059,86 @@ async def test_synthesize_guidance_pages_skips_invalid(tmp_path, monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_synthesize_guidance_pages_splits_by_language(tmp_path, monkeypatch) -> None:
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    (tmp_path / "wiki").mkdir()
+    valid_page = (
+        "---\ntitle: Language Specific Checks\ncategory: guidance\ntopic: code-review\n"
+        "summary: s\napplies_when: a\nimpact: high\nupdated: 2026-06-08\ntokens: 0\n---\n\n"
+        "## Guidance\nx.\n"
+    )
+
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = valid_page
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _FakeLLM())
+
+    plan = [
+        {
+            "title": "Language Specific Checks",
+            "slug": "language-specific-checks",
+            "topic": "code-review",
+            "language": "python",
+            "content": "py",
+        },
+        {
+            "title": "Language Specific Checks",
+            "slug": "language-specific-checks",
+            "topic": "code-review",
+            "language": "typescript",
+            "content": "ts",
+        },
+    ]
+    written = await ingest_mod._synthesize_guidance_pages(
+        plan, workspace_root=tmp_path, project_ctx="", model_override=None
+    )
+    assert set(written) == {
+        "wiki/guidance/code-review/language-specific-checks-python.md",
+        "wiki/guidance/code-review/language-specific-checks-typescript.md",
+    }
+    from guidance_io.frontmatter import parse
+
+    py = parse((tmp_path / "wiki/guidance/code-review/language-specific-checks-python.md").read_text())[0]
+    assert py["language"] == "python"
+
+
+@pytest.mark.asyncio
+async def test_synthesize_guidance_pages_agnostic_single(tmp_path, monkeypatch) -> None:
+    from graph_wiki_core.commands import ingest as ingest_mod
+
+    (tmp_path / "wiki").mkdir()
+    valid_page = (
+        "---\ntitle: General\ncategory: guidance\ntopic: code-review\n"
+        "summary: s\napplies_when: a\nimpact: high\nupdated: 2026-06-08\ntokens: 0\n---\n\n## Guidance\nx.\n"
+    )
+
+    class _FakeLLM:
+        async def ainvoke(self, messages):
+            class _R:
+                content = valid_page
+                usage_metadata = None
+
+            return _R()
+
+    monkeypatch.setattr(ingest_mod, "make_llm", lambda role, model_override=None: _FakeLLM())
+    plan = [{"title": "General", "slug": "general", "topic": "code-review", "content": "x"}]
+    written = await ingest_mod._synthesize_guidance_pages(
+        plan, workspace_root=tmp_path, project_ctx="", model_override=None
+    )
+    assert written == ["wiki/guidance/code-review/general.md"]
+    from guidance_io.frontmatter import parse
+
+    fm = parse((tmp_path / "wiki/guidance/code-review/general.md").read_text())[0]
+    assert "language" not in fm
+
+
+@pytest.mark.asyncio
 async def test_run_ingest_source_skill_writes_guidance_and_skips_suggest(tmp_path, monkeypatch):
     from graph_wiki_core.commands import ingest as ingest_mod
 

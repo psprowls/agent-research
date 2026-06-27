@@ -24,6 +24,7 @@ _FRONTMATTER = (
     "```yaml\n"
     "title: <entry.title>\n"
     "category: guidance          # FIXED — always this literal value\n"
+    "language: <entry.language if the chunk-plan entry carries one; omit otherwise>\n"
     "summary: <entry.summary>\n"
     "topic: <entry.topic>\n"
     "applies_when: <entry.applies_when>\n"
@@ -38,7 +39,9 @@ _FRONTMATTER = (
     "```\n\n"
     "`category` MUST be the literal `guidance`. `impact` MUST be lowercase and one of "
     "critical/high/medium/low. Keep `topic` and `title` exactly as given so the page "
-    "lands at the planned path."
+    "lands at the planned path. "
+    "Copy `language` verbatim from the chunk-plan entry when present; omit it for "
+    "agnostic entries (do NOT invent one). (The writer also stamps this deterministically.)"
 )
 
 _BODY = (
