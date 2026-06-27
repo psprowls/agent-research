@@ -33,9 +33,11 @@ fields the steps below read are unchanged from `gw work next`.
   - If a blocker reports a **terminal status** (`resolved`, `wontfix`, or
     `superseded`) or **`phase=done`**, run **Terminal handling** (below): the
     pipeline is finished and the remaining work is ingest + archive.
-  - Otherwise report each blocker and **stop** (the effort-required blocker is
-    handled by the next bullet). Do not improvise around `mitigated` items,
-    invalid enums, or unknown slugs — these are human decisions.
+  - Otherwise report each blocker and **stop** — *except* the **effort-required**
+    blocker and the **"waiting on children"** blocker, which are handled by the
+    dedicated bullets below (a non-null `on_complete` with empty `blockers` is the
+    separate **satisfied gate**, also below). Do not improvise around `mitigated`
+    items, invalid enums, or unknown slugs — these are human decisions.
 - If the only blocker says **effort required**: ask the user to size the item
   (xtra-small / small / medium / large / xtra-large — xtra-small/small means a bug-like item skips the planning stage),
   then run `gw work advance <slug> --effort <value>` and re-run `gw work next`.
