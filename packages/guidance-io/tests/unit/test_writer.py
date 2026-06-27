@@ -104,3 +104,49 @@ def test_write_page_normalizes_language(tmp_path: Path) -> None:
     assert res.written_rel == "wiki/guidance/code-review/checks-python.md"
     fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
     assert fm["language"] == "python"
+
+
+_PAGE_WITH_LANGUAGE = """---
+title: Pin The Model Role
+category: guidance
+summary: Use make_llm(role).
+topic: model-adapter
+applies_when: calling Bedrock
+impact: high
+updated: 1999-01-01
+tokens: 30
+language: {value}
+---
+
+## Guidance
+Use make_llm.
+"""
+
+
+def test_write_page_caller_language_overrides_page_text(tmp_path: Path) -> None:
+    # Criterion 4 "contradicted" sub-case: the caller value is authoritative.
+    res = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="checks",
+        page_text=_PAGE_WITH_LANGUAGE.format(value="typescript"),
+        stamp="2026-06-26",
+        language="python",
+    )
+    assert res.written_rel == "wiki/guidance/code-review/checks-python.md"
+    fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
+    assert fm["language"] == "python"
+
+
+def test_write_page_agnostic_call_normalizes_page_text_language(tmp_path: Path) -> None:
+    # language=None: no slug suffix, but a dirty page_text language is still normalized.
+    res = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="checks",
+        page_text=_PAGE_WITH_LANGUAGE.format(value="Python"),
+        stamp="2026-06-26",
+    )
+    assert res.written_rel == "wiki/guidance/code-review/checks.md"
+    fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
+    assert fm["language"] == "python"

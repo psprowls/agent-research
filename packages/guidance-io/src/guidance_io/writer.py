@@ -37,7 +37,9 @@ def write_page(
 
     When ``language`` is provided it is normalized (lowercase+trim), stamped
     authoritatively into the frontmatter, and appended as a ``-<language>``
-    suffix to the slug. ``language=None`` preserves the prior agnostic behavior.
+    suffix to the slug. ``language=None`` skips the authoritative stamp and the
+    slug suffix; any ``language`` already in the page text is still normalized
+    (lowercase + trim) for consistency with the lint rule.
     """
     text = page_text.strip()
     try:
@@ -49,7 +51,10 @@ def write_page(
     if language is not None:
         fm["language"] = language
     normalize_language(fm)
-    norm_language = fm.get("language")  # normalized or absent
+    # The slug suffix tracks the caller's split intent only. An agnostic call
+    # (language=None) never adds a suffix, even if the page text carried its own
+    # language — that value is still normalized in-place above for lint hygiene.
+    suffix_language = fm.get("language") if language is not None else None
 
     errors = validate(fm)
     if errors:
@@ -60,7 +65,9 @@ def write_page(
 
     topic = slugify(str(topic_raw))
     base_slug = slugify(str(slug_raw))
-    slug = f"{base_slug}-{norm_language}" if norm_language else base_slug
+    # suffix_language is already lowercase+trimmed; exotic names (c++, c#) are
+    # preserved verbatim rather than slugified away
+    slug = f"{base_slug}-{suffix_language}" if suffix_language else base_slug
     page = page_path(workspace_root, topic, slug)
     page.parent.mkdir(parents=True, exist_ok=True)
     page.write_text(page_text, encoding="utf-8")
