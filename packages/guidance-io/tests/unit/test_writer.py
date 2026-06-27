@@ -63,3 +63,44 @@ def test_write_page_strips_trailing_whitespace(tmp_path: Path) -> None:
     assert res.skip_reason is None
     written = (tmp_path / res.written_rel).read_text(encoding="utf-8")
     assert written == written.rstrip()  # no trailing whitespace in the file
+
+
+def test_write_page_language_suffix_and_stamp(tmp_path: Path) -> None:
+    res = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="language-specific-checks",
+        page_text=_PAGE,
+        stamp="2026-06-26",
+        language="python",
+    )
+    assert res.written_rel == "wiki/guidance/code-review/language-specific-checks-python.md"
+    fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
+    assert fm["language"] == "python"
+
+
+def test_write_page_agnostic_no_suffix(tmp_path: Path) -> None:
+    res = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="language-specific-checks",
+        page_text=_PAGE,
+        stamp="2026-06-26",
+    )
+    assert res.written_rel == "wiki/guidance/code-review/language-specific-checks.md"
+    fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
+    assert "language" not in fm
+
+
+def test_write_page_normalizes_language(tmp_path: Path) -> None:
+    res = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="checks",
+        page_text=_PAGE,
+        stamp="2026-06-26",
+        language="  Python  ",
+    )
+    assert res.written_rel == "wiki/guidance/code-review/checks-python.md"
+    fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
+    assert fm["language"] == "python"
