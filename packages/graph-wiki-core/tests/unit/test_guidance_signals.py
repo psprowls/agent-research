@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
+import sqlite3
 from pathlib import Path
 
 import yaml
 from graph_wiki_core.commands.guidance_signals import (
     GuidancePage,
     PathContext,
+    _derive_path_language,
     compute_candidates,
     load_guidance_pages,
 )
@@ -59,9 +62,21 @@ def _page(**kw) -> GuidancePage:
         applies_when="",
         impact="medium",
         guidance_body="",
+        language=None,
     )
     base.update(kw)
     return GuidancePage(**base)
+
+
+def _ctx(rel_path: str, language: str | None) -> PathContext:
+    return PathContext(
+        rel_path=rel_path,
+        content="",
+        package_stem=None,
+        index_topics=[],
+        index_tags=[],
+        language=language,
+    )
 
 
 def test_glob_signal_fires() -> None:
@@ -173,3 +188,139 @@ def test_index_signal_fires_on_alias_tag(tmp_path: Path) -> None:
     cands = compute_candidates(pages, message="", path_contexts=[ctx], k=5)
     fired = next(c for c in cands if c.page.slug == "python/p")
     assert "index" in fired.signals_fired
+
+
+def test_language_filter_python_context() -> None:
+    pages = [
+        _page(slug="code-review/checks-python", language="python"),
+        _page(slug="code-review/checks-typescript", language="typescript"),
+        _page(slug="general/pattern", language=None),
+    ]
+    cands = compute_candidates(pages, message="", path_contexts=[_ctx("a.py", "python")], k=10)
+    slugs = {c.page.slug for c in cands}
+    assert "code-review/checks-python" in slugs
+    assert "general/pattern" in slugs
+    assert "code-review/checks-typescript" not in slugs
+
+
+def test_language_filter_multilang_union() -> None:
+    pages = [
+        _page(slug="code-review/checks-python", language="python"),
+        _page(slug="code-review/checks-typescript", language="typescript"),
+        _page(slug="code-review/checks-go", language="go"),
+        _page(slug="general/pattern", language=None),
+    ]
+    cands = compute_candidates(
+        pages, message="", path_contexts=[_ctx("a.py", "python"), _ctx("b.ts", "typescript")], k=10
+    )
+    slugs = {c.page.slug for c in cands}
+    assert "code-review/checks-python" in slugs
+    assert "code-review/checks-typescript" in slugs
+    assert "general/pattern" in slugs
+    assert "code-review/checks-go" not in slugs
+
+
+def test_language_filter_message_only_is_noop() -> None:
+    pages = [
+        _page(slug="code-review/checks-python", language="python"),
+        _page(slug="general/pattern", language=None),
+    ]
+    cands = compute_candidates(pages, message="hello", path_contexts=[], k=10)
+    slugs = {c.page.slug for c in cands}
+    assert "code-review/checks-python" in slugs
+    assert "general/pattern" in slugs
+
+
+def test_derive_path_language_extension_fallback() -> None:
+    # conn=None → pure extension-map lookup.
+    assert _derive_path_language(None, "pkg/mod.py") == "python"
+    # unknown extension and extension-less paths → None.
+    assert _derive_path_language(None, "pkg/data.xyz") is None
+    assert _derive_path_language(None, "Makefile") is None
+
+
+def test_derive_path_language_db_hit_normalized() -> None:
+    conn = sqlite3.connect(":memory:")
+    conn.execute("CREATE TABLE nodes (kind TEXT, path TEXT, attrs_json TEXT)")
+    conn.execute(
+        "INSERT INTO nodes (kind, path, attrs_json) VALUES (?, ?, ?)",
+        ("file", "pkg/widget.tsx", json.dumps({"language": "TypeScript"})),
+    )
+    conn.commit()
+    # DB language wins and is normalized to lowercase, regardless of the extension.
+    assert _derive_path_language(conn, "pkg/widget.tsx") == "typescript"
+    # A path with no matching file node falls back to the extension map.
+    assert _derive_path_language(conn, "pkg/other.py") == "python"
+    conn.close()
+
+
+def _guidance_page_text(title: str, summary: str = "s") -> str:
+    fm = {
+        "title": title,
+        "category": "guidance",
+        "summary": summary,
+        "topic": "code-review",
+        "applies_when": "reviewing code",
+        "impact": "high",
+        "updated": "2026-06-26",
+        "tokens": 0,
+    }
+    return "---\n" + yaml.safe_dump(fm, sort_keys=False) + "---\n\n## Guidance\nDo X.\n"
+
+
+def test_language_roundtrip_write_load_filter(tmp_path: Path) -> None:
+    """Full value path: write language-scoped pages with the REAL writer,
+    load them back, and confirm the suggestion filter keys off language."""
+    from guidance_io.writer import write_page
+
+    stamp = "2026-06-26"
+    r_py = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="checks",
+        page_text=_guidance_page_text("Python checks"),
+        stamp=stamp,
+        language="python",
+    )
+    r_ts = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="checks",
+        page_text=_guidance_page_text("TypeScript checks"),
+        stamp=stamp,
+        language="typescript",
+    )
+    r_agnostic = write_page(
+        tmp_path,
+        topic_raw="code-review",
+        slug_raw="general-pattern",
+        page_text=_guidance_page_text("General pattern"),
+        stamp=stamp,
+        language=None,
+    )
+    # All three wrote successfully and the language suffix shaped the slugs.
+    assert r_py.skip_reason is None and r_py.written_rel == "wiki/guidance/code-review/checks-python.md"
+    assert r_ts.skip_reason is None and r_ts.written_rel == "wiki/guidance/code-review/checks-typescript.md"
+    assert r_agnostic.skip_reason is None and r_agnostic.written_rel == "wiki/guidance/code-review/general-pattern.md"
+
+    # Read them back with the REAL loader (no graph conn → extension/None path).
+    pages = {p.slug: p for p in load_guidance_pages(tmp_path)}
+    assert pages["code-review/checks-python"].language == "python"
+    assert pages["code-review/checks-typescript"].language == "typescript"
+    assert pages["code-review/general-pattern"].language is None
+
+    page_list = list(pages.values())
+
+    # A python context keeps the python + agnostic pages, drops typescript.
+    py_cands = compute_candidates(page_list, message="", path_contexts=[_ctx("a.py", "python")], k=10)
+    py_slugs = {c.page.slug for c in py_cands}
+    assert "code-review/checks-python" in py_slugs
+    assert "code-review/general-pattern" in py_slugs
+    assert "code-review/checks-typescript" not in py_slugs
+
+    # Symmetric: a typescript context keeps typescript + agnostic, drops python.
+    ts_cands = compute_candidates(page_list, message="", path_contexts=[_ctx("b.ts", "typescript")], k=10)
+    ts_slugs = {c.page.slug for c in ts_cands}
+    assert "code-review/checks-typescript" in ts_slugs
+    assert "code-review/general-pattern" in ts_slugs
+    assert "code-review/checks-python" not in ts_slugs

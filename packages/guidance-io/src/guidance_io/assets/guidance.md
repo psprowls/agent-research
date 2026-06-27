@@ -11,6 +11,10 @@ triggers:                        # structured pre-filter — block + all keys op
 tags: []                         # coarse free-form filter
 impact: medium                   # critical | high | medium | low
 source:                          # provenance — imported skill/repo the bit came from
+language:                        # optional — omit for language-agnostic guidance.
+                                 # lowercase scalar, e.g. python | typescript | javascript.
+                                 # values matching source-parser language names participate
+                                 # in code-graph/file matching during suggestion.
 updated: <YYYY-MM-DD>
 tokens: 0
 ---

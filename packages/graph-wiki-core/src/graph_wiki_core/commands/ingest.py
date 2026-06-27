@@ -849,12 +849,15 @@ async def _synthesize_guidance_pages(
         page_text = by_id.get(id(entry))
         if not page_text:
             continue
+        _lang = entry.get("language")
+        lang = _lang.strip().lower() if isinstance(_lang, str) and _lang.strip() else None
         res = _write_guidance_page(
             workspace_root,
             topic_raw=str(entry["topic"]),
             slug_raw=str(entry.get("slug") or entry["title"]),
             page_text=page_text,
             stamp=stamp,
+            language=lang,
         )
         if res.written_rel is None:
             logger.warning("skipping guidance page for %r: %s", entry.get("title"), res.skip_reason)

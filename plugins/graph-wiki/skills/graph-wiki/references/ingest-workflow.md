@@ -198,6 +198,13 @@ Choose the chunking from the content (mirrors the Bedrock skill planner):
   guidance page for the whole skill.
 - **Never split tightly-coupled steps** across pages. When in doubt, prefer fewer, larger
   pages over many fragments.
+- **Multi-language sources** — when a source covers more than one language (e.g. a checklist
+  with separate Python and TypeScript sections), write one single-language page per language
+  using the slug convention `<base-slug>-<language>.md` under the same topic folder, each
+  stamped with `language: <lowercase-scalar>` in frontmatter and containing only that
+  language's content. When there is genuinely shared/cross-language advice, additionally write
+  one agnostic page with no `language` key. Omit `language` for single-language or shared
+  sources.
 - Extract reusable TECHNICAL knowledge; drop skill-harness scaffolding (activation phrases,
   tool-call mechanics, meta-instructions about being a skill).
 - Preserve content verbatim where practical — the goal is smaller, targetable chunks, not
@@ -225,6 +232,8 @@ triggers:                   # all sub-keys optional; emit empty lists when no si
 tags: []                    # optional coarse tags
 impact: high                # critical | high | medium | low (lowercase)
 source: "[[sources/<YYYY-MM>-<slug>]]"   # the skill's source page (see below)
+language:                           # optional — omit for language-agnostic guidance.
+                                    # lowercase scalar, e.g. python | typescript | javascript.
 updated: <today, YYYY-MM-DD>
 tokens: 0
 ---
@@ -232,7 +241,10 @@ tokens: 0
 
 `category` MUST be the literal `guidance`. `impact` MUST be lowercase and one of
 critical/high/medium/low. Use the `suggested_summary_path` from the brief (minus the
-`sources/` prefix and `.md` suffix) as the `source:` target.
+`sources/` prefix and `.md` suffix) as the `source:` target. `language` is optional —
+omit it for language-agnostic guidance; when set, use a lowercase scalar matching
+source-parser language names (e.g. `python`, `typescript`, `javascript`), which lets the
+page participate in code-graph/file matching during guidance suggestion.
 
 Body sections:
 

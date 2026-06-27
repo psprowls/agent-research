@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from guidance_io.frontmatter import emit, keyword_shape_warnings, parse, tag_violations, validate
+from guidance_io.frontmatter import emit, keyword_shape_warnings, normalize_language, parse, tag_violations, validate
 from guidance_io.vocab import Vocab
 
 
@@ -179,6 +179,44 @@ def test_validate_flags_non_list_workflow():
     }
     errors = validate(fm)
     assert any("workflow" in e for e in errors)
+
+
+def test_validate_accepts_scalar_language() -> None:
+    fm = _valid_fm()
+    fm["language"] = "python"
+    assert validate(fm) == []
+
+
+def test_validate_accepts_absent_language_as_agnostic() -> None:
+    fm = _valid_fm()  # no language key
+    assert validate(fm) == []
+
+
+def test_validate_rejects_list_language() -> None:
+    fm = _valid_fm()
+    fm["language"] = ["python", "ts"]
+    errors = validate(fm)
+    assert any("language must be a string" in e for e in errors)
+
+
+def test_normalize_language_lowercases_and_trims() -> None:
+    fm = _valid_fm()
+    fm["language"] = "  Python  "
+    normalize_language(fm)
+    assert fm["language"] == "python"
+
+
+def test_normalize_language_noop_when_absent() -> None:
+    fm = _valid_fm()
+    normalize_language(fm)
+    assert "language" not in fm
+
+
+def test_normalize_language_removes_whitespace_only() -> None:
+    fm = _valid_fm()
+    fm["language"] = "   "
+    normalize_language(fm)
+    assert "language" not in fm
 
 
 def test_validate_allows_absent_empty_or_unknown_workflow_values():

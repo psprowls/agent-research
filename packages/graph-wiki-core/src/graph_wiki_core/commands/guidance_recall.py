@@ -108,6 +108,7 @@ async def recall_and_rank(
             "summary": c.page.summary,
             "applies_when": c.page.applies_when,
             "signals_fired": c.signals_fired,
+            "language": c.page.language,
         }
         for c in slate
     ]
