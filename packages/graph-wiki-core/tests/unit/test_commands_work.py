@@ -398,3 +398,87 @@ async def test_run_work_archive_dry_run_does_not_write_repoint(tmp_path: Path) -
 
     assert work_item.read_text(encoding="utf-8") == before
     assert len(result.repointed) == 1
+
+
+# ---------------------------------------------------------------------------
+# run_work_next: epic/dep hierarchy gates (live scan population)
+# ---------------------------------------------------------------------------
+
+
+def _write_hierarchy_item(
+    work_dir: Path,
+    slug: str,
+    *,
+    kind: str,
+    status: str,
+    phase: str | None = None,
+    parent: str | None = None,
+    depends_on: list[str] | None = None,
+    plan_doc: str | None = None,
+) -> None:
+    """Write wiki/work/<slug>.md with hierarchy frontmatter (filename == slug)."""
+    lines = ["---", f"title: {slug}", f"kind: {kind}", f"status: {status}"]
+    if phase:
+        lines.append(f"phase: {phase}")
+    if parent:
+        lines.append(f"parent: {parent}")
+    if depends_on:
+        lines.append("depends_on:")
+        lines += [f"- {d}" for d in depends_on]
+    if plan_doc:
+        lines.append(f"plan_doc: {plan_doc}")
+    lines += ["opened: 2026-06-26", "updated: 2026-06-26", "---", "body", ""]
+    (work_dir / f"{slug}.md").write_text("\n".join(lines), encoding="utf-8")
+
+
+def test_epic_execute_all_terminal_satisfied_gate(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "epic-x", kind="epic", status="accepted", phase="execute")
+    _write_hierarchy_item(work_dir, "child-a", kind="bug", status="resolved", parent="epic-x")
+    _write_hierarchy_item(work_dir, "child-b", kind="bug", status="wontfix", parent="epic-x")
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug="epic-x"))
+
+    assert result.action is None
+    assert result.blockers == []
+    assert result.on_complete is not None
+    assert result.on_complete["phase"] == "finish"
+    assert result.child_rollup == {"total": 2, "terminal": 2, "open_slugs": []}
+
+
+def test_epic_execute_partial_waits(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "epic-x", kind="epic", status="accepted", phase="execute")
+    _write_hierarchy_item(work_dir, "child-a", kind="bug", status="resolved", parent="epic-x")
+    _write_hierarchy_item(work_dir, "child-b", kind="bug", status="open", parent="epic-x")
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug="epic-x"))
+
+    assert result.action is None
+    assert any("child-b" in b for b in result.blockers)
+    assert result.child_rollup == {"total": 2, "terminal": 1, "open_slugs": ["child-b"]}
+
+
+def test_child_with_unmet_dep_blocks(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "child-a", kind="bug", status="open")
+    _write_hierarchy_item(work_dir, "child-b", kind="bug", status="open", depends_on=["child-a"])
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug="child-b"))
+
+    assert any("child-a" in b for b in result.blockers)
