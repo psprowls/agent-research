@@ -32,6 +32,16 @@ Decide the mode purely from your dispatch brief — a doc check, no new tooling:
 - **Standalone** when neither signal is present.
   → **Enter auto-file mode:** perform Steps 2a, 3a, and 4a below in addition to the normal flow.
 
+### Epic-mode note (kind: epic)
+
+When the dispatch brief's work-item block says `kind: epic`, the design you
+produce is a decomposition spec, not a single-feature design. Structure the spec
+as: an overall epic goal + one **medium-detail section per anticipated child**
+(each a feature/bug the plan stage will turn into its own child work item). The
+`planning-epics` skill reads these per-child sections at the plan stage to file
+the children, so name them clearly and note likely ordering/dependencies between
+them. Still file nothing here — design produces prose only.
+
 ### Step 2a — Early stub + one quick confirm (auto-file mode only)
 
 After "Explore project context" (Checklist step 1) and before asking clarifying questions, derive a proposed **title / kind / summary** from the opening request and present them in a single confirm:

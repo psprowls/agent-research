@@ -39,6 +39,14 @@ fields the steps below read are unchanged from `gw work next`.
 - If the only blocker says **effort required**: ask the user to size the item
   (xtra-small / small / medium / large / xtra-large — xtra-small/small means a bug-like item skips the planning stage),
   then run `gw work advance <slug> --effort <value>` and re-run `gw work next`.
+- If `action.skill` is **null**, `blockers` is empty, and `on_complete` is
+  **non-null** — this is a **satisfied gate** (an epic whose children are all
+  terminal). Do not dispatch a skill: run `gw work advance <slug>` directly
+  (step 5), then hand off (step 6).
+- If `action.skill` is **null** and a blocker says **"waiting on children"** —
+  the epic's execute gate is unsatisfied. Report the blocker, then list the
+  epic's open children from the `child_rollup.open_slugs` field, suggesting
+  `/graph-wiki:next <child>` for each. **Stop** (nothing to advance).
 - Otherwise announce the dispatch: item title, kind, phase, and the stage skill
   from `action.skill`.
 
@@ -84,6 +92,9 @@ Invoke the stage skill named by `action.skill` via the Skill tool (namespaced
   - dispatching `writing-plans` → add: *"STOP after writing the plan — do not
     run the Execution Handoff. This is a single pipeline stage; the workflow
     skill advances the item."*
+  - dispatching `planning-epics` → add: *"STOP after writing the plan_doc and
+    filing the children — do not advance the epic or start a child. This is a
+    single pipeline stage; the workflow skill advances the item."*
   - `systematic-debugging`, `test-driven-development`,
     `subagent-driven-development`, and `finishing-a-development-branch` need no
     STOP line — they do not self-chain into the next stage.
