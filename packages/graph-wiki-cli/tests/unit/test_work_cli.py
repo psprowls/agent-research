@@ -66,6 +66,47 @@ def test_work_status_exit_4_when_sidecar_missing(tmp_path: Path) -> None:
     assert result.exit_code == 4
 
 
+def test_work_file_parent_and_depends_on(tmp_path: Path) -> None:
+    from graph_wiki_cli.cli import app
+
+    workspace = tmp_path / "ws"
+    work_dir = workspace / "wiki" / "work"
+    work_dir.mkdir(parents=True)
+    # Pre-create the parent epic with filename == stem.
+    (work_dir / "2026-06-26-epic-x.md").write_text(
+        "---\ntitle: epic-x\nkind: epic\nstatus: accepted\nopened: 2026-06-26\nupdated: 2026-06-26\n---\nbody\n",
+        encoding="utf-8",
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "work",
+            "file",
+            "--title",
+            "Child A",
+            "--kind",
+            "feature",
+            "--summary",
+            "do a thing",
+            "--parent",
+            "2026-06-26-epic-x",
+            "--depends-on",
+            "2026-06-26-sib-a,2026-06-26-sib-b",
+            "--workspace",
+            str(workspace),
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    page = next(work_dir.glob("*child-a.md"))
+    text = page.read_text(encoding="utf-8")
+    assert "parent: 2026-06-26-epic-x" in text
+    assert "2026-06-26-sib-a" in text
+    assert "2026-06-26-sib-b" in text
+    assert "Designed as part of epic" in text
+
+
 def test_work_regen_index_exit_0(tmp_path: Path) -> None:
     from graph_wiki_cli.cli import app
     from graph_wiki_core.commands.work import WorkRegenResult

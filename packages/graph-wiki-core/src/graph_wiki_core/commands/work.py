@@ -533,6 +533,8 @@ async def run_work_file(
     target: str | None = None,
     owner: str | None = None,
     tags: list[str] | None = None,
+    parent: str | None = None,
+    depends_on: list[str] | None = None,
     body: str = "",
     force: bool = False,
 ) -> IngestResult:
@@ -548,6 +550,20 @@ async def run_work_file(
     today = date.today().isoformat()
 
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
+
+    # Validate the parent epic before writing anything: --parent must point at an
+    # existing work item whose kind is "epic" (the integrity guard the lint rules
+    # also enforce). `parent` is the epic's full file stem by construction.
+    if parent:
+        parent_path = wiki / "work" / f"{parent}.md"
+        if not parent_path.exists():
+            raise ValueError(f"--parent {parent!r}: no work item at {parent_path}")
+        parent_fm, _parent_body = _frontmatter.parse(parent_path.read_text(encoding="utf-8"))
+        if str(parent_fm.get("kind", "")) != "epic":
+            raise ValueError(
+                f"--parent {parent!r}: kind is {parent_fm.get('kind')!r}, "
+                "not 'epic'; children may only attach to an epic"
+            )
 
     # Build frontmatter in wiki-schema.md ("Work pages") key order. Optional
     # scalars are omitted when unset rather than emitted as null placeholders;
@@ -567,6 +583,10 @@ async def run_work_file(
     if blast_radius:
         fm["blast_radius"] = blast_radius
     fm["affects"] = affects
+    if parent:
+        fm["parent"] = parent
+    if depends_on:
+        fm["depends_on"] = depends_on
     if target:
         fm["target"] = target
     if owner:
@@ -576,6 +596,9 @@ async def run_work_file(
     fm["tags"] = tags or []
 
     item_body = body or _body.render_default_work_body(summary, kind)
+    if parent:
+        pointer = f"Designed as part of epic `{parent}` — see its spec for the seed design."
+        item_body = item_body.rstrip("\n") + "\n\n" + pointer + "\n"
 
     result = _filing.write_work_item(wiki, fm, item_body, force=force)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)

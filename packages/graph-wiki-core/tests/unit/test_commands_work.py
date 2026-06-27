@@ -482,3 +482,126 @@ def test_child_with_unmet_dep_blocks(tmp_path: Path) -> None:
     result = asyncio.run(run_work_next(workspace_path=workspace, slug="child-b"))
 
     assert any("child-a" in b for b in result.blockers)
+
+
+# ---------------------------------------------------------------------------
+# run_work_file: --parent / --depends-on (epic attachment)
+# ---------------------------------------------------------------------------
+
+
+def test_file_child_writes_parent_and_pointer(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "2026-06-26-epic-x", kind="epic", status="accepted", phase="plan")
+
+    asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Child A",
+            kind="feature",
+            summary="do a thing",
+            parent="2026-06-26-epic-x",
+            depends_on=["2026-06-26-sib"],
+        )
+    )
+
+    page = next(work_dir.glob("*child-a.md"))
+    text = page.read_text(encoding="utf-8")
+    assert "parent: 2026-06-26-epic-x" in text
+    assert "2026-06-26-sib" in text
+    assert "Designed as part of epic" in text
+
+
+def test_file_child_frontmatter_key_order(tmp_path: Path) -> None:
+    """parent/depends_on serialize after affects and before opened."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "2026-06-26-epic-x", kind="epic", status="accepted", phase="plan")
+
+    asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Child A",
+            kind="feature",
+            summary="do a thing",
+            affects=["packages/foo"],
+            parent="2026-06-26-epic-x",
+            depends_on=["2026-06-26-sib"],
+        )
+    )
+
+    text = next(work_dir.glob("*child-a.md")).read_text(encoding="utf-8")
+    assert text.index("affects:") < text.index("parent:") < text.index("opened:")
+    assert text.index("parent:") < text.index("depends_on:") < text.index("opened:")
+
+
+def test_file_child_rejects_non_epic_parent(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "2026-06-26-not-epic", kind="feature", status="open")
+
+    with pytest.raises(ValueError):
+        asyncio.run(
+            run_work_file(
+                workspace_path=workspace,
+                title="Child",
+                kind="feature",
+                summary="x",
+                parent="2026-06-26-not-epic",
+            )
+        )
+
+
+def test_file_child_rejects_missing_parent(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    with pytest.raises(ValueError):
+        asyncio.run(
+            run_work_file(
+                workspace_path=workspace,
+                title="Child",
+                kind="feature",
+                summary="x",
+                parent="ghost",
+            )
+        )
+
+
+def test_file_no_parent_omits_keys_and_pointer(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Lonely item",
+            kind="bug",
+            summary="no parent here",
+        )
+    )
+
+    text = (wiki / result.page_path).read_text(encoding="utf-8")
+    assert "parent:" not in text
+    assert "depends_on:" not in text
+    assert "Designed as part of epic" not in text
