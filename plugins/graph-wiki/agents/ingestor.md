@@ -149,6 +149,15 @@ that links to them under `## Generates`. Read `included_files` from the brief an
 guidance frontmatter schema, and the source-page shape. If `scripts_dominant` is true, warn
 the user first — a scripts-heavy skill is a weak guidance candidate.
 
+**Multi-language guidance.** When a guidance source covers more than one language
+(e.g. a checklist with separate Python and TypeScript sections), do NOT bundle
+them into one page. Write one single-language page per language — each stamped
+with an optional `language:` frontmatter key (lowercase scalar, e.g. `python`,
+`typescript`, `javascript`) and only that language's content — using the slug
+convention `<base-slug>-<language>.md` under the same topic folder. When there is
+genuinely shared/cross-language advice, additionally write one agnostic page with
+no `language` key. Omit `language` entirely for single-language or shared sources.
+
 ### 5. Link the code entities (never edit entity pages)
 For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
 
