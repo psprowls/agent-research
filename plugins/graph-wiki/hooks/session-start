@@ -17,11 +17,33 @@ import sys
 from pathlib import Path
 try:
     from workspace_io import config, paths
-    raw = paths.raw_dir(config.resolve(Path.cwd()).workspace)
-    sys.stdout.write(str(raw))
+    ws = config.resolve(Path.cwd()).workspace
+    sys.stdout.write(str(paths.raw_dir(ws)))
+    try:
+        from work_io.sidecar import load_sidecar
+        from work_io.resume import format_resume_suggestion, select_resume_suggestions
+        suggestion = select_resume_suggestions(load_sidecar(paths.wiki_dir(ws)))
+        if suggestion is not None:
+            sys.stdout.write("\n<<<GRAPHWIKI_RESUME>>>\n")
+            sys.stdout.write(format_resume_suggestion(suggestion))
+    except Exception:
+        pass  # fail-open: no suggestion, raw dir already emitted
 except Exception as e:
     sys.stdout.write("ERR:" + str(e).replace("\n", " "))
 ' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
+
+# The python block may append a resume suggestion after a unique delimiter.
+# Split it off so $RESOLVED stays the raw-dir-only value the notices below use.
+resume_message=""
+case "$RESOLVED" in
+  *"<<<GRAPHWIKI_RESUME>>>"*)
+    resume_text="${RESOLVED#*<<<GRAPHWIKI_RESUME>>>$'\n'}"
+    RESOLVED="${RESOLVED%%$'\n'<<<GRAPHWIKI_RESUME>>>*}"
+    if [ -n "$resume_text" ]; then
+      resume_message=$'\n\n'"$resume_text"
+    fi
+    ;;
+esac
 
 # Model routing opt-in notice — when the project carries the routing file, or
 # a user-level default exists at ~/.claude/graph-wiki/ (project file wins).
@@ -89,7 +111,8 @@ escape_for_json() {
 using_workflow_escaped=$(escape_for_json "$using_workflow_content")
 routing_escaped=$(escape_for_json "$routing_message")
 workflow_escaped=$(escape_for_json "$workflow_message")
-session_context="<EXTREMELY_IMPORTANT>\nYou have graph-wiki workflows.\n\n**Below is the full content of your 'graph-wiki:using-workflow' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_workflow_escaped}\n\n${routing_escaped}${workflow_escaped}\n</EXTREMELY_IMPORTANT>"
+resume_escaped=$(escape_for_json "$resume_message")
+session_context="<EXTREMELY_IMPORTANT>\nYou have graph-wiki workflows.\n\n**Below is the full content of your 'graph-wiki:using-workflow' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_workflow_escaped}\n\n${routing_escaped}${workflow_escaped}${resume_escaped}\n</EXTREMELY_IMPORTANT>"
 
 # Output context injection as JSON.
 # Cursor hooks expect additional_context (snake_case).
