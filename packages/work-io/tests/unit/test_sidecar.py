@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 from work_io.sidecar import SCHEMA_VERSION, build_sidecar, is_stale, load_sidecar, write_sidecar
@@ -130,6 +131,22 @@ def test_is_stale_true_when_item_updated_after_generated(tmp_path: Path) -> None
     sidecar = {"generated_at": "2026-06-03T00:00:00+00:00", "items": []}
 
     assert is_stale(sidecar, work_dir) is True
+
+
+def test_build_sidecar_stamps_updated_at(tmp_path: Path) -> None:
+    work_dir = tmp_path / "work"
+    work_dir.mkdir()
+    _make_work_item(work_dir, "fix-bug", opened="2026-06-01", updated="2026-06-01")
+
+    sidecar = build_sidecar(work_dir, vault_commit=None)
+
+    assert sidecar["schema_version"] == SCHEMA_VERSION  # additive, no bump
+    item = sidecar["items"][0]
+    assert "updated_at" in item
+    # parseable as an ISO-8601 datetime (raises if malformed)
+    datetime.fromisoformat(item["updated_at"])
+    # date-only `updated` is left untouched
+    assert item["updated"] == "2026-06-01"
 
 
 def test_is_stale_false_when_all_items_older(tmp_path: Path) -> None:

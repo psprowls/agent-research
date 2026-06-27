@@ -23,6 +23,12 @@ def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
             fm, _ = fm_parse(md.read_text(encoding="utf-8"))
         except (ValueError, Exception):
             continue
+        try:
+            updated_at = datetime.fromtimestamp(md.stat().st_mtime, timezone.utc).isoformat()
+        except (OSError, ValueError, OverflowError):
+            # mtime unreadable — fall back to the date-only `updated` so ordering
+            # downstream still has a value; never raise.
+            updated_at = str(fm.get("updated", ""))
         items.append(
             {
                 "slug": md.stem,
@@ -33,6 +39,7 @@ def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
                 "blast_radius": fm.get("blast_radius") or None,
                 "opened": str(fm.get("opened", "")),
                 "updated": str(fm.get("updated", "")),
+                "updated_at": updated_at,
             }
         )
 
