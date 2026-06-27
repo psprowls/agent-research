@@ -208,6 +208,34 @@ def _file_nodes_under(conn: sqlite3.Connection, prefix: str, current_repo: str |
     return [row[0] for row in rows]
 
 
+def _dominant_language(conn: sqlite3.Connection, paths: list[str], current_repo: str | None) -> str | None:
+    """Return the most common file-node language among ``paths``.
+
+    Returns None on a tie or when no path carries a language. Defensive: used
+    only when a package manifest does not declare a language.
+    """
+    counts: dict[str, int] = {}
+    for path in paths:
+        if current_repo is None:
+            row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='file' AND path=? LIMIT 1", (path,)).fetchone()
+        else:
+            row = conn.execute(
+                "SELECT attrs_json FROM nodes WHERE kind='file' AND path=? AND (repo = ? OR repo IS NULL) LIMIT 1",
+                (path, current_repo),
+            ).fetchone()
+        if not row or not row[0]:
+            continue
+        lang = json.loads(row[0]).get("language")
+        if lang:
+            counts[lang] = counts.get(lang, 0) + 1
+    if not counts:
+        return None
+    ranked = sorted(counts.items(), key=lambda kv: (-kv[1], kv[0]))
+    if len(ranked) > 1 and ranked[0][1] == ranked[1][1]:
+        return None  # tie -> ambiguous -> omit
+    return ranked[0][0]
+
+
 def build_workspace_index(members: list[Path]) -> dict[str, tuple[str, str, str, str]]:
     """Union package index across member repos for cross-repo dep resolution.
 
@@ -302,6 +330,12 @@ def refresh(
         # Phase 50 D-04/D-07: derive kind, URI, and attrs in one inline pass.
         new_kind, app_kind, app_signals = classify(info, pkg_dir)
         new_uri = app_uri(ctx, info["name"]) if new_kind == "app" else pkg_uri(ctx, info["name"])
+
+        # Hoist contained-file list so it's available for the defensive language
+        # fallback below AND for the contains-edge loop that follows attrs.
+        prefix = f"{rel_prefix}/" if rel_prefix else ""
+        contained = _file_nodes_under(conn, prefix, current_repo)
+
         attrs: dict[str, Any] = {
             "version": info["version"],
             # Phase 56 D-06: SCAN-02 source — stored in attrs_json so wiki-io can
@@ -316,6 +350,13 @@ def refresh(
             "language": info["language"],
             "uri": new_uri,
         }
+        # Defensive fallback: if the manifest reader did not declare a language
+        # (future manifest types), infer it from the dominant language of the
+        # contained file nodes. Normal builds never reach this branch.
+        if not attrs.get("language"):
+            dom = _dominant_language(conn, contained, current_repo)
+            if dom:
+                attrs["language"] = dom
         if new_kind == "app":
             # D-03 invariant: only App nodes carry app_kind / app_signals.
             attrs["app_kind"] = app_kind
@@ -353,8 +394,7 @@ def refresh(
             )
         ]
         edges = []
-        prefix = f"{rel_prefix}/" if rel_prefix else ""
-        for file_path in _file_nodes_under(conn, prefix, current_repo):
+        for file_path in contained:
             edges.append(
                 GraphEdge(
                     src=(new_kind, info["name"], package_path),

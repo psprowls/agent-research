@@ -1226,3 +1226,92 @@ def test_plugin_root_manifest_excluded_from_packages(tmp_path: Path, conn: sqlit
     names = {r[0] for r in conn.execute("SELECT name FROM nodes WHERE kind='package'").fetchall()}
     assert "demo-plugin-pkg" not in names
     assert "demo-helper" in names
+
+
+# ============================================================================
+# Task 3: regression-lock node language + defensive package dominant-language
+# ============================================================================
+
+
+def _seed_file_with_lang(conn: sqlite3.Connection, path: str, language: str | None) -> None:
+    """Insert a bare file node with optional language in attrs_json."""
+    attrs = {"language": language} if language else {}
+    conn.execute(
+        "INSERT INTO nodes (kind, name, path, line, attrs_json) VALUES ('file', ?, ?, NULL, ?)",
+        (path, path, json.dumps(attrs) if attrs else None),
+    )
+
+
+def test_dominant_language_majority(conn: sqlite3.Connection) -> None:
+    from graph_io.packages import _dominant_language
+
+    _seed_file_with_lang(conn, "packages/x/a.py", "python")
+    _seed_file_with_lang(conn, "packages/x/b.py", "python")
+    _seed_file_with_lang(conn, "packages/x/c.ts", "typescript")
+    assert _dominant_language(conn, ["packages/x/a.py", "packages/x/b.py", "packages/x/c.ts"], None) == "python"
+
+
+def test_dominant_language_tie_returns_none(conn: sqlite3.Connection) -> None:
+    from graph_io.packages import _dominant_language
+
+    _seed_file_with_lang(conn, "packages/y/a.py", "python")
+    _seed_file_with_lang(conn, "packages/y/b.ts", "typescript")
+    assert _dominant_language(conn, ["packages/y/a.py", "packages/y/b.ts"], None) is None
+
+
+def test_dominant_language_no_languages_returns_none(conn: sqlite3.Connection) -> None:
+    from graph_io.packages import _dominant_language
+
+    _seed_file_with_lang(conn, "packages/z/readme.md", None)
+    assert _dominant_language(conn, ["packages/z/readme.md"], None) is None
+
+
+def test_refresh_app_node_carries_language(tmp_path: Path, conn: sqlite3.Connection) -> None:
+    """Regression: a pyproject app node must carry language='python' in attrs_json."""
+    pkg_dir = tmp_path / "packages" / "appy"
+    pkg_dir.mkdir(parents=True)
+    (pkg_dir / "pyproject.toml").write_text(
+        '[project]\nname = "appy"\nversion = "0.1.0"\n[project.scripts]\nappy = "appy:main"\n'
+    )
+    _seed_file_node(conn, "packages/appy/src/appy/__init__.py")
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+    # appy has [project.scripts] → classified as 'app'
+    row = conn.execute("SELECT kind, attrs_json FROM nodes WHERE name='appy'").fetchone()
+    assert row is not None
+    kind, attrs_json = row
+    assert kind == "app"
+    assert json.loads(attrs_json)["language"] == "python"
+
+
+def test_refresh_falls_back_to_dominant_language_when_manifest_silent(
+    tmp_path: Path, conn: sqlite3.Connection, monkeypatch
+) -> None:
+    """End-to-end: when the manifest reader declares no language, refresh() infers
+    the package node's language from the dominant language of its contained files.
+
+    The manifest reader is monkeypatched to blank the language so we drive the
+    defensive fallback branch in refresh() (normal builds never reach it because
+    both manifest readers always set a language)."""
+    pkg_dir = tmp_path / "silentpkg"
+    pkg_dir.mkdir()
+    (pkg_dir / "pyproject.toml").write_text('[project]\nname = "silentpkg"\nversion = "0.1.0"\n')
+    # Contained file nodes with a clear dominant language (python: 2, typescript: 1).
+    _seed_file_with_lang(conn, "silentpkg/a.py", "python")
+    _seed_file_with_lang(conn, "silentpkg/b.py", "python")
+    _seed_file_with_lang(conn, "silentpkg/c.ts", "typescript")
+
+    real_reader = packages._read_pyproject
+
+    def _silent_reader(path):
+        info = real_reader(path)
+        if info is not None:
+            info["language"] = ""  # simulate a manifest type that declares no language
+        return info
+
+    monkeypatch.setattr(packages, "_read_pyproject", _silent_reader)
+
+    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
+
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='package' AND name='silentpkg'").fetchone()
+    assert row is not None
+    assert json.loads(row[0])["language"] == "python"
