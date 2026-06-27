@@ -50,6 +50,7 @@ def build_guidance_orchestrator_prompt(
         lines.append(f"    summary: {c.get('summary', '')}")
         lines.append(f"    applies_when: {c.get('applies_when', '')}")
         lines.append(f"    signals_fired: {', '.join(c.get('signals_fired', []))}")
+        lines.append(f"    language: {c.get('language') or 'agnostic'}")
     lines += ["", "Rank the relevant candidates. Output the YAML list only."]
     return GUIDANCE_ORCHESTRATOR_SYSTEM, "\n".join(lines)
 

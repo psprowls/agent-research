@@ -9,6 +9,7 @@ real candidate slate.
 
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
 from dataclasses import dataclass, field
@@ -18,10 +19,15 @@ from guidance_io.frontmatter import parse
 from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
 from guidance_io.vocab import canonical_tag, load_vocab
+from source_parser.parsers import PARSERS
 from wiki_io.entity_lookup import entity_filename_for_uri, lookup_entity_by_path
 
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
+
+# Extension → language name, built from source_parser's registered parsers.
+# PARSERS: dict[lang_name, parser]; parser.file_extensions is a tuple of ".ext" strings.
+_EXT_TO_LANG: dict[str, str] = {ext: lang for lang, parser in PARSERS.items() for ext in parser.file_extensions}
 
 # Per-signal score weights.
 _W_GLOB = 3.0
@@ -44,6 +50,7 @@ class GuidancePage:
     impact: str
     guidance_body: str
     workflow: list[str] = field(default_factory=list)
+    language: str | None = None  # normalized lowercase; None = agnostic (wildcard)
 
 
 @dataclass
@@ -53,6 +60,7 @@ class PathContext:
     package_stem: str | None
     index_topics: list[str]
     index_tags: list[str]
+    language: str | None = None  # derived: graph file-node language, else file-extension, else None
 
 
 @dataclass
@@ -94,6 +102,8 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
         for raw in triggers.get("entities") or []:
             m = _ENTITY_STEM_RE.search(str(raw))
             entities.append(m.group(1) if m else str(raw))
+        _lang = fm.get("language")
+        page_language = _lang.strip().lower() if isinstance(_lang, str) and _lang.strip() else None
         pages.append(
             GuidancePage(
                 slug=f"{rel.parent.as_posix()}/{page_path.stem}",
@@ -107,9 +117,27 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
                 impact=str(fm.get("impact", "medium")),
                 guidance_body=_extract_section(body, "Guidance"),
                 workflow=[str(p) for p in (fm.get("workflow") or [])],
+                language=page_language,
             )
         )
     return pages
+
+
+def _derive_path_language(conn: sqlite3.Connection | None, rel: str) -> str | None:
+    """Return the language for a repo-relative path.
+
+    Preference order: graph file-node attrs_json.language → file extension → None.
+    """
+    if conn is not None:
+        try:
+            row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='file' AND path=? LIMIT 1", (rel,)).fetchone()
+            if row and row[0]:
+                lang = json.loads(row[0]).get("language")
+                if lang:
+                    return str(lang).strip().lower()
+        except Exception:
+            pass
+    return _EXT_TO_LANG.get(Path(rel).suffix)
 
 
 def resolve_path_contexts(
@@ -140,6 +168,7 @@ def resolve_path_contexts(
                 package_stem=package_stem,
                 index_topics=list(entry.topics) if entry else [],
                 index_tags=list(entry.tags) if entry else [],
+                language=_derive_path_language(conn, rel),
             )
         )
     return contexts
@@ -159,7 +188,14 @@ def compute_candidates(
     fired: list[Candidate] = []
     unfired: list[tuple[float, GuidancePage]] = []
 
+    context_languages = {ctx.language for ctx in path_contexts if ctx.language}
+
     for page in pages:
+        # Hard language pre-filter: agnostic pages (language=None) always survive;
+        # language-tagged pages are kept only when their language appears in the
+        # context language set; an empty context set is a no-op (nothing excluded).
+        if page.language is not None and context_languages and page.language not in context_languages:
+            continue
         signals: list[str] = []
         score = 0.0
 

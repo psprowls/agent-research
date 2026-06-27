@@ -59,9 +59,21 @@ def _page(**kw) -> GuidancePage:
         applies_when="",
         impact="medium",
         guidance_body="",
+        language=None,
     )
     base.update(kw)
     return GuidancePage(**base)
+
+
+def _ctx(rel_path: str, language: str | None) -> PathContext:
+    return PathContext(
+        rel_path=rel_path,
+        content="",
+        package_stem=None,
+        index_topics=[],
+        index_tags=[],
+        language=language,
+    )
 
 
 def test_glob_signal_fires() -> None:
@@ -173,3 +185,44 @@ def test_index_signal_fires_on_alias_tag(tmp_path: Path) -> None:
     cands = compute_candidates(pages, message="", path_contexts=[ctx], k=5)
     fired = next(c for c in cands if c.page.slug == "python/p")
     assert "index" in fired.signals_fired
+
+
+def test_language_filter_python_context() -> None:
+    pages = [
+        _page(slug="code-review/checks-python", language="python"),
+        _page(slug="code-review/checks-typescript", language="typescript"),
+        _page(slug="general/pattern", language=None),
+    ]
+    cands = compute_candidates(pages, message="", path_contexts=[_ctx("a.py", "python")], k=10)
+    slugs = {c.page.slug for c in cands}
+    assert "code-review/checks-python" in slugs
+    assert "general/pattern" in slugs
+    assert "code-review/checks-typescript" not in slugs
+
+
+def test_language_filter_multilang_union() -> None:
+    pages = [
+        _page(slug="code-review/checks-python", language="python"),
+        _page(slug="code-review/checks-typescript", language="typescript"),
+        _page(slug="code-review/checks-go", language="go"),
+        _page(slug="general/pattern", language=None),
+    ]
+    cands = compute_candidates(
+        pages, message="", path_contexts=[_ctx("a.py", "python"), _ctx("b.ts", "typescript")], k=10
+    )
+    slugs = {c.page.slug for c in cands}
+    assert "code-review/checks-python" in slugs
+    assert "code-review/checks-typescript" in slugs
+    assert "general/pattern" in slugs
+    assert "code-review/checks-go" not in slugs
+
+
+def test_language_filter_message_only_is_noop() -> None:
+    pages = [
+        _page(slug="code-review/checks-python", language="python"),
+        _page(slug="general/pattern", language=None),
+    ]
+    cands = compute_candidates(pages, message="hello", path_contexts=[], k=10)
+    slugs = {c.page.slug for c in cands}
+    assert "code-review/checks-python" in slugs
+    assert "general/pattern" in slugs
