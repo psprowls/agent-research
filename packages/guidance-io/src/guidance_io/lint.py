@@ -17,14 +17,17 @@ from guidance_io.vocab import load_vocab
 
 
 def language_normalization_warnings(fm: dict) -> list[str]:
-    """Flag a present ``language`` that is non-string or not normalized."""
+    """Flag a present string ``language`` that is not normalized.
+
+    Type-checking belongs to ``validate`` (which emits guidance-invalid-frontmatter
+    for non-string values); this helper only checks normalization of strings.
+    """
     lang = fm.get("language")
-    if lang is None:
-        return []
     if not isinstance(lang, str):
-        return [f"language must be a string, got {type(lang).__name__}"]
-    if lang != lang.strip().lower():
-        return [f"language {lang!r} is not normalized (expected {lang.strip().lower()!r})"]
+        return []
+    normalized = lang.strip().lower()
+    if lang != normalized:
+        return [f"language {lang!r} is not normalized (expected {normalized!r})"]
     return []
 
 

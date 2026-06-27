@@ -212,6 +212,13 @@ def test_normalize_language_noop_when_absent() -> None:
     assert "language" not in fm
 
 
+def test_normalize_language_removes_whitespace_only() -> None:
+    fm = _valid_fm()
+    fm["language"] = "   "
+    normalize_language(fm)
+    assert "language" not in fm
+
+
 def test_validate_allows_absent_empty_or_unknown_workflow_values():
     base = {
         "title": "T",
