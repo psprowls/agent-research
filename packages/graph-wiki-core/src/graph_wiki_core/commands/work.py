@@ -79,6 +79,7 @@ class WorkStatusResult:
     counts: dict = field(default_factory=dict)
     in_flight: list[dict] = field(default_factory=list)
     stuck: list[dict] = field(default_factory=list)
+    epics: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -330,11 +331,23 @@ async def run_work_status(workspace_path: Path | None = None) -> WorkStatusResul
         elif status == "accepted" and age > _STUCK_ACCEPTED_DAYS:
             stuck.append(i)
 
+    epics = [
+        {
+            "slug": i["slug"],
+            "total": i["children"]["total"],
+            "terminal": i["children"]["terminal"],
+            "blocking": i["children"]["blocking"],
+        }
+        for i in items
+        if i.get("kind") == "epic" and i.get("children")
+    ]
+
     return WorkStatusResult(
         sidecar_missing=False,
         counts=sidecar.get("counts", {}),
         in_flight=in_flight,
         stuck=stuck,
+        epics=epics,
     )
 
 

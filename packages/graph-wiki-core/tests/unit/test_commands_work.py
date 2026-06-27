@@ -585,6 +585,41 @@ def test_file_child_rejects_missing_parent(tmp_path: Path) -> None:
         )
 
 
+def test_status_reports_epic_progress(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_regen_index, run_work_status
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "epic-x", kind="epic", status="accepted", phase="execute")
+    _write_hierarchy_item(work_dir, "child-a", kind="feature", status="resolved", parent="epic-x")
+    _write_hierarchy_item(work_dir, "child-b", kind="feature", status="open", parent="epic-x")
+
+    asyncio.run(run_work_regen_index(workspace_path=workspace))
+    res = asyncio.run(run_work_status(workspace_path=workspace))
+
+    epic = next(e for e in res.epics if e["slug"] == "epic-x")
+    assert epic["total"] == 2
+    assert epic["terminal"] == 1
+    assert epic["blocking"] == 1
+
+
+def test_status_no_epics_yields_empty_list(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_regen_index, run_work_status
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "bug-1", status="open")
+
+    asyncio.run(run_work_regen_index(workspace_path=workspace))
+    res = asyncio.run(run_work_status(workspace_path=workspace))
+
+    assert res.epics == []
+
+
 def test_file_no_parent_omits_keys_and_pointer(tmp_path: Path) -> None:
     import asyncio
 

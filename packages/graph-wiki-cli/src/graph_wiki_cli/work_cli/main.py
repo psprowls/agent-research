@@ -163,6 +163,10 @@ def status(
         typer.echo(f"Stuck ({len(result.stuck)}):")
         for item in result.stuck:
             typer.echo(f"  - {item['slug']}: {item.get('_age_days', '?')}d old")
+        if result.epics:
+            typer.echo(f"Epics ({len(result.epics)}):")
+            for e in result.epics:
+                typer.echo(f"  - {e['slug']}: {e['terminal']}/{e['total']} children terminal, {e['blocking']} blocking")
 
     if result.sidecar_missing:
         raise typer.Exit(code=4)
