@@ -620,6 +620,126 @@ def test_status_no_epics_yields_empty_list(tmp_path: Path) -> None:
     assert res.epics == []
 
 
+# ---------------------------------------------------------------------------
+# End-to-end epic pipeline: file -> design -> plan -> execute-gate -> finish -> done
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_epic_pipeline_end_to_end(tmp_path: Path) -> None:
+    """Capstone: drive an epic through file -> design -> plan -> execute-gate ->
+    finish -> done over a fixture vault, with children stubbed terminal.
+
+    Confirmed advance-count per phase (read from work_io.workflow):
+      adv1: entry on_dispatch       -> phase=design (status stays open)
+      adv2: _design on_complete     -> phase=plan, stamps spec_doc
+      adv3: _plan(epic) on_complete -> phase=execute, status=accepted, stamps plan_doc
+      adv4: _epic_execute_gate      -> phase=finish (only once children terminal)
+      adv5: _finish(epic)           -> phase=done, status=resolved (NO resolved_in)
+    """
+    from graph_wiki_core.commands.work import (
+        run_work_advance,
+        run_work_file,
+        run_work_lint,
+        run_work_next,
+    )
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work = wiki / "work"
+
+    # 1. File the epic (effort large so it never hits any skip-plan path).
+    await run_work_file(
+        workspace_path=workspace,
+        title="Epic X",
+        kind="epic",
+        summary="decompose me",
+        effort="large",
+    )
+    # run_work_file writes {opened}-epic-x.md, so the real stem is date-prefixed.
+    epic_stem = next(work.glob("*epic-x.md")).stem
+
+    # design: write the spec artifact (stamp_doc + lint look for it), then advance
+    # entry -> design -> plan.
+    (workspace / "raw" / "specs").mkdir(parents=True, exist_ok=True)
+    (workspace / "raw" / "specs" / f"{epic_stem}.md").write_text("epic spec\n", encoding="utf-8")
+    adv1 = await run_work_advance(workspace_path=workspace, slug=epic_stem)  # enter design
+    assert adv1.phase == "design"
+    adv2 = await run_work_advance(workspace_path=workspace, slug=epic_stem)  # design -> plan
+    assert adv2.phase == "plan"
+    assert adv2.stamped.get("spec_doc") == f"raw/specs/{epic_stem}.md"
+
+    # plan: write the plan_doc artifact; file the two children BEFORE advancing to
+    # execute. The child's parent must be the EPIC'S FILE STEM.
+    (workspace / "raw" / "plans").mkdir(parents=True, exist_ok=True)
+    (workspace / "raw" / "plans" / f"{epic_stem}.md").write_text("epic plan\n", encoding="utf-8")
+    await run_work_file(
+        workspace_path=workspace,
+        title="Child A",
+        kind="feature",
+        summary="a",
+        parent=epic_stem,
+    )
+    a_stem = next(work.glob("*child-a.md")).stem
+    await run_work_file(
+        workspace_path=workspace,
+        title="Child B",
+        kind="feature",
+        summary="b",
+        parent=epic_stem,
+        depends_on=[a_stem],
+    )
+    b_stem = next(work.glob("*child-b.md")).stem
+
+    adv3 = await run_work_advance(workspace_path=workspace, slug=epic_stem)  # plan -> execute
+    assert adv3.phase == "execute"
+    assert adv3.status == "accepted"
+    assert adv3.stamped.get("plan_doc") == f"raw/plans/{epic_stem}.md"
+
+    # 2. Child B blocks on Child A until A is terminal.
+    rb = await run_work_next(workspace_path=workspace, slug=b_stem)
+    assert any(a_stem in blk for blk in rb.blockers)
+
+    # 3. Epic execute is a waiting blocker while children are open; advance raises.
+    re_ = await run_work_next(workspace_path=workspace, slug=epic_stem)
+    assert re_.action is None
+    assert re_.blockers
+    assert re_.child_rollup == {"total": 2, "terminal": 0, "open_slugs": [a_stem, b_stem]}
+    with pytest.raises(ValueError):
+        await run_work_advance(workspace_path=workspace, slug=epic_stem)
+
+    # 4. Mark both children terminal (simulate completion — children are not advanced).
+    for stem in (a_stem, b_stem):
+        p = work / f"{stem}.md"
+        p.write_text(
+            p.read_text(encoding="utf-8").replace("status: open", "status: resolved"),
+            encoding="utf-8",
+        )
+
+    # 5. Satisfied gate: execute -> finish -> done/resolved.
+    rg = await run_work_next(workspace_path=workspace, slug=epic_stem)
+    assert rg.action is None
+    assert rg.blockers == []
+    assert rg.on_complete is not None
+    assert rg.on_complete["phase"] == "finish"
+    assert rg.child_rollup == {"total": 2, "terminal": 2, "open_slugs": []}
+
+    adv4 = await run_work_advance(workspace_path=workspace, slug=epic_stem)
+    assert adv4.phase == "finish"
+    adv5 = await run_work_advance(workspace_path=workspace, slug=epic_stem)
+    assert adv5.phase == "done"
+    assert adv5.status == "resolved"
+
+    # Epics resolve via the children-terminal gate, NOT a resolved_in ref.
+    epic_text = (work / f"{epic_stem}.md").read_text(encoding="utf-8")
+    assert "resolved_in" not in epic_text
+
+    # 6. Lint: no error-severity findings for the epic or its children.
+    lint = await run_work_lint(workspace_path=workspace)
+    family = {epic_stem, a_stem, b_stem}
+    errors = [f for f in lint.findings if f["slug"] in family and f["severity"] == "error"]
+    assert errors == [], errors
+
+
 def test_file_no_parent_omits_keys_and_pointer(tmp_path: Path) -> None:
     import asyncio
 
