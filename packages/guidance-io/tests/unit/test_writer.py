@@ -138,8 +138,9 @@ def test_write_page_caller_language_overrides_page_text(tmp_path: Path) -> None:
     assert fm["language"] == "python"
 
 
-def test_write_page_agnostic_call_normalizes_page_text_language(tmp_path: Path) -> None:
-    # language=None: no slug suffix, but a dirty page_text language is still normalized.
+def test_write_page_agnostic_call_strips_page_text_language(tmp_path: Path) -> None:
+    # language=None is authoritative: a stray page_text language is dropped so the
+    # page is written agnostic (no suffix, no language key).
     res = write_page(
         tmp_path,
         topic_raw="code-review",
@@ -149,4 +150,4 @@ def test_write_page_agnostic_call_normalizes_page_text_language(tmp_path: Path) 
     )
     assert res.written_rel == "wiki/guidance/code-review/checks.md"
     fm, _ = parse((tmp_path / res.written_rel).read_text(encoding="utf-8"))
-    assert fm["language"] == "python"
+    assert "language" not in fm

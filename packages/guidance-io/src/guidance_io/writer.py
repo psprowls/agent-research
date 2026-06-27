@@ -35,11 +35,13 @@ def write_page(
     POSIX path and `skip_reason` is None; on parse/validation failure
     `written_rel` is None and `skip_reason` explains the skip (nothing written).
 
-    When ``language`` is provided it is normalized (lowercase+trim), stamped
-    authoritatively into the frontmatter, and appended as a ``-<language>``
-    suffix to the slug. ``language=None`` skips the authoritative stamp and the
-    slug suffix; any ``language`` already in the page text is still normalized
-    (lowercase + trim) for consistency with the lint rule.
+    The caller's language intent is authoritative in both directions. When
+    ``language`` is provided it is normalized (lowercase+trim), stamped into the
+    frontmatter, and appended as a ``-<language>`` suffix to the slug. When
+    ``language=None`` the call is agnostic and authoritative: any ``language``
+    already in the page text is dropped, so the page is always written agnostic
+    (no stamp, no suffix). This prevents a stray LLM-supplied language from
+    silently turning an intended-agnostic page into a language-specific one.
     """
     text = page_text.strip()
     try:
@@ -47,14 +49,14 @@ def write_page(
     except ValueError as exc:
         return WriteResult(None, f"frontmatter parse failed: {exc}")
 
-    # Deterministic language: caller value wins over whatever the LLM stamped.
+    # Caller's language intent is authoritative in both directions.
     if language is not None:
         fm["language"] = language
-    normalize_language(fm)
-    # The slug suffix tracks the caller's split intent only. An agnostic call
-    # (language=None) never adds a suffix, even if the page text carried its own
-    # language — that value is still normalized in-place above for lint hygiene.
-    suffix_language = fm.get("language") if language is not None else None
+        normalize_language(fm)
+        suffix_language = fm.get("language")  # normalized, or None if caller value was empty/whitespace
+    else:
+        fm.pop("language", None)  # agnostic call is authoritative: never leave a stray language
+        suffix_language = None
 
     errors = validate(fm)
     if errors:
