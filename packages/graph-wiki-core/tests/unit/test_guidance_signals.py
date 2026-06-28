@@ -158,6 +158,42 @@ def test_loader_populates_workflow_field(tmp_path: Path) -> None:
     assert pages["python/no-wf"].workflow == []
 
 
+def test_load_pages_reads_role(tmp_path: Path) -> None:
+    fm = {
+        "title": "Review checklist",
+        "category": "guidance",
+        "summary": "Look for N+1s.",
+        "topic": "python",
+        "applies_when": "reviewing a diff",
+        "impact": "high",
+        "updated": "2026-06-28",
+        "tokens": 0,
+        "tags": ["review"],
+        "role": ["review"],
+    }
+    _write_page(tmp_path, "python", "review-checklist", fm)
+    pages = load_guidance_pages(tmp_path)
+    assert len(pages) == 1
+    assert pages[0].role == ["review"]
+
+
+def test_load_pages_role_defaults_empty(tmp_path: Path) -> None:
+    fm = {
+        "title": "Dual use",
+        "category": "guidance",
+        "summary": "Applies anywhere.",
+        "topic": "python",
+        "applies_when": "always",
+        "impact": "medium",
+        "updated": "2026-06-28",
+        "tokens": 0,
+        "tags": ["python"],
+    }
+    _write_page(tmp_path, "python", "dual-use", fm)
+    pages = load_guidance_pages(tmp_path)
+    assert pages[0].role == []
+
+
 def test_index_signal_fires_on_alias_tag(tmp_path: Path) -> None:
     # tags.yaml maps alias "retries" -> canonical "retry"; the page is tagged with
     # the alias form, while a working file was indexed under the canonical form.

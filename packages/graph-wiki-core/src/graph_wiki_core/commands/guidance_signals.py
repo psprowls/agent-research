@@ -54,6 +54,7 @@ class GuidancePage:
     impact: str
     guidance_body: str
     workflow: list[str] = field(default_factory=list)
+    role: list[str] = field(default_factory=list)
     language: str | None = None  # normalized lowercase; None = agnostic (wildcard)
 
 
@@ -121,6 +122,7 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
                 impact=str(fm.get("impact", "medium")),
                 guidance_body=_extract_section(body, "Guidance"),
                 workflow=[str(p) for p in (fm.get("workflow") or [])],
+                role=[str(p) for p in (fm.get("role") or [])],
                 language=page_language,
             )
         )
