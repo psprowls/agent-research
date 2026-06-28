@@ -44,5 +44,90 @@
                 "packages/claude-code-evals/src/claude_code_evals/isolation.py"
             ]
         },
+        {
+            // Eval S1 — weak/message-only recall + language exclusion (read-only existing item).
+            // Gold: error-handling/* (typescript) + node/errors-*; anti-set: *-python pages, unrelated TS.
+            // Spec: raw/specs/eval-scenarios-for-gw-next-guidance-recall.md
+            "name": "gw next — S1 modern-errors (mono-repo/new)",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/.venv/bin/gw",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "AWS_PROFILE": "pat-dev",
+                "AWS_REGION": "us-east-1",
+                "IS_LOCAL": "true",
+                "GRAPH_WIKI_WORKSPACE": "/Users/pat/Personal/workspaces/mono-repo/new"
+            },
+            "args": [
+                "next",
+                "2026-04-28-modern-errors-integration-incomplete",
+                "--json",
+                "--human",
+                "--top",
+                "10"
+            ]
+        },
+        {
+            // Eval S2 — hard ranking under heavy entity fan-out (read-only existing item).
+            // Gold: shadcn/* (+ tailwind/design-system-v4); anti-set: tanstack-query/*,
+            // web-interface-guidelines/*, react-performance/* (fire entity, must rank below shadcn).
+            // Spec: raw/specs/eval-scenarios-for-gw-next-guidance-recall.md
+            "name": "gw next — S2 shadcn-ui-kit (mono-repo/new)",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/.venv/bin/gw",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "AWS_PROFILE": "pat-dev",
+                "AWS_REGION": "us-east-1",
+                "IS_LOCAL": "true",
+                "GRAPH_WIKI_WORKSPACE": "/Users/pat/Personal/workspaces/mono-repo/new"
+            },
+            "args": [
+                "next",
+                "2026-04-21-shared-electron-ui-kit-consolidation",
+                "--json",
+                "--human",
+                "--top",
+                "10"
+            ]
+        },
+        {
+            // Eval S3 — entity signal + language-include positive control (new item, filed 2026-06-28).
+            // Gold: async-python/* (entity-link pkg_financial-tools-py); anti-set: all TS/Swift (language filter).
+            // NOTE: as filed, affects is the package DIRECTORY (domains/financial/financial-tools-py),
+            // which resolve_path_contexts cannot map to a package entity or a language — so entity/language
+            // stay silent and recall rides 'message' only. Point affects at a .py FILE in the package to
+            // exercise the entity-driven path the spec describes. Spec: raw/specs/eval-scenarios-for-gw-next-guidance-recall.md
+            "name": "gw next — S3 async-python (mono-repo/new)",
+            "type": "debugpy",
+            "request": "launch",
+            "justMyCode": false,
+            "stopOnEntry": false,
+            "program": "${workspaceFolder}/.venv/bin/gw",
+            "cwd": "${workspaceFolder}",
+            "console": "integratedTerminal",
+            "env": {
+                "AWS_PROFILE": "pat-dev",
+                "AWS_REGION": "us-east-1",
+                "IS_LOCAL": "true",
+                "GRAPH_WIKI_WORKSPACE": "/Users/pat/Personal/workspaces/mono-repo/new"
+            },
+            "args": [
+                "next",
+                "2026-06-28-eval-guidance-async-python",
+                "--json",
+                "--human",
+                "--top",
+                "10"
+            ]
+        }
     ]
 }
