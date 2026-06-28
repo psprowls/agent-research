@@ -469,3 +469,32 @@ def test_unresolved_real_file_with_graph_still_reads_disk(tmp_path) -> None:
         conn.close()
     assert "alpha beta gamma" in ctxs[0].content
     assert ctxs[0].package_stem is None
+
+
+def test_no_graph_path_still_fires_index_and_language(tmp_path) -> None:
+    # conn=None (graph absent) but an on-disk guidance index exists: a file affects
+    # must still fire index + (extension) language. Regression guard for the rebuild-graph window.
+    index = GuidanceIndex(
+        files={"pkg/a.py": IndexEntry(topics=["async"], tags=["retry"], content_hash="", scanned_at="")}
+    )
+    ctxs = resolve_path_contexts(["pkg/a.py"], None, tmp_path, index)
+    assert ctxs[0].index_topics == ["async"]
+    assert ctxs[0].index_tags == ["retry"]
+    assert ctxs[0].languages == {"python"}
+
+
+def test_unresolved_file_with_graph_keeps_index_and_language(tmp_path) -> None:
+    # Graph present, path is a real file that is NOT an admitted entity and NOT under any
+    # package node: it must keep its rel-level index entry and extension language.
+    (tmp_path / "conftest.py").write_text("x = 1", encoding="utf-8")
+    conn = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
+    index = GuidanceIndex(
+        files={"conftest.py": IndexEntry(topics=["fixtures"], tags=[], content_hash="", scanned_at="")}
+    )
+    try:
+        ctxs = resolve_path_contexts(["conftest.py"], conn, tmp_path, index)
+    finally:
+        conn.close()
+    assert ctxs[0].index_topics == ["fixtures"]
+    assert ctxs[0].languages == {"python"}
+    assert ctxs[0].package_stem is None

@@ -214,10 +214,14 @@ def resolve_path_contexts(
     contexts: list[PathContext] = []
     for raw in paths:
         rel = PurePath(raw).as_posix()
+        # Baseline signals for EVERY path (pre-feature behavior): rel-level index entry
+        # and the file/extension language. The package branch overrides these with
+        # package-aggregated values when a directory resolves to a package.
+        entry = index.files.get(rel)
+        index_topics: list[str] = list(entry.topics) if entry else []
+        index_tags: list[str] = list(entry.tags) if entry else []
+        languages: set[str] = _derive_path_languages(conn, rel)
         package_stem: str | None = None
-        languages: set[str] = set()
-        index_topics: list[str] = []
-        index_tags: list[str] = []
         content = ""
 
         file_hit = None
@@ -225,35 +229,32 @@ def resolve_path_contexts(
             file_hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
 
         if file_hit is not None:
-            # FILE branch — unchanged behavior.
+            # FILE branch — stem from the entity; baseline index/language already correct.
             package_stem = entity_filename_for_uri(file_hit[0], conn)
-            languages = _derive_path_languages(conn, rel)
-            entry = index.files.get(rel)
-            index_topics = list(entry.topics) if entry else []
-            index_tags = list(entry.tags) if entry else []
             if repo_root is not None:
                 try:
                     content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     content = ""
         elif conn is not None and repo_root is not None:
-            # PACKAGE branch — directory affects resolves to its enclosing package/app.
+            # PACKAGE branch — directory (or non-entity file) affects resolves to its
+            # enclosing package/app; override index/language/content with package-aggregated
+            # signals. No disk read for a resolved package.
             pkg = lookup_package_by_dir(conn, repo_root, repo_root / rel)
             if pkg is not None:
                 uri, _name, node_id = pkg
                 package_stem = entity_filename_for_uri(uri, conn)
                 languages, index_topics, index_tags, content = _package_signal_inputs(conn, node_id, index)
             else:
-                # Unresolved with a graph present: preserve the legacy disk read so the
-                # keyword signal still matches a real non-entity, non-package file.
-                # (A directory naturally yields "" via IsADirectoryError/OSError.)
+                # Unresolved with a graph present: legacy disk read so keyword matching
+                # still works on a real non-entity, non-package file. Baseline index/lang kept.
                 try:
                     content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     content = ""
         else:
-            # No graph available (conn or repo_root is None): preserve the legacy
-            # disk-read so message/glob still work on a bare path.
+            # No graph (conn is None / no repo_root): legacy disk read; baseline index/lang
+            # kept so file affects still fire index + language without a graph.
             if repo_root is not None:
                 try:
                     content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
