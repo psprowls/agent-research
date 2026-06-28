@@ -39,7 +39,7 @@ changed=$(git diff --name-only "$BASE_SHA".."$HEAD_SHA")
 # slug = work-item slug when invoked from the pipeline; otherwise a stable fallback.
 slug="${WORK_ITEM_SLUG:-review-$(git rev-parse --short "$HEAD_SHA")}"
 bundle="<workspace>/raw/guidance/${slug}-review.md"
-gw guidance suggest --role review --path $changed --file "$bundle" --assemble --json
+gw guidance suggest --role review --path $changed --file "$bundle" --assemble --fmt json
 ```
 
 (If `gw` is not on PATH: `uv run --package graph-wiki-cli gw guidance suggest …`.)
@@ -55,7 +55,7 @@ gw guidance suggest --role review --path $changed --file "$bundle" --assemble --
 
 - If recall returns no ranked pages (or no bundle was written), set
   `{REVIEW_GUIDANCE}` to empty — omit the block entirely.
-- Surface any `guidance_warnings` from the JSON as plain notes; they are not blockers.
+- Surface any `warnings` from the JSON as plain notes; they are not blockers.
 
 **3. Dispatch code reviewer subagent:**
 
