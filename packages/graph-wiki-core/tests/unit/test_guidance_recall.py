@@ -174,12 +174,13 @@ def test_dir_affects_recalls_via_entity_and_language(tmp_path) -> None:
     conn.execute("INSERT INTO edges (src, dst, kind, attrs_json) VALUES (1, 2, 'contains', NULL)")
     conn.commit()
 
-    page = GuidancePage(
+    # the package stem the dir resolves to (short_filename of pkg:o/r/p)
+    py_page = GuidancePage(
         slug="python/async",
         topic="python",
         tags=[],
         keywords=[],
-        entities=["pkg_p"],  # the package stem the dir resolves to (short_filename of pkg:o/r/p)
+        entities=["pkg_p"],
         globs=[],
         summary="",
         applies_when="",
@@ -187,12 +188,29 @@ def test_dir_affects_recalls_via_entity_and_language(tmp_path) -> None:
         guidance_body="",
         language="python",
     )
+    # Same entity link (would also fire `entity`), but a non-matching language:
+    # the resolved context language is {"python"}, so the hard pre-filter drops it.
+    swift_page = GuidancePage(
+        slug="swift/ui",
+        topic="swift",
+        tags=[],
+        keywords=[],
+        entities=["pkg_p"],
+        globs=[],
+        summary="",
+        applies_when="",
+        impact="medium",
+        guidance_body="",
+        language="swift",
+    )
     try:
         ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
-        cands = compute_candidates([page], message="", path_contexts=ctxs, k=5)
+        cands = compute_candidates([py_page, swift_page], message="", path_contexts=ctxs, k=5)
     finally:
         conn.close()
 
     fired = next(c for c in cands if c.page.slug == "python/async")
     assert "entity" in fired.signals_fired  # parity: a dir affects fires entity
-    assert fired.page.slug in {c.page.slug for c in cands}  # survives the language pre-filter
+    slugs = {c.page.slug for c in cands}
+    assert "python/async" in slugs  # language-matched page survives the pre-filter
+    assert "swift/ui" not in slugs  # non-matching language is excluded despite firing entity
