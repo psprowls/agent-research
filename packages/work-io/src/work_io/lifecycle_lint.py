@@ -17,6 +17,7 @@ TERMINAL_STATUSES = frozenset({"resolved", "wontfix", "superseded"})
 FEATURE_LIKE_KINDS = frozenset({"feature", "epic"})
 VALID_EFFORTS = frozenset({"xtra-small", "small", "medium", "large", "xtra-large"})
 VALID_PHASES = frozenset({"design", "plan", "execute", "finish", "done"})
+VALID_ROLES = frozenset({"implement", "review"})
 
 # Rule 22 compatibility map: statuses listed here constrain which phases are coherent.
 # Statuses absent from the map (open, mitigated, wontfix, superseded) are unconstrained.
