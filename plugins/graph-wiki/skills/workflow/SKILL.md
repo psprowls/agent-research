@@ -19,6 +19,16 @@ If `gw` is not on PATH, run it as
 
 ## Steps
 
+### 0. Rename the session
+
+Before anything else, name this session after the work item so it's findable in
+the `/resume` picker. Use the `SlashCommand` tool to run `/rename <name>`, where
+`<name>` is the `<slug>` with any leading `YYYY-MM-DD-` date prefix stripped
+(e.g. `2026-06-28-eval-scenarios-for-gw-next-guidance-recall` →
+`eval-scenarios-for-gw-next-guidance-recall`). This is a one-time best-effort
+step: if the `SlashCommand` tool or `/rename` is unavailable, skip it silently
+and continue — never stop the pipeline over a failed rename.
+
 ### 1. Resolve & report
 
 Run `gw next <slug> --json --file <workspace>/raw/guidance/<slug>.md`.
