@@ -296,10 +296,11 @@ def test_files_in_package_returns_contained_file_rows(tmp_path):
         rows = files_in_package(conn, 1)
     finally:
         conn.close()
-    paths = sorted(r["path"] for r in rows)
+    # read_only_connect does not set row_factory; rows are tuples (id, path, attrs_json).
+    paths = sorted(r[1] for r in rows)
     assert paths == ["packages/p/a.py", "packages/p/b.py"]
     # attrs_json is carried through for language derivation downstream.
-    assert all("language" in (r["attrs_json"] or "") for r in rows)
+    assert all("language" in (r[2] or "") for r in rows)
 
 
 def test_files_in_package_empty_when_no_files(tmp_path):

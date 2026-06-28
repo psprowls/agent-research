@@ -330,9 +330,10 @@ def test_language_roundtrip_write_load_filter(tmp_path: Path) -> None:
 
 def _seed_pkg_graph(nodes, edges):
     """In-memory graph: nodes = (id, kind, name, path, attrs_json, uri),
-    edges = (src, dst, kind). Returns an open sqlite3 connection (Row factory)."""
+    edges = (src, dst, kind). Returns an open sqlite3 connection.
+    Deliberately does NOT set row_factory — matches production read_only_connect
+    (plain tuple rows), so the package branch is tested under real conditions."""
     conn = sqlite3.connect(":memory:")
-    conn.row_factory = sqlite3.Row
     conn.execute(
         "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, path TEXT, "
         "line INTEGER, attrs_json TEXT, uri TEXT)"
@@ -352,11 +353,8 @@ def _seed_pkg_graph(nodes, edges):
     return conn
 
 
-def _index_entry(topics, tags) -> IndexEntry:
-    return IndexEntry(topics=topics, tags=tags, content_hash="", scanned_at="")
-
-
 def test_package_branch_fires_entity_and_language(tmp_path) -> None:
+    # A .py package: entity stem pkg_p, language {python}.
     conn = _seed_pkg_graph(
         nodes=[
             (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
@@ -371,13 +369,14 @@ def test_package_branch_fires_entity_and_language(tmp_path) -> None:
         conn.close()
     assert len(ctxs) == 1
     ctx = ctxs[0]
-    assert ctx.package_stem == "pkg_p"
-    assert ctx.languages == {"python"}
-    assert "do_thing" in ctx.content
-    assert "a.py" in ctx.content
+    assert ctx.package_stem == "pkg_p"  # fires `entity`
+    assert ctx.languages == {"python"}  # fires `language`
+    assert "do_thing" in ctx.content  # symbol name in keyword haystack
+    assert "a.py" in ctx.content  # file name in keyword haystack
 
 
 def test_package_branch_typescript_not_mislabeled(tmp_path) -> None:
+    # Package node attrs would say javascript; file nodes say typescript → set must be {typescript}.
     conn = _seed_pkg_graph(
         nodes=[
             (1, "package", "ts-pkg", "packages/ts-pkg", json.dumps({"language": "javascript"}), "pkg:o/r/ts-pkg"),
@@ -416,7 +415,9 @@ def test_package_branch_aggregates_index(tmp_path) -> None:
         ],
         edges=[(1, 2, "contains")],
     )
-    index = GuidanceIndex(files={"packages/p/a.py": _index_entry(topics=["async"], tags=["retry"])})
+    index = GuidanceIndex(
+        files={"packages/p/a.py": IndexEntry(topics=["async"], tags=["retry"], content_hash="", scanned_at="")}
+    )
     try:
         ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, index)
     finally:
@@ -426,6 +427,7 @@ def test_package_branch_aggregates_index(tmp_path) -> None:
 
 
 def test_package_branch_no_match_stays_dark(tmp_path) -> None:
+    # A non-package path with no package ancestor: all signal inputs empty, no crash.
     conn = _seed_pkg_graph(
         nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
         edges=[],
@@ -456,23 +458,43 @@ def test_package_branch_nested_subdir_resolves(tmp_path) -> None:
     assert ctxs[0].languages == {"python"}
 
 
-def test_package_branch_works_on_no_row_factory_conn(tmp_path) -> None:
-    # Production read-only conn does NOT set a row_factory (stays sqlite3 default
-    # None). The cursor-local Row factory in the symbol query must still yield
-    # key-accessible rows; without it `r["name"]` would raise here.
-    conn = _seed_pkg_graph(
-        nodes=[
-            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
-            (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
-            (3, "function", "do_thing", None, None, None),
-        ],
-        edges=[(1, 2, "contains"), (2, 3, "contains")],
-    )
-    conn.row_factory = None  # mirror the production read-only connection
+def test_unresolved_real_file_with_graph_still_reads_disk(tmp_path) -> None:
+    # A real on-disk file that is neither an admitted entity nor under a package
+    # node: content must still come from disk so the keyword signal can match.
+    (tmp_path / "README.md").write_text("alpha beta gamma", encoding="utf-8")
+    conn = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
     try:
-        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["README.md"], conn, tmp_path, GuidanceIndex(files={}))
     finally:
         conn.close()
-    ctx = ctxs[0]
-    assert "a.py" in ctx.content
-    assert "do_thing" in ctx.content
+    assert "alpha beta gamma" in ctxs[0].content
+    assert ctxs[0].package_stem is None
+
+
+def test_no_graph_path_still_fires_index_and_language(tmp_path) -> None:
+    # conn=None (graph absent) but an on-disk guidance index exists: a file affects
+    # must still fire index + (extension) language. Regression guard for the rebuild-graph window.
+    index = GuidanceIndex(
+        files={"pkg/a.py": IndexEntry(topics=["async"], tags=["retry"], content_hash="", scanned_at="")}
+    )
+    ctxs = resolve_path_contexts(["pkg/a.py"], None, tmp_path, index)
+    assert ctxs[0].index_topics == ["async"]
+    assert ctxs[0].index_tags == ["retry"]
+    assert ctxs[0].languages == {"python"}
+
+
+def test_unresolved_file_with_graph_keeps_index_and_language(tmp_path) -> None:
+    # Graph present, path is a real file that is NOT an admitted entity and NOT under any
+    # package node: it must keep its rel-level index entry and extension language.
+    (tmp_path / "conftest.py").write_text("x = 1", encoding="utf-8")
+    conn = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
+    index = GuidanceIndex(
+        files={"conftest.py": IndexEntry(topics=["fixtures"], tags=[], content_hash="", scanned_at="")}
+    )
+    try:
+        ctxs = resolve_path_contexts(["conftest.py"], conn, tmp_path, index)
+    finally:
+        conn.close()
+    assert ctxs[0].index_topics == ["fixtures"]
+    assert ctxs[0].languages == {"python"}
+    assert ctxs[0].package_stem is None

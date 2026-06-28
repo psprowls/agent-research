@@ -102,7 +102,8 @@ def lookup_package_by_dir(conn: sqlite3.Connection, repo_root: Path, dir_path: P
     candidates = [rel, *(p.as_posix() for p in PurePosixPath(rel).parents if p.as_posix() != ".")]
     for path in candidates:
         row = conn.execute(
-            "SELECT uri, name, id FROM nodes WHERE kind IN ('package','app') AND path = ? AND uri IS NOT NULL LIMIT 1",
+            "SELECT uri, name, id FROM nodes "
+            "WHERE kind IN ('package','app') AND path = ? AND uri IS NOT NULL AND uri <> '' LIMIT 1",
             (path,),
         ).fetchone()
         if row is not None:
@@ -111,18 +112,16 @@ def lookup_package_by_dir(conn: sqlite3.Connection, repo_root: Path, dir_path: P
     return None
 
 
-def files_in_package(conn: sqlite3.Connection, node_id: int) -> list[sqlite3.Row]:
+def files_in_package(conn: sqlite3.Connection, node_id: int) -> list[tuple]:
     """Return the file rows (id, path, attrs_json) contained in a package/app node.
 
     Joins package --contains--> file (the same shape guidance_scan enumerates).
-    Empty list when the node contains no file nodes. Rows are returned via a
-    cursor-local `sqlite3.Row` factory so callers can use key access
-    (`row["path"]`) regardless of the connection's own row_factory.
+    Rows are plain tuples (graph_io connections do not set row_factory), so read
+    them positionally: r[0]=id, r[1]=path, r[2]=attrs_json. Empty list when the
+    node contains no file nodes.
     """
-    cur = conn.cursor()
-    cur.row_factory = sqlite3.Row
-    return cur.execute(
-        "SELECT f.id AS id, f.path AS path, f.attrs_json AS attrs_json "
+    return conn.execute(
+        "SELECT f.id, f.path, f.attrs_json "
         "FROM nodes p "
         "JOIN edges e ON e.src = p.id AND e.kind = 'contains' "
         "JOIN nodes f ON e.dst = f.id AND f.kind = 'file' "

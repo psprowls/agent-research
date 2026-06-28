@@ -157,9 +157,8 @@ def _package_signal_inputs(
     """Build (languages, index_topics, index_tags, content) for a package node
     from its contained file nodes and their symbols. Graph-only; no disk read.
 
-    Language is derived strictly from the contained file nodes (attrs_json.language
-    else extension map) — never the package node's own attrs, which mislabels e.g.
-    TypeScript packages as javascript.
+    Rows from files_in_package are plain tuples (graph_io connections set no
+    row_factory): col 0 = id, 1 = path, 2 = attrs_json. Access positionally.
     """
     file_rows = files_in_package(conn, node_id)
     languages: set[str] = set()
@@ -168,13 +167,14 @@ def _package_signal_inputs(
     name_parts: list[str] = []
     file_ids: list[int] = []
     for row in file_rows:
-        path = row["path"]
-        file_ids.append(int(row["id"]))
+        file_id, path, attrs_json = row[0], row[1], row[2]
+        file_ids.append(int(file_id))
         name_parts.append(Path(path).name)
+        # language: file-node attrs_json.language, else extension; never the package attrs.
         lang: str | None = None
-        if row["attrs_json"]:
+        if attrs_json:
             try:
-                lang = json.loads(row["attrs_json"]).get("language")
+                lang = json.loads(attrs_json).get("language")
             except ValueError:
                 lang = None
         if lang:
@@ -187,21 +187,19 @@ def _package_signal_inputs(
         if entry:
             topics.extend(entry.topics)
             tags.extend(entry.tags)
+    # symbol names under the package's files → keyword haystack.
     if file_ids:
         placeholders = ",".join("?" for _ in file_ids)
         kind_ph = ",".join("?" for _ in _SYMBOL_KINDS)
-        # Cursor-local Row factory so key access works regardless of the
-        # connection's own row_factory (production read-only conn sets none).
-        cur = conn.cursor()
-        cur.row_factory = sqlite3.Row
-        sym_rows = cur.execute(
-            f"SELECT n.name AS name FROM edges e JOIN nodes n ON e.dst = n.id "
+        sym_rows = conn.execute(
+            f"SELECT n.name FROM edges e JOIN nodes n ON e.dst = n.id "
             f"WHERE e.src IN ({placeholders}) AND e.kind='contains' "
             f"AND n.kind IN ({kind_ph}) AND n.name IS NOT NULL",
             (*file_ids, *_SYMBOL_KINDS),
         ).fetchall()
-        name_parts.extend(r["name"] for r in sym_rows)
+        name_parts.extend(r[0] for r in sym_rows)
     content = " ".join(name_parts)
+    # de-dupe topics/tags while preserving order
     topics = list(dict.fromkeys(topics))
     tags = list(dict.fromkeys(tags))
     return languages, topics, tags, content
@@ -216,10 +214,14 @@ def resolve_path_contexts(
     contexts: list[PathContext] = []
     for raw in paths:
         rel = PurePath(raw).as_posix()
+        # Baseline signals for EVERY path (pre-feature behavior): rel-level index entry
+        # and the file/extension language. The package branch overrides these with
+        # package-aggregated values when a directory resolves to a package.
+        entry = index.files.get(rel)
+        index_topics: list[str] = list(entry.topics) if entry else []
+        index_tags: list[str] = list(entry.tags) if entry else []
+        languages: set[str] = _derive_path_languages(conn, rel)
         package_stem: str | None = None
-        languages: set[str] = set()
-        index_topics: list[str] = []
-        index_tags: list[str] = []
         content = ""
 
         file_hit = None
@@ -227,27 +229,32 @@ def resolve_path_contexts(
             file_hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
 
         if file_hit is not None:
-            # FILE branch — unchanged behavior.
+            # FILE branch — stem from the entity; baseline index/language already correct.
             package_stem = entity_filename_for_uri(file_hit[0], conn)
-            languages = _derive_path_languages(conn, rel)
-            entry = index.files.get(rel)
-            index_topics = list(entry.topics) if entry else []
-            index_tags = list(entry.tags) if entry else []
             if repo_root is not None:
                 try:
                     content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     content = ""
         elif conn is not None and repo_root is not None:
-            # PACKAGE branch — directory affects resolves to its enclosing package/app.
+            # PACKAGE branch — directory (or non-entity file) affects resolves to its
+            # enclosing package/app; override index/language/content with package-aggregated
+            # signals. No disk read for a resolved package.
             pkg = lookup_package_by_dir(conn, repo_root, repo_root / rel)
             if pkg is not None:
                 uri, _name, node_id = pkg
                 package_stem = entity_filename_for_uri(uri, conn)
                 languages, index_topics, index_tags, content = _package_signal_inputs(conn, node_id, index)
+            else:
+                # Unresolved with a graph present: legacy disk read so keyword matching
+                # still works on a real non-entity, non-package file. Baseline index/lang kept.
+                try:
+                    content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    content = ""
         else:
-            # No graph available (conn or repo_root is None): preserve the legacy
-            # disk-read so message/glob still work on a bare path.
+            # No graph (conn is None / no repo_root): legacy disk read; baseline index/lang
+            # kept so file affects still fire index + language without a graph.
             if repo_root is not None:
                 try:
                     content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
