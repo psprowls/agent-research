@@ -179,7 +179,7 @@ digraph brainstorming {
 
 - Write the validated design (spec) to the graph-wiki workspace spec inbox: `<workspace>/raw/specs/YYYY-MM-DD-<topic>-design.md`. The workspace doc-routing hook injects the resolved absolute path into your context — use it if present)
   - (User preferences for spec location override this default)
-- Use elements-of-style:writing-clearly-and-concisely skill if available
+- Use graph-wiki:writing-clearly-and-concisely skill if available
 - Commit the design document to git
 
 **Spec Self-Review:**
