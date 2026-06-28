@@ -69,3 +69,71 @@ async def test_empty_slate_returns_empty():
     )
     assert ranked == []
     assert assembled is None
+
+
+async def test_drop_low_all_low_collapses_to_empty_and_no_bundle():
+    pages = [_page("python/retry", "python", ["backoff"])]
+    reply = "- slug: python/retry\n  relevance: low\n  reason: irrelevant\n"
+    ranked, assembled, _warnings = await recall_and_rank(
+        pages,
+        "add a retry with backoff",
+        [],
+        drop_low=True,
+        assemble=True,
+        make_llm_fn=lambda *a, **k: _FakeLLM(reply),
+    )
+    assert ranked == []
+    assert assembled is None
+
+
+async def test_drop_low_keeps_only_non_low_entries():
+    pages = [
+        _page("python/retry", "python", ["backoff"], body="## retry body"),
+        _page("python/cache", "python", ["cache"], body="## cache body"),
+    ]
+    reply = (
+        "- slug: python/retry\n  relevance: high\n  reason: matches\n"
+        "- slug: python/cache\n  relevance: low\n  reason: nope\n"
+    )
+    ranked, assembled, _warnings = await recall_and_rank(
+        pages,
+        "add a retry with backoff",
+        [],
+        drop_low=True,
+        assemble=True,
+        make_llm_fn=lambda *a, **k: _FakeLLM(reply),
+    )
+    assert [r.slug for r in ranked] == ["python/retry"]
+    assert assembled is not None
+    assert "retry body" in assembled
+    assert "cache body" not in assembled
+
+
+async def test_drop_low_with_force_recall_only_preserves_lows():
+    pages = [_page("python/retry", "python", ["backoff"])]
+    ranked, _assembled, _warnings = await recall_and_rank(
+        pages,
+        "add a retry with backoff",
+        [],
+        drop_low=True,
+        force_recall_only=True,
+        make_llm_fn=lambda *a, **k: _FakeLLM("ignored"),
+    )
+    # recall-only stamps every entry "low" deterministically; drop_low must not
+    # erase them (guards `--no-rank`).
+    assert [r.slug for r in ranked] == ["python/retry"]
+    assert ranked[0].relevance == "low"
+
+
+async def test_default_drop_low_false_preserves_lows():
+    pages = [_page("python/retry", "python", ["backoff"])]
+    reply = "- slug: python/retry\n  relevance: low\n  reason: weak\n"
+    ranked, _assembled, _warnings = await recall_and_rank(
+        pages,
+        "add a retry with backoff",
+        [],
+        make_llm_fn=lambda *a, **k: _FakeLLM(reply),
+    )
+    # default drop_low=False protects guidance_suggest's behavior.
+    assert [r.slug for r in ranked] == ["python/retry"]
+    assert ranked[0].relevance == "low"

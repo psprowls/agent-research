@@ -150,6 +150,9 @@ async def run_next_guidance(
                 if no_rank
                 else "Bedrock stack unavailable; returning recall order without ranking"
             ),
+            # Scope the all-low suppression to `gw next`; `guidance_suggest` keeps
+            # the default drop_low=False so it can still surface low matches.
+            drop_low=True,
         )
     finally:
         if conn is not None:

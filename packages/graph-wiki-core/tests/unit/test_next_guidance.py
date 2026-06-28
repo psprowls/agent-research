@@ -114,6 +114,42 @@ async def test_run_next_guidance_recall_only(tmp_path: Path):
     assert any("deterministic" in w for w in result.warnings)
 
 
+class _FakeResp:
+    def __init__(self, content: str) -> None:
+        self.content = content
+        self.usage_metadata = None
+
+
+class _FakeLLM:
+    def __init__(self, reply: str) -> None:
+        self._reply = reply
+
+    async def ainvoke(self, messages):
+        return _FakeResp(self._reply)
+
+
+async def test_run_next_guidance_all_low_drops_to_empty(tmp_path: Path):
+    """drop_low=True is wired through gw next: an all-low LLM ranking collapses to
+    empty, so no bundle is assembled and no guidance file would be written."""
+    ws = tmp_path / "ws"
+    _write_workitem(
+        ws,
+        "wi",
+        {"title": "WI", "summary": "add retry backoff", "affects": ["python"], "phase": "plan", "status": "open"},
+    )
+    _write_guidance(ws, "python", "retry", _guidance_fm("python", ["backoff"], ["plan"]), "## Guidance\nRetry.\n")
+
+    reply = "- slug: python/retry\n  relevance: low\n  reason: irrelevant\n"
+    result = await run_next_guidance(
+        "wi",
+        workspace_path=ws,
+        assemble=True,
+        make_llm_fn=lambda *a, **k: _FakeLLM(reply),
+    )
+    assert result.ranked == []
+    assert result.assembled is None
+
+
 async def test_run_next_guidance_no_guidance_dir(tmp_path: Path):
     ws = tmp_path / "ws"
     _write_workitem(ws, "wi", {"title": "WI", "summary": "x", "affects": [], "phase": "plan", "status": "open"})

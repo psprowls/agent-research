@@ -78,12 +78,18 @@ async def recall_and_rank(
     make_llm_fn: Any = None,
     force_recall_only: bool = False,
     recall_only_reason: str = _RECALL_ONLY_DEFAULT,
+    drop_low: bool = False,
 ) -> tuple[list[RankedGuidance], str | None, list[str]]:
     """Run recall→rank→assemble and return (ranked, assembled, warnings).
 
     When *force_recall_only* is True the LLM ranking step is skipped and a
     warning containing *recall_only_reason* is emitted.  The same path is taken
     when no LLM factory is available.
+
+    When *drop_low* is True, LLM-ranked entries marked ``low`` are filtered out
+    (only in the ranking branch — the recall-only path stamps every entry
+    ``low`` deterministically and is left untouched). An all-low ranking then
+    collapses to empty, so no bundle is assembled.
     """
     warnings: list[str] = []
     ranked: list[RankedGuidance] = []
@@ -134,6 +140,8 @@ async def recall_and_rank(
                     reason=item["reason"],
                 )
             )
+        if drop_low:
+            ranked = [r for r in ranked if r.relevance != "low"]
         ranked = ranked[:top]
 
     if assemble and ranked:
