@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import sqlite3
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
@@ -79,6 +79,57 @@ def lookup_entity_by_name(conn: sqlite3.Connection, name: str) -> tuple[str, str
         return None
     matched_name, matched_uri, _kind = rows[0]
     return matched_uri, matched_name
+
+
+def lookup_package_by_dir(conn: sqlite3.Connection, repo_root: Path, dir_path: Path) -> tuple[str, str, int] | None:
+    """Return (uri, name, node_id) for the package/app a directory names, or None.
+
+    Resolves dir_path relative to repo_root (POSIX-style), then matches a
+    `nodes.kind IN ('package','app')` row by exact path (uses idx_nodes_path).
+    On an exact miss, walks dir_path's ancestors up to repo root, returning the
+    nearest enclosing package/app — so a sub-directory affects still resolves.
+    Returns None when dir_path is outside repo_root or no ancestor is a
+    package/app with a non-empty uri.
+
+    This is a post-miss fallback for `resolve_path_contexts`; it does not change
+    `lookup_entity_by_path`'s file-only semantics (ingest always passes a file).
+    """
+    try:
+        rel = dir_path.resolve().relative_to(repo_root.resolve()).as_posix()
+    except ValueError:
+        return None
+    # Candidate paths: the dir itself, then each ancestor up to (not incl.) root.
+    candidates = [rel, *(p.as_posix() for p in PurePosixPath(rel).parents if p.as_posix() != ".")]
+    for path in candidates:
+        row = conn.execute(
+            "SELECT uri, name, id FROM nodes WHERE kind IN ('package','app') AND path = ? AND uri IS NOT NULL LIMIT 1",
+            (path,),
+        ).fetchone()
+        if row is not None:
+            uri, name, node_id = row
+            return str(uri), str(name), int(node_id)
+    return None
+
+
+def files_in_package(conn: sqlite3.Connection, node_id: int) -> list[sqlite3.Row]:
+    """Return the file rows (id, path, attrs_json) contained in a package/app node.
+
+    Joins package --contains--> file (the same shape guidance_scan enumerates).
+    Empty list when the node contains no file nodes. Rows are returned via a
+    cursor-local `sqlite3.Row` factory so callers can use key access
+    (`row["path"]`) regardless of the connection's own row_factory.
+    """
+    cur = conn.cursor()
+    cur.row_factory = sqlite3.Row
+    return cur.execute(
+        "SELECT f.id AS id, f.path AS path, f.attrs_json AS attrs_json "
+        "FROM nodes p "
+        "JOIN edges e ON e.src = p.id AND e.kind = 'contains' "
+        "JOIN nodes f ON e.dst = f.id AND f.kind = 'file' "
+        "WHERE p.id = ? AND f.path IS NOT NULL "
+        "ORDER BY f.path",
+        (node_id,),
+    ).fetchall()
 
 
 def entity_filename_for_uri(uri: str, conn: sqlite3.Connection | None = None) -> str | None:
