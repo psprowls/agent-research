@@ -454,3 +454,25 @@ def test_package_branch_nested_subdir_resolves(tmp_path) -> None:
         conn.close()
     assert ctxs[0].package_stem == "pkg_p"
     assert ctxs[0].languages == {"python"}
+
+
+def test_package_branch_works_on_no_row_factory_conn(tmp_path) -> None:
+    # Production read-only conn does NOT set a row_factory (stays sqlite3 default
+    # None). The cursor-local Row factory in the symbol query must still yield
+    # key-accessible rows; without it `r["name"]` would raise here.
+    conn = _seed_pkg_graph(
+        nodes=[
+            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
+            (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
+            (3, "function", "do_thing", None, None, None),
+        ],
+        edges=[(1, 2, "contains"), (2, 3, "contains")],
+    )
+    conn.row_factory = None  # mirror the production read-only connection
+    try:
+        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
+    finally:
+        conn.close()
+    ctx = ctxs[0]
+    assert "a.py" in ctx.content
+    assert "do_thing" in ctx.content
