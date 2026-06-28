@@ -1,9 +1,8 @@
 {
-  "enabledPlugins": {
-    "graph-wiki@agent-research": true
-  },
   "permissions": {
-    "deny": ["EnterPlanMode"]
+    "deny": [
+      "EnterPlanMode"
+    ]
   },
   "hooks": {
     "PostToolUse": [
@@ -28,5 +27,8 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "graph-wiki@agent-research": true
   }
 }
