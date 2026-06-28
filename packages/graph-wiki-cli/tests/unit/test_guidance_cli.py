@@ -58,3 +58,47 @@ def test_guidance_suggest_json() -> None:
         result = runner.invoke(app, ["guidance", "--mode", "test", "suggest", "add retry", "--fmt", "json"])
     assert result.exit_code == 0, result.output
     assert '"slug": "python/retry"' in result.output
+
+
+def test_guidance_archive_help() -> None:
+    result = runner.invoke(app, ["guidance", "archive", "--help"])
+    assert result.exit_code == 0, result.output
+
+
+def test_guidance_archive_invokes_core_with_slugs() -> None:
+    from graph_wiki_core.commands.guidance_archive import GuidanceArchiveResult
+
+    fake = GuidanceArchiveResult(
+        dry_run=False,
+        moved=[{"slug": "python/old", "src": "s", "dst": "d"}],
+        skipped=[],
+    )
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_archive", return_value=fake) as arch:
+        result = runner.invoke(
+            app,
+            ["guidance", "--repo", ".", "--mode", "test", "archive", "python/old", "rust/dead"],
+        )
+    assert result.exit_code == 0, result.output
+    assert arch.call_args.kwargs["slugs"] == ["python/old", "rust/dead"]
+    assert arch.call_args.kwargs["dry_run"] is False
+    assert "python/old" in result.output
+
+
+def test_guidance_archive_dry_run_flag() -> None:
+    from graph_wiki_core.commands.guidance_archive import GuidanceArchiveResult
+
+    fake = GuidanceArchiveResult(dry_run=True, moved=[], skipped=[])
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_archive", return_value=fake) as arch:
+        result = runner.invoke(app, ["guidance", "--mode", "test", "archive", "python/old", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert arch.call_args.kwargs["dry_run"] is True
+
+
+def test_guidance_archive_json() -> None:
+    from graph_wiki_core.commands.guidance_archive import GuidanceArchiveResult
+
+    fake = GuidanceArchiveResult(dry_run=False, moved=[{"slug": "python/old", "src": "s", "dst": "d"}], skipped=[])
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_archive", return_value=fake):
+        result = runner.invoke(app, ["guidance", "--mode", "test", "--fmt", "json", "archive", "python/old"])
+    assert result.exit_code == 0, result.output
+    assert '"slug": "python/old"' in result.output

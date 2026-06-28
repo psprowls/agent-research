@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from typing import List, Optional
 
 import typer
+from graph_wiki_core.commands.guidance_archive import run_guidance_archive
 from graph_wiki_core.commands.guidance_scan import run_guidance_scan
 from graph_wiki_core.commands.guidance_suggest import run_guidance_suggest
 from workspace_io.config import resolve
@@ -140,3 +141,30 @@ def suggest_cmd(
     if result.assembled is not None:
         typer.echo("\n--- assembled guidance ---")
         typer.echo(result.assembled)
+
+
+@guidance_app.command(name="archive")
+def archive_cmd(
+    ctx: typer.Context,
+    slugs: List[str] = typer.Argument(..., help="Path-qualified <topic>/<slug> tokens to archive."),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Plan without moving."),
+) -> None:
+    """Archive guidance pages into guidance/<topic>/_archive/ (targeted-only)."""
+    args = _ctx_args(ctx)
+    result = _run(
+        run_guidance_archive(
+            workspace_path=args.workspace,
+            slugs=list(slugs),
+            dry_run=dry_run,
+        )
+    )
+    if args.fmt == "json":
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+        return
+    prefix = "would archive" if result.dry_run else "archived"
+    for m in result.moved:
+        typer.echo(f"{prefix} {m['slug']}")
+    for s in result.skipped:
+        typer.echo(f"  skipped {s['slug']}: {s['reason']}", err=True)
+    if not result.moved and not result.skipped:
+        typer.echo("Nothing to archive.")
