@@ -8,7 +8,7 @@ import yaml
 from graph_wiki_core.commands.guidance_signals import (
     GuidancePage,
     PathContext,
-    _derive_path_language,
+    _derive_path_languages,
     compute_candidates,
     load_guidance_pages,
 )
@@ -75,7 +75,7 @@ def _ctx(rel_path: str, language: str | None) -> PathContext:
         package_stem=None,
         index_topics=[],
         index_tags=[],
-        language=language,
+        languages={language} if language else set(),
     )
 
 
@@ -231,15 +231,15 @@ def test_language_filter_message_only_is_noop() -> None:
     assert "general/pattern" in slugs
 
 
-def test_derive_path_language_extension_fallback() -> None:
-    # conn=None → pure extension-map lookup.
-    assert _derive_path_language(None, "pkg/mod.py") == "python"
-    # unknown extension and extension-less paths → None.
-    assert _derive_path_language(None, "pkg/data.xyz") is None
-    assert _derive_path_language(None, "Makefile") is None
+def test_derive_path_languages_extension_fallback() -> None:
+    # conn=None → pure extension-map lookup, wrapped in a set.
+    assert _derive_path_languages(None, "pkg/mod.py") == {"python"}
+    # unknown extension and extension-less paths → empty set.
+    assert _derive_path_languages(None, "pkg/data.xyz") == set()
+    assert _derive_path_languages(None, "Makefile") == set()
 
 
-def test_derive_path_language_db_hit_normalized() -> None:
+def test_derive_path_languages_db_hit_normalized() -> None:
     conn = sqlite3.connect(":memory:")
     conn.execute("CREATE TABLE nodes (kind TEXT, path TEXT, attrs_json TEXT)")
     conn.execute(
@@ -248,9 +248,9 @@ def test_derive_path_language_db_hit_normalized() -> None:
     )
     conn.commit()
     # DB language wins and is normalized to lowercase, regardless of the extension.
-    assert _derive_path_language(conn, "pkg/widget.tsx") == "typescript"
+    assert _derive_path_languages(conn, "pkg/widget.tsx") == {"typescript"}
     # A path with no matching file node falls back to the extension map.
-    assert _derive_path_language(conn, "pkg/other.py") == "python"
+    assert _derive_path_languages(conn, "pkg/other.py") == {"python"}
     conn.close()
 
 

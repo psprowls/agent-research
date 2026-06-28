@@ -59,7 +59,7 @@ class PathContext:
     package_stem: str | None
     index_topics: list[str]
     index_tags: list[str]
-    language: str | None = None  # derived: graph file-node language, else file-extension, else None
+    languages: set[str] = field(default_factory=set)  # file-node langs, else extension, else empty
 
 
 @dataclass
@@ -122,10 +122,12 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
     return pages
 
 
-def _derive_path_language(conn: sqlite3.Connection | None, rel: str) -> str | None:
-    """Return the language for a repo-relative path.
+def _derive_path_languages(conn: sqlite3.Connection | None, rel: str) -> set[str]:
+    """Return the language(s) for a repo-relative FILE path as a 0-or-1-element set.
 
-    Preference order: graph file-node attrs_json.language → file extension → None.
+    Preference order: graph file-node attrs_json.language → file extension → empty.
+    (The package branch in resolve_path_contexts builds a multi-element set by
+    unioning the contained files' languages.)
     """
     if conn is not None:
         try:
@@ -133,11 +135,12 @@ def _derive_path_language(conn: sqlite3.Connection | None, rel: str) -> str | No
             if row and row[0]:
                 lang = json.loads(row[0]).get("language")
                 if lang:
-                    return str(lang).strip().lower()
+                    return {str(lang).strip().lower()}
         except (sqlite3.Error, ValueError):
             # JSONDecodeError is a ValueError subclass; fall back to the extension map.
             pass
-    return _EXT_TO_LANG.get(Path(rel).suffix)
+    ext_lang = _EXT_TO_LANG.get(Path(rel).suffix)
+    return {ext_lang} if ext_lang else set()
 
 
 def resolve_path_contexts(
@@ -168,7 +171,7 @@ def resolve_path_contexts(
                 package_stem=package_stem,
                 index_topics=list(entry.topics) if entry else [],
                 index_tags=list(entry.tags) if entry else [],
-                language=_derive_path_language(conn, rel),
+                languages=_derive_path_languages(conn, rel),
             )
         )
     return contexts
@@ -188,7 +191,7 @@ def compute_candidates(
     fired: list[Candidate] = []
     unfired: list[tuple[float, GuidancePage]] = []
 
-    context_languages = {ctx.language for ctx in path_contexts if ctx.language}
+    context_languages: set[str] = set().union(*(ctx.languages for ctx in path_contexts)) if path_contexts else set()
 
     for page in pages:
         # Hard language pre-filter: agnostic pages (language=None) always survive;
