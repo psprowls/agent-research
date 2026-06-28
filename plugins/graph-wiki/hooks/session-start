@@ -35,12 +35,16 @@ except Exception as e:
 # The python block may append a resume suggestion after a unique delimiter.
 # Split it off so $RESOLVED stays the raw-dir-only value the notices below use.
 resume_message=""
+# resume_display holds the same suggestion WITHOUT the leading blank lines, for
+# the user-facing systemMessage channel (additionalContext gets resume_message).
+resume_display=""
 case "$RESOLVED" in
   *"<<<GRAPHWIKI_RESUME>>>"*)
     resume_text="${RESOLVED#*<<<GRAPHWIKI_RESUME>>>$'\n'}"
     RESOLVED="${RESOLVED%%$'\n'<<<GRAPHWIKI_RESUME>>>*}"
     if [ -n "$resume_text" ]; then
       resume_message=$'\n\n'"$resume_text"
+      resume_display="$resume_text"
     fi
     ;;
 esac
@@ -112,6 +116,7 @@ using_workflow_escaped=$(escape_for_json "$using_workflow_content")
 routing_escaped=$(escape_for_json "$routing_message")
 workflow_escaped=$(escape_for_json "$workflow_message")
 resume_escaped=$(escape_for_json "$resume_message")
+resume_display_escaped=$(escape_for_json "$resume_display")
 session_context="<EXTREMELY_IMPORTANT>\nYou have graph-wiki workflows.\n\n**Below is the full content of your 'graph-wiki:using-workflow' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_workflow_escaped}\n\n${routing_escaped}${workflow_escaped}${resume_escaped}\n</EXTREMELY_IMPORTANT>"
 
 # Output context injection as JSON.
@@ -126,8 +131,17 @@ if [ -n "${CURSOR_PLUGIN_ROOT:-}" ]; then
   # Cursor sets CURSOR_PLUGIN_ROOT (may also set CLAUDE_PLUGIN_ROOT)
   printf '{\n  "additional_context": "%s"\n}\n' "$session_context"
 elif [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && [ -z "${COPILOT_CLI:-}" ]; then
-  # Claude Code sets CLAUDE_PLUGIN_ROOT without COPILOT_CLI
-  printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+  # Claude Code sets CLAUDE_PLUGIN_ROOT without COPILOT_CLI.
+  # When an in-flight resume suggestion exists, ALSO emit it via systemMessage so
+  # Claude Code renders it directly in the user's transcript. additionalContext
+  # is model-only (invisible to the user) and relies on the model choosing to
+  # surface it; systemMessage guarantees the suggestion is shown. Emitted only
+  # when resume_display is non-empty so fresh sessions show no empty notice.
+  if [ -n "$resume_display" ]; then
+    printf '{\n  "systemMessage": "%s",\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$resume_display_escaped" "$session_context"
+  else
+    printf '{\n  "hookSpecificOutput": {\n    "hookEventName": "SessionStart",\n    "additionalContext": "%s"\n  }\n}\n' "$session_context"
+  fi
 else
   # Copilot CLI (sets COPILOT_CLI=1) or unknown platform — SDK standard format
   printf '{\n  "additionalContext": "%s"\n}\n' "$session_context"
