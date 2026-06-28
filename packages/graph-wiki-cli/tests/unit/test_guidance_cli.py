@@ -48,6 +48,53 @@ def test_guidance_suggest_invokes_core_and_renders() -> None:
     assert suggest.call_args.kwargs["paths"] == ["x.py"]
 
 
+def test_guidance_suggest_threads_role() -> None:
+    from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
+
+    fake = GuidanceSuggestResult(
+        ranked=[RankedGuidance("python/review", "high", ["index"], "matches")], index_present=True
+    )
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_suggest", return_value=fake) as suggest:
+        result = runner.invoke(
+            app,
+            [
+                "guidance",
+                "--repo",
+                ".",
+                "--mode",
+                "test",
+                "suggest",
+                "review diff",
+                "--role",
+                "review",
+                "--path",
+                "x.py",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    assert suggest.call_args.kwargs["role"] == "review"
+    assert suggest.call_args.kwargs["paths"] == ["x.py"]
+
+
+def test_guidance_suggest_writes_file(tmp_path) -> None:
+    from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
+
+    out = tmp_path / "sub" / "bundle.md"
+    fake = GuidanceSuggestResult(
+        ranked=[RankedGuidance("python/review", "high", ["index"], "matches")],
+        assembled="ASSEMBLED BODY",
+        index_present=True,
+    )
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_suggest", return_value=fake) as suggest:
+        result = runner.invoke(
+            app,
+            ["guidance", "--mode", "test", "suggest", "review diff", "--file", str(out)],
+        )
+    assert result.exit_code == 0, result.output
+    assert suggest.call_args.kwargs["assemble"] is True
+    assert out.read_text(encoding="utf-8") == "ASSEMBLED BODY"
+
+
 def test_guidance_suggest_json() -> None:
     from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
 

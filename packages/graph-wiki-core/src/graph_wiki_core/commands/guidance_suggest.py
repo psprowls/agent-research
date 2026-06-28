@@ -25,6 +25,7 @@ from graph_wiki_core.commands.guidance_signals import (
     load_guidance_pages,
     resolve_path_contexts,
 )
+from graph_wiki_core.commands.next_guidance import filter_by_role
 
 
 @dataclass
@@ -41,6 +42,7 @@ async def run_guidance_suggest(
     repo_path: Path | None = None,
     *,
     paths: list[str] | None = None,
+    role: str | None = None,
     top: int = 5,
     candidates: int = 12,
     assemble: bool = False,
@@ -55,6 +57,11 @@ async def run_guidance_suggest(
 
     result = GuidanceSuggestResult()
     pages = load_guidance_pages(workspace)
+    if not pages:
+        return result
+
+    pages, role_warnings = filter_by_role(pages, role)
+    result.warnings.extend(role_warnings)
     if not pages:
         return result
 

@@ -103,10 +103,12 @@ def suggest_cmd(
     ctx: typer.Context,
     message: str = typer.Argument(..., help="What you are about to do."),
     path: Optional[List[str]] = typer.Option(None, "--path", help="Working-set files (repeatable)."),
+    role: Optional[str] = typer.Option(None, "--role", help="Filter guidance to a role: implement | review."),
     top: int = typer.Option(5, "--top", help="How many ranked pages to return."),
     candidates: int = typer.Option(12, "--candidates", help="Recall slate size before ranking."),
     assemble: bool = typer.Option(False, "--assemble", help="Also emit the concatenated top-N bodies."),
     budget: Optional[int] = typer.Option(None, "--budget", help="Token cap for --assemble."),
+    file: str = typer.Option("", "--file", help="Write assembled top-N guidance bodies to this path."),
     fmt: Optional[str] = typer.Option(None, "--fmt", help="Output format override (human|json)."),
 ) -> None:
     """Rank the guidance pages relevant to a coding task."""
@@ -115,18 +117,25 @@ def suggest_cmd(
         if fmt not in OUTPUT_FORMATS:
             raise typer.BadParameter(f"fmt must be one of: {', '.join(OUTPUT_FORMATS)}")
         args.fmt = fmt
+    if role is not None and role not in ("implement", "review"):
+        raise typer.BadParameter("role must be one of: implement, review")
     result = _run(
         run_guidance_suggest(
             message,
             workspace_path=args.workspace,
             repo_path=args.repo,
             paths=path,
+            role=role,
             top=top,
             candidates=candidates,
-            assemble=assemble,
+            assemble=assemble or bool(file),
             budget=budget,
         )
     )
+    if file and result.assembled is not None:
+        out = Path(file)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(result.assembled, encoding="utf-8")
     if args.fmt == "json":
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
         return
