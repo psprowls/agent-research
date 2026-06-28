@@ -20,7 +20,12 @@ from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
 from guidance_io.vocab import canonical_tag, load_vocab
 from source_parser.parsers import EXTENSIONS
-from wiki_io.entity_lookup import entity_filename_for_uri, lookup_entity_by_path
+from wiki_io.entity_lookup import (
+    entity_filename_for_uri,
+    files_in_package,
+    lookup_entity_by_path,
+    lookup_package_by_dir,
+)
 
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -143,6 +148,63 @@ def _derive_path_languages(conn: sqlite3.Connection | None, rel: str) -> set[str
     return {ext_lang} if ext_lang else set()
 
 
+_SYMBOL_KINDS = ("class", "function", "method")
+
+
+def _package_signal_inputs(
+    conn: sqlite3.Connection, node_id: int, index: GuidanceIndex
+) -> tuple[set[str], list[str], list[str], str]:
+    """Build (languages, index_topics, index_tags, content) for a package node
+    from its contained file nodes and their symbols. Graph-only; no disk read.
+
+    Rows from files_in_package are plain tuples (graph_io connections set no
+    row_factory): col 0 = id, 1 = path, 2 = attrs_json. Access positionally.
+    """
+    file_rows = files_in_package(conn, node_id)
+    languages: set[str] = set()
+    topics: list[str] = []
+    tags: list[str] = []
+    name_parts: list[str] = []
+    file_ids: list[int] = []
+    for row in file_rows:
+        file_id, path, attrs_json = row[0], row[1], row[2]
+        file_ids.append(int(file_id))
+        name_parts.append(Path(path).name)
+        # language: file-node attrs_json.language, else extension; never the package attrs.
+        lang: str | None = None
+        if attrs_json:
+            try:
+                lang = json.loads(attrs_json).get("language")
+            except ValueError:
+                lang = None
+        if lang:
+            languages.add(str(lang).strip().lower())
+        else:
+            ext_lang = _EXT_TO_LANG.get(Path(path).suffix)
+            if ext_lang:
+                languages.add(ext_lang)
+        entry = index.files.get(path)
+        if entry:
+            topics.extend(entry.topics)
+            tags.extend(entry.tags)
+    # symbol names under the package's files → keyword haystack.
+    if file_ids:
+        placeholders = ",".join("?" for _ in file_ids)
+        kind_ph = ",".join("?" for _ in _SYMBOL_KINDS)
+        sym_rows = conn.execute(
+            f"SELECT n.name FROM edges e JOIN nodes n ON e.dst = n.id "
+            f"WHERE e.src IN ({placeholders}) AND e.kind='contains' "
+            f"AND n.kind IN ({kind_ph}) AND n.name IS NOT NULL",
+            (*file_ids, *_SYMBOL_KINDS),
+        ).fetchall()
+        name_parts.extend(r[0] for r in sym_rows)
+    content = " ".join(name_parts)
+    # de-dupe topics/tags while preserving order
+    topics = list(dict.fromkeys(topics))
+    tags = list(dict.fromkeys(tags))
+    return languages, topics, tags, content
+
+
 def resolve_path_contexts(
     paths: list[str],
     conn: sqlite3.Connection | None,
@@ -152,26 +214,60 @@ def resolve_path_contexts(
     contexts: list[PathContext] = []
     for raw in paths:
         rel = PurePath(raw).as_posix()
-        content = ""
-        if repo_root is not None:
-            try:
-                content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                content = ""
         package_stem: str | None = None
+        languages: set[str] = set()
+        index_topics: list[str] = []
+        index_tags: list[str] = []
+        content = ""
+
+        file_hit = None
         if conn is not None and repo_root is not None:
-            hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
-            if hit is not None:
-                package_stem = entity_filename_for_uri(hit[0], conn)
-        entry = index.files.get(rel)
+            file_hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
+
+        if file_hit is not None:
+            # FILE branch — unchanged behavior.
+            package_stem = entity_filename_for_uri(file_hit[0], conn)
+            languages = _derive_path_languages(conn, rel)
+            entry = index.files.get(rel)
+            index_topics = list(entry.topics) if entry else []
+            index_tags = list(entry.tags) if entry else []
+            if repo_root is not None:
+                try:
+                    content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    content = ""
+        elif conn is not None and repo_root is not None:
+            # PACKAGE branch — directory affects resolves to its enclosing package/app.
+            pkg = lookup_package_by_dir(conn, repo_root, repo_root / rel)
+            if pkg is not None:
+                uri, _name, node_id = pkg
+                package_stem = entity_filename_for_uri(uri, conn)
+                languages, index_topics, index_tags, content = _package_signal_inputs(conn, node_id, index)
+            else:
+                # Unresolved with a graph present: preserve the legacy disk read so the
+                # keyword signal still matches a real non-entity, non-package file.
+                # (A directory naturally yields "" via IsADirectoryError/OSError.)
+                try:
+                    content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    content = ""
+        else:
+            # No graph available (conn or repo_root is None): preserve the legacy
+            # disk-read so message/glob still work on a bare path.
+            if repo_root is not None:
+                try:
+                    content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    content = ""
+
         contexts.append(
             PathContext(
                 rel_path=rel,
                 content=content,
                 package_stem=package_stem,
-                index_topics=list(entry.topics) if entry else [],
-                index_tags=list(entry.tags) if entry else [],
-                languages=_derive_path_languages(conn, rel),
+                index_topics=index_topics,
+                index_tags=index_tags,
+                languages=languages,
             )
         )
     return contexts
