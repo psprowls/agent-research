@@ -19,7 +19,7 @@ from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
 from wiki_io._workspace import resolve_wiki_and_repo
 from work_io import frontmatter as _frontmatter
-from work_io.lifecycle_lint import TERMINAL_STATUSES, VALID_PHASES
+from work_io.lifecycle_lint import TERMINAL_STATUSES, VALID_PHASES, VALID_ROLES
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.guidance_recall import RankedGuidance, recall_and_rank
@@ -70,6 +70,30 @@ def filter_by_phase(pages: list[GuidancePage], phase: str | None) -> tuple[list[
     return kept, warnings
 
 
+def filter_by_role(pages: list[GuidancePage], role: str | None) -> tuple[list[GuidancePage], list[str]]:
+    """Keep role-agnostic + matching pages; drop non-matching; drop+warn invalid.
+
+    role=None disables role filtering (keep all) — used at design/plan/finish, which
+    have no implement-vs-review split.
+    """
+    if role is None:
+        return pages, []
+    kept: list[GuidancePage] = []
+    warnings: list[str] = []
+    for page in pages:
+        rl = page.role
+        if not rl:
+            kept.append(page)  # dual-use
+            continue
+        invalid = [v for v in rl if v not in VALID_ROLES]
+        if invalid:
+            warnings.append(f"guidance/{page.slug}: role has invalid value(s) {invalid}; excluded from the role filter")
+            continue
+        if role in rl:
+            kept.append(page)
+    return kept, warnings
+
+
 def guidance_eligible(wn: WorkNextResult) -> bool:
     """Whether a work-next result should carry guidance."""
     if wn.blockers:
@@ -116,8 +140,14 @@ async def run_next_guidance(
     if not pages:
         return result
 
+    # Option A: role tracks the stage's actor. Execute dispatches implement-flavored
+    # stages (subagent-driven-development / test-driven-development); design/plan/finish
+    # have no implement-vs-review split, so role filtering is OFF there (dual-use only).
+    active_role = "implement" if effective_phase == "execute" else None
     kept, filter_warnings = filter_by_phase(pages, effective_phase)
     result.warnings.extend(filter_warnings)
+    kept, role_warnings = filter_by_role(kept, active_role)
+    result.warnings.extend(role_warnings)
     if not kept:
         return result
 

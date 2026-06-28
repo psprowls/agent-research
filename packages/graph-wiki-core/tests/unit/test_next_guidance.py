@@ -7,13 +7,14 @@ from graph_wiki_core.commands.guidance_signals import GuidancePage
 from graph_wiki_core.commands.next_guidance import (
     derive_recall_inputs,
     filter_by_phase,
+    filter_by_role,
     guidance_eligible,
     run_next_guidance,
 )
 from graph_wiki_core.commands.work import WorkNextResult
 
 
-def _page(slug: str, workflow: list[str]) -> GuidancePage:
+def _page(slug: str, workflow: list[str], role: list[str] | None = None) -> GuidancePage:
     return GuidancePage(
         slug=slug,
         topic="python",
@@ -26,6 +27,7 @@ def _page(slug: str, workflow: list[str]) -> GuidancePage:
         impact="high",
         guidance_body="## body",
         workflow=workflow,
+        role=role or [],
     )
 
 
@@ -56,6 +58,31 @@ def test_filter_drops_and_warns_on_invalid_phase_value():
     assert any("banana" in w for w in warnings)
 
 
+def test_filter_by_role_none_keeps_all():
+    pages = [_page("g/a", [], ["review"]), _page("g/b", [], [])]
+    kept, warnings = filter_by_role(pages, None)
+    assert {p.slug for p in kept} == {"g/a", "g/b"}
+    assert warnings == []
+
+
+def test_filter_by_role_keeps_agnostic_and_matching():
+    pages = [
+        _page("g/agnostic", [], []),
+        _page("g/impl", [], ["implement"]),
+        _page("g/review", [], ["review"]),
+    ]
+    kept, warnings = filter_by_role(pages, "implement")
+    assert {p.slug for p in kept} == {"g/agnostic", "g/impl"}
+    assert warnings == []
+
+
+def test_filter_by_role_drops_and_warns_invalid():
+    pages = [_page("g/bad", [], ["bogus"])]
+    kept, warnings = filter_by_role(pages, "implement")
+    assert kept == []
+    assert any("bogus" in w for w in warnings)
+
+
 def test_guidance_eligible_rules():
     assert guidance_eligible(WorkNextResult(slug="s", status="open", phase="plan")) is True
     assert guidance_eligible(WorkNextResult(slug="s", blockers=["x"])) is False
@@ -79,7 +106,7 @@ def _write_guidance(ws: Path, topic: str, slug: str, fm: dict, body: str) -> Non
     (d / f"{slug}.md").write_text("---\n" + yaml.safe_dump(fm, sort_keys=False) + "---\n\n" + body, encoding="utf-8")
 
 
-def _guidance_fm(topic: str, kws: list[str], workflow: list[str] | None = None) -> dict:
+def _guidance_fm(topic: str, kws: list[str], workflow: list[str] | None = None, role: list[str] | None = None) -> dict:
     fm = {
         "title": "T",
         "category": "guidance",
@@ -94,6 +121,8 @@ def _guidance_fm(topic: str, kws: list[str], workflow: list[str] | None = None) 
     }
     if workflow is not None:
         fm["workflow"] = workflow
+    if role is not None:
+        fm["role"] = role
     return fm
 
 
@@ -183,3 +212,55 @@ async def test_run_next_guidance_uses_resolved_phase_override(tmp_path: Path):
     slugs_with_override = {r.slug for r in result_with_override.ranked}
     assert "python/design-guide" in slugs_with_override, "with phase override, design page must be kept"
     assert "python/execute-guide" not in slugs_with_override, "with phase override, execute page must still be dropped"
+
+
+async def test_run_next_guidance_role_filters_review_at_execute(tmp_path: Path):
+    """At execute, active_role='implement' drops a role:[review] page from the
+    implementer bundle but keeps a dual-use (no-role) page."""
+    ws = tmp_path / "ws"
+    _write_workitem(
+        ws,
+        "wi",
+        {"title": "WI", "summary": "add retry backoff", "affects": ["python"], "phase": "execute", "status": "open"},
+    )
+    _write_guidance(
+        ws,
+        "python",
+        "review-only",
+        _guidance_fm("python", ["backoff"], ["execute"], ["review"]),
+        "## Guidance\nReview.\n",
+    )
+    _write_guidance(
+        ws,
+        "python",
+        "dual-use",
+        _guidance_fm("python", ["backoff"], ["execute"]),
+        "## Guidance\nBoth.\n",
+    )
+
+    result = await run_next_guidance("wi", workspace_path=ws, no_rank=True, phase="execute")
+    slugs = {r.slug for r in result.ranked}
+    assert "python/review-only" not in slugs
+    assert "python/dual-use" in slugs
+
+
+async def test_run_next_guidance_role_off_at_design(tmp_path: Path):
+    """At design, active_role=None, so a role:[review] page is unaffected by role
+    filtering (kept because its phase matches)."""
+    ws = tmp_path / "ws"
+    _write_workitem(
+        ws,
+        "wi",
+        {"title": "WI", "summary": "add retry backoff", "affects": ["python"], "phase": "design", "status": "open"},
+    )
+    _write_guidance(
+        ws,
+        "python",
+        "review-design",
+        _guidance_fm("python", ["backoff"], ["design"], ["review"]),
+        "## Guidance\nReview.\n",
+    )
+
+    result = await run_next_guidance("wi", workspace_path=ws, no_rank=True, phase="design")
+    slugs = {r.slug for r in result.ranked}
+    assert "python/review-design" in slugs
