@@ -29,7 +29,35 @@ BASE_SHA=$(git rev-parse HEAD~1)  # or origin/main
 HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-**2. Dispatch code reviewer subagent:**
+**2. Recall review-time guidance (diff-scoped):**
+
+The reviewer holds the strongest recall signal — the changed paths. Recall
+review-role guidance against them and assemble it into a bundle:
+
+```bash
+changed=$(git diff --name-only "$BASE_SHA".."$HEAD_SHA")
+# slug = work-item slug when invoked from the pipeline; otherwise a stable fallback.
+slug="${WORK_ITEM_SLUG:-review-$(git rev-parse --short "$HEAD_SHA")}"
+bundle="<workspace>/raw/guidance/${slug}-review.md"
+gw guidance suggest --role review --path $changed --file "$bundle" --assemble --json
+```
+
+(If `gw` is not on PATH: `uv run --package graph-wiki-cli gw guidance suggest …`.)
+
+- If the JSON shows ranked guidance, set the reviewer template's `{REVIEW_GUIDANCE}`
+  placeholder to a `## Review guidance` block pointing at the bundle:
+
+  ```
+  ## Review guidance
+  Diff-scoped, review-role guidance assembled at: raw/guidance/<slug>-review.md
+  Read it before reviewing.
+  ```
+
+- If recall returns no ranked pages (or no bundle was written), set
+  `{REVIEW_GUIDANCE}` to empty — omit the block entirely.
+- Surface any `guidance_warnings` from the JSON as plain notes; they are not blockers.
+
+**3. Dispatch code reviewer subagent:**
 
 Use Task tool with `general-purpose` type, fill template at `code-reviewer.md`
 
@@ -38,8 +66,9 @@ Use Task tool with `general-purpose` type, fill template at `code-reviewer.md`
 - `{PLAN_OR_REQUIREMENTS}` - What it should do
 - `{BASE_SHA}` - Starting commit
 - `{HEAD_SHA}` - Ending commit
+- `{REVIEW_GUIDANCE}` - Diff-scoped review guidance block (or empty if none) — see step 2
 
-**3. Act on feedback:**
+**4. Act on feedback:**
 - Fix Critical issues immediately
 - Fix Important issues before proceeding
 - Note Minor issues for later
