@@ -137,3 +137,80 @@ async def test_default_drop_low_false_preserves_lows():
     # default drop_low=False protects guidance_suggest's behavior.
     assert [r.slug for r in ranked] == ["python/retry"]
     assert ranked[0].relevance == "low"
+
+
+def test_dir_affects_recalls_via_entity_and_language(tmp_path) -> None:
+    """End-to-end parity: a package-DIRECTORY affects resolves to its enclosing
+    package, fires the `entity` signal (not message-only), and the entity-linked,
+    python-tagged page survives the hard language pre-filter in compute_candidates.
+
+    Pre-Task-3, a directory affects fired no `entity` (resolve_path_contexts only
+    had the file branch), so this would FAIL: the page would never appear and the
+    `entity in signals_fired` assertion would error on `next(...)`.
+    """
+    import json
+    import sqlite3
+
+    from graph_wiki_core.commands.guidance_signals import (
+        compute_candidates,
+        resolve_path_contexts,
+    )
+    from guidance_io.index_store import GuidanceIndex
+
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, path TEXT, "
+        "line INTEGER, attrs_json TEXT, uri TEXT)"
+    )
+    conn.execute("CREATE TABLE edges (src INTEGER, dst INTEGER, kind TEXT, attrs_json TEXT)")
+    conn.executemany(
+        "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,NULL,?,?)",
+        [
+            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
+            (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
+        ],
+    )
+    conn.execute("INSERT INTO edges (src, dst, kind, attrs_json) VALUES (1, 2, 'contains', NULL)")
+    conn.commit()
+
+    # the package stem the dir resolves to (short_filename of pkg:o/r/p)
+    py_page = GuidancePage(
+        slug="python/async",
+        topic="python",
+        tags=[],
+        keywords=[],
+        entities=["pkg_p"],
+        globs=[],
+        summary="",
+        applies_when="",
+        impact="medium",
+        guidance_body="",
+        language="python",
+    )
+    # Same entity link (would also fire `entity`), but a non-matching language:
+    # the resolved context language is {"python"}, so the hard pre-filter drops it.
+    swift_page = GuidancePage(
+        slug="swift/ui",
+        topic="swift",
+        tags=[],
+        keywords=[],
+        entities=["pkg_p"],
+        globs=[],
+        summary="",
+        applies_when="",
+        impact="medium",
+        guidance_body="",
+        language="swift",
+    )
+    try:
+        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
+        cands = compute_candidates([py_page, swift_page], message="", path_contexts=ctxs, k=5)
+    finally:
+        conn.close()
+
+    fired = next(c for c in cands if c.page.slug == "python/async")
+    assert "entity" in fired.signals_fired  # parity: a dir affects fires entity
+    slugs = {c.page.slug for c in cands}
+    assert "python/async" in slugs  # language-matched page survives the pre-filter
+    assert "swift/ui" not in slugs  # non-matching language is excluded despite firing entity

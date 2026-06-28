@@ -20,7 +20,12 @@ from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
 from guidance_io.vocab import canonical_tag, load_vocab
 from source_parser.parsers import EXTENSIONS
-from wiki_io.entity_lookup import entity_filename_for_uri, lookup_entity_by_path
+from wiki_io.entity_lookup import (
+    entity_filename_for_uri,
+    files_in_package,
+    lookup_entity_by_path,
+    lookup_package_by_dir,
+)
 
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
@@ -59,7 +64,7 @@ class PathContext:
     package_stem: str | None
     index_topics: list[str]
     index_tags: list[str]
-    language: str | None = None  # derived: graph file-node language, else file-extension, else None
+    languages: set[str] = field(default_factory=set)  # file-node langs, else extension, else empty
 
 
 @dataclass
@@ -122,10 +127,12 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
     return pages
 
 
-def _derive_path_language(conn: sqlite3.Connection | None, rel: str) -> str | None:
-    """Return the language for a repo-relative path.
+def _derive_path_languages(conn: sqlite3.Connection | None, rel: str) -> set[str]:
+    """Return the language(s) for a repo-relative FILE path as a 0-or-1-element set.
 
-    Preference order: graph file-node attrs_json.language → file extension → None.
+    Preference order: graph file-node attrs_json.language → file extension → empty.
+    (The package branch in resolve_path_contexts builds a multi-element set by
+    unioning the contained files' languages.)
     """
     if conn is not None:
         try:
@@ -133,11 +140,71 @@ def _derive_path_language(conn: sqlite3.Connection | None, rel: str) -> str | No
             if row and row[0]:
                 lang = json.loads(row[0]).get("language")
                 if lang:
-                    return str(lang).strip().lower()
+                    return {str(lang).strip().lower()}
         except (sqlite3.Error, ValueError):
             # JSONDecodeError is a ValueError subclass; fall back to the extension map.
             pass
-    return _EXT_TO_LANG.get(Path(rel).suffix)
+    ext_lang = _EXT_TO_LANG.get(Path(rel).suffix)
+    return {ext_lang} if ext_lang else set()
+
+
+_SYMBOL_KINDS = ("class", "function", "method")
+
+
+def _package_signal_inputs(
+    conn: sqlite3.Connection, node_id: int, index: GuidanceIndex
+) -> tuple[set[str], list[str], list[str], str]:
+    """Build (languages, index_topics, index_tags, content) for a package node
+    from its contained file nodes and their symbols. Graph-only; no disk read.
+
+    Language is derived strictly from the contained file nodes (attrs_json.language
+    else extension map) — never the package node's own attrs, which mislabels e.g.
+    TypeScript packages as javascript.
+    """
+    file_rows = files_in_package(conn, node_id)
+    languages: set[str] = set()
+    topics: list[str] = []
+    tags: list[str] = []
+    name_parts: list[str] = []
+    file_ids: list[int] = []
+    for row in file_rows:
+        path = row["path"]
+        file_ids.append(int(row["id"]))
+        name_parts.append(Path(path).name)
+        lang: str | None = None
+        if row["attrs_json"]:
+            try:
+                lang = json.loads(row["attrs_json"]).get("language")
+            except ValueError:
+                lang = None
+        if lang:
+            languages.add(str(lang).strip().lower())
+        else:
+            ext_lang = _EXT_TO_LANG.get(Path(path).suffix)
+            if ext_lang:
+                languages.add(ext_lang)
+        entry = index.files.get(path)
+        if entry:
+            topics.extend(entry.topics)
+            tags.extend(entry.tags)
+    if file_ids:
+        placeholders = ",".join("?" for _ in file_ids)
+        kind_ph = ",".join("?" for _ in _SYMBOL_KINDS)
+        # Cursor-local Row factory so key access works regardless of the
+        # connection's own row_factory (production read-only conn sets none).
+        cur = conn.cursor()
+        cur.row_factory = sqlite3.Row
+        sym_rows = cur.execute(
+            f"SELECT n.name AS name FROM edges e JOIN nodes n ON e.dst = n.id "
+            f"WHERE e.src IN ({placeholders}) AND e.kind='contains' "
+            f"AND n.kind IN ({kind_ph}) AND n.name IS NOT NULL",
+            (*file_ids, *_SYMBOL_KINDS),
+        ).fetchall()
+        name_parts.extend(r["name"] for r in sym_rows)
+    content = " ".join(name_parts)
+    topics = list(dict.fromkeys(topics))
+    tags = list(dict.fromkeys(tags))
+    return languages, topics, tags, content
 
 
 def resolve_path_contexts(
@@ -149,26 +216,52 @@ def resolve_path_contexts(
     contexts: list[PathContext] = []
     for raw in paths:
         rel = PurePath(raw).as_posix()
-        content = ""
-        if repo_root is not None:
-            try:
-                content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
-            except OSError:
-                content = ""
         package_stem: str | None = None
+        languages: set[str] = set()
+        index_topics: list[str] = []
+        index_tags: list[str] = []
+        content = ""
+
+        file_hit = None
         if conn is not None and repo_root is not None:
-            hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
-            if hit is not None:
-                package_stem = entity_filename_for_uri(hit[0], conn)
-        entry = index.files.get(rel)
+            file_hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
+
+        if file_hit is not None:
+            # FILE branch — unchanged behavior.
+            package_stem = entity_filename_for_uri(file_hit[0], conn)
+            languages = _derive_path_languages(conn, rel)
+            entry = index.files.get(rel)
+            index_topics = list(entry.topics) if entry else []
+            index_tags = list(entry.tags) if entry else []
+            if repo_root is not None:
+                try:
+                    content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    content = ""
+        elif conn is not None and repo_root is not None:
+            # PACKAGE branch — directory affects resolves to its enclosing package/app.
+            pkg = lookup_package_by_dir(conn, repo_root, repo_root / rel)
+            if pkg is not None:
+                uri, _name, node_id = pkg
+                package_stem = entity_filename_for_uri(uri, conn)
+                languages, index_topics, index_tags, content = _package_signal_inputs(conn, node_id, index)
+        else:
+            # No graph available (conn or repo_root is None): preserve the legacy
+            # disk-read so message/glob still work on a bare path.
+            if repo_root is not None:
+                try:
+                    content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
+                except OSError:
+                    content = ""
+
         contexts.append(
             PathContext(
                 rel_path=rel,
                 content=content,
                 package_stem=package_stem,
-                index_topics=list(entry.topics) if entry else [],
-                index_tags=list(entry.tags) if entry else [],
-                language=_derive_path_language(conn, rel),
+                index_topics=index_topics,
+                index_tags=index_tags,
+                languages=languages,
             )
         )
     return contexts
@@ -188,7 +281,7 @@ def compute_candidates(
     fired: list[Candidate] = []
     unfired: list[tuple[float, GuidancePage]] = []
 
-    context_languages = {ctx.language for ctx in path_contexts if ctx.language}
+    context_languages: set[str] = set().union(*(ctx.languages for ctx in path_contexts)) if path_contexts else set()
 
     for page in pages:
         # Hard language pre-filter: agnostic pages (language=None) always survive;
