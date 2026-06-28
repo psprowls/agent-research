@@ -219,6 +219,54 @@ def test_normalize_language_removes_whitespace_only() -> None:
     assert "language" not in fm
 
 
+def test_role_round_trips_through_parse_emit():
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-28",
+        "tokens": 0,
+        "role": ["review"],
+    }
+    text = emit(fm) + "\n\n## Guidance\nbody\n"
+    parsed_fm, _body = parse(text)
+    assert parsed_fm["role"] == ["review"]
+
+
+def test_validate_flags_non_list_role():
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-28",
+        "tokens": 0,
+        "role": "review",  # wrong type
+    }
+    errors = validate(fm)
+    assert any("role" in e for e in errors)
+
+
+def test_validate_accepts_list_role():
+    fm = {
+        "title": "T",
+        "category": "guidance",
+        "summary": "s",
+        "topic": "python",
+        "applies_when": "w",
+        "impact": "high",
+        "updated": "2026-06-28",
+        "tokens": 0,
+        "role": ["review"],
+    }
+    assert validate(fm) == []
+
+
 def test_validate_allows_absent_empty_or_unknown_workflow_values():
     base = {
         "title": "T",

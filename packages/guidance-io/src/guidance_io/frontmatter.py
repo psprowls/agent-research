@@ -78,6 +78,10 @@ def validate(fm: dict) -> list[str]:
     if workflow is not None and not isinstance(workflow, list):
         errors.append(f"workflow must be a list of phase names, got {type(workflow).__name__}")
 
+    role = fm.get("role")
+    if role is not None and not isinstance(role, list):
+        errors.append(f"role must be a list of role names, got {type(role).__name__}")
+
     language = fm.get("language")
     if language is not None and not isinstance(language, str):
         errors.append(f"language must be a string, got {type(language).__name__}")
