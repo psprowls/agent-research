@@ -147,3 +147,174 @@ def test_entity_filename_for_uri_non_entity_prefix_returns_none() -> None:
     # cls:/fn:/method: have no entity page → no wikilink target.
     assert entity_filename_for_uri("cls:subagent_runtime.pool.SubagentPool") is None
     assert entity_filename_for_uri("") is None
+
+
+def _seed_pkgdir_db(workspace, nodes, edges):
+    """Seed code.db with arbitrary (id, kind, name, path, attrs_json, uri) node
+    tuples and (src, dst, kind) edge tuples. Used for directory-resolution tests."""
+    from graph_io.store import connect
+    from workspace_io.paths import graph_dir
+
+    db = graph_dir(workspace) / "code.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    conn = connect(db, create=True)
+    try:
+        for nid, kind, name, path, attrs_json, uri in nodes:
+            conn.execute(
+                "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, NULL, ?, ?)",
+                (nid, kind, name, path, attrs_json, uri),
+            )
+        for src, dst, kind in edges:
+            conn.execute(
+                "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?, ?, ?, NULL)",
+                (src, dst, kind),
+            )
+    finally:
+        conn.close()
+    return db
+
+
+def test_lookup_package_by_dir_exact_match(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_package_by_dir
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[
+            (
+                1,
+                "package",
+                "financial-tools-py",
+                "domains/financial/financial-tools-py",
+                None,
+                "pkg:o/r/financial-tools-py",
+            )
+        ],
+        edges=[],
+    )
+    conn = read_only_connect(db)
+    try:
+        result = lookup_package_by_dir(conn, tmp_path, tmp_path / "domains/financial/financial-tools-py")
+    finally:
+        conn.close()
+    assert result == ("pkg:o/r/financial-tools-py", "financial-tools-py", 1)
+
+
+def test_lookup_package_by_dir_nested_subdir_walks_to_enclosing(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_package_by_dir
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[
+            (
+                1,
+                "package",
+                "financial-tools-py",
+                "domains/financial/financial-tools-py",
+                None,
+                "pkg:o/r/financial-tools-py",
+            )
+        ],
+        edges=[],
+    )
+    conn = read_only_connect(db)
+    try:
+        result = lookup_package_by_dir(conn, tmp_path, tmp_path / "domains/financial/financial-tools-py/src/sub")
+    finally:
+        conn.close()
+    assert result == ("pkg:o/r/financial-tools-py", "financial-tools-py", 1)
+
+
+def test_lookup_package_by_dir_app_kind(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_package_by_dir
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[(1, "app", "app-electron-ts", "apps/app-electron-ts", None, "app:o/r/app-electron-ts")],
+        edges=[],
+    )
+    conn = read_only_connect(db)
+    try:
+        result = lookup_package_by_dir(conn, tmp_path, tmp_path / "apps/app-electron-ts")
+    finally:
+        conn.close()
+    assert result == ("app:o/r/app-electron-ts", "app-electron-ts", 1)
+
+
+def test_lookup_package_by_dir_outside_repo_returns_none(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_package_by_dir
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
+        edges=[],
+    )
+    conn = read_only_connect(db)
+    try:
+        result = lookup_package_by_dir(conn, tmp_path, tmp_path.parent / "elsewhere/p")
+    finally:
+        conn.close()
+    assert result is None
+
+
+def test_lookup_package_by_dir_no_package_ancestor_returns_none(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import lookup_package_by_dir
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
+        edges=[],
+    )
+    conn = read_only_connect(db)
+    try:
+        result = lookup_package_by_dir(conn, tmp_path, tmp_path / "docs/notes")
+    finally:
+        conn.close()
+    assert result is None
+
+
+def test_files_in_package_returns_contained_file_rows(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import files_in_package
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[
+            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
+            (2, "file", "a.py", "packages/p/a.py", '{"language": "python"}', None),
+            (3, "file", "b.py", "packages/p/b.py", '{"language": "python"}', None),
+            (4, "file", "outside.py", "packages/other/x.py", '{"language": "python"}', None),
+        ],
+        edges=[(1, 2, "contains"), (1, 3, "contains")],
+    )
+    conn = read_only_connect(db)
+    try:
+        rows = files_in_package(conn, 1)
+    finally:
+        conn.close()
+    # read_only_connect does not set row_factory; rows are tuples (id, path, attrs_json).
+    paths = sorted(r[1] for r in rows)
+    assert paths == ["packages/p/a.py", "packages/p/b.py"]
+    # attrs_json is carried through for language derivation downstream.
+    assert all("language" in (r[2] or "") for r in rows)
+
+
+def test_files_in_package_empty_when_no_files(tmp_path):
+    from graph_io.store import read_only_connect
+    from wiki_io.entity_lookup import files_in_package
+
+    db = _seed_pkgdir_db(
+        tmp_path,
+        nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
+        edges=[],
+    )
+    conn = read_only_connect(db)
+    try:
+        rows = files_in_package(conn, 1)
+    finally:
+        conn.close()
+    assert rows == []
