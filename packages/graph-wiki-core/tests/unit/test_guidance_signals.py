@@ -11,7 +11,9 @@ from graph_wiki_core.commands.guidance_signals import (
     _derive_path_languages,
     compute_candidates,
     load_guidance_pages,
+    resolve_path_contexts,
 )
+from guidance_io.index_store import GuidanceIndex, IndexEntry
 
 
 def _write_page(ws: Path, topic: str, slug: str, fm: dict, body: str = "## Guidance\nDo X.\n") -> None:
@@ -324,3 +326,131 @@ def test_language_roundtrip_write_load_filter(tmp_path: Path) -> None:
     assert "code-review/checks-typescript" in ts_slugs
     assert "code-review/general-pattern" in ts_slugs
     assert "code-review/checks-python" not in ts_slugs
+
+
+def _seed_pkg_graph(nodes, edges):
+    """In-memory graph: nodes = (id, kind, name, path, attrs_json, uri),
+    edges = (src, dst, kind). Returns an open sqlite3 connection (Row factory)."""
+    conn = sqlite3.connect(":memory:")
+    conn.row_factory = sqlite3.Row
+    conn.execute(
+        "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, path TEXT, "
+        "line INTEGER, attrs_json TEXT, uri TEXT)"
+    )
+    conn.execute("CREATE TABLE edges (src INTEGER, dst INTEGER, kind TEXT, attrs_json TEXT)")
+    for nid, kind, name, path, attrs_json, uri in nodes:
+        conn.execute(
+            "INSERT INTO nodes (id, kind, name, path, line, attrs_json, uri) VALUES (?, ?, ?, ?, NULL, ?, ?)",
+            (nid, kind, name, path, attrs_json, uri),
+        )
+    for src, dst, kind in edges:
+        conn.execute(
+            "INSERT INTO edges (src, dst, kind, attrs_json) VALUES (?, ?, ?, NULL)",
+            (src, dst, kind),
+        )
+    conn.commit()
+    return conn
+
+
+def _index_entry(topics, tags) -> IndexEntry:
+    return IndexEntry(topics=topics, tags=tags, content_hash="", scanned_at="")
+
+
+def test_package_branch_fires_entity_and_language(tmp_path) -> None:
+    conn = _seed_pkg_graph(
+        nodes=[
+            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
+            (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
+            (3, "function", "do_thing", None, None, None),
+        ],
+        edges=[(1, 2, "contains"), (2, 3, "contains")],
+    )
+    try:
+        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
+    finally:
+        conn.close()
+    assert len(ctxs) == 1
+    ctx = ctxs[0]
+    assert ctx.package_stem == "pkg_p"
+    assert ctx.languages == {"python"}
+    assert "do_thing" in ctx.content
+    assert "a.py" in ctx.content
+
+
+def test_package_branch_typescript_not_mislabeled(tmp_path) -> None:
+    conn = _seed_pkg_graph(
+        nodes=[
+            (1, "package", "ts-pkg", "packages/ts-pkg", json.dumps({"language": "javascript"}), "pkg:o/r/ts-pkg"),
+            (2, "file", "x.ts", "packages/ts-pkg/x.ts", json.dumps({"language": "typescript"}), None),
+        ],
+        edges=[(1, 2, "contains")],
+    )
+    try:
+        ctxs = resolve_path_contexts(["packages/ts-pkg"], conn, tmp_path, GuidanceIndex(files={}))
+    finally:
+        conn.close()
+    assert ctxs[0].languages == {"typescript"}
+
+
+def test_package_branch_mixed_language_union(tmp_path) -> None:
+    conn = _seed_pkg_graph(
+        nodes=[
+            (1, "package", "m", "packages/m", None, "pkg:o/r/m"),
+            (2, "file", "a.py", "packages/m/a.py", json.dumps({"language": "python"}), None),
+            (3, "file", "b.ts", "packages/m/b.ts", json.dumps({"language": "typescript"}), None),
+        ],
+        edges=[(1, 2, "contains"), (1, 3, "contains")],
+    )
+    try:
+        ctxs = resolve_path_contexts(["packages/m"], conn, tmp_path, GuidanceIndex(files={}))
+    finally:
+        conn.close()
+    assert ctxs[0].languages == {"python", "typescript"}
+
+
+def test_package_branch_aggregates_index(tmp_path) -> None:
+    conn = _seed_pkg_graph(
+        nodes=[
+            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
+            (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
+        ],
+        edges=[(1, 2, "contains")],
+    )
+    index = GuidanceIndex(files={"packages/p/a.py": _index_entry(topics=["async"], tags=["retry"])})
+    try:
+        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, index)
+    finally:
+        conn.close()
+    assert "async" in ctxs[0].index_topics
+    assert "retry" in ctxs[0].index_tags
+
+
+def test_package_branch_no_match_stays_dark(tmp_path) -> None:
+    conn = _seed_pkg_graph(
+        nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
+        edges=[],
+    )
+    try:
+        ctxs = resolve_path_contexts(["docs/notes"], conn, tmp_path, GuidanceIndex(files={}))
+    finally:
+        conn.close()
+    ctx = ctxs[0]
+    assert ctx.package_stem is None
+    assert ctx.languages == set()
+    assert ctx.index_topics == [] and ctx.index_tags == []
+
+
+def test_package_branch_nested_subdir_resolves(tmp_path) -> None:
+    conn = _seed_pkg_graph(
+        nodes=[
+            (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
+            (2, "file", "a.py", "packages/p/src/a.py", json.dumps({"language": "python"}), None),
+        ],
+        edges=[(1, 2, "contains")],
+    )
+    try:
+        ctxs = resolve_path_contexts(["packages/p/src"], conn, tmp_path, GuidanceIndex(files={}))
+    finally:
+        conn.close()
+    assert ctxs[0].package_stem == "pkg_p"
+    assert ctxs[0].languages == {"python"}
