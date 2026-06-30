@@ -12,9 +12,8 @@ from pathlib import Path
 import graph_io
 import typer
 import yaml
-from graph_io import resource_matchers
+from graph_io import GraphNotInitializedError, resource_matchers
 from graph_io.resource_matchers import validate_matchers
-from graph_io.store import GraphNotInitializedError
 from workspace_io.manifest import read_graph_resource_matchers, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
 

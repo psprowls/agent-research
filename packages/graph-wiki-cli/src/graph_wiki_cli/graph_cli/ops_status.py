@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Protocol
 
 import graph_io
-from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes, schema
+from graph_io import SCHEMA_VERSION, GraphNotInitializedError, SchemaMismatchError, exit_codes
 
 from graph_wiki_cli.graph_cli._args import FormatArgs, RepoWorkspaceArgs
 
@@ -37,7 +37,7 @@ def _collect(reader) -> dict:
     edge_counts = reader.edge_counts_by_kind()
     languages = reader.languages()
     return {
-        "schema_version": schema.SCHEMA_VERSION,
+        "schema_version": SCHEMA_VERSION,
         "last_indexed_commit": last_commit,
         "node_counts": node_counts,
         "edge_counts": edge_counts,

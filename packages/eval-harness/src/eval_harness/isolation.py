@@ -23,7 +23,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
-from graph_io import store
+import graph_io
 from workspace_io.paths import graph_dir
 
 
@@ -59,9 +59,7 @@ class EvalWorktree:
         if wiki_meta.exists():
             shutil.move(str(wiki_meta), str(ws_meta))
         ws_meta.mkdir(parents=True, exist_ok=True)
-        db_path = ws_meta / "code.db"
-        conn = store.connect(db_path, create=True)
-        conn.close()
+        graph_io.open_writer(self.path, create=True).close()
         return self
 
     async def __aexit__(self, *exc: object) -> None:

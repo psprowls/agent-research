@@ -39,10 +39,9 @@ from typing import Any, Optional
 
 import graph_io
 import typer
-from graph_io import exit_codes, update
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes, update
 from graph_io import render as _render
 from graph_io.handle import GraphReader
-from graph_io.store import GraphNotInitializedError, SchemaMismatchError
 from workspace_io.config import resolve
 from workspace_io.paths import graph_dir
 

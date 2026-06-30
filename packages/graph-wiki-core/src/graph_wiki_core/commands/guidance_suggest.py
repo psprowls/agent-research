@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import graph_io
-from graph_io.store import GraphNotInitializedError
+from graph_io import GraphNotInitializedError
 from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
 from wiki_io._workspace import resolve_wiki_and_repo

@@ -15,6 +15,19 @@ Python ≥3.11. Tests are pytest.
 - Errors go to stderr, JSON output goes to stdout. Never mix.
 - Exit codes are stable from v1 forward — see `exit_codes.py`.
 
+## Graph DB boundary (invariant)
+
+Only `graph-io` may build the `code.db` path, open a connection to it, or run
+SQL against the code graph. Every other package reaches the graph through a
+`GraphReader` / `GraphStore` obtained from `graph_io.open_reader(workspace)` /
+`graph_io.open_writer(workspace)`. The conn-level modules (`queries`, `upsert`,
+`resolve`, `store`, `cluster`, `sync_wiki`, `schema`) are graph-io-internal —
+callers import the handle API, record dataclasses, and error classes from the
+`graph_io` top level instead. Enforced by `tests/test_db_boundary.py`.
+
+Note: `commands/query.py` keeps `import sqlite3` for its `search.db` embeddings
+cache — that is NOT graph data and NOT `code.db`, so it is outside this boundary.
+
 ## Testing
 
 `pytest tests/ -v` from the package root, or via the workspace from the repo root.

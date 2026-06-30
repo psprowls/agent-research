@@ -14,7 +14,7 @@ from pathlib import Path
 from typing import Any, cast
 
 import graph_io
-from graph_io.store import GraphNotInitializedError
+from graph_io import GraphNotInitializedError
 from guidance_io.index_store import GuidanceIndex, IndexEntry, content_hash, load_index, save_index
 from guidance_io.vocab import load_vocab, write_tags_yaml
 from guidance_io.vocab import seed_tags as seed_tags_fn

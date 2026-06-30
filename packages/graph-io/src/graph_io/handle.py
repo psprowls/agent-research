@@ -286,6 +286,9 @@ def open_reader(workspace: Path) -> GraphReader:
     return GraphReader(store.read_only_connect(_db_path(workspace)))
 
 
-def open_writer(workspace: Path) -> GraphStore:
-    """Open a read-write GraphStore on ``<workspace>/.graph-wiki/code.db``."""
-    return GraphStore(store.connect(_db_path(workspace), create=False))
+def open_writer(workspace: Path, *, create: bool = False) -> GraphStore:
+    """Open a read-write GraphStore on ``<workspace>/.graph-wiki/code.db``.
+
+    ``create=True`` initializes a fresh graph schema at the workspace.
+    """
+    return GraphStore(store.connect(_db_path(workspace), create=create))
