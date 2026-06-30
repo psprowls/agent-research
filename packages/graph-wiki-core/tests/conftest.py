@@ -191,3 +191,17 @@ def seeded_graph_conn(tmp_path_factory):
         yield conn
     finally:
         conn.close()
+
+
+@pytest.fixture(scope="session")
+def seeded_graph_reader(seeded_graph_conn):
+    """GraphReader handle wrapping the session ``seeded_graph_conn``.
+
+    Task 6 (handle API): ``build_graph_tools`` now takes a ``GraphReader``
+    rather than a raw ``sqlite3.Connection``. This shares the same underlying
+    read-only connection (closed by the ``seeded_graph_conn`` teardown), so no
+    separate teardown is needed here.
+    """
+    from graph_io import GraphReader
+
+    return GraphReader(seeded_graph_conn)

@@ -12,8 +12,8 @@ def _by_name(tools):
     return {t.name: t for t in tools}
 
 
-def test_factory_returns_five_named_tools(seeded_graph_conn):
-    tools = build_graph_tools(seeded_graph_conn)
+def test_factory_returns_five_named_tools(seeded_graph_reader):
+    tools = build_graph_tools(seeded_graph_reader)
     assert len(tools) == 5
     assert {t.name for t in tools} == {
         "cg_find",
@@ -24,14 +24,14 @@ def test_factory_returns_five_named_tools(seeded_graph_conn):
     }
 
 
-def test_cg_find_no_args_returns_error_string(seeded_graph_conn):
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+def test_cg_find_no_args_returns_error_string(seeded_graph_reader):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out = tools["cg_find"].invoke({})
     assert out == "error: at least one of name, kind, in_package required"
 
 
-def test_cg_describe_kind_enum(seeded_graph_conn):
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+def test_cg_describe_kind_enum(seeded_graph_reader):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out = tools["cg_describe"].invoke({"kind": "bogus", "identifier": "x"})
     assert "error: invalid kind 'bogus'" in out
     assert "valid: package, path, repository, domain, entry_point, test_suite" in out
@@ -48,48 +48,49 @@ def test_cg_describe_kind_enum(seeded_graph_conn):
         ("test_suite", "any-nonexistent-suite"),
     ],
 )
-def test_cg_describe_dispatch(seeded_graph_conn, kind, identifier):
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+def test_cg_describe_dispatch(seeded_graph_reader, kind, identifier):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out = tools["cg_describe"].invoke({"kind": kind, "identifier": identifier})
     assert isinstance(out, str)
     assert "invalid kind" not in out
 
 
-def test_cg_describe_missing_entity_returns_error_string(seeded_graph_conn):
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+def test_cg_describe_missing_entity_returns_error_string(seeded_graph_reader):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out = tools["cg_describe"].invoke({"kind": "package", "identifier": "definitely-not-real-9999"})
     assert "error: no package named" in out
     assert "definitely-not-real-9999" in out
 
 
-def test_tools_return_string_with_row_cap(seeded_graph_conn):
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+def test_tools_return_string_with_row_cap(seeded_graph_reader):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out_find = tools["cg_find"].invoke({"kind": "function"})
     assert isinstance(out_find, str)
     out_imports = tools["cg_imports"].invoke({"path": "packages/mypkg/src/mypkg/foo.py"})
     assert isinstance(out_imports, str)
 
 
-def test_closure_shares_single_connection(seeded_graph_conn):
-    real_find = __import__("graph_wiki_core.graph_tools", fromlist=["queries"]).queries.find
+def test_closure_shares_single_reader(seeded_graph_reader):
+    """The 5 tools all close over the same GraphReader instance (LIBTOOLS-03)."""
+    real_find = seeded_graph_reader.find
     seen_ids: list[int] = []
 
-    def _recorder(conn, **kwargs):
-        seen_ids.append(id(conn))
-        return real_find(conn, **kwargs)
+    def _recorder(**kwargs):
+        seen_ids.append(id(seeded_graph_reader))
+        return real_find(**kwargs)
 
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
-    with patch("graph_wiki_core.graph_tools.queries.find", side_effect=_recorder):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
+    with patch.object(seeded_graph_reader, "find", side_effect=_recorder):
         tools["cg_find"].invoke({"name": "foo"})
         tools["cg_find"].invoke({"kind": "function"})
 
     assert len(seen_ids) == 2
-    assert seen_ids[0] == id(seeded_graph_conn)
-    assert seen_ids[1] == id(seeded_graph_conn)
+    assert seen_ids[0] == id(seeded_graph_reader)
+    assert seen_ids[1] == id(seeded_graph_reader)
 
 
-def test_cg_callers_callees_imports_smoke(seeded_graph_conn):
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+def test_cg_callers_callees_imports_smoke(seeded_graph_reader):
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out_callers = tools["cg_callers"].invoke({"name": "foo"})
     assert isinstance(out_callers, str)
     out_callees = tools["cg_callees"].invoke({"name": "foo"})
@@ -105,7 +106,7 @@ def test_cg_callers_callees_exclude_test_symbols_by_default(tmp_path):
     results are a meaningful contrast — without it, the "T absent" assertions
     would pass vacuously even if the tools returned nothing for any input.
     """
-    from graph_io import resolve, store, upsert
+    from graph_io import GraphReader, resolve, store, upsert
     from source_parser.projections.graph import GraphEdge, GraphNode, GraphRecords
 
     db = tmp_path / "code.db"
@@ -138,7 +139,7 @@ def test_cg_callers_callees_exclude_test_symbols_by_default(tmp_path):
 
     ro = store.read_only_connect(db)
     try:
-        tools = _by_name(build_graph_tools(ro))
+        tools = _by_name(build_graph_tools(GraphReader(ro)))
         callers_out = tools["cg_callers"].invoke({"name": "X"})
         callees_out = tools["cg_callees"].invoke({"name": "P"})
         control_callers = tools["cg_callers"].invoke({"name": "B"})
@@ -174,18 +175,16 @@ def _symbol_names(rendered: str) -> set[str]:
 
 def test_cg_describe_matches_run_describe_spine(seeded_graph_workspace) -> None:
     """cg_describe and run_describe produce the identical human spine (surface-divergence gap)."""
-    from graph_io.store import read_only_connect
+    import graph_io
     from graph_wiki_core.commands import graph as graph_module
     from graph_wiki_core.graph_tools import build_graph_tools
-    from workspace_io.paths import graph_dir
 
-    db = graph_dir(seeded_graph_workspace) / "code.db"
-    conn = read_only_connect(db)
+    reader = graph_io.open_reader(seeded_graph_workspace)
     try:
-        tools = {t.name: t for t in build_graph_tools(conn)}
+        tools = {t.name: t for t in build_graph_tools(reader)}
         cg_out = tools["cg_describe"].invoke({"kind": "package", "identifier": "commonlib"})
     finally:
-        conn.close()
+        reader.close()
 
     # run_describe ignores the repo arg for describe, so the workspace is passed for both.
     _, run_out, _ = graph_module.run_describe("package", "commonlib", seeded_graph_workspace, seeded_graph_workspace)
@@ -193,12 +192,12 @@ def test_cg_describe_matches_run_describe_spine(seeded_graph_workspace) -> None:
     assert cg_out.startswith("package commonlib\n  uri: pkg:commonlib")
 
 
-def test_cg_describe_package_has_children(seeded_graph_conn) -> None:
+def test_cg_describe_package_has_children(seeded_graph_reader) -> None:
     """cg_describe package output includes a children (depth 1) section.
 
     Uses 'commonlib' — a package (not an app) in the sample_monorepo fixture.
     """
-    tools = _by_name(build_graph_tools(seeded_graph_conn))
+    tools = _by_name(build_graph_tools(seeded_graph_reader))
     out = tools["cg_describe"].invoke({"kind": "package", "identifier": "commonlib"})
     assert "children (depth 1)" in out
 
@@ -219,18 +218,16 @@ def _children_block(s: str) -> str:
 
 def test_cg_describe_and_run_describe_children_parity(seeded_graph_workspace) -> None:
     """cg_describe and run_describe render the identical children block for a package."""
-    from graph_io.store import read_only_connect
+    import graph_io
     from graph_wiki_core.commands import graph as graph_module
     from graph_wiki_core.graph_tools import build_graph_tools
-    from workspace_io.paths import graph_dir
 
-    db = graph_dir(seeded_graph_workspace) / "code.db"
-    conn = read_only_connect(db)
+    reader = graph_io.open_reader(seeded_graph_workspace)
     try:
-        tools = {t.name: t for t in build_graph_tools(conn)}
+        tools = {t.name: t for t in build_graph_tools(reader)}
         cg_out = tools["cg_describe"].invoke({"kind": "package", "identifier": "commonlib"})
     finally:
-        conn.close()
+        reader.close()
 
     _, run_out, _ = graph_module.run_describe("package", "commonlib", seeded_graph_workspace, seeded_graph_workspace)
 

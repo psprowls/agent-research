@@ -43,8 +43,9 @@ from pathlib import Path
 from typing import cast
 
 import bm25s
+import graph_io
 from bm25s.tokenization import Tokenized, Tokenizer
-from graph_io.store import GraphNotInitializedError, read_only_connect
+from graph_io import GraphReader
 from langchain_aws import BedrockEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
@@ -709,24 +710,22 @@ def _prepare_query_retrieval(query: str, workspace_path: Path | None, top_k: int
     )
 
 
-def _load_query_graph_tools(workspace: Path) -> tuple[sqlite3.Connection | None, list]:
-    db_path = graph_dir(workspace) / "code.db"
-    conn: sqlite3.Connection | None = None
+def _load_query_graph_tools(workspace: Path) -> tuple[GraphReader | None, list]:
+    reader: GraphReader | None = None
     try:
-        conn = read_only_connect(db_path)
-        node_count = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
-        if node_count == 0:
-            conn.close()
+        reader = graph_io.open_reader(workspace)
+        if reader.node_count() == 0:
+            reader.close()
             sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
             return None, []
-        graph_tools = build_graph_tools(conn)
-        return conn, graph_tools
-    except GraphNotInitializedError:
+        graph_tools = build_graph_tools(reader)
+        return reader, graph_tools
+    except graph_io.GraphNotInitializedError:
         sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
         return None, []
     except Exception as exc:  # noqa: BLE001 - graph tools are optional planning aids.
-        if conn is not None:
-            conn.close()
+        if reader is not None:
+            reader.close()
         logger.debug("query graph tools unavailable: %s", exc)
         return None, []
 
@@ -1040,30 +1039,28 @@ async def _run_legacy_query(
     # ---- Phase 37: open read-only graph conn (LIBTOOLS-04, D-07/D-08) ----
     # wiki is workspace/wiki under the standard layout; .graph lives next to it.
     workspace = wiki.parent
-    db_path = graph_dir(workspace) / "code.db"
-    conn: sqlite3.Connection | None = None
+    reader: GraphReader | None = None
     graph_tools: list = []
     addendum = ""
     try:
-        conn = read_only_connect(db_path)
+        reader = graph_io.open_reader(workspace)
         # Empty-DB guard: an EvalWorktree provisions schema-valid but empty DBs.
         # A zero-node graph is effectively uninitialized — binding graph tools
         # against it causes librarians to loop to the iteration cap returning
         # NO_RELEVANT_CONTENT, triggering the code-fallback chain and collapsing
         # eval quality scores (root-cause confirmed 2026-05-30, jc1 fix).
-        node_count = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
-        if node_count == 0:
-            conn.close()
-            conn = None
+        if reader.node_count() == 0:
+            reader.close()
+            reader = None
             sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
             addendum = _LIBRARIAN_FALLBACK_ADDENDUM
         else:
-            graph_tools = build_graph_tools(conn)
-    except GraphNotInitializedError:
+            graph_tools = build_graph_tools(reader)
+    except graph_io.GraphNotInitializedError:
         # D-08: emit-once stderr signal; D-07: prompt addendum, no tools.
         sys.stderr.write(_GRAPH_UNAVAILABLE_STDERR + "\n")
         addendum = _LIBRARIAN_FALLBACK_ADDENDUM
-        # graph_tools stays []; conn stays None.
+        # graph_tools stays []; reader stays None.
 
     # ---- Phase 37: CountTokens pre-flight gate (LIBTOOLS-05, D-04..D-06) ----
     # Pre-read top pages once for the gate; cache the text so drill_page can
@@ -1090,8 +1087,8 @@ async def _run_legacy_query(
         measured = 0
     if measured > budget:
         sys.stderr.write(_BUDGET_EXCEEDED_TEMPLATE.format(measured=measured, budget=budget) + "\n")
-        if conn is not None:
-            conn.close()
+        if reader is not None:
+            reader.close()
         sys.exit(BUDGET_EXCEEDED_EXIT_CODE)
 
     # ---- Phase 37: bind graph tools when available (LIBTOOLS-04) ----
@@ -1282,8 +1279,8 @@ async def _run_legacy_query(
 
         return query_result
     finally:
-        if conn is not None:
-            conn.close()
+        if reader is not None:
+            reader.close()
 
 
 async def run_query(
@@ -1325,7 +1322,7 @@ async def run_query(
     started_at = datetime.datetime.now(tz=datetime.timezone.utc).isoformat()
     prepared = _prepare_query_retrieval(query, workspace_path, top_k)
     repo_root = prepared.repo_root or _resolve_repo_root(prepared.wiki)
-    graph_conn, graph_tools = _load_query_graph_tools(prepared.wiki.parent)
+    graph_reader, graph_tools = _load_query_graph_tools(prepared.wiki.parent)
     merged_overrides = dict(role_model_overrides or {})
     if librarian_model_override and "librarian" not in merged_overrides:
         merged_overrides["librarian"] = librarian_model_override
@@ -1356,8 +1353,8 @@ async def run_query(
             role_model_overrides=role_model_overrides,
         )
     finally:
-        if graph_conn is not None:
-            graph_conn.close()
+        if graph_reader is not None:
+            graph_reader.close()
 
     useful_evidence = [evidence for evidence in orchestrated.output.evidence if evidence.excerpt.strip()]
     citations = list(

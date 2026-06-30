@@ -102,9 +102,9 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
     librarian_llm = _make_librarian_llm()
     synth_llm = _make_synth_llm()
 
-    fake_conn = MagicMock()
-    # Simulate non-empty DB: COUNT(*) returns 42 nodes.
-    fake_conn.execute.return_value.fetchone.return_value = (42,)
+    fake_reader = MagicMock()
+    # Simulate non-empty DB: node_count() returns 42 nodes.
+    fake_reader.node_count.return_value = 42
 
     fake_tool = MagicMock()
     fake_tool.name = "cg_find"
@@ -118,8 +118,8 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
 
     extra = [
         patch(
-            "graph_wiki_core.commands.query.read_only_connect",
-            return_value=fake_conn,
+            "graph_wiki_core.commands.query.graph_io.open_reader",
+            return_value=fake_reader,
         ),
         patch(
             "graph_wiki_core.commands.query.build_graph_tools",
@@ -165,9 +165,9 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
     librarian_llm = _make_librarian_llm()
     synth_llm = _make_synth_llm()
 
-    fake_conn = MagicMock()
-    # Simulate empty DB: COUNT(*) returns 0 nodes.
-    fake_conn.execute.return_value.fetchone.return_value = (0,)
+    fake_reader = MagicMock()
+    # Simulate empty DB: node_count() returns 0 nodes.
+    fake_reader.node_count.return_value = 0
 
     FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
@@ -178,8 +178,8 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
 
     extra = [
         patch(
-            "graph_wiki_core.commands.query.read_only_connect",
-            return_value=fake_conn,
+            "graph_wiki_core.commands.query.graph_io.open_reader",
+            return_value=fake_reader,
         ),
         patch(
             "graph_wiki_core.commands.query.build_graph_tools",
@@ -223,23 +223,23 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
     invoke_msgs = librarian_llm.ainvoke.call_args.args[0]
     sys_msg = invoke_msgs[0]
     assert _LIBRARIAN_FALLBACK_ADDENDUM.strip() in sys_msg.content
-    # The conn must be closed (not leaked).
-    fake_conn.close.assert_called_once()
+    # The reader must be closed (not leaked).
+    fake_reader.close.assert_called_once()
 
 
 def test_load_query_graph_tools_closes_connection_when_tool_build_fails(tmp_path: Path) -> None:
-    """Default orchestrator graph-tool loading must not leak conn on build failure."""
+    """Default orchestrator graph-tool loading must not leak the reader on build failure."""
     from graph_wiki_core.commands import query as mod
 
-    fake_conn = MagicMock()
-    fake_conn.execute.return_value.fetchone.return_value = (1,)
+    fake_reader = MagicMock()
+    fake_reader.node_count.return_value = 1
 
     with (
-        patch("graph_wiki_core.commands.query.read_only_connect", return_value=fake_conn),
+        patch("graph_wiki_core.commands.query.graph_io.open_reader", return_value=fake_reader),
         patch("graph_wiki_core.commands.query.build_graph_tools", side_effect=RuntimeError("boom")),
     ):
-        conn, tools = mod._load_query_graph_tools(tmp_path)
+        reader, tools = mod._load_query_graph_tools(tmp_path)
 
-    assert conn is None
+    assert reader is None
     assert tools == []
-    fake_conn.close.assert_called_once()
+    fake_reader.close.assert_called_once()

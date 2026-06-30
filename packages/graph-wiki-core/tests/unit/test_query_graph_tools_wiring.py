@@ -108,7 +108,7 @@ async def test_single_connection_open_close(tmp_path: Path) -> None:
     fan_result = FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
     extra = [
-        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=_fake_open),
+        patch("graph_wiki_core.commands.query.graph_io.open_reader", side_effect=_fake_open),
         patch("graph_wiki_core.commands.query.build_graph_tools", return_value=[]),
         patch("graph_wiki_core.commands.query.count_tokens", return_value=10),
         patch("graph_wiki_core.commands.query.make_llm"),
@@ -153,7 +153,7 @@ async def test_not_initialized_fallback(tmp_path: Path, capsys) -> None:
         raise GraphNotInitializedError("missing")
 
     extra = [
-        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=_raise),
+        patch("graph_wiki_core.commands.query.graph_io.open_reader", side_effect=_raise),
         patch("graph_wiki_core.commands.query.build_graph_tools", return_value=[]),
         patch("graph_wiki_core.commands.query.count_tokens", return_value=10),
         patch("graph_wiki_core.commands.query.make_llm"),
@@ -205,7 +205,7 @@ async def test_budget_overflow_hard_aborts(tmp_path: Path, capsys) -> None:
 
     extra = [
         patch(
-            "graph_wiki_core.commands.query.read_only_connect",
+            "graph_wiki_core.commands.query.graph_io.open_reader",
             return_value=MagicMock(),
         ),
         patch("graph_wiki_core.commands.query.build_graph_tools", return_value=[]),
@@ -260,7 +260,7 @@ async def test_budget_under_proceeds(tmp_path: Path) -> None:
 
     extra = [
         patch(
-            "graph_wiki_core.commands.query.read_only_connect",
+            "graph_wiki_core.commands.query.graph_io.open_reader",
             return_value=MagicMock(),
         ),
         patch("graph_wiki_core.commands.query.build_graph_tools", return_value=[]),
@@ -316,7 +316,7 @@ async def test_librarian_tool_call_loop(tmp_path: Path) -> None:
 
     extra = [
         patch(
-            "graph_wiki_core.commands.query.read_only_connect",
+            "graph_wiki_core.commands.query.graph_io.open_reader",
             return_value=MagicMock(),
         ),
         patch(
@@ -386,7 +386,7 @@ async def test_librarian_loop_iter_cap(tmp_path: Path) -> None:
 
     extra = [
         patch(
-            "graph_wiki_core.commands.query.read_only_connect",
+            "graph_wiki_core.commands.query.graph_io.open_reader",
             return_value=MagicMock(),
         ),
         patch(

@@ -1,6 +1,6 @@
-"""Librarian grounding tools — 5 @tool callables wrapping graph_io.queries.
+"""Librarian grounding tools — 5 @tool callables wrapping a graph_io.GraphReader.
 
-Built via `build_graph_tools(conn)` factory that captures the connection in
+Built via `build_graph_tools(reader)` factory that captures the reader in
 closure scope (LIBTOOLS-03). All tools return strings (LIBTOOLS-02). The
 multi-row tools (`cg_find`/`cg_callers`/`cg_callees`/`cg_imports`) route results
 through `graph_io.render.render(...)` with a 50-row cap; `cg_describe` renders
@@ -12,9 +12,7 @@ Decision references: D-01..D-12 in .planning/phases/37-librarian-grounding-tools
 
 from __future__ import annotations
 
-import sqlite3
-
-from graph_io import queries
+from graph_io import GraphReader
 from graph_io import render as _render
 from langchain_core.tools import BaseTool, tool
 
@@ -35,12 +33,12 @@ def _missing(kind: str, identifier: str) -> str:
     return f"error: no {kind} named '{identifier}' found in graph"
 
 
-def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
-    """Return the 5 librarian @tool callables, each closed over `conn`.
+def build_graph_tools(reader: GraphReader) -> list[BaseTool]:
+    """Return the 5 librarian @tool callables, each closed over `reader`.
 
-    Connection lifetime is the caller's responsibility: open via
-    `graph_io.store.read_only_connect()` at command entry, pass into this
-    factory, close in `finally` (LIBTOOLS-03).
+    Reader lifetime is the caller's responsibility: open via
+    `graph_io.open_reader(workspace)` at command entry, pass into this factory,
+    close in `finally` (LIBTOOLS-03).
     """
 
     @tool
@@ -59,7 +57,7 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
         if name is None and kind is None and in_package is None:
             return "error: at least one of name, kind, in_package required"
         try:
-            rows = queries.find(conn, name=name, kind=kind, in_package=in_package)
+            rows = reader.find(name=name, kind=kind, in_package=in_package)
         except ValueError as exc:
             return f"error: {exc}"
         return _render.render(rows, fmt="human", cap=_ROW_CAP)
@@ -80,35 +78,35 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             valid = ", ".join(_DESCRIBE_KINDS)
             return f"error: invalid kind '{kind}'; valid: {valid}"
         if kind == "repository":
-            result = queries.describe_repository(conn)
+            result = reader.describe_repository()
             if result is None:
                 return _missing(kind, identifier)
-            children, eff = queries.children_for(conn, kind="repository", name=result.name, depth=None)
+            children, eff = reader.children_for(kind="repository", name=result.name, depth=None)
             return _render.format_repo(result, fmt="human", children=children, effective_depth=eff)
         if kind == "package":
-            result = queries.describe_package(conn, name=identifier)
+            result = reader.describe_package(name=identifier)
             if result is None:
                 return _missing(kind, identifier)
-            children, eff = queries.children_for(conn, kind="package", name=result.name, depth=None)
+            children, eff = reader.children_for(kind="package", name=result.name, depth=None)
             return _render.format_package(result, fmt="human", children=children, effective_depth=eff)
         if kind == "path":
-            result = queries.describe_path(conn, path=identifier)
+            result = reader.describe_path(path=identifier)
             if result is None:
                 return _missing(kind, identifier)
-            children, eff = queries.children_for(conn, kind="file", path=result.path, depth=None)
+            children, eff = reader.children_for(kind="file", path=result.path, depth=None)
             return _render.format_path(result, fmt="human", children=children, effective_depth=eff)
         if kind == "test_suite":
-            result = queries.describe_test_suite(conn, suite_name=identifier)
+            result = reader.describe_test_suite(suite_name=identifier)
             if result is None:
                 return _missing(kind, identifier)
-            children, eff = queries.children_for(conn, kind="test_suite", name=result.name, depth=None)
+            children, eff = reader.children_for(kind="test_suite", name=result.name, depth=None)
             return _render.format_suite(result, fmt="human", children=children, effective_depth=eff)
         if kind == "domain":
-            result = queries.describe_domain(conn, name=identifier)
+            result = reader.describe_domain(name=identifier)
             if result is None:
                 return _missing(kind, identifier)
-            packages, subdomains = queries.domain_members(conn, identifier)
-            children, eff = queries.children_for(conn, kind="domain", name=result.name, depth=None)
+            packages, subdomains = reader.domain_members(identifier)
+            children, eff = reader.children_for(kind="domain", name=result.name, depth=None)
             return _render.format_domain(
                 result, packages, subdomains, fmt="human", children=children, effective_depth=eff
             )
@@ -119,7 +117,7 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             if ":" not in identifier:
                 return _missing(kind, identifier)
             package_name, _, entry_name = identifier.partition(":")
-            result = queries.describe_entry_point(conn, package_name=package_name, entry_name=entry_name)
+            result = reader.describe_entry_point(package_name=package_name, entry_name=entry_name)
             return _render.format_entry_point(result, fmt="human") if result else _missing(kind, identifier)
         # Unreachable today (every _DESCRIBE_KINDS value has a branch above); guards
         # against a future kind added to the enum without a matching branch leaking None.
@@ -133,7 +131,7 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             name: required symbol name.
             depth: default 3, integer.
         """
-        rows = queries.callers(conn, name=name, depth=depth)
+        rows = reader.callers(name=name, depth=depth)
         return _render.render(rows, fmt="human", cap=_ROW_CAP)
 
     @tool
@@ -144,7 +142,7 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
             name: required symbol name.
             depth: default 3, integer.
         """
-        rows = queries.callees(conn, name=name, depth=depth)
+        rows = reader.callees(name=name, depth=depth)
         return _render.render(rows, fmt="human", cap=_ROW_CAP)
 
     @tool
@@ -154,7 +152,7 @@ def build_graph_tools(conn: sqlite3.Connection) -> list[BaseTool]:
         Args:
             path: required, repo-relative.
         """
-        rows = queries.imports(conn, path=path)
+        rows = reader.imports(path=path)
         return _render.render(rows, fmt="human", cap=_ROW_CAP)
 
     return [cg_find, cg_describe, cg_callers, cg_callees, cg_imports]

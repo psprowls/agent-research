@@ -51,7 +51,7 @@ async def test_orchestrated_query_summary_records_batch_iterations(tmp_path: Pat
         patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
         patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
         patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
-        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.graph_io.open_reader", side_effect=Exception("missing graph")),
         patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(return_value=orch)),
     ]
     with ExitStack() as stack:

@@ -368,7 +368,7 @@ async def test_run_query_passes_query_orchestrator_role_override(tmp_path: Path)
         patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
         patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
         patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
-        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.graph_io.open_reader", side_effect=Exception("missing graph")),
         patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(side_effect=_fake_orchestrator)),
     ]
     with ExitStack() as stack:
@@ -419,7 +419,7 @@ async def test_run_query_default_path_preserves_librarian_override_precedence(tm
         patch("graph_wiki_core.commands.query.bm25_query", return_value=(["alpha.md"], [1.0])),
         patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("alpha.md", 0.5)]),
         patch("graph_wiki_core.commands.query.BedrockEmbeddings"),
-        patch("graph_wiki_core.commands.query.read_only_connect", side_effect=Exception("missing graph")),
+        patch("graph_wiki_core.commands.query.graph_io.open_reader", side_effect=Exception("missing graph")),
         patch("graph_wiki_core.commands.query.run_query_orchestrator", new=AsyncMock(side_effect=_fake_orchestrator)),
     ]
     with ExitStack() as stack:
