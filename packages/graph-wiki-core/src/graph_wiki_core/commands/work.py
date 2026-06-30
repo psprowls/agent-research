@@ -239,6 +239,7 @@ async def _apply_work_item_side_effects(
     succeeds against an un-bootstrapped wiki (work items predate bootstrap). The
     sidecar regen always runs (gw work status/next read it).
     """
+    _paths.work_item_dir(wiki.parent, result["slug"]).mkdir(parents=True, exist_ok=True)
     await run_work_regen_index(workspace_path=workspace_path)
     if (wiki / "index.md").exists():
         update_index(wiki)
@@ -615,7 +616,6 @@ async def run_work_file(
         item_body = item_body.rstrip("\n") + "\n\n" + pointer + "\n"
 
     result = _filing.write_work_item(wiki, fm, item_body, force=force)
-    _paths.work_item_dir(wiki.parent, result["slug"]).mkdir(parents=True, exist_ok=True)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
 
     return IngestResult(

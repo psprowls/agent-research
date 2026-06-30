@@ -325,6 +325,9 @@ async def test_run_ingest_work_item_writes_page_sidecar_index_and_log(tmp_path: 
     assert (wiki / "work-index.json").exists()
     mock_ui.assert_called_once_with(wiki)
     mock_al.assert_called_once()
+    # Regression: the MCP work-item ingest path must get a work-item dir too,
+    # same as `gw work file` — both call _apply_work_item_side_effects.
+    assert (wiki / "work" / "2026-05-14-fix-auth-bug").is_dir()
 
 
 # ---------------------------------------------------------------------------
