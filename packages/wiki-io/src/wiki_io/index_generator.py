@@ -43,20 +43,10 @@ import dataclasses
 import datetime
 import os
 import re
-import sqlite3
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from graph_io.queries import (
-    internal_dependencies_of,
-    list_agent_plugins,
-    list_apps,
-    list_dependencies,
-    list_domains,
-    list_packages,
-    list_repositories,
-    list_test_suites,
-)
 from workspace_io.paths import wiki_dir, work_dir
 
 from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_GROUP_LABELS, KIND_GROUP_ORDER, kind_group
@@ -71,6 +61,9 @@ from wiki_io.entity_writer import (
     short_filename as _short_filename,
 )
 from wiki_io.wikilinks import vault_wikilink
+
+if TYPE_CHECKING:
+    from graph_io.handle import GraphReader
 
 # ============================================================================
 # Module constants (D-09, D-12)
@@ -218,8 +211,11 @@ class PlacedEntity:
 # ============================================================================
 
 
-def _compute_qualifying_domains(conn: sqlite3.Connection, *, kind: str, name: str, uri: str = "") -> set[str]:
+def _compute_qualifying_domains(reader: "GraphReader", *, kind: str, name: str, uri: str = "") -> set[str]:
     """Return the set of domain names that qualify for this entity (D-04).
+
+    Thin wrapper over `reader.qualifying_domains` (the SQL was ported verbatim
+    into graph-io). Per-kind semantics:
 
     - package:    direct `belongs_to_domain` edges.
     - app:        direct `belongs_to_domain` edges (Phase 57 D-03/D-04 —
@@ -231,53 +227,11 @@ def _compute_qualifying_domains(conn: sqlite3.Connection, *, kind: str, name: st
                   Edge direction: package -[used_by]-> dependency.
     - agent_plugin: always empty (D-04 — agent_plugins have no domain edges in v1.8).
     """
-    if kind in ("package", "app"):
-        rows = conn.execute(
-            "SELECT d.name FROM edges e "
-            "JOIN nodes p ON e.src = p.id "
-            "JOIN nodes d ON e.dst = d.id "
-            "WHERE e.kind='belongs_to_domain' "
-            "AND p.kind = ? AND p.name = ? "
-            "AND d.kind='domain' "
-            "ORDER BY d.name",
-            (kind, name),
-        ).fetchall()
-        return {r[0] for r in rows}
-    if kind == "test_suite":
-        rows = conn.execute(
-            "SELECT DISTINCT d.name FROM edges t "
-            "JOIN nodes ts ON t.src = ts.id "
-            "JOIN nodes p ON t.dst = p.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE t.kind='tests' "
-            "AND ts.kind='test_suite' AND ts.uri = ? "
-            "AND p.kind='package' AND d.kind='domain' "
-            "ORDER BY d.name",
-            (uri,),
-        ).fetchall()
-        return {r[0] for r in rows}
-    if kind == "dependency":
-        rows = conn.execute(
-            "SELECT DISTINCT d.name FROM edges u "
-            "JOIN nodes p ON u.src = p.id "
-            "JOIN nodes dep ON u.dst = dep.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE u.kind='used_by' "
-            "AND p.kind='package' AND dep.kind='dependency' AND dep.name = ? "
-            "AND d.kind='domain' "
-            "ORDER BY d.name",
-            (name,),
-        ).fetchall()
-        return {r[0] for r in rows}
-    if kind == "agent_plugin":
-        return set()
-    raise ValueError(f"Only app/package/test_suite/dependency/agent_plugin are placeable; got {kind!r}")
+    return reader.qualifying_domains(kind=kind, name=name, uri=uri)
 
 
 def _consumer_pkgs_in_domain(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     *,
     kind: str,
     entity_uri: str = "",
@@ -288,40 +242,16 @@ def _consumer_pkgs_in_domain(
     this dependency / test_suite. Used by `_place_entities` to populate
     `PlacedEntity.parent_pkg_names` for intra-domain nesting (D-06).
 
+    Thin wrapper over `reader.consumer_packages_in_domain` (SQL ported verbatim).
     For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
     For dependency: resolved by `dep.name` (dependencies are name-unique)."""
-    if kind == "dependency":
-        rows = conn.execute(
-            "SELECT DISTINCT p.name FROM edges u "
-            "JOIN nodes p ON u.src = p.id "
-            "JOIN nodes dep ON u.dst = dep.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE u.kind='used_by' AND p.kind='package' "
-            "AND dep.kind='dependency' AND dep.name = ? "
-            "AND d.kind='domain' AND d.name = ? "
-            "ORDER BY p.name",
-            (entity_name, domain_name),
-        ).fetchall()
-        return tuple(r[0] for r in rows)
-    if kind == "test_suite":
-        rows = conn.execute(
-            "SELECT DISTINCT p.name FROM edges t "
-            "JOIN nodes ts ON t.src = ts.id "
-            "JOIN nodes p ON t.dst = p.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
-            "AND p.kind='package' AND d.kind='domain' AND d.name = ? "
-            "ORDER BY p.name",
-            (entity_uri, domain_name),
-        ).fetchall()
-        return tuple(r[0] for r in rows)
-    return ()
+    return reader.consumer_packages_in_domain(
+        kind=kind, entity_uri=entity_uri, entity_name=entity_name, domain_name=domain_name
+    )
 
 
 def _consumer_pkgs(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     *,
     kind: str,
     entity_uri: str = "",
@@ -335,31 +265,10 @@ def _consumer_pkgs(
     so a direct-placed (multi/zero-domain) dependency or test_suite still nests
     under every package/app that consumes it. Sorted alphabetically for determinism.
 
+    Thin wrapper over `reader.consumer_packages` (SQL ported verbatim).
     For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
     For dependency: resolved by `dep.name` (dependencies are name-unique)."""
-    if kind == "dependency":
-        rows = conn.execute(
-            "SELECT DISTINCT p.name FROM edges u "
-            "JOIN nodes p ON u.src = p.id "
-            "JOIN nodes dep ON u.dst = dep.id "
-            "WHERE u.kind='used_by' AND p.kind IN ('package', 'app') "
-            "AND dep.kind='dependency' AND dep.name = ? "
-            "ORDER BY p.name",
-            (entity_name,),
-        ).fetchall()
-        return tuple(r[0] for r in rows)
-    if kind == "test_suite":
-        rows = conn.execute(
-            "SELECT DISTINCT p.name FROM edges t "
-            "JOIN nodes ts ON t.src = ts.id "
-            "JOIN nodes p ON t.dst = p.id "
-            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
-            "AND p.kind IN ('package', 'app') "
-            "ORDER BY p.name",
-            (entity_uri,),
-        ).fetchall()
-        return tuple(r[0] for r in rows)
-    return ()
+    return reader.consumer_packages(kind=kind, entity_uri=entity_uri, entity_name=entity_name)
 
 
 def _read_entity_summary(wiki_root: Path, entity: PlacedEntity, collision_set: frozenset[str]) -> str:
@@ -386,7 +295,7 @@ def _read_entity_summary(wiki_root: Path, entity: PlacedEntity, collision_set: f
 
 
 def _place_entities(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     wiki_root: Path,
     collision_set: frozenset[str],
 ) -> tuple[
@@ -418,7 +327,7 @@ def _place_entities(
     Iterates `_PLACEABLE_KINDS` (NOT the heading-kind order) so test_suites
     and dependencies are discovered and can nest (D-01 crux).
     """
-    repos = list_repositories(conn)
+    repos = reader.list_repositories()
     repo_key_to_name: dict[str, str] = {}
     for r in repos:
         key = _parse_repo_key(r.attrs.get("uri") or "")
@@ -454,7 +363,7 @@ def _place_entities(
         )
 
     domain_repo: dict[str, str] = {}
-    for d in list_domains(conn):
+    for d in reader.list_domains():
         domain_repo[d.name] = _repo_for(
             d.attrs.get("uri") or "", kind="domain", name=d.name, repo=d.attrs.get("repo") or ""
         )
@@ -468,17 +377,17 @@ def _place_entities(
         return per_repo[repo_name]
 
     kind_to_list_fn = {
-        "app": list_apps,
-        "package": list_packages,
-        "test_suite": list_test_suites,
-        "dependency": list_dependencies,
-        "agent_plugin": list_agent_plugins,
+        "app": reader.list_apps,
+        "package": reader.list_packages,
+        "test_suite": reader.list_test_suites,
+        "dependency": reader.list_dependencies,
+        "agent_plugin": reader.list_agent_plugins,
     }
     for kind in _PLACEABLE_KINDS:
         list_fn = kind_to_list_fn[kind]
-        for node in list_fn(conn):
+        for node in list_fn():
             uri = node.attrs.get("uri") or ""
-            qualifying = _compute_qualifying_domains(conn, kind=kind, name=node.name, uri=uri)
+            qualifying = _compute_qualifying_domains(reader, kind=kind, name=node.name, uri=uri)
             # D-01: populate parent_pkg_names with the DOMAIN-AGNOSTIC consumer
             # set for every dep/test_suite (not only single-domain ones), so a
             # direct-placed dep/suite still nests under its consumer packages.
@@ -486,9 +395,9 @@ def _place_entities(
             # pass entity_name (D-08).
             parent_pkgs: tuple[str, ...] = ()
             if kind == "test_suite":
-                parent_pkgs = _consumer_pkgs(conn, kind=kind, entity_uri=uri)
+                parent_pkgs = _consumer_pkgs(reader, kind=kind, entity_uri=uri)
             elif kind == "dependency":
-                parent_pkgs = _consumer_pkgs(conn, kind=kind, entity_name=node.name)
+                parent_pkgs = _consumer_pkgs(reader, kind=kind, entity_name=node.name)
             suite_kind: str | None = None
             pkg_for_suite: str | None = None
             if kind == "test_suite":
@@ -669,32 +578,14 @@ def _scan_guidance_topics(wiki_root: Path) -> list[tuple[str, int]]:
 # ============================================================================
 
 
-def _list_subdomains(conn: sqlite3.Connection, parent_name: str) -> list[str]:
+def _list_subdomains(reader: "GraphReader", parent_name: str) -> list[str]:
     """Return child domain names for `parent_name` (via `domain_contains_domain`)."""
-    rows = conn.execute(
-        "SELECT child.name FROM edges e "
-        "JOIN nodes parent ON e.src = parent.id "
-        "JOIN nodes child ON e.dst = child.id "
-        "WHERE e.kind='domain_contains_domain' "
-        "AND parent.kind='domain' AND parent.name = ? "
-        "AND child.kind='domain' "
-        "ORDER BY child.name",
-        (parent_name,),
-    ).fetchall()
-    return [r[0] for r in rows]
+    return reader.subdomains(parent_name)
 
 
-def _is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
+def _is_top_level_domain(reader: "GraphReader", name: str) -> bool:
     """True if `name` has NO inbound `domain_contains_domain` edge."""
-    row = conn.execute(
-        "SELECT 1 FROM edges e "
-        "JOIN nodes child ON e.dst = child.id "
-        "WHERE e.kind='domain_contains_domain' "
-        "AND child.kind='domain' AND child.name = ? "
-        "LIMIT 1",
-        (name,),
-    ).fetchone()
-    return row is None
+    return reader.is_top_level_domain(name)
 
 
 def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str], label: str | None = None) -> str:
@@ -730,7 +621,7 @@ def _entity_bullet(entity: PlacedEntity, collision_set: frozenset[str], indent: 
 
 
 def _render_pkg_nested(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     pkg: PlacedEntity,
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
     name_to_entity: dict[str, PlacedEntity],
@@ -763,7 +654,7 @@ def _render_pkg_nested(
             lines.append(_entity_bullet(d, collision_set, "    "))
     # Internal dependencies (D-09/D-11): resolve names → internal package/app
     # entities; skip any name with no matching placed entity (defensive).
-    internal_names = internal_dependencies_of(conn, name=pkg.name)
+    internal_names = reader.internal_dependencies_of(name=pkg.name)
     internal_entities = [name_to_entity[n] for n in internal_names if n in name_to_entity]
     if internal_entities:
         lines.append("  - Internal dependencies")
@@ -803,7 +694,7 @@ def _kind_major(entities: list[PlacedEntity]) -> list[PlacedEntity]:
 
 
 def _render_entity_heading(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     entity: PlacedEntity,
     *,
     level: int,
@@ -824,13 +715,13 @@ def _render_entity_heading(
     summary = f"{entity.summary} — " if entity.summary else ""
     lines.append(f"{summary}{link}")
     if entity.kind in ("package", "app"):
-        lines.extend(_render_pkg_nested(conn, entity, sub_for_pkg, name_to_entity, collision_set))
+        lines.extend(_render_pkg_nested(reader, entity, sub_for_pkg, name_to_entity, collision_set))
     lines.append("")
     return lines
 
 
 def _render_domain_section(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     domain_buckets: dict[str, list[PlacedEntity]],
     *,
     domain_name: str,
@@ -854,7 +745,7 @@ def _render_domain_section(
     for e in _kind_major(domain_buckets.get(domain_name, [])):
         entity_lines.extend(
             _render_entity_heading(
-                conn,
+                reader,
                 e,
                 level=level + 1,
                 collision_set=collision_set,
@@ -864,10 +755,10 @@ def _render_domain_section(
         )
 
     sub_domain_blocks: list[str] = []
-    for sub_name in _list_subdomains(conn, domain_name):
+    for sub_name in _list_subdomains(reader, domain_name):
         sub_domain_blocks.extend(
             _render_domain_section(
-                conn,
+                reader,
                 domain_buckets,
                 domain_name=sub_name,
                 depth=depth + 1,
@@ -883,7 +774,7 @@ def _render_domain_section(
 
 
 def _render_repository_section(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     *,
     repo_name: str,
     domain_buckets: dict[str, list[PlacedEntity]],
@@ -905,10 +796,10 @@ def _render_repository_section(
     lines: list[str] = []
     domain_count = 0
     for d in repo_domains:
-        if not _is_top_level_domain(conn, d):
+        if not _is_top_level_domain(reader, d):
             continue
         section = _render_domain_section(
-            conn,
+            reader,
             domain_buckets,
             domain_name=d,
             depth=0,
@@ -923,7 +814,7 @@ def _render_repository_section(
     for e in _kind_major(direct):
         lines.extend(
             _render_entity_heading(
-                conn,
+                reader,
                 e,
                 level=3,
                 collision_set=collision_set,
@@ -1000,7 +891,7 @@ def _render_guidance_section(topics: list[tuple[str, int]]) -> list[str]:
 
 
 def _render(
-    conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None
+    reader: "GraphReader", wiki_root: Path, display_name: str | None = None
 ) -> tuple[str, int, int, int, int, int]:
     """Render the full index.
 
@@ -1011,9 +902,9 @@ def _render(
     """
     # Phase 53 D-05: one-shot collision pre-pass, threaded through every
     # entity-link derivation so the index agrees with `write_entities`.
-    collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
+    collision_set = _compute_collision_set(reader, _ADMITTED_KINDS, _kind_list_fns())
 
-    per_repo, name_to_entity, domain_repo = _place_entities(conn, wiki_root, collision_set)
+    per_repo, name_to_entity, domain_repo = _place_entities(reader, wiki_root, collision_set)
 
     all_placed: list[PlacedEntity] = []
     for buckets, direct in per_repo.values():
@@ -1050,7 +941,7 @@ def _render(
         buckets, direct = per_repo[repo_name]
         repo_domains = sorted(d for d, r in domain_repo.items() if r == repo_name)
         section, d_count, dir_count = _render_repository_section(
-            conn,
+            reader,
             repo_name=repo_name,
             domain_buckets=buckets,
             direct=direct,
@@ -1077,7 +968,7 @@ def _render(
     return text, entity_count, curated_count, domain_count, direct_count, repo_count
 
 
-def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
+def generate_index(reader: "GraphReader", wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
     """Render `wiki/index.md` and write-if-changed. Atomic on POSIX.
 
     `display_name` titles the index (the wiki's human topic); falls back to the
@@ -1087,7 +978,7 @@ def generate_index(conn: sqlite3.Connection, wiki_root: Path, display_name: str 
     bytes differ. D-19: all-or-nothing — exceptions in render/place
     propagate out untouched.
     """
-    text, entity_count, curated_count, domain_count, direct_count, repo_count = _render(conn, wiki_root, display_name)
+    text, entity_count, curated_count, domain_count, direct_count, repo_count = _render(reader, wiki_root, display_name)
     path = wiki_root / "index.md"
     new_bytes = text.encode("utf-8")
     existing_bytes: bytes | None

@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from graph_io.handle import GraphReader
+
 
 def _seed_db(workspace: Path, packages, extra_nodes=None) -> Path:
     """Create <workspace>/.graph-wiki/code.db with package + optional extra nodes.
@@ -59,7 +61,7 @@ def test_lookup_entity_by_path_returns_uri_and_name(tmp_path: Path) -> None:
 
     rel = "packages/graph-io/src/graph_io/store.py"
     db = _seed_db(tmp_path, [("graph-io", "pkg:o/r/graph-io", rel)])
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_entity_by_path(conn, tmp_path, tmp_path / rel)
     finally:
@@ -73,7 +75,7 @@ def test_lookup_entity_by_path_outside_repo_returns_none(tmp_path: Path) -> None
 
     rel = "packages/graph-io/src/graph_io/store.py"
     db = _seed_db(tmp_path, [("graph-io", "pkg:o/r/graph-io", rel)])
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         # A path that is not under repo_root triggers the `except ValueError` branch.
         outside = tmp_path.parent / "elsewhere" / "store.py"
@@ -91,7 +93,7 @@ def test_lookup_entity_by_path_no_containing_package_returns_none(
 
     # Empty graph: no file/package nodes, so the join yields no row.
     db = _seed_db(tmp_path, [])
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_entity_by_path(conn, tmp_path, tmp_path / "anything/file.py")
     finally:
@@ -104,7 +106,7 @@ def test_lookup_entity_by_name_unique_match(tmp_path: Path) -> None:
     from wiki_io.entity_lookup import lookup_entity_by_name
 
     db = _seed_db(tmp_path, [("graph-io", "pkg:o/r/graph-io", None)])
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_entity_by_name(conn, "graph-io")
     finally:
@@ -124,7 +126,7 @@ def test_lookup_entity_by_name_multi_match_returns_none(tmp_path: Path) -> None:
             ("class", "Helper", "b/helper.py", "cls:o/b/Helper"),
         ],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_entity_by_name(conn, "Helper")
     finally:
@@ -192,7 +194,7 @@ def test_lookup_package_by_dir_exact_match(tmp_path):
         ],
         edges=[],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_package_by_dir(conn, tmp_path, tmp_path / "domains/financial/financial-tools-py")
     finally:
@@ -218,7 +220,7 @@ def test_lookup_package_by_dir_nested_subdir_walks_to_enclosing(tmp_path):
         ],
         edges=[],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_package_by_dir(conn, tmp_path, tmp_path / "domains/financial/financial-tools-py/src/sub")
     finally:
@@ -235,7 +237,7 @@ def test_lookup_package_by_dir_app_kind(tmp_path):
         nodes=[(1, "app", "app-electron-ts", "apps/app-electron-ts", None, "app:o/r/app-electron-ts")],
         edges=[],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_package_by_dir(conn, tmp_path, tmp_path / "apps/app-electron-ts")
     finally:
@@ -252,7 +254,7 @@ def test_lookup_package_by_dir_outside_repo_returns_none(tmp_path):
         nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
         edges=[],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_package_by_dir(conn, tmp_path, tmp_path.parent / "elsewhere/p")
     finally:
@@ -269,7 +271,7 @@ def test_lookup_package_by_dir_no_package_ancestor_returns_none(tmp_path):
         nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
         edges=[],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         result = lookup_package_by_dir(conn, tmp_path, tmp_path / "docs/notes")
     finally:
@@ -291,7 +293,7 @@ def test_files_in_package_returns_contained_file_rows(tmp_path):
         ],
         edges=[(1, 2, "contains"), (1, 3, "contains")],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         rows = files_in_package(conn, 1)
     finally:
@@ -312,7 +314,7 @@ def test_files_in_package_empty_when_no_files(tmp_path):
         nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
         edges=[],
     )
-    conn = read_only_connect(db)
+    conn = GraphReader(read_only_connect(db))
     try:
         rows = files_in_package(conn, 1)
     finally:

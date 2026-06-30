@@ -13,9 +13,9 @@ replacing the legacy `slug_from_uri` for entity links.
 
 from __future__ import annotations
 
-import sqlite3
 import sys
 from pathlib import Path, PurePosixPath
+from typing import TYPE_CHECKING
 
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
@@ -24,12 +24,15 @@ from wiki_io.entity_writer import (
     short_filename,
 )
 
+if TYPE_CHECKING:
+    from graph_io.handle import GraphReader
+
 # Entity-kind nodes worth a name-fallback match (file names are noisy).
 # Mirrors the former `_ENTITY_KINDS` in graph_wiki_core.commands.ingest.
 ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method", "domain"})
 
 
-def lookup_entity_by_path(conn: sqlite3.Connection, repo_root: Path, source_path: Path) -> tuple[str, str] | None:
+def lookup_entity_by_path(reader: "GraphReader", repo_root: Path, source_path: Path) -> tuple[str, str] | None:
     """Return (uri, name) for the package CONTAINING the source file, or None.
 
     Resolves source_path relative to repo_root (POSIX-style), then joins
@@ -41,23 +44,16 @@ def lookup_entity_by_path(conn: sqlite3.Connection, repo_root: Path, source_path
         rel = source_path.resolve().relative_to(repo_root.resolve()).as_posix()
     except ValueError:
         return None
-    row = conn.execute(
-        "SELECT p.name, p.uri FROM nodes f "
-        "JOIN edges e ON e.dst = f.id AND e.kind='contains' "
-        "JOIN nodes p ON e.src = p.id "
-        "WHERE f.kind='file' AND f.path = ? AND p.kind='package' "
-        "LIMIT 1",
-        (rel,),
-    ).fetchone()
-    if row is None:
+    hit = reader.package_for_file(path=rel)
+    if hit is None:
         return None
-    name, uri = row
-    if not uri:
-        return None
+    # package_for_file returns (name, uri) and already applies the falsy-uri
+    # guard (returns None); this function's public contract is (uri, name).
+    name, uri = hit
     return uri, name
 
 
-def lookup_entity_by_name(conn: sqlite3.Connection, name: str) -> tuple[str, str] | None:
+def lookup_entity_by_name(reader: "GraphReader", name: str) -> tuple[str, str] | None:
     """Return (uri, name) for the unique entity-kind match by name, or None.
 
     When more than one entity-kind node shares the name, emit one stderr
@@ -65,9 +61,7 @@ def lookup_entity_by_name(conn: sqlite3.Connection, name: str) -> tuple[str, str
     """
     if not name:
         return None
-    placeholders = ",".join("?" for _ in ENTITY_KINDS)
-    sql = f"SELECT name, uri, kind FROM nodes WHERE name = ? AND kind IN ({placeholders}) AND uri IS NOT NULL"
-    rows = conn.execute(sql, [name, *sorted(ENTITY_KINDS)]).fetchall()
+    rows = reader.entity_by_name(name=name, kinds=tuple(sorted(ENTITY_KINDS)))
     if not rows:
         return None
     if len(rows) > 1:
@@ -81,7 +75,7 @@ def lookup_entity_by_name(conn: sqlite3.Connection, name: str) -> tuple[str, str
     return matched_uri, matched_name
 
 
-def lookup_package_by_dir(conn: sqlite3.Connection, repo_root: Path, dir_path: Path) -> tuple[str, str, int] | None:
+def lookup_package_by_dir(reader: "GraphReader", repo_root: Path, dir_path: Path) -> tuple[str, str, int] | None:
     """Return (uri, name, node_id) for the package/app a directory names, or None.
 
     Resolves dir_path relative to repo_root (POSIX-style), then matches a
@@ -101,18 +95,14 @@ def lookup_package_by_dir(conn: sqlite3.Connection, repo_root: Path, dir_path: P
     # Candidate paths: the dir itself, then each ancestor up to (not incl.) root.
     candidates = [rel, *(p.as_posix() for p in PurePosixPath(rel).parents if p.as_posix() != ".")]
     for path in candidates:
-        row = conn.execute(
-            "SELECT uri, name, id FROM nodes "
-            "WHERE kind IN ('package','app') AND path = ? AND uri IS NOT NULL AND uri <> '' LIMIT 1",
-            (path,),
-        ).fetchone()
+        row = reader.package_or_app_by_dir(path=path)
         if row is not None:
             uri, name, node_id = row
             return str(uri), str(name), int(node_id)
     return None
 
 
-def files_in_package(conn: sqlite3.Connection, node_id: int) -> list[tuple]:
+def files_in_package(reader: "GraphReader", node_id: int) -> list[tuple]:
     """Return the file rows (id, path, attrs_json) contained in a package/app node.
 
     Joins package --contains--> file (the same shape guidance_scan enumerates).
@@ -120,23 +110,15 @@ def files_in_package(conn: sqlite3.Connection, node_id: int) -> list[tuple]:
     them positionally: r[0]=id, r[1]=path, r[2]=attrs_json. Empty list when the
     node contains no file nodes.
     """
-    return conn.execute(
-        "SELECT f.id, f.path, f.attrs_json "
-        "FROM nodes p "
-        "JOIN edges e ON e.src = p.id AND e.kind = 'contains' "
-        "JOIN nodes f ON e.dst = f.id AND f.kind = 'file' "
-        "WHERE p.id = ? AND f.path IS NOT NULL "
-        "ORDER BY f.path",
-        (node_id,),
-    ).fetchall()
+    return reader.files_in_node(node_id)
 
 
-def entity_filename_for_uri(uri: str, conn: sqlite3.Connection | None = None) -> str | None:
+def entity_filename_for_uri(uri: str, reader: "GraphReader | None" = None) -> str | None:
     """Return the scanner's on-disk entity filename stem for a graph URI, or
     None when the URI maps to no admitted entity page.
 
     Bedrock-free. Mirrors `write_entities` / `short_filename` so an ingest
-    `[[entities/<stem>]]` wikilink resolves to a real page. When `conn` is
+    `[[entities/<stem>]]` wikilink resolves to a real page. When `reader` is
     given, the exact collision set is computed so colliding stems carry the
     same `__<hex>` suffix the scanner uses; otherwise an empty collision set is
     assumed (correct for the no-collision common case).
@@ -148,9 +130,9 @@ def entity_filename_for_uri(uri: str, conn: sqlite3.Connection | None = None) ->
     if not uri:
         return None
     collision_set: frozenset[str] = frozenset()
-    if conn is not None:
+    if reader is not None:
         try:
-            collision_set = _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns())
+            collision_set = _compute_collision_set(reader, ADMITTED_KINDS, _kind_list_fns())
         except Exception:  # noqa: BLE001 — collision precompute is best-effort
             collision_set = frozenset()
     try:

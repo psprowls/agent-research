@@ -332,12 +332,12 @@ def pick_representative(root: Path, entries: list[tuple[str, int]]) -> str | Non
 def _build_entity_match(workspace_root: Path, repo: Path, source_path: Path, title_guess: str) -> dict:
     """Resolve the entity a source belongs to and the on-disk entity filename.
 
-    Bedrock-free. Opens a read-only graph conn; returns
+    Bedrock-free. Opens a read-only graph reader; returns
     {"uri": None, "entity_filename": None} when the graph is missing or no
     entity matches (the harness agent proceeds without a link in that case).
     """
-    from graph_io.store import GraphNotInitializedError, read_only_connect
-    from workspace_io.paths import graph_dir
+    import graph_io
+    from graph_io import GraphNotInitializedError
 
     from wiki_io.entity_lookup import (
         entity_filename_for_uri,
@@ -347,20 +347,20 @@ def _build_entity_match(workspace_root: Path, repo: Path, source_path: Path, tit
 
     empty = {"uri": None, "entity_filename": None}
     try:
-        conn = read_only_connect(graph_dir(workspace_root) / "code.db")
+        reader = graph_io.open_reader(workspace_root)
     except GraphNotInitializedError:
         return empty
     try:
-        match = lookup_entity_by_path(conn, repo, source_path)
+        match = lookup_entity_by_path(reader, repo, source_path)
         if match is None:
-            match = lookup_entity_by_name(conn, title_guess)
+            match = lookup_entity_by_name(reader, title_guess)
         if match is None:
             return empty
         uri = match[0]
-        return {"uri": uri, "entity_filename": entity_filename_for_uri(uri, conn)}
+        return {"uri": uri, "entity_filename": entity_filename_for_uri(uri, reader)}
     finally:
         try:
-            conn.close()
+            reader.close()
         except Exception:
             pass
 

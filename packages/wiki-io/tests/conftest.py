@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from graph_io import upsert
+from graph_io.handle import GraphReader
 from graph_io.queries import (
     AgentPluginDescription,
     DependencyDescription,
@@ -26,14 +27,21 @@ FIXTURE_VAULT = Path(__file__).parent / "fixtures" / "round-trip-vault"
 # ============================================================================
 
 
-class MockGraphConn:
-    """Duck-typed stand-in for sqlite3.Connection. Holds canned per-kind data.
+class MockGraphConn(GraphReader):
+    """Duck-typed stand-in presenting as a GraphReader over canned per-kind data.
 
-    Tests monkeypatch `graph_io.queries.list_*` and `describe_*` to read
-    from `self._nodes` / `self._descriptions` instead of executing SQL.
+    Subclasses GraphReader so callers reach it through the handle API
+    (``reader.list_*()`` / ``reader.describe_*()``). The GraphReader methods
+    delegate to ``graph_io.queries.<fn>(self._conn, ...)``; here ``self._conn``
+    is the mock itself, and tests monkeypatch ``graph_io.queries.list_*`` /
+    ``describe_*`` to read from ``self._nodes`` / ``self._descriptions`` instead
+    of executing SQL (see ``_wire_mock_queries``).
     """
 
     def __init__(self) -> None:
+        # Delegate the handle methods' `queries.<fn>(self._conn)` calls back to
+        # this same object (the monkeypatched query fns read its canned data).
+        self._conn = self
         self._nodes: dict[str, list[NodeRecord]] = {
             "repository": [],
             "domain": [],
@@ -44,6 +52,9 @@ class MockGraphConn:
             "test_suite": [],
         }
         self._descriptions: dict[tuple, object] = {}
+
+    def close(self) -> None:  # no-op: self._conn is self (avoid recursion)
+        pass
 
     def set_nodes(self, kind: str, nodes: list[NodeRecord]) -> None:
         self._nodes[kind] = nodes
@@ -301,8 +312,24 @@ def round_trip_vault() -> Path:
 # ============================================================================
 
 
-def _make_index_fixture_graph(spec: dict) -> sqlite3.Connection:
-    """Build an in-memory sqlite graph from a declarative spec.
+class _FixtureReader(GraphReader):
+    """GraphReader over an in-memory fixture conn that ALSO proxies raw
+    ``execute``/``executemany`` so tests that mutate the seed AFTER building
+    the graph (e.g. inserting a uri-less node) keep working unchanged."""
+
+    def execute(self, *args, **kwargs):
+        return self._conn.execute(*args, **kwargs)
+
+    def executemany(self, *args, **kwargs):
+        return self._conn.executemany(*args, **kwargs)
+
+    def commit(self):
+        return self._conn.commit()
+
+
+def _make_index_fixture_graph(spec: dict) -> "_FixtureReader":
+    """Build an in-memory sqlite graph from a declarative spec, returned as a
+    GraphReader (the index generator now takes a handle, not a raw conn).
 
     spec = {
         "nodes": [(kind, name, attrs_dict), ...],
@@ -326,7 +353,7 @@ def _make_index_fixture_graph(spec: dict) -> sqlite3.Connection:
         for (sk, sn, dk, dn, ek, ea) in spec.get("edges", [])
     )
     upsert.upsert_records(conn, GraphRecords(nodes=nodes, edges=edges))
-    return conn
+    return _FixtureReader(conn)
 
 
 @pytest.fixture

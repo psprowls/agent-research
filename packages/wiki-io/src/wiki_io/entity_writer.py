@@ -261,13 +261,12 @@ import json  # noqa: E402
 import logging  # noqa: E402
 import os  # noqa: E402
 import re  # noqa: E402
-import sqlite3  # noqa: E402
 from collections.abc import Iterable  # noqa: E402
 from contextlib import contextmanager  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
 from importlib.resources import files as _resource_files  # noqa: E402
 from pathlib import Path  # noqa: E402
-from typing import Any, Callable, Iterator  # noqa: E402
+from typing import TYPE_CHECKING, Any, Callable, Iterator  # noqa: E402
 
 import frontmatter  # noqa: E402
 import yaml  # noqa: E402
@@ -279,9 +278,10 @@ def _load_frontmatter(path: Path) -> frontmatter.Post:
     return frontmatter.load(str(path))
 
 
-from graph_io import queries as _queries  # noqa: E402
-
 from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table  # noqa: E402
+
+if TYPE_CHECKING:
+    from graph_io.handle import GraphReader
 
 # Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
 # Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
@@ -760,17 +760,17 @@ def update_frontmatter(
 # ----------------------------------------------------------------------------
 
 
-# Mapping from kind to list_fn — closes over graph_io.queries module so tests
-# can monkeypatch via `setattr(_queries, "list_packages", ...)`.
+# Mapping from kind to list_fn — each closes over a GraphReader and calls the
+# matching `reader.list_*()` handle method.
 def _kind_list_fns() -> dict[str, Callable]:
     return {
-        "repository": lambda conn: _queries.list_repositories(conn),
-        "package": lambda conn: _queries.list_packages(conn),
-        "app": lambda conn: _queries.list_apps(conn),
-        "domain": lambda conn: _queries.list_domains(conn),
-        "test_suite": lambda conn: _queries.list_test_suites(conn),
-        "dependency": lambda conn: _queries.list_dependencies(conn),
-        "agent_plugin": lambda conn: _queries.list_agent_plugins(conn),
+        "repository": lambda reader: reader.list_repositories(),
+        "package": lambda reader: reader.list_packages(),
+        "app": lambda reader: reader.list_apps(),
+        "domain": lambda reader: reader.list_domains(),
+        "test_suite": lambda reader: reader.list_test_suites(),
+        "dependency": lambda reader: reader.list_dependencies(),
+        "agent_plugin": lambda reader: reader.list_agent_plugins(),
     }
 
 
@@ -780,7 +780,7 @@ def _template_path_for_kind(kind: str) -> Path:
     return Path(str(_resource_files("wiki_io.assets.page-templates").joinpath(fname)))
 
 
-def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
+def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
     """Build the scanner-update frontmatter dict from a graph node + its description.
 
     Returns a dict ready for `merge_frontmatter`. Always populates `uri`,
@@ -804,11 +804,11 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
     description = node.attrs.get("description") if isinstance(node.attrs, dict) else None
     fm["summary"] = description or f"TODO add a one-line summary for {node.name}"
     if kind == "repository":
-        d = _queries.describe_repository(conn)
+        d = reader.describe_repository()
         if d is not None:
             fm["package_count"] = d.package_count
     elif kind == "package":
-        d = _queries.describe_package(conn, name=node.name)
+        d = reader.describe_package(name=node.name)
         if d is not None:
             fm["language"] = d.language
             fm["version"] = d.version
@@ -816,7 +816,7 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
             fm["test_suites"] = [s.name for s in d.test_suites]
             fm["entry_points"] = [e.name for e in d.entry_points]
     elif kind == "app":
-        d = _queries.describe_app(conn, name=node.name)
+        d = reader.describe_app(name=node.name)
         if d is not None:
             # AppDescription mirrors PackageDescription field-for-field with
             # two additions: `app_kind` (one of `_VALID_APP_KINDS`) and
@@ -830,23 +830,23 @@ def scanner_frontmatter_for_node(conn: Any, kind: str, node: Any) -> dict:
             fm["app_kind"] = d.app_kind
             fm["app_signals"] = list(d.app_signals)
     elif kind == "domain":
-        d = _queries.describe_domain(conn, name=node.name)
+        d = reader.describe_domain(name=node.name)
         if d is not None and d.parent:
             fm["parent_domain"] = d.parent
     elif kind == "test_suite":
-        d = _queries.describe_test_suite(conn, suite_name=node.name)
+        d = reader.describe_test_suite(suite_name=node.name)
         if d is not None:
             fm["suite_kind"] = d.kind
             fm["file_count"] = d.file_count
     elif kind == "dependency":
         ecosystem = node.attrs.get("ecosystem", "pypi") if isinstance(node.attrs, dict) else "pypi"
-        d = _queries.describe_dependency(conn, ecosystem=ecosystem, name=node.name)
+        d = reader.describe_dependency(ecosystem=ecosystem, name=node.name)
         if d is not None:
             fm["ecosystem"] = d.ecosystem
             fm["versions_in_use"] = list(d.versions_in_use)
             fm["used_by"] = list(d.used_by)
     elif kind == "agent_plugin":
-        d = _queries.describe_agent_plugin(conn, name=node.name)
+        d = reader.describe_agent_plugin(name=node.name)
         if d is not None:
             fm["ecosystem"] = d.ecosystem
             fm["version"] = d.version
@@ -859,7 +859,7 @@ def _is_template_body_default(body: str, template_body: str) -> bool:
 
 
 def _compute_collision_set(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     admitted_kinds: frozenset[str],
     list_fns: dict[str, Callable],
 ) -> frozenset[str]:
@@ -882,15 +882,14 @@ def _compute_collision_set(
 
     Internal helper (single-leading-underscore): exists to keep
     ``write_entities`` readable + unit-testable in isolation. Reads the
-    SQLite connection in a read-only fashion; does not write or mutate
-    global state.
+    graph in a read-only fashion; does not write or mutate global state.
     """
     stem_to_uris: dict[str, list[str]] = {}
     for kind in sorted(admitted_kinds):
         list_fn = list_fns.get(kind)
         if list_fn is None:
             continue
-        for node in list_fn(conn):
+        for node in list_fn(reader):
             uri = node.attrs.get("uri") if isinstance(node.attrs, dict) else None
             if not uri:
                 continue
@@ -932,10 +931,10 @@ def _md_table(headers: list[str], rows: list[list[str]]) -> str:
     return f"{head}\n{sep}\n{body}"
 
 
-def _agent_plugin_table_variables(conn: Any, node: Any) -> dict[str, str]:
+def _agent_plugin_table_variables(reader: Any, node: Any) -> dict[str, str]:
     """Build the six `{{*_table}}` substitution values for an agent_plugin page
     from its component inventory. Returns `_None._` per section when empty."""
-    d = _queries.describe_agent_plugin(conn, name=node.name)
+    d = reader.describe_agent_plugin(name=node.name)
     if d is None:
         empty = "_None._"
         return {
@@ -978,7 +977,7 @@ def _agent_plugin_table_variables(conn: Any, node: Any) -> dict[str, str]:
 
 
 def write_entities(
-    conn: sqlite3.Connection,
+    reader: "GraphReader",
     wiki_root: Path,
     admitted_kinds: frozenset[str],
 ) -> EntityWriteResult:
@@ -1005,8 +1004,8 @@ def write_entities(
     admitted_uris: set[str] = set()
 
     list_fns = _kind_list_fns()
-    # Phase 52 D-01: one-shot collision pre-pass; reads conn read-only, no lock needed
-    collision_set = _compute_collision_set(conn, admitted_kinds, list_fns)
+    # Phase 52 D-01: one-shot collision pre-pass; reads the graph read-only, no lock needed
+    collision_set = _compute_collision_set(reader, admitted_kinds, list_fns)
 
     with _acquire_scan_lock(workspace_root):
         # --- Per-kind create / merge ---
@@ -1024,7 +1023,7 @@ def write_entities(
                     )
                 )
                 continue
-            for node in list_fn(conn):
+            for node in list_fn(reader):
                 uri = node.attrs.get("uri") if isinstance(node.attrs, dict) else None
                 if not uri:
                     continue
@@ -1052,7 +1051,7 @@ def write_entities(
                 )
                 page_path = entities_dir / f"{slug}.md"
                 try:
-                    scanner_fm = scanner_frontmatter_for_node(conn, kind, node)
+                    scanner_fm = scanner_frontmatter_for_node(reader, kind, node)
                     existing_fm: dict = {}
                     existing_body: str | None = None
                     existed = page_path.exists()
@@ -1076,7 +1075,7 @@ def write_entities(
                         "PACKAGE_SLUG": slug,
                     }
                     if kind == "agent_plugin":
-                        variables.update(_agent_plugin_table_variables(conn, node))
+                        variables.update(_agent_plugin_table_variables(reader, node))
                     new_content = _render_entity_page(
                         template_path,
                         merged_fm,

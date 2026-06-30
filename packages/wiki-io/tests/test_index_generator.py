@@ -19,6 +19,7 @@ import time
 from pathlib import Path
 
 import pytest
+from graph_io.handle import GraphReader
 from wiki_io.index_generator import (
     BY_KIND_ORDER,
     CURATED_LANES,
@@ -1477,7 +1478,7 @@ def _make_fanout_fixture() -> sqlite3.Connection:
         ],
     )
     conn.commit()
-    return conn
+    return GraphReader(conn)
 
 
 def test_consumer_pkgs_fanout_regression_guard():
@@ -1532,7 +1533,7 @@ _WS_ROOT = _resolve_workspace_root()
 @pytest.mark.skipif(_WS_ROOT is None, reason="no live agent-research graph")
 def test_snapshot_against_agent_research(snapshot):
     db = _WS_ROOT / ".graph-wiki" / "graph.db"
-    conn = sqlite3.connect(str(db))
+    conn = GraphReader(sqlite3.connect(str(db)))
     try:
         wiki_root = _WS_ROOT / ".graph-wiki" / "wiki"
         text, *_ = _render(conn, wiki_root)

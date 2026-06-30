@@ -22,6 +22,7 @@ from __future__ import annotations
 import sqlite3
 
 from graph_io import upsert
+from graph_io.handle import GraphReader
 from graph_io.schema import apply_schema
 from source_parser.projections.graph import GraphNode, GraphRecords
 from wiki_io.entity_writer import ADMITTED_KINDS, write_entities
@@ -275,7 +276,7 @@ def test_same_named_packages_across_repos_get_distinct_filenames(tmp_path):
     wiki_root = tmp_path / "wiki"
     wiki_root.mkdir()
 
-    write_entities(conn, wiki_root, ADMITTED_KINDS)
+    write_entities(GraphReader(conn), wiki_root, ADMITTED_KINDS)
 
     entities = wiki_root / "entities"
     # Assert structurally (glob), NOT by recomputing the production hash —

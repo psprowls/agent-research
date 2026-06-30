@@ -26,6 +26,7 @@ from pathlib import Path
 import frontmatter
 import pytest
 from graph_io import agent_plugins, packages, structural_nodes
+from graph_io.handle import GraphReader
 from graph_io.schema import apply_schema
 from graph_io.uri import RepoContext
 from wiki_io.entity_writer import (
@@ -80,14 +81,17 @@ def _build_fixture_workspace(root: Path) -> None:
     )
 
 
-def _ingest(workspace: Path) -> sqlite3.Connection:
-    """Build an in-memory graph from the fixture workspace."""
+def _ingest(workspace: Path) -> GraphReader:
+    """Build an in-memory graph from the fixture workspace, as a GraphReader.
+
+    `write_entities` takes a handle; for the few tests that mutate the seed
+    after building, reach the raw conn via ``reader._conn`` (test-only)."""
     conn = sqlite3.connect(":memory:")
     apply_schema(conn)
     packages.refresh(conn, repo_root=workspace, ctx=CTX)
     structural_nodes.emit(conn, repo_root=workspace, ctx=CTX, skip_dirs=frozenset())
     agent_plugins.emit(conn, repo_root=workspace, ctx=CTX)
-    return conn
+    return GraphReader(conn)
 
 
 def test_write_entities_round_trip_on_synthetic_workspace(tmp_path):
@@ -171,14 +175,14 @@ def test_hard_delete_logs_to_deletions_log(tmp_path):
     assert pkg_a_path.exists()
 
     # Remove pkg-a from the graph: delete its edges, then its node.
-    conn.execute(
+    conn._conn.execute(
         "DELETE FROM edges WHERE src IN ("
         "  SELECT id FROM nodes WHERE kind='package' AND name='pkg-a'"
         ") OR dst IN ("
         "  SELECT id FROM nodes WHERE kind='package' AND name='pkg-a'"
         ")"
     )
-    conn.execute("DELETE FROM nodes WHERE kind='package' AND name='pkg-a'")
+    conn._conn.execute("DELETE FROM nodes WHERE kind='package' AND name='pkg-a'")
 
     result = write_entities(conn, wiki_root, ADMITTED_KINDS)
     assert any("pkg-a" in uri for uri in result.deleted)
