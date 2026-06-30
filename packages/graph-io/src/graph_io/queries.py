@@ -1813,3 +1813,171 @@ def cross_cutting_packages(
             continue  # defensive — shouldn't happen
         out.append((desc, int(score or 0)))
     return out
+
+
+# ============================================================================
+# CLI/core raw-SQL ports. Each function lifts the exact SQL from a non-wiki-io
+# call site VERBATIM (same columns/WHERE/ORDER BY/JSON extraction) so callers
+# can stop writing SQL with byte-for-byte identical results. Call sites noted
+# per function. All take `conn` read-only and return plain data.
+# ============================================================================
+
+
+def metadata(conn: sqlite3.Connection, key: str) -> str | None:
+    """Return the `metadata.value` for `key`, or None if absent.
+
+    Source: graph_cli/ops_status.py `_collect` (the `last_indexed_commit`
+    lookup), generalized to an arbitrary key.
+    """
+    row = conn.execute("SELECT value FROM metadata WHERE key = ?", (key,)).fetchone()
+    return row[0] if row else None
+
+
+def node_count(conn: sqlite3.Connection) -> int:
+    """Total node count.
+
+    Source: graph_wiki_core/commands/query.py + graph.py (`SELECT COUNT(*) FROM nodes`).
+    """
+    return conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
+
+
+def node_counts_by_kind(conn: sqlite3.Connection) -> dict[str, int]:
+    """`{kind: count}` over all nodes.
+
+    Source: graph_cli/ops_status.py `_collect` (`SELECT kind, COUNT(*) FROM nodes GROUP BY kind`).
+    """
+    return {k: n for k, n in conn.execute("SELECT kind, COUNT(*) FROM nodes GROUP BY kind").fetchall()}
+
+
+def edge_counts_by_kind(conn: sqlite3.Connection) -> dict[str, int]:
+    """`{kind: count}` over all edges.
+
+    Source: graph_cli/ops_status.py `_collect` (`SELECT kind, COUNT(*) FROM edges GROUP BY kind`).
+    """
+    return {k: n for k, n in conn.execute("SELECT kind, COUNT(*) FROM edges GROUP BY kind").fetchall()}
+
+
+def languages(conn: sqlite3.Connection) -> list[str]:
+    """Sorted distinct `attrs_json.$.language` values across all nodes.
+
+    Source: graph_cli/ops_status.py `_collect` (SQL + `sorted(...)`) — VERBATIM,
+    including the `attrs_json IS NOT NULL AND json_extract(...) IS NOT NULL`
+    guard and no extra Python-side truthiness filter.
+    """
+    rows = conn.execute(
+        "SELECT DISTINCT json_extract(attrs_json, '$.language') "
+        "FROM nodes WHERE attrs_json IS NOT NULL "
+        "AND json_extract(attrs_json, '$.language') IS NOT NULL"
+    ).fetchall()
+    return sorted(row[0] for row in rows)
+
+
+def file_paths(conn: sqlite3.Connection) -> list[str]:
+    """Sorted paths of all `file` nodes.
+
+    Source: graph_wiki_core/commands/guidance_scan.py `_enumerate_files`
+    (`SELECT path FROM nodes WHERE kind='file' AND path IS NOT NULL`).
+    """
+    rows = conn.execute("SELECT path FROM nodes WHERE kind='file' AND path IS NOT NULL").fetchall()
+    return sorted(r[0] for r in rows)
+
+
+def file_paths_in_package(conn: sqlite3.Connection, name: str) -> list[str]:
+    """Sorted file paths contained by the package/app named `name` (case-insensitive).
+
+    Source: graph_wiki_core/commands/guidance_scan.py `_enumerate_files`
+    (package branch) — SQL and `sorted({...})` set-dedup ported VERBATIM.
+    """
+    rows = conn.execute(
+        "SELECT f.path FROM nodes p "
+        "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
+        "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
+        "WHERE p.kind IN ('package','app') AND LOWER(p.name)=LOWER(?)",
+        (name,),
+    ).fetchall()
+    return sorted({r[0] for r in rows if r[0]})
+
+
+def file_attrs(conn: sqlite3.Connection, path: str) -> dict | None:
+    """Parsed `attrs_json` for the `file` node at `path`, or None.
+
+    Source: graph_wiki_core/commands/guidance_signals.py `_derive_path_languages`
+    (`SELECT attrs_json FROM nodes WHERE kind='file' AND path=? LIMIT 1`). Returns
+    None when no row, empty attrs, or unparseable JSON (matching the call site's
+    `json.loads(...)` with `ValueError` guard).
+    """
+    row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='file' AND path=? LIMIT 1", (path,)).fetchone()
+    if not row or not row[0]:
+        return None
+    try:
+        return json.loads(row[0])
+    except ValueError:
+        return None
+
+
+def files_in_node(conn: sqlite3.Connection, node_id: int) -> list[tuple]:
+    """`(id, path, attrs_json)` rows for `file` nodes contained by `node_id`.
+
+    Source: wiki_io/entity_lookup.py `files_in_package` — SQL ported VERBATIM
+    (same columns, `contains` join, `f.path IS NOT NULL`, `ORDER BY f.path`).
+    """
+    return conn.execute(
+        "SELECT f.id, f.path, f.attrs_json "
+        "FROM nodes p "
+        "JOIN edges e ON e.src = p.id AND e.kind = 'contains' "
+        "JOIN nodes f ON e.dst = f.id AND f.kind = 'file' "
+        "WHERE p.id = ? AND f.path IS NOT NULL "
+        "ORDER BY f.path",
+        (node_id,),
+    ).fetchall()
+
+
+def symbol_names_under_files(
+    conn: sqlite3.Connection,
+    file_ids,
+    kinds: tuple[str, ...] = ("class", "function", "method"),
+) -> list[str]:
+    """Names of `kinds` symbols contained by any file in `file_ids`.
+
+    Source: graph_wiki_core/commands/guidance_signals.py `_package_signal_inputs`
+    (the symbol-haystack query) — SQL and `_SYMBOL_KINDS` default ported VERBATIM.
+    Returns [] for empty `file_ids` (no SQL issued).
+    """
+    file_ids = list(file_ids)
+    if not file_ids:
+        return []
+    placeholders = ",".join("?" for _ in file_ids)
+    kind_ph = ",".join("?" for _ in kinds)
+    rows = conn.execute(
+        f"SELECT n.name FROM edges e JOIN nodes n ON e.dst = n.id "
+        f"WHERE e.src IN ({placeholders}) AND e.kind='contains' "
+        f"AND n.kind IN ({kind_ph}) AND n.name IS NOT NULL",
+        (*file_ids, *kinds),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def declared_entry_points(conn: sqlite3.Connection) -> list[tuple]:
+    """`(package_name, entry_point_path, callable)` for every declared entry point.
+
+    Source: graph_cli/q_list_scripts.py (the declared-annotation lookup) — SQL
+    ported VERBATIM, including `json_extract(ep.attrs_json, '$.callable')` and
+    the `ep.kind='entry_point' AND ep.path IS NOT NULL` filter.
+    """
+    return conn.execute(
+        "SELECT pkg.name, ep.path, json_extract(ep.attrs_json, '$.callable') "
+        "FROM nodes pkg "
+        "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
+        "JOIN nodes ep ON ep.id = de.dst "
+        "WHERE ep.kind='entry_point' AND ep.path IS NOT NULL"
+    ).fetchall()
+
+
+def node_exists(conn: sqlite3.Connection, kind: str, name: str) -> bool:
+    """Whether a node of `(kind, name)` exists.
+
+    Source: graph_cli/q_what_tests.py (the two `SELECT 1 FROM nodes WHERE
+    kind=... AND name=? LIMIT 1` existence checks), generalized over `kind`.
+    """
+    row = conn.execute("SELECT 1 FROM nodes WHERE kind=? AND name=? LIMIT 1", (kind, name)).fetchone()
+    return row is not None

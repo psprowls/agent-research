@@ -185,10 +185,44 @@ class GraphReader:
     def dump_sql(self) -> Iterator[str]:
         return self._conn.iterdump()
 
-    # --- NEW methods (implemented in Tasks 3-4; intentionally not present yet) ---
-    # metadata, node_count, node_counts_by_kind, edge_counts_by_kind, languages,
-    # file_paths, file_paths_in_package, file_attrs, files_in_node,
-    # symbol_names_under_files, declared_entry_points, node_exists,
+    # --- cli/core raw-SQL ports (Task 3) ---
+    def metadata(self, key):
+        return queries.metadata(self._conn, key)
+
+    def node_count(self):
+        return queries.node_count(self._conn)
+
+    def node_counts_by_kind(self):
+        return queries.node_counts_by_kind(self._conn)
+
+    def edge_counts_by_kind(self):
+        return queries.edge_counts_by_kind(self._conn)
+
+    def languages(self):
+        return queries.languages(self._conn)
+
+    def file_paths(self):
+        return queries.file_paths(self._conn)
+
+    def file_paths_in_package(self, name):
+        return queries.file_paths_in_package(self._conn, name)
+
+    def file_attrs(self, path):
+        return queries.file_attrs(self._conn, path)
+
+    def files_in_node(self, node_id):
+        return queries.files_in_node(self._conn, node_id)
+
+    def symbol_names_under_files(self, file_ids, kinds=("class", "function", "method")):
+        return queries.symbol_names_under_files(self._conn, file_ids, kinds)
+
+    def declared_entry_points(self):
+        return queries.declared_entry_points(self._conn)
+
+    def node_exists(self, *, kind, name):
+        return queries.node_exists(self._conn, kind, name)
+
+    # --- NEW methods (wiki-io ports deferred to Task 4; not present yet) ---
     # package_for_file, entity_by_name, package_or_app_by_dir,
     # qualifying_domains, consumer_packages, consumer_packages_in_domain,
     # subdomains, is_top_level_domain
