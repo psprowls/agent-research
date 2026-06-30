@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Optional
 
 import typer
-from graph_io.queries import _VALID_KINDS
+from graph_io import VALID_KINDS
 from workspace_io.config import resolve
 
 from graph_wiki_cli.graph_cli import (
@@ -120,8 +120,8 @@ def find_cmd(
     if name is None and kind is None and in_package is None:
         typer.echo("Error: at least one of --name, --kind, --in-package is required", err=True)
         raise typer.Exit(code=2)
-    if kind is not None and kind not in _VALID_KINDS:
-        raise typer.BadParameter(f"invalid choice: {kind} (choose from: {', '.join(sorted(_VALID_KINDS))})")
+    if kind is not None and kind not in VALID_KINDS:
+        raise typer.BadParameter(f"invalid choice: {kind} (choose from: {', '.join(sorted(VALID_KINDS))})")
     _run(q_find, ctx, name=name, kind=kind, in_package=in_package)
 
 
