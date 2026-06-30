@@ -50,12 +50,13 @@ def _isolate_from_ambient_workspace():
 
 
 @pytest.fixture(scope="session")
-def seeded_db(tmp_path_factory):
-    """Read-only conn over sample_monorepo after `update.run(..., full=True)`.
+def seeded_workspace(tmp_path_factory) -> Path:
+    """Workspace dir whose `.graph-wiki/code.db` is built by `update.run(..., full=True)`.
 
-    Session-scoped per D-14: one update run per test session; all callers
-    share the resulting `mode=ro` connection. Safe because every Phase 32
-    query helper opens read-only and issues no INSERT/UPDATE/DELETE.
+    Session-scoped: builds the sample_monorepo graph once and returns the
+    workspace `Path` (not a connection). `seeded_db` opens a read-only conn over
+    the same workspace; the handle-API tests pass this path straight to
+    `open_reader`/`open_writer`.
 
     The workspace is pinned to a temp sibling of the seeded repo via the *pure*
     `resolve_workspace` (no env, no manifest check) and passed explicitly to
@@ -66,7 +67,7 @@ def seeded_db(tmp_path_factory):
     # for tests that do not need the seeded DB.
     from graph_io import update
     from workspace_io.config import resolve_workspace
-    from workspace_io.paths import graph_dir, manifest_path
+    from workspace_io.paths import manifest_path
 
     fixture_src = Path(__file__).parent / "fixtures" / "sample_monorepo"
     repo_root = tmp_path_factory.mktemp("queries_seed") / "repo"
@@ -90,8 +91,20 @@ def seeded_db(tmp_path_factory):
     manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
 
     update.run(repo_root, workspace=ws, full=True)
+    return ws
 
-    db_path = graph_dir(ws) / "code.db"
+
+@pytest.fixture(scope="session")
+def seeded_db(seeded_workspace):
+    """Read-only conn over sample_monorepo after `update.run(..., full=True)`.
+
+    Session-scoped per D-14: one update run per test session; all callers
+    share the resulting `mode=ro` connection. Safe because every Phase 32
+    query helper opens read-only and issues no INSERT/UPDATE/DELETE.
+    """
+    from workspace_io.paths import graph_dir
+
+    db_path = graph_dir(seeded_workspace) / "code.db"
     conn = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         yield conn
