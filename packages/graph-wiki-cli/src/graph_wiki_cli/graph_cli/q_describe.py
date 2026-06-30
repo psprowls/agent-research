@@ -14,9 +14,9 @@ from __future__ import annotations
 import sys
 from typing import cast
 
-from graph_io import exit_codes, queries, store
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
 from graph_io import render as _render
-from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli import (
     q_describe_agent_plugin,
@@ -76,7 +76,7 @@ _NON_DESCRIBABLE_MESSAGES = {
 }
 
 
-def _describe_one(match: queries.NodeRecord, args: MutableDescribeArgs) -> int:
+def _describe_one(match: graph_io.NodeRecord, args: MutableDescribeArgs) -> int:
     """Dispatch a single resolved match to the right describer."""
     if match.kind in CODE_KINDS:
         args.kind = match.kind
@@ -124,17 +124,16 @@ def run(args: MutableDescribeArgs) -> int:
         return _DISPATCH["builtin"][0].run(args)
 
     # Inference across all kinds via resolve_selector.
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        matches = queries.resolve_selector(conn, selector=selector, in_package=args.in_package)
+        matches = reader.resolve_selector(selector=selector, in_package=args.in_package)
         if not matches:
             # Historical fallback: a bare selector matching no node name may still
             # be a file path — hand it to the path describer, which renders the
@@ -144,9 +143,9 @@ def run(args: MutableDescribeArgs) -> int:
         if len(matches) == 1:
             return _describe_one(matches[0], args)
         capped = matches[:50]
-        menu = queries.build_menu(conn, capped)
+        menu = reader.build_menu(capped)
     finally:
-        conn.close()
+        reader.close()
 
     print(_render.format_matches(menu, fmt=args.fmt))
     if len(matches) > 50:

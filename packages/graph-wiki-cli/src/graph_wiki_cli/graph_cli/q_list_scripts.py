@@ -11,37 +11,30 @@ import json as _json
 import sys
 from collections import defaultdict
 
-from graph_io import exit_codes, queries, store
-from workspace_io.paths import graph_dir
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
 
 from graph_wiki_cli.graph_cli._args import ListScriptsArgs
 
 
 def run(args: ListScriptsArgs) -> int:
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        records = queries.list_scripts(conn)
+        records = reader.list_scripts()
         # Single annotation lookup: path -> [(pkg, callable), ...].
         declared_lookup: dict[str, list[tuple[str, str | None]]] = defaultdict(list)
-        ann_rows = conn.execute(
-            "SELECT pkg.name, ep.path, json_extract(ep.attrs_json, '$.callable') "
-            "FROM nodes pkg "
-            "JOIN edges de ON de.src = pkg.id AND de.kind='declares_entry_point' "
-            "JOIN nodes ep ON ep.id = de.dst "
-            "WHERE ep.kind='entry_point' AND ep.path IS NOT NULL"
-        ).fetchall()
+        ann_rows = reader.declared_entry_points()
         for pkg_name, path, callable_ in ann_rows:
             declared_lookup[path].append((pkg_name, callable_))
     finally:
-        conn.close()
+        reader.close()
 
     # Sort each declared entry list by package name for determinism.
     for path in declared_lookup:

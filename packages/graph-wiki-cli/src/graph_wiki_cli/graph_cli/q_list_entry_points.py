@@ -7,8 +7,8 @@ import json as _json
 import sys
 from typing import Protocol
 
-from graph_io import exit_codes, queries, store
-from workspace_io.paths import graph_dir
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
 
 from graph_wiki_cli.graph_cli._args import FormatArgs
 
@@ -19,19 +19,18 @@ class ListEntryPointsArgs(FormatArgs, Protocol):
 
 
 def run(args: ListEntryPointsArgs) -> int:
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        entries = queries.entry_points_for_package(conn, package_name=args.package)
+        entries = reader.entry_points_for_package(package_name=args.package)
     finally:
-        conn.close()
+        reader.close()
 
     if args.kind is not None:
         entries = [d for d in entries if d.kind == args.kind]

@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import json as _json
-import sqlite3
 import subprocess
 import sys
 from pathlib import Path
 from typing import Protocol
 
-from graph_io import exit_codes, queries, schema, store
-from workspace_io.paths import graph_dir
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes, schema
 
 from graph_wiki_cli.graph_cli._args import FormatArgs, RepoWorkspaceArgs
 
@@ -32,19 +31,11 @@ def _git_head(repo: Path) -> str | None:
     return result.stdout.strip()
 
 
-def _collect(conn: sqlite3.Connection) -> dict:
-    last = conn.execute("SELECT value FROM metadata WHERE key='last_indexed_commit'").fetchone()
-    last_commit = last[0] if last else None
-    node_counts = dict(conn.execute("SELECT kind, COUNT(*) FROM nodes GROUP BY kind").fetchall())
-    edge_counts = dict(conn.execute("SELECT kind, COUNT(*) FROM edges GROUP BY kind").fetchall())
-    languages = sorted(
-        row[0]
-        for row in conn.execute(
-            "SELECT DISTINCT json_extract(attrs_json, '$.language') "
-            "FROM nodes WHERE attrs_json IS NOT NULL "
-            "AND json_extract(attrs_json, '$.language') IS NOT NULL"
-        ).fetchall()
-    )
+def _collect(reader) -> dict:
+    last_commit = reader.metadata("last_indexed_commit")
+    node_counts = reader.node_counts_by_kind()
+    edge_counts = reader.edge_counts_by_kind()
+    languages = reader.languages()
     return {
         "schema_version": schema.SCHEMA_VERSION,
         "last_indexed_commit": last_commit,
@@ -59,20 +50,19 @@ def run(args: StatusArgs) -> int:
     if head is None:
         print("error: not in a git repo", file=sys.stderr)
         return exit_codes.NOT_IN_GIT_REPO
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        repo_desc = queries.describe_repository(conn)
-        info = _collect(conn)
+        repo_desc = reader.describe_repository()
+        info = _collect(reader)
     finally:
-        conn.close()
+        reader.close()
     info["repository"] = repo_desc.uri if repo_desc else None
     info["head"] = head
     info["stale"] = info["last_indexed_commit"] != head

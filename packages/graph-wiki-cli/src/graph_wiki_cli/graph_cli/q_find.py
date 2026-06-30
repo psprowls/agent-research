@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import sys
 
-from graph_io import exit_codes, queries, store
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
 from graph_io import render as _render
-from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.graph_cli._args import FindArgs
 
@@ -16,24 +16,22 @@ def run(args: FindArgs) -> int:
     if args.name is None and args.kind is None and args.in_package is None:
         return exit_codes.GENERIC
 
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
     try:
-        records = queries.find(
-            conn,
+        records = reader.find(
             name=args.name,
             kind=args.kind,
             in_package=args.in_package,
         )
     finally:
-        conn.close()
+        reader.close()
 
     # D-07: --in-package non-match → exit 1 (silent zero-result distinct from
     # name/kind zero, which preserves historical SUCCESS for those filters).

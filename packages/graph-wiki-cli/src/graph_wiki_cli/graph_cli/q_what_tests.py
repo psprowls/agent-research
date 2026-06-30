@@ -6,43 +6,32 @@ import dataclasses
 import json as _json
 import sys
 
-from graph_io import exit_codes, queries, store
-from workspace_io.paths import graph_dir
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
 
 from graph_wiki_cli.graph_cli._args import WhatTestsArgs
 
 
 def run(args: WhatTestsArgs) -> int:
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
 
     try:
         if args.kind == "package":
-            results = queries.tests_for_package(conn, package_name=args.name)
+            results = reader.tests_for_package(package_name=args.name)
             kind_label = "package"
         elif args.kind == "domain":
-            results = queries.tests_for_domain(conn, domain_name=args.name)
+            results = reader.tests_for_domain(domain_name=args.name)
             kind_label = "domain"
         else:
-            pkg_exists = bool(
-                conn.execute(
-                    "SELECT 1 FROM nodes WHERE kind='package' AND name = ? LIMIT 1",
-                    (args.name,),
-                ).fetchone()
-            )
-            dom_exists = bool(
-                conn.execute(
-                    "SELECT 1 FROM nodes WHERE kind='domain' AND name = ? LIMIT 1",
-                    (args.name,),
-                ).fetchone()
-            )
+            pkg_exists = reader.node_exists(kind="package", name=args.name)
+            dom_exists = reader.node_exists(kind="domain", name=args.name)
             if pkg_exists and dom_exists:
                 print(
                     f"error: ambiguous: '{args.name}' is both a Package and a Domain. "
@@ -57,13 +46,13 @@ def run(args: WhatTestsArgs) -> int:
                 )
                 return exit_codes.GENERIC
             if pkg_exists:
-                results = queries.tests_for_package(conn, package_name=args.name)
+                results = reader.tests_for_package(package_name=args.name)
                 kind_label = "package"
             else:
-                results = queries.tests_for_domain(conn, domain_name=args.name)
+                results = reader.tests_for_domain(domain_name=args.name)
                 kind_label = "domain"
     finally:
-        conn.close()
+        reader.close()
 
     if not results:
         if args.fmt == "json":

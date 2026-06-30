@@ -7,8 +7,8 @@ import json as _json
 import sys
 from typing import Protocol
 
-from graph_io import cluster, exit_codes, store
-from workspace_io.paths import graph_dir
+import graph_io
+from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
 
 from graph_wiki_cli.graph_cli._args import FormatArgs
 
@@ -18,24 +18,23 @@ class DomainClustersArgs(FormatArgs, Protocol):
 
 
 def run(args: DomainClustersArgs) -> int:
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.read_only_connect(db)
-    except store.GraphNotInitializedError as exc:
+        reader = graph_io.open_reader(args.workspace)
+    except GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
 
     try:
         try:
-            result = cluster.compute_clusters(conn, hub_threshold=args.hub_threshold)
+            result = reader.domain_clusters(hub_threshold=args.hub_threshold)
         except ValueError as exc:
             print(f"error: {exc}", file=sys.stderr)
             return exit_codes.GENERIC
     finally:
-        conn.close()
+        reader.close()
 
     if result.degenerate_warning is not None:
         print(result.degenerate_warning, file=sys.stderr)
@@ -48,7 +47,7 @@ def run(args: DomainClustersArgs) -> int:
     return exit_codes.SUCCESS
 
 
-def _render_human(result: cluster.ClusterResult) -> None:
+def _render_human(result) -> None:
     """Print a hierarchical markdown-style view to stdout (D-21).
 
     Sections: header, optional Cross-cutting hubs, optional Cluster N: name
