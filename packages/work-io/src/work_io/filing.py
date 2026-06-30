@@ -106,4 +106,4 @@ def write_work_item(
     content = frontmatter.emit(fm) + "\n\n" + body
     page_path.write_text(content, encoding="utf-8")
 
-    return {"status": "ok", "page_path": str(page_path), "slug": slug, "title": title}
+    return {"status": "ok", "page_path": str(page_path), "slug": page_path.stem, "title": title}

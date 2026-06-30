@@ -189,7 +189,7 @@ def test_write_work_item_slug_from_title(tmp_path: Path) -> None:
     wiki = _make_wiki(tmp_path)
     fm = parse_fields(VALID_FM_YAML)
     result = write_work_item(wiki, fm, "Body.\n")
-    assert result["slug"] == "fix-auth-bug"
+    assert result["slug"] == "2026-05-14-fix-auth-bug"
 
 
 def test_write_work_item_respects_explicit_slug(tmp_path: Path) -> None:
@@ -198,7 +198,7 @@ def test_write_work_item_respects_explicit_slug(tmp_path: Path) -> None:
     wiki = _make_wiki(tmp_path)
     fm = parse_fields(VALID_FM_YAML)
     result = write_work_item(wiki, fm, "Body.\n", slug="custom-slug")
-    assert result["slug"] == "custom-slug"
+    assert result["slug"] == "2026-05-14-custom-slug"
     assert "custom-slug" in result["page_path"]
 
 
