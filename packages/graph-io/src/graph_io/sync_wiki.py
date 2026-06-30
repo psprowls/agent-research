@@ -153,3 +153,18 @@ def run(*, workspace: Path, conn: sqlite3.Connection) -> DriftReport:
         stale=tuple(stale),
         ambiguous=tuple(sorted(ambiguous)),
     )
+
+
+def run_sync_wiki(workspace: Path) -> DriftReport:
+    """Open a writer on the workspace graph and run the wiki-sync drift pass.
+
+    The high-level entry point for callers outside graph-io: resolves the
+    workspace's ``code.db``, opens a read-write handle, and delegates to
+    ``run`` (which manages its own transaction — no extra wrapper here).
+    ``GraphNotInitializedError`` / ``SchemaMismatchError`` propagate from the
+    opener unchanged.
+    """
+    from graph_io.handle import open_writer
+
+    with open_writer(workspace) as writer:
+        return run(workspace=workspace, conn=writer._conn)

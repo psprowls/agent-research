@@ -5,6 +5,7 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
+import graph_io
 import pytest
 from graph_io import store, sync_wiki, upsert
 from source_parser.projections.graph import GraphNode, GraphRecords
@@ -142,3 +143,25 @@ def test_no_wiki_dir_returns_all_undocumented(workspace: Path, repo_root: Path, 
 
     assert sorted(report.undocumented) == ["alpha", "beta"]
     assert report.newly_linked == ()
+
+
+def test_run_sync_wiki_opens_workspace(workspace: Path) -> None:
+    # run_sync_wiki resolves the workspace's code.db and opens its own writer —
+    # seed through a separate connection (committed + closed) to prove it.
+    db = workspace / ".graph-wiki" / "code.db"
+    seed = store.connect(db, create=True)
+    _seed_package(seed, "alpha", "packages/alpha")
+    seed.commit()
+    seed.close()
+    _make_overview(workspace, "wiki/packages/alpha/alpha.md")
+
+    report = graph_io.run_sync_wiki(workspace)
+
+    assert isinstance(report, graph_io.DriftReport)
+    assert report.newly_linked == (("alpha", "wiki/packages/alpha/alpha.md"),)
+    assert report.undocumented == ()
+
+
+def test_run_sync_wiki_missing_graph_raises(tmp_path: Path) -> None:
+    with pytest.raises(graph_io.GraphNotInitializedError):
+        graph_io.run_sync_wiki(tmp_path)

@@ -31,10 +31,13 @@ from graph_io.queries import (
     SymbolDescription,
 )
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError
+from graph_io.sync_wiki import DriftReport, run_sync_wiki
 
 __all__ = [
     "open_reader",
     "open_writer",
+    "run_sync_wiki",
+    "DriftReport",
     "GraphReader",
     "GraphStore",
     "GraphNotInitializedError",

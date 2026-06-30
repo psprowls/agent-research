@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import sys
 
-from graph_io import exit_codes, store, sync_wiki
-from workspace_io.paths import graph_dir
+import graph_io
+from graph_io import DriftReport, exit_codes
 
 from graph_wiki_cli.graph_cli._args import WorkspaceArgs
 
 
-def _format_report(report: sync_wiki.DriftReport) -> str:
+def _format_report(report: DriftReport) -> str:
     lines: list[str] = []
 
     lines.append("newly linked:")
@@ -38,18 +38,13 @@ def _format_report(report: sync_wiki.DriftReport) -> str:
 
 
 def run(args: WorkspaceArgs) -> int:
-    db = graph_dir(args.workspace) / "code.db"
     try:
-        conn = store.connect(db, create=False)
-    except store.GraphNotInitializedError as exc:
+        report = graph_io.run_sync_wiki(args.workspace)
+    except graph_io.GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
-    except store.SchemaMismatchError as exc:
+    except graph_io.SchemaMismatchError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.SCHEMA_MISMATCH
-    try:
-        report = sync_wiki.run(workspace=args.workspace, conn=conn)
-    finally:
-        conn.close()
     print(_format_report(report))
     return exit_codes.SUCCESS
