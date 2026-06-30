@@ -222,10 +222,32 @@ class GraphReader:
     def node_exists(self, *, kind, name):
         return queries.node_exists(self._conn, kind, name)
 
-    # --- NEW methods (wiki-io ports deferred to Task 4; not present yet) ---
-    # package_for_file, entity_by_name, package_or_app_by_dir,
-    # qualifying_domains, consumer_packages, consumer_packages_in_domain,
-    # subdomains, is_top_level_domain
+    # --- wiki-io entity-lookup / index-generation ports (Task 4) ---
+    def package_for_file(self, *, path):
+        return queries.package_for_file(self._conn, path)
+
+    def entity_by_name(self, *, name, kinds=("package", "class", "function", "method", "domain")):
+        return queries.entity_by_name(self._conn, name, kinds)
+
+    def package_or_app_by_dir(self, *, path):
+        return queries.package_or_app_by_dir(self._conn, path)
+
+    def qualifying_domains(self, *, kind, name, uri=""):
+        return queries.qualifying_domains(self._conn, kind=kind, name=name, uri=uri)
+
+    def consumer_packages(self, *, kind, entity_uri="", entity_name=""):
+        return queries.consumer_packages(self._conn, kind=kind, entity_uri=entity_uri, entity_name=entity_name)
+
+    def consumer_packages_in_domain(self, *, kind, entity_uri="", entity_name="", domain_name):
+        return queries.consumer_packages_in_domain(
+            self._conn, kind=kind, entity_uri=entity_uri, entity_name=entity_name, domain_name=domain_name
+        )
+
+    def subdomains(self, parent_name):
+        return queries.subdomains(self._conn, parent_name)
+
+    def is_top_level_domain(self, name):
+        return queries.is_top_level_domain(self._conn, name)
 
 
 class GraphStore(GraphReader):

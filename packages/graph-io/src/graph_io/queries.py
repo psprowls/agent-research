@@ -1981,3 +1981,261 @@ def node_exists(conn: sqlite3.Connection, kind: str, name: str) -> bool:
     """
     row = conn.execute("SELECT 1 FROM nodes WHERE kind=? AND name=? LIMIT 1", (kind, name)).fetchone()
     return row is not None
+
+
+# ============================================================================
+# wiki-io entity-lookup + index-generation raw-SQL ports. SQL lifted VERBATIM
+# from wiki_io/entity_lookup.py and wiki_io/index_generator.py (per-kind branch
+# dispatch preserved). Call sites noted per function.
+# ============================================================================
+
+# Entity-kind nodes worth a name-fallback match (mirrors
+# wiki_io.entity_lookup.ENTITY_KINDS). File names are intentionally excluded.
+_ENTITY_KINDS = ("package", "class", "function", "method", "domain")
+
+
+def package_for_file(conn: sqlite3.Connection, path: str) -> tuple[str, str] | None:
+    """Return `(name, uri)` of the `package` CONTAINING the file at `path`, or None.
+
+    Source: wiki_io/entity_lookup.py `lookup_entity_by_path` — SQL ported VERBATIM
+    (`f.kind='file'`, `contains` edge, `p.kind='package'`, `LIMIT 1`).
+
+    Tuple order is `(name, uri)` (the natural `SELECT p.name, p.uri` order).
+    `lookup_entity_by_path` returns `(uri, name)` to ITS callers, so a caller
+    wanting that contract must re-order: `name, uri = package_for_file(...)`.
+    Returns None when no row matches OR the matched package has a falsy uri
+    (preserving the call site's `if not uri: return None` guard).
+    """
+    row = conn.execute(
+        "SELECT p.name, p.uri FROM nodes f "
+        "JOIN edges e ON e.dst = f.id AND e.kind='contains' "
+        "JOIN nodes p ON e.src = p.id "
+        "WHERE f.kind='file' AND f.path = ? AND p.kind='package' "
+        "LIMIT 1",
+        (path,),
+    ).fetchone()
+    if row is None:
+        return None
+    name, uri = row
+    if not uri:
+        return None
+    return (name, uri)
+
+
+def entity_by_name(
+    conn: sqlite3.Connection,
+    name: str,
+    kinds: tuple[str, ...] = _ENTITY_KINDS,
+) -> list[tuple]:
+    """Return ALL entity-kind nodes named `name` (with a non-null uri) as `(name, uri, kind)`.
+
+    Source: wiki_io/entity_lookup.py `lookup_entity_by_name` — SQL ported VERBATIM.
+    Returns the full `fetchall()` list (NOT a single row) so the caller keeps the
+    single-vs-multi-match dispatch: `lookup_entity_by_name` returns None on zero
+    rows, emits a stderr warning + returns None on >1 rows, and re-orders the lone
+    row to `(uri, name)`. That count-based branching and the stderr write are
+    application concerns and stay at the call site — this function only runs the
+    query. Empty list when nothing matches.
+    """
+    kind_ph = ",".join("?" for _ in kinds)
+    sql = f"SELECT name, uri, kind FROM nodes WHERE name = ? AND kind IN ({kind_ph}) AND uri IS NOT NULL"
+    return conn.execute(sql, [name, *kinds]).fetchall()
+
+
+def package_or_app_by_dir(conn: sqlite3.Connection, path: str) -> tuple | None:
+    """Return `(uri, name, id)` of the package/app whose `path` equals `path`, or None.
+
+    Source: wiki_io/entity_lookup.py `lookup_package_by_dir` (the inner per-path
+    query) — SQL ported VERBATIM (`kind IN ('package','app')`, exact `path = ?`,
+    `uri IS NOT NULL AND uri <> ''`, `LIMIT 1`). The caller's ancestor-walk over
+    candidate directories and the `str()/int()` coercion stay at the call site;
+    this function resolves exactly one path. Returns the raw row tuple.
+    """
+    row = conn.execute(
+        "SELECT uri, name, id FROM nodes "
+        "WHERE kind IN ('package','app') AND path = ? AND uri IS NOT NULL AND uri <> '' LIMIT 1",
+        (path,),
+    ).fetchone()
+    return tuple(row) if row is not None else None
+
+
+def qualifying_domains(conn: sqlite3.Connection, *, kind: str, name: str, uri: str = "") -> set[str]:
+    """Return the set of domain names that qualify for this entity (D-04).
+
+    Source: wiki_io/index_generator.py `_compute_qualifying_domains` — every
+    per-kind branch ported VERBATIM:
+      - package/app:  direct `belongs_to_domain` edges (matched by `p.kind`/name).
+      - test_suite:   one-hop via `tests -> package -> belongs_to_domain`,
+                      resolved by `ts.uri` (DISTINCT, ORDER BY d.name).
+      - dependency:   one-hop via `used_by -> package -> belongs_to_domain`,
+                      resolved by `dep.name` (DISTINCT, ORDER BY d.name).
+      - agent_plugin: always empty.
+    Raises ValueError for any other kind (matching the call site).
+    """
+    if kind in ("package", "app"):
+        rows = conn.execute(
+            "SELECT d.name FROM edges e "
+            "JOIN nodes p ON e.src = p.id "
+            "JOIN nodes d ON e.dst = d.id "
+            "WHERE e.kind='belongs_to_domain' "
+            "AND p.kind = ? AND p.name = ? "
+            "AND d.kind='domain' "
+            "ORDER BY d.name",
+            (kind, name),
+        ).fetchall()
+        return {r[0] for r in rows}
+    if kind == "test_suite":
+        rows = conn.execute(
+            "SELECT DISTINCT d.name FROM edges t "
+            "JOIN nodes ts ON t.src = ts.id "
+            "JOIN nodes p ON t.dst = p.id "
+            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
+            "JOIN nodes d ON d.id = bt.dst "
+            "WHERE t.kind='tests' "
+            "AND ts.kind='test_suite' AND ts.uri = ? "
+            "AND p.kind='package' AND d.kind='domain' "
+            "ORDER BY d.name",
+            (uri,),
+        ).fetchall()
+        return {r[0] for r in rows}
+    if kind == "dependency":
+        rows = conn.execute(
+            "SELECT DISTINCT d.name FROM edges u "
+            "JOIN nodes p ON u.src = p.id "
+            "JOIN nodes dep ON u.dst = dep.id "
+            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
+            "JOIN nodes d ON d.id = bt.dst "
+            "WHERE u.kind='used_by' "
+            "AND p.kind='package' AND dep.kind='dependency' AND dep.name = ? "
+            "AND d.kind='domain' "
+            "ORDER BY d.name",
+            (name,),
+        ).fetchall()
+        return {r[0] for r in rows}
+    if kind == "agent_plugin":
+        return set()
+    raise ValueError(f"Only app/package/test_suite/dependency/agent_plugin are placeable; got {kind!r}")
+
+
+def consumer_packages(
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    entity_uri: str = "",
+    entity_name: str = "",
+) -> tuple[str, ...]:
+    """DOMAIN-AGNOSTIC consumer/tested package (and app) names (Phase 57 D-01).
+
+    Source: wiki_io/index_generator.py `_consumer_pkgs` — both per-kind branches
+    ported VERBATIM:
+      - dependency:  `used_by` consumers, `p.kind IN ('package','app')`,
+                     by `dep.name` (DISTINCT, ORDER BY p.name).
+      - test_suite:  `tests` packages/apps by `ts.uri` (DISTINCT, ORDER BY p.name).
+    Any other kind returns `()`.
+    """
+    if kind == "dependency":
+        rows = conn.execute(
+            "SELECT DISTINCT p.name FROM edges u "
+            "JOIN nodes p ON u.src = p.id "
+            "JOIN nodes dep ON u.dst = dep.id "
+            "WHERE u.kind='used_by' AND p.kind IN ('package', 'app') "
+            "AND dep.kind='dependency' AND dep.name = ? "
+            "ORDER BY p.name",
+            (entity_name,),
+        ).fetchall()
+        return tuple(r[0] for r in rows)
+    if kind == "test_suite":
+        rows = conn.execute(
+            "SELECT DISTINCT p.name FROM edges t "
+            "JOIN nodes ts ON t.src = ts.id "
+            "JOIN nodes p ON t.dst = p.id "
+            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
+            "AND p.kind IN ('package', 'app') "
+            "ORDER BY p.name",
+            (entity_uri,),
+        ).fetchall()
+        return tuple(r[0] for r in rows)
+    return ()
+
+
+def consumer_packages_in_domain(
+    conn: sqlite3.Connection,
+    *,
+    kind: str,
+    entity_uri: str = "",
+    entity_name: str = "",
+    domain_name: str,
+) -> tuple[str, ...]:
+    """Package names in `domain_name` that consume/are-tested-by this entity (D-06).
+
+    Source: wiki_io/index_generator.py `_consumer_pkgs_in_domain` — both per-kind
+    branches ported VERBATIM:
+      - dependency:  `used_by` consumers in domain, by `dep.name`
+                     (DISTINCT, ORDER BY p.name).
+      - test_suite:  `tests` packages in domain, by `ts.uri`
+                     (DISTINCT, ORDER BY p.name).
+    Any other kind returns `()`.
+    """
+    if kind == "dependency":
+        rows = conn.execute(
+            "SELECT DISTINCT p.name FROM edges u "
+            "JOIN nodes p ON u.src = p.id "
+            "JOIN nodes dep ON u.dst = dep.id "
+            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
+            "JOIN nodes d ON d.id = bt.dst "
+            "WHERE u.kind='used_by' AND p.kind='package' "
+            "AND dep.kind='dependency' AND dep.name = ? "
+            "AND d.kind='domain' AND d.name = ? "
+            "ORDER BY p.name",
+            (entity_name, domain_name),
+        ).fetchall()
+        return tuple(r[0] for r in rows)
+    if kind == "test_suite":
+        rows = conn.execute(
+            "SELECT DISTINCT p.name FROM edges t "
+            "JOIN nodes ts ON t.src = ts.id "
+            "JOIN nodes p ON t.dst = p.id "
+            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
+            "JOIN nodes d ON d.id = bt.dst "
+            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
+            "AND p.kind='package' AND d.kind='domain' AND d.name = ? "
+            "ORDER BY p.name",
+            (entity_uri, domain_name),
+        ).fetchall()
+        return tuple(r[0] for r in rows)
+    return ()
+
+
+def subdomains(conn: sqlite3.Connection, parent_name: str) -> list[str]:
+    """Return child domain names for `parent_name` (via `domain_contains_domain`).
+
+    Source: wiki_io/index_generator.py `_list_subdomains` — SQL ported VERBATIM
+    (ORDER BY child.name).
+    """
+    rows = conn.execute(
+        "SELECT child.name FROM edges e "
+        "JOIN nodes parent ON e.src = parent.id "
+        "JOIN nodes child ON e.dst = child.id "
+        "WHERE e.kind='domain_contains_domain' "
+        "AND parent.kind='domain' AND parent.name = ? "
+        "AND child.kind='domain' "
+        "ORDER BY child.name",
+        (parent_name,),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
+    """True if `name` has NO inbound `domain_contains_domain` edge.
+
+    Source: wiki_io/index_generator.py `_is_top_level_domain` — SQL ported VERBATIM.
+    """
+    row = conn.execute(
+        "SELECT 1 FROM edges e "
+        "JOIN nodes child ON e.dst = child.id "
+        "WHERE e.kind='domain_contains_domain' "
+        "AND child.kind='domain' AND child.name = ? "
+        "LIMIT 1",
+        (name,),
+    ).fetchone()
+    return row is None
