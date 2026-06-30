@@ -133,7 +133,7 @@ async def test_run_scan_deterministic_diff_keys(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
+            "graph_wiki_core.commands.scan.open_reader",
             side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
                 "test stub"
             ),
@@ -202,7 +202,7 @@ async def test_scanner_fanout_called_with_role_scanner(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
+            "graph_wiki_core.commands.scan.open_reader",
             side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
                 "test stub"
             ),
@@ -272,7 +272,7 @@ async def test_file_map_appended_after_llm(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
+            "graph_wiki_core.commands.scan.open_reader",
             side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
                 "test stub"
             ),
@@ -364,7 +364,7 @@ async def test_fanout_errors_surface_in_result_errors(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")),
         patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
+            "graph_wiki_core.commands.scan.open_reader",
             side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
                 "test stub"
             ),
@@ -411,7 +411,7 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.update_index"),
         patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")) as mock_build,
         patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
+            "graph_wiki_core.commands.scan.open_reader",
             side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
                 "test stub"
             ),
@@ -451,7 +451,7 @@ def test_run_scan_no_narrate_does_not_call_package_reader(monkeypatch, tmp_path:
     )
     monkeypatch.setattr(
         scan_mod,
-        "read_only_connect",
+        "open_reader",
         lambda path: (_ for _ in ()).throw(GraphNotInitializedError("no db")),
     )
     monkeypatch.setattr(
@@ -514,7 +514,7 @@ async def test_run_package_reader_pass_keeps_page_load_errors_best_effort(monkey
     filled, errors = await scan_mod._run_package_reader_pass(
         wiki=wiki,
         repo=repo,
-        conn=None,
+        reader=None,
         model_override=None,
         candidate_pages={
             "package:missing": scan_mod._PackageReaderCandidate(page_path=missing_page),
@@ -601,7 +601,7 @@ async def test_run_package_reader_pass_uses_graph_path_for_entity_root(monkeypat
     filled, errors = await scan_mod._run_package_reader_pass(
         wiki=wiki,
         repo=repo,
-        conn=None,
+        reader=None,
         model_override=None,
         candidate_pages={
             "pkg:org/repo/pkg-a": scan_mod._PackageReaderCandidate(
@@ -663,7 +663,7 @@ async def test_run_package_reader_pass_requires_candidate_graph_path(monkeypatch
     filled, errors = await scan_mod._run_package_reader_pass(
         wiki=wiki,
         repo=repo,
-        conn=None,
+        reader=None,
         model_override=None,
         candidate_pages={
             "pkg:org/repo/pkg-a": scan_mod._PackageReaderCandidate(page_path=page),
@@ -698,6 +698,9 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
     class _FakeConn:
         def close(self) -> None:
             return None
+
+        def list_test_suites(self):
+            return []
 
     class _FakePool:
         def __init__(self, *args, **kwargs) -> None:
@@ -735,7 +738,7 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
             encoding="utf-8",
         )
 
-    async def fake_package_reader_pass(*, wiki, repo, conn, model_override, candidate_pages):
+    async def fake_package_reader_pass(*, wiki, repo, reader, model_override, candidate_pages):
         captured_candidates.update(candidate_pages)
         return set(), []
 
@@ -747,7 +750,7 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
 
     (_graph_dir(workspace)).mkdir(parents=True, exist_ok=True)
     (_graph_dir(workspace) / "code.db").write_bytes(b"")
-    monkeypatch.setattr(scan_mod, "read_only_connect", lambda path: _FakeConn())
+    monkeypatch.setattr(scan_mod, "open_reader", lambda path: _FakeConn())
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
@@ -782,7 +785,6 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
     monkeypatch.setattr(scan_mod, "_compute_collision_set", lambda *args, **kwargs: frozenset())
     monkeypatch.setattr(scan_mod, "inject_narrative", fake_inject_narrative)
     monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_mod.queries, "list_test_suites", lambda conn: [])
     monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
     monkeypatch.setattr(scan_mod, "_drift_flag_pass", AsyncMock())
     monkeypatch.setattr(scan_mod, "_drift_clear_pass", lambda wiki: None)

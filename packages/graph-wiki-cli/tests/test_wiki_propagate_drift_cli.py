@@ -36,7 +36,7 @@ def test_propagate_drift_json_output():
     with (
         patch("graph_wiki_cli.wiki_cli.main.run_propagate_drift", new=fake),
         patch("graph_wiki_cli.wiki_cli.main.resolve_wiki_and_repo", return_value=(Path("/w/wiki"), Path("/w/repo"))),
-        patch("graph_wiki_cli.wiki_cli.main.read_only_connect", return_value=_ConnStub()),
+        patch("graph_wiki_cli.wiki_cli.main.open_reader", return_value=_ConnStub()),
     ):
         result = runner.invoke(wiki_app, ["propagate-drift", "--json"])
     assert result.exit_code == 0, result.stdout
@@ -52,7 +52,7 @@ def test_propagate_drift_dry_run_flag_threads_through():
     with (
         patch("graph_wiki_cli.wiki_cli.main.run_propagate_drift", new=fake),
         patch("graph_wiki_cli.wiki_cli.main.resolve_wiki_and_repo", return_value=(Path("/w/wiki"), Path("/w/repo"))),
-        patch("graph_wiki_cli.wiki_cli.main.read_only_connect", return_value=_ConnStub()),
+        patch("graph_wiki_cli.wiki_cli.main.open_reader", return_value=_ConnStub()),
     ):
         result = runner.invoke(wiki_app, ["propagate-drift", "--dry-run", "--only", "pkg_a"])
     assert result.exit_code == 0, result.stdout

@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 from graph_io import packages, resource_matchers, store
+from graph_io.handle import GraphReader
 from graph_io.resource_matchers import (
     CANONICAL_KINDS,
     CAPTURE_SOURCES,
@@ -75,7 +76,7 @@ def test_capture_path_segment(tmp_path: Path) -> None:
             "emit": {"kind": "queue", "subtype": "sqs", "role": "provides"},
         }
     ]
-    sugg = resource_matchers.compute_suggestions(conn, matchers)
+    sugg = resource_matchers.compute_suggestions(GraphReader(conn), matchers)
     assert len(sugg) == 1
     s = sugg[0]
     assert s.resource == "device" and s.resource_kind == "queue" and s.subtype == "sqs"
@@ -95,7 +96,7 @@ def test_capture_dependency_with_transform(tmp_path: Path) -> None:
             "emit": {"kind": "queue", "subtype": "sqs", "role": "consumes"},
         }
     ]
-    sugg = resource_matchers.compute_suggestions(conn, matchers)
+    sugg = resource_matchers.compute_suggestions(GraphReader(conn), matchers)
     assert len(sugg) == 1 and sugg[0].resource == "sqs" and sugg[0].role == "consumes"
 
 
@@ -111,7 +112,7 @@ def test_and_semantics_requires_all_predicates(tmp_path: Path) -> None:
             "emit": {"kind": "queue", "role": "provides"},
         }
     ]
-    assert resource_matchers.compute_suggestions(conn, matchers) == []
+    assert resource_matchers.compute_suggestions(GraphReader(conn), matchers) == []
 
 
 def test_empty_capture_drops_match(tmp_path: Path) -> None:
@@ -127,14 +128,14 @@ def test_empty_capture_drops_match(tmp_path: Path) -> None:
             "emit": {"kind": "service", "role": "consumes"},
         }
     ]
-    assert resource_matchers.compute_suggestions(conn, matchers) == []
+    assert resource_matchers.compute_suggestions(GraphReader(conn), matchers) == []
 
 
 def test_compute_suggestions_raises_on_invalid_rule(tmp_path: Path) -> None:
     conn = _setup(tmp_path)
     bad = [{"name": "b", "when": {}, "capture": {"from": "literal"}, "emit": {"kind": "nope"}}]
     with pytest.raises(ValueError):
-        resource_matchers.compute_suggestions(conn, bad)
+        resource_matchers.compute_suggestions(GraphReader(conn), bad)
 
 
 def test_dedupe_new_grammar(tmp_path: Path) -> None:
@@ -148,7 +149,7 @@ def test_dedupe_new_grammar(tmp_path: Path) -> None:
         "capture": {"from": "literal"},
         "emit": {"kind": "service", "role": "consumes"},
     }
-    sugg = resource_matchers.compute_suggestions(conn, [rule, rule])
+    sugg = resource_matchers.compute_suggestions(GraphReader(conn), [rule, rule])
     assert len(sugg) == 1  # deduped on (resource, role, source_name)
 
 

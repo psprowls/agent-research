@@ -79,7 +79,7 @@ def _scan_patches(wiki: Path, repo: Path):
     stack.enter_context(patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")))
     stack.enter_context(
         patch(
-            "graph_wiki_core.commands.scan.read_only_connect",
+            "graph_wiki_core.commands.scan.open_reader",
             side_effect=__import__("graph_io.store", fromlist=["GraphNotInitializedError"]).GraphNotInitializedError(
                 "test stub"
             ),

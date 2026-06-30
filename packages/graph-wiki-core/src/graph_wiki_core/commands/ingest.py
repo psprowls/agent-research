@@ -30,8 +30,11 @@ from datetime import date
 from pathlib import Path
 
 import yaml
-from graph_io import exit_codes, queries  # noqa: F401  — exit_codes re-exposed for CLI callers
-from graph_io.store import GraphNotInitializedError, read_only_connect
+from graph_io import (
+    GraphNotInitializedError,
+    exit_codes,  # noqa: F401  — exit_codes re-exposed for CLI callers
+    open_reader,
+)
 from langchain_core.messages import HumanMessage, SystemMessage
 from subagent_runtime.pool import SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
@@ -972,7 +975,7 @@ async def _run_common_tail(
     branch: _IngestBranchResult,
     *,
     wiki: Path,
-    conn,
+    reader,
     source_path: Path,
     source_text: str,
     title_guess: str,
@@ -1012,7 +1015,7 @@ async def _run_common_tail(
     # Suggest phase (gated). Best-effort: a failure never fails the ingest.
     if branch.run_suggest:
         try:
-            graph_tools = build_graph_tools(conn)
+            graph_tools = build_graph_tools(reader)
             suggested_pages, proposal_status = await run_suggest_phase(
                 wiki=wiki,
                 page_path=target_path,
@@ -1244,13 +1247,12 @@ async def run_ingest_source(
     if repo is None:
         repo = Path.cwd()
 
-    # Phase 40 D-01: open read-only graph conn at command entry.
+    # Phase 40 D-01: open read-only graph reader at command entry.
     # `wiki = <workspace>/wiki` per wiki_io._workspace.resolve_wiki_and_repo;
     # the workspace root is `workspace_path` when supplied, else `wiki.parent`.
     workspace_root = workspace_path if workspace_path is not None else wiki.parent
-    db_path = graph_dir(workspace_root) / "code.db"
     try:
-        conn = read_only_connect(db_path)
+        reader = open_reader(workspace_root)
     except GraphNotInitializedError as exc:
         raise IngestorGraphNotInitializedError(workspace_root) from exc
 
@@ -1317,14 +1319,14 @@ async def run_ingest_source(
         #
         # Surfaces: grep -r "entity_uri: pkg:" wiki/ will find all entity-backed
         # pages; a v1.8 tool may parse + reconcile against the live graph.
-        canonical: tuple[str, str] | None = lookup_entity_by_path(conn, repo, source_path)
+        canonical: tuple[str, str] | None = lookup_entity_by_path(reader, repo, source_path)
         if canonical is None:
-            canonical = lookup_entity_by_name(conn, title_guess)
+            canonical = lookup_entity_by_name(reader, title_guess)
         canonical_uri: str | None = canonical[0] if canonical else None
         # Slice 4: the matched entity drives a [[entities/<stem>]] forward-link
         # whose target equals the scanner's on-disk filename. None when the
         # match has no entity page (cls:/fn:/method:) — no link is written.
-        entity_stem: str | None = entity_filename_for_uri(canonical_uri, conn) if canonical_uri else None
+        entity_stem: str | None = entity_filename_for_uri(canonical_uri, reader) if canonical_uri else None
 
         # Dispatch on the path-guessed source_type. raw/skill/ → the skill branch
         # (writes guidance pages directly); everything else → the default branch.
@@ -1359,7 +1361,7 @@ async def run_ingest_source(
         return await _run_common_tail(
             branch,
             wiki=wiki,
-            conn=conn,
+            reader=reader,
             source_path=source_path,
             source_text=text,
             title_guess=title_guess,
@@ -1367,9 +1369,9 @@ async def run_ingest_source(
         )
     finally:
         try:
-            conn.close()
+            reader.close()
         except Exception:
-            pass  # closing a read-only conn should not raise; defensive
+            pass  # closing a read-only reader should not raise; defensive
 
 
 # ---------------------------------------------------------------------------

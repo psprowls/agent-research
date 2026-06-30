@@ -501,7 +501,7 @@ async def test_wiki_propagate_drift_returns_summary(monkeypatch):
 
     monkeypatch.setattr(srv, "run_propagate_drift", _fake)
     monkeypatch.setattr(srv, "resolve_wiki_and_repo", lambda p: (Path("/w/wiki"), Path("/w/repo")))
-    monkeypatch.setattr(srv, "read_only_connect", lambda p: type("C", (), {"close": lambda self: None})())
+    monkeypatch.setattr(srv, "open_reader", lambda p: type("C", (), {"close": lambda self: None})())
 
     out = await srv.wiki_propagate_drift(srv.WikiPropagateDriftInput(dry_run=True), MagicMock())
     assert out.pages_judged == 1

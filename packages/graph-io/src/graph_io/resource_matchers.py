@@ -19,6 +19,10 @@ import fnmatch
 import re
 import sqlite3
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from graph_io.handle import GraphReader
 
 # Canonical architecture-role kinds. emit.kind must be one of these.
 CANONICAL_KINDS: frozenset[str] = frozenset(
@@ -295,8 +299,12 @@ def _capture_tokens(
     return []
 
 
-def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[ResourceSuggestion]:
+def compute_suggestions(reader: "GraphReader", matchers: list[dict]) -> list[ResourceSuggestion]:
     """Apply unified matcher rules over existing graph facts → deduped suggestions.
+
+    Takes a :class:`graph_io.handle.GraphReader`. Internally the module-private
+    predicate evaluators read the wrapped connection (``reader._conn``) — touching
+    the conn is allowed here because this module lives inside graph-io.
 
     Raises ValueError (listing every problem) if any rule is invalid. Deduped on
     (resource, role, source_name).
@@ -305,6 +313,7 @@ def compute_suggestions(conn: sqlite3.Connection, matchers: list[dict]) -> list[
     if errors:
         raise ValueError("invalid resource_matcher rule(s):\n" + "\n".join(f"  - {e}" for e in errors))
 
+    conn = reader._conn
     pkgs = _load_packages(conn)
     seen: set[tuple[str, str, str]] = set()
     out: list[ResourceSuggestion] = []

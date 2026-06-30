@@ -18,8 +18,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
-from graph_io import exit_codes, queries
-from graph_io.store import GraphNotInitializedError, read_only_connect
+from graph_io import GraphNotInitializedError, exit_codes, open_reader
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # Bedrock fan-out stack — imported only for the narrated path (narrate=True).
@@ -215,7 +214,7 @@ async def _run_package_reader_pass(
     *,
     wiki: Path,
     repo: Path,
-    conn: Any | None,
+    reader: Any | None,
     model_override: str | None,
     candidate_pages: dict[str, _PackageReaderCandidate],
 ) -> tuple[set[str], list[str]]:
@@ -224,7 +223,7 @@ async def _run_package_reader_pass(
         return set(), []
     load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
 
-    graph_tools = build_graph_tools(conn) if conn is not None else []
+    graph_tools = build_graph_tools(reader) if reader is not None else []
     errors: list[str] = []
     items: list[tuple[str, Path, PackageReaderItem]] = []
     for uri, candidate in sorted(candidate_pages.items()):
@@ -747,7 +746,7 @@ def _head_for_uri(uri: str, gates: dict, fallback: str | None) -> str | None:
 def _commit_dirty_changes(
     wiki: Path,
     repo: Path,
-    conn: Any,
+    reader: Any,
     head: str | None,
     collision_set: frozenset[str],
     gates: dict | None = None,
@@ -778,14 +777,14 @@ def _commit_dirty_changes(
     gates = gates or {}
     repo_paths = repo_paths or {}
     dirty: dict[str, list[str] | None] = {}
-    if (head is None and not gates) or conn is None:
+    if (head is None and not gates) or reader is None:
         return dirty
     list_fns = _kind_list_fns()
     for kind in ("package", "app", "test_suite", "agent_plugin"):
         list_fn = list_fns.get(kind)
         if list_fn is None:
             continue
-        for node in list_fn(conn):
+        for node in list_fn(reader):
             if not isinstance(node.attrs, dict):
                 continue
             uri = node.attrs.get("uri")
@@ -1002,7 +1001,7 @@ def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
 
 
 def _build_propagate_tasks(
-    wiki: Path, repo: Path, conn: Any, repo_paths: dict[str, Path] | None = None
+    wiki: Path, repo: Path, reader: Any, repo_paths: dict[str, Path] | None = None
 ) -> tuple[list[PropagateTask], dict[str, str], dict[str, str]]:
     """M4 emit: curated propagate targets + per-candidate stamp bookkeeping.
 
@@ -1013,7 +1012,7 @@ def _build_propagate_tasks(
     ``drift_propagated_commit`` for all of them (idempotence), including
     candidates whose targets were all pre-filtered.
     """
-    candidates = propagation_candidates(wiki, repo, conn, repo_paths=repo_paths)
+    candidates = propagation_candidates(wiki, repo, reader, repo_paths=repo_paths)
     if not candidates:
         return [], {}, {}
     targets = _build_targets(candidates, build_entity_backlink_map(wiki))
@@ -1065,9 +1064,9 @@ async def build_scan_worklist(
     else:
         repo = Path.cwd()
 
-    # cg update + open the read-only graph conn (lifted; ScanAbortedError kept).
-    # conn is closed right before return; exceptions propagate (no try/finally).
-    conn = None
+    # cg update + open the read-only graph reader (lifted; ScanAbortedError kept).
+    # reader is closed right before return; exceptions propagate (no try/finally).
+    reader = None
     append_log(
         wiki,
         "scan",
@@ -1116,7 +1115,7 @@ async def build_scan_worklist(
 
     if _graph_ready:
         try:
-            conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+            reader = open_reader(wiki.parent)
         except GraphNotInitializedError as exc:
             sys.stderr.write(
                 f"[NOT_INITIALIZED fallback: graph could not be initialized ({exc}); using path-based slugs]\n"
@@ -1129,22 +1128,22 @@ async def build_scan_worklist(
                 silent=True,
                 raise_exception=True,
             )
-            conn = None
+            reader = None
 
     try:
         return await _build_scan_worklist_body(
             wiki=wiki,
             repo=repo,
-            conn=conn,
+            reader=reader,
             no_file_map=no_file_map,
             max_depth=max_depth,
             propagate_drift=propagate_drift,
         )
     finally:
-        if conn is not None:
+        if reader is not None:
             try:
-                conn.close()
-            except Exception:  # noqa: BLE001 — closing a read-only conn should not raise
+                reader.close()
+            except Exception:  # noqa: BLE001 — closing a read-only reader should not raise
                 pass
 
 
@@ -1152,12 +1151,12 @@ async def _build_scan_worklist_body(
     *,
     wiki: Path,
     repo: Path,
-    conn: Any | None,
+    reader: Any | None,
     no_file_map: bool,
     max_depth: int,
     propagate_drift: bool,
 ) -> tuple[ScanWorklist, ScanResult]:
-    """Worklist assembly body (split out so build_scan_worklist's conn is closed
+    """Worklist assembly body (split out so build_scan_worklist's reader is closed
     in a finally even when write_entities / file-map injection raises)."""
     # Step 8: compute state gate.
     state_gate = compute_state_gate(repo, workspace=wiki.parent)
@@ -1187,9 +1186,9 @@ async def _build_scan_worklist_body(
     entity_write_result = None
     commit_dirty: dict[str, list[str] | None] = {}
 
-    if conn is not None:
+    if reader is not None:
         # Step 9a: graph-driven entity page writes.
-        entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
+        entity_write_result = write_entities(reader, wiki, ADMITTED_KINDS)
         append_log(
             wiki,
             "scan",
@@ -1210,9 +1209,9 @@ async def _build_scan_worklist_body(
         commit_dirty = _commit_dirty_changes(
             wiki,
             repo,
-            conn,
+            reader,
             head,
-            _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
+            _compute_collision_set(reader, ADMITTED_KINDS, _kind_list_fns()),
             gates=gates,
             repo_paths=repo_paths,
         )
@@ -1234,14 +1233,14 @@ async def _build_scan_worklist_body(
     file_map_errors: list[str] = []
     file_mapped_pages: list[tuple[str, Any, Path]] = []
     redescribed_uris: set[str] = set()
-    if entity_write_result is not None and conn is not None:
+    if entity_write_result is not None and reader is not None:
         refreshed = set(entity_write_result.created) | set(entity_write_result.updated)
         fm_targets = refreshed | set(commit_dirty)
         list_fns = _kind_list_fns()
-        fm_collision_set = _compute_collision_set(conn, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
+        fm_collision_set = _compute_collision_set(reader, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
         fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
         if fm_targets and any(fm_list_fns) and not no_file_map:
-            fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
+            fm_nodes = [n for fn in fm_list_fns if fn for n in fn(reader)]
             for node in fm_nodes:
                 if not isinstance(node.attrs, dict):
                     continue
@@ -1281,7 +1280,7 @@ async def _build_scan_worklist_body(
                     file_map_errors.append(f"{node_uri}: inject_file_map failed: {fm_exc!r}")
         # Step 10b-ts: test-suite File-map injection (preserved-drop unconditional).
         if fm_targets and not no_file_map:
-            for node in queries.list_test_suites(conn):
+            for node in reader.list_test_suites():
                 if not isinstance(node.attrs, dict):
                     continue
                 suite_uri = node.attrs.get("uri")
@@ -1337,19 +1336,19 @@ async def _build_scan_worklist_body(
     needs_narr_set: set[str] = set(entity_write_result.needs_narrative) if entity_write_result else set()
 
     fill_tasks: list[FillTask] = []
-    if conn is not None and entity_write_result is not None:
+    if reader is not None and entity_write_result is not None:
         list_fns = _kind_list_fns()
         page_path_by_uri: dict[str, Path] = {uri: pp for uri, _node, pp in file_mapped_pages}
         node_by_uri: dict[str, Any] = {uri: node for uri, node, _pp in file_mapped_pages}
         # Resolve any narrative-needing entity not already in file_mapped_pages
         # (e.g. agent_plugin / domain — narrative-only, no deterministic file map).
         if needs_narr_set - page_path_by_uri.keys():
-            collision = _compute_collision_set(conn, ADMITTED_KINDS, list_fns)
+            collision = _compute_collision_set(reader, ADMITTED_KINDS, list_fns)
             for kind in sorted(ADMITTED_KINDS):
                 fn = list_fns.get(kind)
                 if fn is None:
                     continue
-                for node in fn(conn):
+                for node in fn(reader):
                     if not isinstance(node.attrs, dict):
                         continue
                     uri = node.attrs.get("uri")
@@ -1408,8 +1407,8 @@ async def _build_scan_worklist_body(
 
     drift_tasks = _build_drift_tasks(wiki)
     propagate_tasks, propagate_anchors, propagate_pages = (
-        _build_propagate_tasks(wiki, repo, conn, repo_paths=repo_paths)
-        if (propagate_drift and conn is not None)
+        _build_propagate_tasks(wiki, repo, reader, repo_paths=repo_paths)
+        if (propagate_drift and reader is not None)
         else ([], {}, {})
     )
 
@@ -1474,23 +1473,22 @@ async def _bedrock_provider(
 
     stack = _bedrock_stack()
 
-    # Open a read-only conn for narrator relations / agent_plugin tables and the
-    # package_reader graph-tools. Closed in finally. The DB-existence guard mirrors
-    # run_scan's `if conn is not None` gating: on a NOT_INITIALIZED fallback the
-    # graph DB was never written, so we must not even attempt to open it.
-    conn = None
-    db_path = graph_dir(wiki.parent) / "code.db"
+    # Open a read-only reader for narrator relations / agent_plugin tables and the
+    # package_reader graph-tools. Closed in finally. The open mirrors run_scan's
+    # `if reader is not None` gating: on a NOT_INITIALIZED fallback the graph DB
+    # was never written, so open_reader raises GraphNotInitializedError and we
+    # proceed reader-less.
+    reader = None
     try:
-        if db_path.exists():
-            try:
-                conn = read_only_connect(db_path)
-            except GraphNotInitializedError:
-                conn = None
+        try:
+            reader = open_reader(wiki.parent)
+        except GraphNotInitializedError:
+            reader = None
 
         narrative_uris = {t.uri for t in worklist.fill_tasks if t.needs.narrative}
 
         # --- Narrator fan-out (role="narrator") ---
-        if stack is not None and conn is not None and narrative_uris:
+        if stack is not None and reader is not None and narrative_uris:
             load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
             narrator_items: list[tuple[str, str, Any]] = []
             list_fns = _kind_list_fns()
@@ -1498,7 +1496,7 @@ async def _bedrock_provider(
                 list_fn = list_fns.get(kind)
                 if list_fn is None:
                     continue
-                for node in list_fn(conn):
+                for node in list_fn(reader):
                     if not isinstance(node.attrs, dict):
                         continue
                     node_uri = node.attrs.get("uri")
@@ -1512,12 +1510,12 @@ async def _bedrock_provider(
 
                 async def generate_narrative(item: tuple[str, str, Any]) -> TaskResultType:
                     uri_inner, kind_inner, node_inner = item
-                    relations = scanner_frontmatter_for_node(conn, kind_inner, node_inner)
+                    relations = scanner_frontmatter_for_node(reader, kind_inner, node_inner)
                     relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
                     file_map = ""
                     components_text = ""
                     if kind_inner == "agent_plugin":
-                        tv = _agent_plugin_table_variables(conn, node_inner)
+                        tv = _agent_plugin_table_variables(reader, node_inner)
                         components_text = "\n\n".join(
                             f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
                         )
@@ -1665,7 +1663,7 @@ async def _bedrock_provider(
                 _pr_filled, _pr_errors = await _run_package_reader_pass(
                     wiki=wiki,
                     repo=repo,
-                    conn=conn,
+                    reader=reader,
                     model_override=model_override,
                     candidate_pages=package_reader_candidates,
                 )
@@ -1770,9 +1768,9 @@ async def _bedrock_provider(
                         )
                 results.propagate = propagate_results
     finally:
-        if conn is not None:
+        if reader is not None:
             try:
-                conn.close()
+                reader.close()
             except Exception:  # noqa: BLE001
                 pass
 
@@ -1789,21 +1787,19 @@ async def _bedrock_provider(
 def _regen_indexes_and_log(wiki: Path) -> None:
     """Step 12: regenerate wiki/index.md + per-folder sub-indexes + backlinks.
 
-    Lifted from run_scan's Step 12 block. Opens its own read-only conn for
+    Lifted from run_scan's Step 12 block. Opens its own read-only reader for
     generate_index (graph-driven) and closes it; update_index + backlink regen
     are graph-independent.
     """
-    conn = None
-    db_path = graph_dir(wiki.parent) / "code.db"
-    if db_path.exists():
-        try:
-            conn = read_only_connect(db_path)
-        except GraphNotInitializedError:
-            conn = None
+    reader = None
     try:
-        if conn is not None:
+        reader = open_reader(wiki.parent)
+    except GraphNotInitializedError:
+        reader = None
+    try:
+        if reader is not None:
             display_name = _manifest.read(manifest_path(wiki.parent)).get("topic")
-            generate_index(conn, wiki, display_name)
+            generate_index(reader, wiki, display_name)
         try:
             update_index(wiki)
         except Exception as exc:  # noqa: BLE001
@@ -1813,9 +1809,9 @@ def _regen_indexes_and_log(wiki: Path) -> None:
         except Exception as exc:  # noqa: BLE001
             logger.warning("regenerate_referenced_in_wiki failed (non-fatal): %s", exc)
     finally:
-        if conn is not None:
+        if reader is not None:
             try:
-                conn.close()
+                reader.close()
             except Exception:  # noqa: BLE001
                 pass
 
@@ -2007,7 +2003,7 @@ async def run_scan(
     """End-to-end scan: graph build → entity writes → narrator fan-out → indexes.
 
     Steps:
-        1. Resolve wiki and repo from workspace_path; run `cg update`, open conn.
+        1. Resolve wiki and repo from workspace_path; run `cg update`, open reader.
         8. compute_state_gate(repo, workspace=wiki.parent) → {allowed, reason, head_commit}.
         9a. write_entities — graph-driven entity pages.
         9b. narrator fan-out gated on needs_narrative.
@@ -2136,8 +2132,8 @@ async def _run_scan_structural_only(
     else:
         repo = Path.cwd()
 
-    # Phase 39 D-05: single read-only conn for graph queries; closed in finally
-    conn = None
+    # Phase 39 D-05: single read-only reader for graph queries; closed in finally
+    reader = None
     try:
         # Phase 39 Step 1.5 (D-01/D-02/D-06/D-07/D-08): pre-scan cg update.
         # Use Phase 38's in-process helpers — full=False, no --trace, no --model.
@@ -2150,15 +2146,15 @@ async def _run_scan_structural_only(
             raise_exception=True,
         )
         # NOTE: run_build interprets `workspace` as the workspace ROOT (where
-        # `.graph-wiki/code.db` is written), not the wiki directory. commands/graph.py
-        # (`_resolve_paths` → `cfg.workspace`) and the librarian
+        # the `.graph-wiki/` graph DB is written), not the wiki directory.
+        # commands/graph.py (`_resolve_paths` → `cfg.workspace`) and the librarian
         # (`graph_dir(wiki.parent)` in commands/query.py) both use the workspace
         # root. We follow that convention here so the post-update
-        # `read_only_connect(graph_dir(wiki.parent) / "code.db")` finds the
-        # DB the graph build just created. (The plan's must_have says
-        # `workspace=wiki`; that is a plan-spec drift — passing `wiki` makes the
-        # build write to `<wiki>/.graph-wiki/code.db` while the read path looks under
-        # `<workspace>/.graph-wiki/code.db`, so the conn open would fall through
+        # `open_reader(wiki.parent)` finds the DB the graph build just
+        # created. (The plan's must_have says `workspace=wiki`; that is a
+        # plan-spec drift — passing `wiki` makes the build write under
+        # `<wiki>/.graph-wiki/` while the read path looks under
+        # `<workspace>/.graph-wiki/`, so the reader open would fall through
         # to the post-update NOT_INITIALIZED fallback every time. See Phase
         # 39 SUMMARY's deviations section.)
         #
@@ -2205,12 +2201,12 @@ async def _run_scan_structural_only(
             )
             raise ScanAbortedError(exit_code=_cg_exit, stderr=_cg_stderr)
 
-        # Phase 39 Step 1.6 (D-05): open the read-only graph conn ONCE on success.
+        # Phase 39 Step 1.6 (D-05): open the read-only graph reader ONCE on success.
         # wiki is workspace/wiki under the standard layout; .graph-wiki lives next to it
         # (mirrors the pattern in commands/query.py — librarian's graph-tools wiring).
         if _graph_ready:
             try:
-                conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+                reader = open_reader(wiki.parent)
             except GraphNotInitializedError as exc:
                 # Defensive: should not happen after a successful cg update,
                 # but treat as a NOT_INITIALIZED-class fallback if it does.
@@ -2225,7 +2221,7 @@ async def _run_scan_structural_only(
                     silent=True,
                     raise_exception=True,
                 )
-                conn = None
+                reader = None
 
         # Step 8: compute state gate. `head` gates _commit_dirty_changes; no anchor
         # is stamped on the structural-only path (stamping is narrate-only).
@@ -2239,12 +2235,12 @@ async def _run_scan_structural_only(
         # (keys = dirty URIs; value = repo-relative changed paths, or None when
         # the page's anchor SHA is unknown to the repo). Consumed by Step 10b's
         # preserved-drop. Pre-initialized so the file-map block reads it safely
-        # even when the graph conn is None.
+        # even when the graph reader is None.
         commit_dirty: dict[str, list[str] | None] = {}
 
-        if conn is not None:
+        if reader is not None:
             # Step 9a: graph-driven entity page writes (Phase 43 write_entities).
-            entity_write_result = write_entities(conn, wiki, ADMITTED_KINDS)
+            entity_write_result = write_entities(reader, wiki, ADMITTED_KINDS)
             append_log(
                 wiki,
                 "scan",
@@ -2264,9 +2260,9 @@ async def _run_scan_structural_only(
             commit_dirty = _commit_dirty_changes(
                 wiki,
                 repo,
-                conn,
+                reader,
                 head,
-                _compute_collision_set(conn, ADMITTED_KINDS, _kind_list_fns()),
+                _compute_collision_set(reader, ADMITTED_KINDS, _kind_list_fns()),
             )
             if commit_dirty:
                 # EntityWriteResult is a frozen dataclass; mutate the set in
@@ -2306,7 +2302,7 @@ async def _run_scan_structural_only(
         # (uri, node, page_path) for each package/app whose File map was injected
         # this scan.
         file_mapped_pages: list[tuple[str, Any, Path]] = []
-        if entity_write_result is not None and conn is not None:
+        if entity_write_result is not None and reader is not None:
             refreshed = set(entity_write_result.created) | set(entity_write_result.updated)
             # M2b §3.2 (load-bearing): a package whose source changed with no
             # structural delta is in commit_dirty but NOT refreshed; without this
@@ -2315,10 +2311,10 @@ async def _run_scan_structural_only(
             fm_targets = refreshed | set(commit_dirty)
             list_fns = _kind_list_fns()
             # Collision set shared by the package/app and test-suite branches.
-            fm_collision_set = _compute_collision_set(conn, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
+            fm_collision_set = _compute_collision_set(reader, ADMITTED_KINDS, list_fns) if fm_targets else frozenset()
             fm_list_fns = [list_fns.get("package"), list_fns.get("app")]
             if fm_targets and any(fm_list_fns) and not no_file_map:
-                fm_nodes = [n for fn in fm_list_fns if fn for n in fn(conn)]
+                fm_nodes = [n for fn in fm_list_fns if fn for n in fn(reader)]
                 for node in fm_nodes:
                     if not isinstance(node.attrs, dict):
                         continue
@@ -2358,7 +2354,7 @@ async def _run_scan_structural_only(
             # re-described suites join redescribed_uris for the unified stamp.
             # `not no_file_map` mirrors the package/app branch guard (D4 parity).
             if fm_targets and not no_file_map:
-                for node in queries.list_test_suites(conn):
+                for node in reader.list_test_suites():
                     if not isinstance(node.attrs, dict):
                         continue
                     suite_uri = node.attrs.get("uri")
@@ -2415,12 +2411,12 @@ async def _run_scan_structural_only(
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.
-        if conn is not None:
+        if reader is not None:
             # generate_index is read-only on the graph; raises on failure (Phase 44 D-19).
             # Title the index with the wiki's human topic (manifest `topic`),
             # falling back to the wiki dir name for pre-topic workspaces.
             display_name = _manifest.read(manifest_path(wiki.parent)).get("topic")
-            index_result = generate_index(conn, wiki, display_name)
+            index_result = generate_index(reader, wiki, display_name)
             append_log(
                 wiki,
                 "scan",
@@ -2489,11 +2485,11 @@ async def _run_scan_structural_only(
             ),
         )
     finally:
-        if conn is not None:
+        if reader is not None:
             try:
-                conn.close()
+                reader.close()
             except Exception:
-                pass  # closing a read-only conn should not raise; defensive
+                pass  # closing a read-only reader should not raise; defensive
 
 
 # ---------------------------------------------------------------------------

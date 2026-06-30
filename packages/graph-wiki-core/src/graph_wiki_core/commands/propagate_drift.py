@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
-from graph_io import queries as _queries
 from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io.backlink_index import build_entity_backlink_map
 from wiki_io.drift import extract_narrative, section_hash
@@ -101,23 +100,22 @@ class PropagateDriftResult:
     proposals: list[dict] = field(default_factory=list)  # report rows for --json
 
 
-def _entity_paths_by_uri(conn: Any) -> dict[str, str]:
+def _entity_paths_by_uri(reader: Any) -> dict[str, str]:
     """uri -> repo-relative node path for the candidate kinds (from the graph).
 
-    ``list_packages`` / ``list_apps`` / ``list_test_suites`` / ``list_agent_plugins``
-    all use ``_list_by_kind``, which selects 6 columns including ``uri`` and folds
-    it back into ``node.attrs["uri"]`` via ``_row_to_node``. So ``attrs.get("uri")``
-    is the correct read surface here.
+    ``reader.list_packages`` / ``list_apps`` / ``list_test_suites`` /
+    ``list_agent_plugins`` all fold ``uri`` back into ``node.attrs["uri"]``, so
+    ``attrs.get("uri")`` is the correct read surface here.
     """
     list_fns = {
-        "package": _queries.list_packages,
-        "app": _queries.list_apps,
-        "test_suite": _queries.list_test_suites,
-        "agent_plugin": _queries.list_agent_plugins,
+        "package": reader.list_packages,
+        "app": reader.list_apps,
+        "test_suite": reader.list_test_suites,
+        "agent_plugin": reader.list_agent_plugins,
     }
     out: dict[str, str] = {}
     for kind in _CANDIDATE_KINDS:
-        for node in list_fns[kind](conn):
+        for node in list_fns[kind]():
             attrs = node.attrs if isinstance(node.attrs, dict) else {}
             uri = attrs.get("uri")
             if uri and node.path:
@@ -126,7 +124,7 @@ def _entity_paths_by_uri(conn: Any) -> dict[str, str]:
 
 
 def propagation_candidates(
-    wiki: Path, repo: Path, conn: Any, repo_paths: dict[str, Path] | None = None
+    wiki: Path, repo: Path, reader: Any, repo_paths: dict[str, Path] | None = None
 ) -> list[PropagationCandidate]:
     """Entity pages where ``drift_propagated_commit != last_updated_commit``.
 
@@ -145,7 +143,7 @@ def propagation_candidates(
     entities_dir = wiki / "entities"
     if not entities_dir.is_dir():
         return []
-    uri_to_path = _entity_paths_by_uri(conn)
+    uri_to_path = _entity_paths_by_uri(reader)
     out: list[PropagationCandidate] = []
     for page_path in sorted(entities_dir.glob("*.md")):
         try:
@@ -249,7 +247,7 @@ async def run_propagate_drift(
     *,
     wiki: Path,
     repo: Path,
-    conn: Any,
+    reader: Any,
     dry_run: bool = False,
     only: str | None = None,
     model_override: str | None = None,
@@ -270,7 +268,7 @@ async def run_propagate_drift(
 
     members = list(_resolve_cfg(repo, require_manifest=False).members)
     repo_paths = build_repo_paths(members)
-    candidates = propagation_candidates(wiki, repo, conn, repo_paths=repo_paths or None)
+    candidates = propagation_candidates(wiki, repo, reader, repo_paths=repo_paths or None)
 
     # The Bedrock stack is required to judge; absent it (plugin branch) we make
     # no proposals and stamp nothing (mirrors scan._drift_flag_pass early-out).

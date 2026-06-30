@@ -203,9 +203,6 @@ def resolve_path_contexts(
     repo_root: Path | None,
     index: GuidanceIndex,
 ) -> list[PathContext]:
-    # wiki_io.entity_lookup still takes a raw sqlite connection (not yet ported to
-    # the handle API); bridge through the reader's connection for those calls.
-    conn = reader._conn if reader is not None else None
     contexts: list[PathContext] = []
     for raw in paths:
         rel = PurePath(raw).as_posix()
@@ -220,25 +217,25 @@ def resolve_path_contexts(
         content = ""
 
         file_hit = None
-        if conn is not None and repo_root is not None:
-            file_hit = lookup_entity_by_path(conn, repo_root, repo_root / rel)
+        if reader is not None and repo_root is not None:
+            file_hit = lookup_entity_by_path(reader, repo_root, repo_root / rel)
 
         if file_hit is not None:
             # FILE branch — stem from the entity; baseline index/language already correct.
-            package_stem = entity_filename_for_uri(file_hit[0], conn)
+            package_stem = entity_filename_for_uri(file_hit[0], reader)
             if repo_root is not None:
                 try:
                     content = (repo_root / rel).read_text(encoding="utf-8", errors="replace")
                 except OSError:
                     content = ""
-        elif conn is not None and repo_root is not None:
+        elif reader is not None and repo_root is not None:
             # PACKAGE branch — directory (or non-entity file) affects resolves to its
             # enclosing package/app; override index/language/content with package-aggregated
             # signals. No disk read for a resolved package.
-            pkg = lookup_package_by_dir(conn, repo_root, repo_root / rel)
+            pkg = lookup_package_by_dir(reader, repo_root, repo_root / rel)
             if pkg is not None:
                 uri, _name, node_id = pkg
-                package_stem = entity_filename_for_uri(uri, conn)
+                package_stem = entity_filename_for_uri(uri, reader)
                 languages, index_topics, index_tags, content = _package_signal_inputs(reader, node_id, index)
             else:
                 # Unresolved with a graph present: legacy disk read so keyword matching
@@ -248,7 +245,7 @@ def resolve_path_contexts(
                 except OSError:
                     content = ""
         else:
-            # No graph (conn is None / no repo_root): legacy disk read; baseline index/lang
+            # No graph (reader is None / no repo_root): legacy disk read; baseline index/lang
             # kept so file affects still fire index + language without a graph.
             if repo_root is not None:
                 try:

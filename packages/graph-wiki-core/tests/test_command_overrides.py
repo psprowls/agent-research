@@ -532,13 +532,14 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
                 return_value=(0, "", ""),
             )
         )
+        _reader_mock = MagicMock()
+        _reader_mock.list_test_suites.return_value = []
         stack.enter_context(
             patch(
-                "graph_wiki_core.commands.scan.read_only_connect",
-                return_value=MagicMock(),
+                "graph_wiki_core.commands.scan.open_reader",
+                return_value=_reader_mock,
             )
         )
-        stack.enter_context(patch("graph_wiki_core.commands.scan.queries.list_packages", return_value=[]))
         # Phase 45: write_entities + narrator pool + inject_narrative.
         stack.enter_context(
             patch(

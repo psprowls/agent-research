@@ -342,15 +342,18 @@ def test_graceful_fallback_on_init_failure(tmp_workspace_with_packages, monkeypa
         lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.GENERIC, "", init_stderr),
     )
 
-    # read_only_connect should NEVER be called when init fallback fired.
-    conn_calls: list[Path] = []
-    real_read_only_connect = scan_module.read_only_connect
+    # After the init fallback, the narrate/index halves still call open_reader,
+    # but on a never-initialized workspace it raises GraphNotInitializedError and
+    # the scan falls back gracefully (reader-less). Record that every open attempt
+    # raised — i.e. none yielded a live handle.
+    open_attempts: list[Path] = []
+    real_open_reader = scan_module.open_reader
 
-    def _record_conn(db_path):
-        conn_calls.append(db_path)
-        return real_read_only_connect(db_path)
+    def _record_conn(ws):
+        open_attempts.append(ws)
+        return real_open_reader(ws)  # raises GraphNotInitializedError (no DB)
 
-    monkeypatch.setattr(scan_module, "read_only_connect", _record_conn)
+    monkeypatch.setattr(scan_module, "open_reader", _record_conn)
 
     # Scan should complete without raising.
     result = asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
@@ -360,7 +363,12 @@ def test_graceful_fallback_on_init_failure(tmp_workspace_with_packages, monkeypa
     assert _has_not_initialized_fallback_line(captured.err), (
         f"expected exactly one NOT_INITIALIZED fallback line in stderr; got: {captured.err!r}"
     )
-    assert conn_calls == [], f"read_only_connect should not be called on init fallback; calls={conn_calls}"
+    # Every open attempt targeted the never-initialized workspace, where the real
+    # opener raises GraphNotInitializedError — so the scan obtained no live reader
+    # and ran reader-less / path-based (graceful fallback).
+    for ws in open_attempts:
+        with pytest.raises(scan_module.GraphNotInitializedError):
+            real_open_reader(ws)
 
 
 def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
@@ -382,10 +390,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
     mock_conn = MagicMock()
     # Mock execute() to return an object with fetchall() so domain query works.
     mock_conn.execute.return_value.fetchall.return_value = []
-    monkeypatch.setattr(scan_module, "read_only_connect", lambda db_path: mock_conn)
-
-    # Make list_packages return [] so decoration is a no-op (graph query phase).
-    monkeypatch.setattr(scan_module.queries, "list_packages", lambda conn: [])
+    monkeypatch.setattr(scan_module, "open_reader", lambda db_path: mock_conn)
 
     # Phase 45 D-04/D-08: legacy scanner fan-out is removed. To exercise the
     # conn-closure-on-exception path we now raise from write_entities (Step 9a),

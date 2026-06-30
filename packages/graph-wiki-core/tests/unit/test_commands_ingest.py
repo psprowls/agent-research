@@ -1029,6 +1029,8 @@ async def test_run_ingest_source_closes_conn_on_exception(tmp_path: Path) -> Non
     source_file.write_text("# Src\n\nBody.", encoding="utf-8")
     _seed_graph_db_for_ingest_tests(workspace, packages=[])
 
+    from graph_io.handle import GraphReader
+
     recorded_conn = MagicMock(spec=sqlite3.Connection)
     recorded_conn.execute.return_value.fetchone.return_value = None
     recorded_conn.execute.return_value.fetchall.return_value = []
@@ -1038,15 +1040,13 @@ async def test_run_ingest_source_closes_conn_on_exception(tmp_path: Path) -> Non
 
     with (
         patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
-        patch("graph_wiki_core.commands.ingest.read_only_connect") as mock_connect,
+        patch("graph_wiki_core.commands.ingest.open_reader") as mock_connect,
         patch("graph_wiki_core.commands.ingest.make_llm") as mock_make_llm,
         patch("graph_wiki_core.commands.ingest.update_index"),
         patch("graph_wiki_core.commands.ingest.append_log"),
-        patch("graph_wiki_core.commands.ingest.queries") as mock_queries,
     ):
         mock_resolve.return_value = (wiki, repo)
-        mock_connect.return_value = recorded_conn
-        mock_queries.find.return_value = []
+        mock_connect.return_value = GraphReader(recorded_conn)
         fake_llm = MagicMock()
         fake_llm.ainvoke = AsyncMock(side_effect=_Boom("llm fail"))
         mock_make_llm.return_value = fake_llm
@@ -2160,7 +2160,7 @@ async def test_run_ingest_source_skill_writes_guidance_and_skips_suggest(tmp_pat
         def close(self):
             pass
 
-    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
 
@@ -2232,7 +2232,7 @@ async def test_run_ingest_source_skill_falls_back_when_plan_unparseable(tmp_path
         def close(self):
             pass
 
-    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
     # Default branch's suggest phase: stub it out so no graph tools are needed.
@@ -2333,7 +2333,7 @@ async def test_run_ingest_source_skill_directory_forces_skill_and_excludes(tmp_p
         def close(self):
             pass
 
-    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
 
@@ -2415,7 +2415,7 @@ async def test_run_ingest_source_raw_skill_single_file_still_works(tmp_path, mon
         def close(self):
             pass
 
-    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
 
@@ -2479,7 +2479,7 @@ def _setup_archive_test_workspace(tmp_path, monkeypatch):
         def close(self):
             pass
 
-    monkeypatch.setattr(ingest_mod, "read_only_connect", lambda db: _Conn())
+    monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
     monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
     monkeypatch.setattr(ingest_mod, "build_graph_tools", lambda conn: [])

@@ -49,9 +49,7 @@ def compute_and_write(workspace_root: Path) -> tuple[Path, int]:
 
     reader = graph_io.open_reader(workspace_root)
     try:
-        # resource_matchers is a graph_io-internal module that operates on the raw
-        # connection; bridge through the reader's connection (not yet a handle method).
-        suggestions = resource_matchers.compute_suggestions(reader._conn, matchers)
+        suggestions = resource_matchers.compute_suggestions(reader, matchers)
     finally:
         reader.close()
 

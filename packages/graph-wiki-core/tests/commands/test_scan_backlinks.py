@@ -38,7 +38,7 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
         patch.object(scan_mod, "_cg_run_build", return_value=(0, "", "")),
         patch.object(
             scan_mod,
-            "read_only_connect",
+            "open_reader",
             side_effect=scan_mod.GraphNotInitializedError("test stub"),
         ),
         patch.object(scan_mod, "append_log"),

@@ -11,6 +11,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
+from graph_io.handle import GraphReader
 from graph_io.store import read_only_connect
 
 
@@ -73,7 +74,7 @@ def ws(tmp_path, monkeypatch):
 
 @pytest.fixture
 def conn(ws):
-    c = read_only_connect(ws / ".graph-wiki" / "code.db")
+    c = GraphReader(read_only_connect(ws / ".graph-wiki" / "code.db"))
     yield c
     c.close()
 
@@ -231,7 +232,7 @@ def test_run_propagate_drift_gates_each_member_on_its_own_repo(ws, conn, monkeyp
 
     _patch_judge(monkeypatch, pd, verdict)
 
-    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo_a, conn=conn))
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo_a, reader=conn))
     assert res.entities_considered == 2
 
     # Each entity's diff ran against ITS OWN repo+sha, not members[0] for both.

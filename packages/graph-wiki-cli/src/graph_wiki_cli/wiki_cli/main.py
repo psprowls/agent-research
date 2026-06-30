@@ -15,14 +15,13 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from graph_io.store import read_only_connect
+from graph_io import open_reader
 from graph_wiki_core.commands.ack_drift import run_ack_drift
 from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.wiki_archive import run_wiki_archive
 from wiki_io._workspace import resolve_wiki_and_repo
-from workspace_io.paths import graph_dir
 
 from graph_wiki_cli.lint_format import format_wiki_lint
 
@@ -201,11 +200,11 @@ def propagate_drift(
     if repo is None:
         typer.echo("Error: repo path is required to propagate drift", err=True)
         raise typer.Exit(code=1)
-    conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+    reader = open_reader(wiki.parent)
     try:
-        result = asyncio.run(run_propagate_drift(wiki=wiki, repo=repo, conn=conn, dry_run=dry_run, only=only))
+        result = asyncio.run(run_propagate_drift(wiki=wiki, repo=repo, reader=reader, dry_run=dry_run, only=only))
     finally:
-        conn.close()
+        reader.close()
 
     if json_output:
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))

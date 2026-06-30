@@ -472,13 +472,12 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
 
 # --- wiki_propagate_drift tool (Living Wiki M4) ---
 
-from graph_io.store import read_only_connect  # noqa: E402
+from graph_io import open_reader  # noqa: E402
 from graph_wiki_core.commands.propagate_drift import (  # noqa: E402
     PropagateDriftResult,
     run_propagate_drift,
 )
 from wiki_io._workspace import resolve_wiki_and_repo  # noqa: E402
-from workspace_io.paths import graph_dir  # noqa: E402
 
 
 class WikiPropagateDriftInput(BaseModel):
@@ -507,13 +506,13 @@ async def wiki_propagate_drift(input: WikiPropagateDriftInput, ctx: Context) -> 
     wiki, repo = resolve_wiki_and_repo(workspace)
     if repo is None:
         raise RuntimeError("repo path is required to propagate drift")
-    conn = read_only_connect(graph_dir(wiki.parent) / "code.db")
+    reader = open_reader(wiki.parent)
     try:
         result: PropagateDriftResult = await run_propagate_drift(
-            wiki=wiki, repo=repo, conn=conn, dry_run=input.dry_run, only=input.only
+            wiki=wiki, repo=repo, reader=reader, dry_run=input.dry_run, only=input.only
         )
     finally:
-        conn.close()
+        reader.close()
     return WikiPropagateDriftOutput(
         pages_judged=result.pages_judged,
         entities_considered=result.entities_considered,
