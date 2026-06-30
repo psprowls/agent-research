@@ -318,7 +318,7 @@ async def test_run_ingest_work_item_writes_page_sidecar_index_and_log(tmp_path: 
     assert isinstance(result, IngestResult)
     assert result.page_type == "work"
     assert result.status == "ok"
-    assert result.slug == "fix-auth-bug"
+    assert result.slug == "2026-05-14-fix-auth-bug"
     assert "2026-05-14-fix-auth-bug" in result.page_path
     assert (wiki / "work" / "2026-05-14-fix-auth-bug.md").exists()
     # Unified side-effects: sidecar regenerated, index + log invoked.
