@@ -33,7 +33,7 @@ class QueryOrchestratorLoopAdapter:
 
         prepared = query_mod._prepare_query_retrieval(item, ctx.workspace, self.top_k)
         repo_root = prepared.repo_root or ctx.repo_root
-        graph_conn, graph_tools = query_mod._load_query_graph_tools(prepared.wiki.parent)
+        graph_reader, graph_tools = query_mod._load_query_graph_tools(prepared.wiki.parent)
         try:
             result = await query_mod.run_query_orchestrator(
                 query=item,
@@ -52,8 +52,8 @@ class QueryOrchestratorLoopAdapter:
                 role_model_overrides=None,
             )
         finally:
-            if graph_conn is not None:
-                graph_conn.close()
+            if graph_reader is not None:
+                graph_reader.close()
 
         output = result.output
         return LoopOutcome(

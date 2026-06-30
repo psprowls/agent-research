@@ -1,24 +1,23 @@
 from pathlib import Path
 
 import pytest
-from graph_io import store
+from graph_io import testing as graph_testing
 from subagent_cli.adapters.base import Prepared, RunContext
 from subagent_cli.adapters.guidance_classifier import GuidanceClassifierAdapter
 from subagent_cli.adapters.package_reader import PackageReaderAdapter
 
 
-def _seed_db(tmp_path: Path) -> Path:
-    db = tmp_path / "code.db"
-    conn = store.connect(db, create=True)
-    conn.close()
-    return db
+def _seed_db(tmp_path: Path) -> None:
+    db = tmp_path / ".graph-wiki" / "code.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    graph_testing.open_store(db, create=True).close()
 
 
 def test_run_context_lazy_conn(tmp_path):
-    db = _seed_db(tmp_path)
-    ctx = RunContext(workspace=tmp_path, repo_root=tmp_path, wiki=tmp_path / "wiki", db_path=db)
-    c1 = ctx.graph_conn()
-    c2 = ctx.graph_conn()
+    _seed_db(tmp_path)
+    ctx = RunContext(workspace=tmp_path, repo_root=tmp_path, wiki=tmp_path / "wiki")
+    c1 = ctx.graph_reader()
+    c2 = ctx.graph_reader()
     assert c1 is c2  # cached
     ctx.close()
 
@@ -29,12 +28,10 @@ def test_prepared_defaults():
 
 
 def _ctx_with_repo(tmp_path):
-    db = tmp_path / "code.db"
-    conn = store.connect(db, create=True)
-    conn.close()
+    _seed_db(tmp_path)
     (tmp_path / "wiki" / "entities").mkdir(parents=True)
     (tmp_path / "wiki" / "guidance").mkdir(parents=True)  # vocab needs the dir
-    return RunContext(workspace=tmp_path, repo_root=tmp_path, wiki=tmp_path / "wiki", db_path=db)
+    return RunContext(workspace=tmp_path, repo_root=tmp_path, wiki=tmp_path / "wiki")
 
 
 async def test_guidance_classifier_prepare_builds_real_prompt(tmp_path):

@@ -2,33 +2,32 @@
 
 from __future__ import annotations
 
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, runtime_checkable
 
-from graph_io import store
+import graph_io
+from graph_io import GraphReader
 
 
 @dataclass
 class RunContext:
-    """Resolved workspace paths plus a lazily-opened read-only graph connection."""
+    """Resolved workspace paths plus a lazily-opened read-only graph reader."""
 
     workspace: Path
     repo_root: Path
     wiki: Path
-    db_path: Path
-    _conn: sqlite3.Connection | None = field(default=None, repr=False)
+    _reader: GraphReader | None = field(default=None, repr=False)
 
-    def graph_conn(self) -> sqlite3.Connection:
-        if self._conn is None:
-            self._conn = store.read_only_connect(self.db_path)
-        return self._conn
+    def graph_reader(self) -> GraphReader:
+        if self._reader is None:
+            self._reader = graph_io.open_reader(self.workspace)
+        return self._reader
 
     def close(self) -> None:
-        if self._conn is not None:
-            self._conn.close()
-            self._conn = None
+        if self._reader is not None:
+            self._reader.close()
+            self._reader = None
 
 
 @dataclass

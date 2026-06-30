@@ -8,7 +8,6 @@ def _loop_ctx(tmp_path):
         workspace=tmp_path,
         repo_root=tmp_path,
         wiki=tmp_path / "wiki",
-        db_path=tmp_path / "code.db",
     )
 
 

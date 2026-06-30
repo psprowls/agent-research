@@ -182,7 +182,6 @@ def _build_context(workspace: Path, repo_root: Path):
         workspace=workspace,
         repo_root=repo_root,
         wiki=ws_paths.wiki_dir(workspace),
-        db_path=ws_paths.graph_dir(workspace) / "code.db",
     )
 
 

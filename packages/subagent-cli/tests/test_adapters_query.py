@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import graph_wiki_core.commands.query as query_mod
 import pytest
-from graph_io import store
+from graph_io import testing as graph_testing
 from graph_wiki_core.commands.query import PreparedQueryRetrieval
 from graph_wiki_core.commands.query_orchestrator import (
     OrchestratorOutput,
@@ -17,11 +17,11 @@ from subagent_cli.adapters.synthesizer import SynthesizerAdapter
 
 
 def _ctx(tmp_path):
-    db = tmp_path / "code.db"
-    conn = store.connect(db, create=True)
-    conn.close()
+    db = tmp_path / ".graph-wiki" / "code.db"
+    db.parent.mkdir(parents=True, exist_ok=True)
+    graph_testing.open_store(db, create=True).close()
     (tmp_path / "wiki").mkdir()
-    return RunContext(workspace=tmp_path, repo_root=tmp_path, wiki=tmp_path / "wiki", db_path=db)
+    return RunContext(workspace=tmp_path, repo_root=tmp_path, wiki=tmp_path / "wiki")
 
 
 @pytest.mark.parametrize(

@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, cast
 
 import frontmatter
-from graph_io import queries
 from graph_wiki_core.commands.package_reader import (
     PackageReaderItem,
     build_package_reader_prompt,
@@ -33,7 +32,7 @@ class PackageReaderAdapter:
         post = frontmatter.load(str(page_path))
         page_text = page_path.read_text(encoding="utf-8", errors="replace")
         kind = str(post.metadata.get("kind", "package"))
-        nodes = queries.find(ctx.graph_conn(), name=name, kind="package")
+        nodes = ctx.graph_reader().find(name=name, kind="package")
         graph_path = (nodes[0].path or "") if nodes else ""
         todo = find_todo_human_sections(page_text, entity_kind=kind)
         reader_item = PackageReaderItem(
@@ -62,4 +61,4 @@ class PackageReaderAdapter:
         )
 
     def items(self, ctx: RunContext) -> list[str]:
-        return sorted({n.name for n in queries.find(ctx.graph_conn(), kind="package")})
+        return sorted({n.name for n in ctx.graph_reader().find(kind="package")})
