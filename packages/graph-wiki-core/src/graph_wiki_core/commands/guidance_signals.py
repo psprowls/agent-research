@@ -11,10 +11,10 @@ from __future__ import annotations
 
 import json
 import re
-import sqlite3
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 
+from graph_io.handle import GraphReader
 from guidance_io.frontmatter import normalize_language, parse
 from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
@@ -22,7 +22,6 @@ from guidance_io.vocab import canonical_tag, load_vocab
 from source_parser.parsers import EXTENSIONS
 from wiki_io.entity_lookup import (
     entity_filename_for_uri,
-    files_in_package,
     lookup_entity_by_path,
     lookup_package_by_dir,
 )
@@ -129,23 +128,22 @@ def load_guidance_pages(workspace: Path) -> list[GuidancePage]:
     return pages
 
 
-def _derive_path_languages(conn: sqlite3.Connection | None, rel: str) -> set[str]:
+def _derive_path_languages(reader: GraphReader | None, rel: str) -> set[str]:
     """Return the language(s) for a repo-relative FILE path as a 0-or-1-element set.
 
     Preference order: graph file-node attrs_json.language → file extension → empty.
     (The package branch in resolve_path_contexts builds a multi-element set by
     unioning the contained files' languages.)
     """
-    if conn is not None:
-        try:
-            row = conn.execute("SELECT attrs_json FROM nodes WHERE kind='file' AND path=? LIMIT 1", (rel,)).fetchone()
-            if row and row[0]:
-                lang = json.loads(row[0]).get("language")
-                if lang:
-                    return {str(lang).strip().lower()}
-        except (sqlite3.Error, ValueError):
-            # JSONDecodeError is a ValueError subclass; fall back to the extension map.
-            pass
+    if reader is not None:
+        # file_attrs returns the parsed attrs dict, or None for a missing row,
+        # empty attrs, or unparseable JSON — the same fallback the old raw-SQL
+        # path produced via its (sqlite3.Error, ValueError) guard.
+        attrs = reader.file_attrs(rel)
+        if attrs:
+            lang = attrs.get("language")
+            if lang:
+                return {str(lang).strip().lower()}
     ext_lang = _EXT_TO_LANG.get(Path(rel).suffix)
     return {ext_lang} if ext_lang else set()
 
@@ -154,15 +152,15 @@ _SYMBOL_KINDS = ("class", "function", "method")
 
 
 def _package_signal_inputs(
-    conn: sqlite3.Connection, node_id: int, index: GuidanceIndex
+    reader: GraphReader, node_id: int, index: GuidanceIndex
 ) -> tuple[set[str], list[str], list[str], str]:
     """Build (languages, index_topics, index_tags, content) for a package node
     from its contained file nodes and their symbols. Graph-only; no disk read.
 
-    Rows from files_in_package are plain tuples (graph_io connections set no
+    Rows from reader.files_in_node are plain tuples (graph_io connections set no
     row_factory): col 0 = id, 1 = path, 2 = attrs_json. Access positionally.
     """
-    file_rows = files_in_package(conn, node_id)
+    file_rows = reader.files_in_node(node_id)
     languages: set[str] = set()
     topics: list[str] = []
     tags: list[str] = []
@@ -191,15 +189,7 @@ def _package_signal_inputs(
             tags.extend(entry.tags)
     # symbol names under the package's files → keyword haystack.
     if file_ids:
-        placeholders = ",".join("?" for _ in file_ids)
-        kind_ph = ",".join("?" for _ in _SYMBOL_KINDS)
-        sym_rows = conn.execute(
-            f"SELECT n.name FROM edges e JOIN nodes n ON e.dst = n.id "
-            f"WHERE e.src IN ({placeholders}) AND e.kind='contains' "
-            f"AND n.kind IN ({kind_ph}) AND n.name IS NOT NULL",
-            (*file_ids, *_SYMBOL_KINDS),
-        ).fetchall()
-        name_parts.extend(r[0] for r in sym_rows)
+        name_parts.extend(reader.symbol_names_under_files(file_ids, _SYMBOL_KINDS))
     content = " ".join(name_parts)
     # de-dupe topics/tags while preserving order
     topics = list(dict.fromkeys(topics))
@@ -209,10 +199,13 @@ def _package_signal_inputs(
 
 def resolve_path_contexts(
     paths: list[str],
-    conn: sqlite3.Connection | None,
+    reader: GraphReader | None,
     repo_root: Path | None,
     index: GuidanceIndex,
 ) -> list[PathContext]:
+    # wiki_io.entity_lookup still takes a raw sqlite connection (not yet ported to
+    # the handle API); bridge through the reader's connection for those calls.
+    conn = reader._conn if reader is not None else None
     contexts: list[PathContext] = []
     for raw in paths:
         rel = PurePath(raw).as_posix()
@@ -222,7 +215,7 @@ def resolve_path_contexts(
         entry = index.files.get(rel)
         index_topics: list[str] = list(entry.topics) if entry else []
         index_tags: list[str] = list(entry.tags) if entry else []
-        languages: set[str] = _derive_path_languages(conn, rel)
+        languages: set[str] = _derive_path_languages(reader, rel)
         package_stem: str | None = None
         content = ""
 
@@ -246,7 +239,7 @@ def resolve_path_contexts(
             if pkg is not None:
                 uri, _name, node_id = pkg
                 package_stem = entity_filename_for_uri(uri, conn)
-                languages, index_topics, index_tags, content = _package_signal_inputs(conn, node_id, index)
+                languages, index_topics, index_tags, content = _package_signal_inputs(reader, node_id, index)
             else:
                 # Unresolved with a graph present: legacy disk read so keyword matching
                 # still works on a real non-entity, non-package file. Baseline index/lang kept.

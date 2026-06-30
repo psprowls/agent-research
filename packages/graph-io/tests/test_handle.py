@@ -43,6 +43,13 @@ def test_describe_package_delegates(seeded_workspace: Path):
         assert desc is not None and desc.name == pkgs[0].name
 
 
+def test_to_graphml_smoke(seeded_workspace: Path):
+    with open_reader(seeded_workspace) as reader:
+        xml = reader.to_graphml()
+        assert isinstance(xml, str)
+        assert "graphml" in xml
+
+
 def test_public_reexports_importable():
     for sym in (
         "GraphReader",

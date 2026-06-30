@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import graph_io
 import typer
 import yaml
 from graph_io import resource_matchers
 from graph_io.resource_matchers import validate_matchers
-from graph_io.store import GraphNotInitializedError, read_only_connect
+from graph_io.store import GraphNotInitializedError
 from workspace_io.manifest import read_graph_resource_matchers, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
 
@@ -44,14 +45,15 @@ def compute_and_write(workspace_root: Path) -> tuple[Path, int]:
     if errors:
         raise InvalidMatcherRules(errors)
 
-    db_path = graph_dir(workspace_root) / "code.db"
     existing = set(read_graph_resources(manifest_path(workspace_root)).keys())
 
-    conn = read_only_connect(db_path)
+    reader = graph_io.open_reader(workspace_root)
     try:
-        suggestions = resource_matchers.compute_suggestions(conn, matchers)
+        # resource_matchers is a graph_io-internal module that operates on the raw
+        # connection; bridge through the reader's connection (not yet a handle method).
+        suggestions = resource_matchers.compute_suggestions(reader._conn, matchers)
     finally:
-        conn.close()
+        reader.close()
 
     # Group by the (resource_name, kind) join key so a provider and consumer that
     # captured the same token coalesce into one entry. Dedupe of (resource, role,

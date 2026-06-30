@@ -17,6 +17,7 @@ def _seed_graph(db_path: Path, files: list[str]) -> None:
         "CREATE TABLE nodes (id INTEGER PRIMARY KEY, kind TEXT, name TEXT, "
         "path TEXT, line INTEGER, attrs_json TEXT, uri TEXT)"
     )
+    conn.execute("CREATE TABLE edges (src INTEGER, dst INTEGER, kind TEXT, attrs_json TEXT)")
     conn.execute("CREATE TABLE metadata (key TEXT PRIMARY KEY, value TEXT)")
     conn.execute(
         "INSERT INTO metadata (key, value) VALUES ('schema_version', ?)",

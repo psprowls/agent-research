@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 
 import yaml
+from graph_io.handle import GraphReader
 from graph_wiki_core.commands.guidance_signals import (
     GuidancePage,
     PathContext,
@@ -285,11 +286,12 @@ def test_derive_path_languages_db_hit_normalized() -> None:
         ("file", "pkg/widget.tsx", json.dumps({"language": "TypeScript"})),
     )
     conn.commit()
+    reader = GraphReader(conn)
     # DB language wins and is normalized to lowercase, regardless of the extension.
-    assert _derive_path_languages(conn, "pkg/widget.tsx") == {"typescript"}
+    assert _derive_path_languages(reader, "pkg/widget.tsx") == {"typescript"}
     # A path with no matching file node falls back to the extension map.
-    assert _derive_path_languages(conn, "pkg/other.py") == {"python"}
-    conn.close()
+    assert _derive_path_languages(reader, "pkg/other.py") == {"python"}
+    reader.close()
 
 
 def _guidance_page_text(title: str, summary: str = "s") -> str:
@@ -366,7 +368,7 @@ def test_language_roundtrip_write_load_filter(tmp_path: Path) -> None:
 
 def _seed_pkg_graph(nodes, edges):
     """In-memory graph: nodes = (id, kind, name, path, attrs_json, uri),
-    edges = (src, dst, kind). Returns an open sqlite3 connection.
+    edges = (src, dst, kind). Returns an open GraphReader over the in-memory db.
     Deliberately does NOT set row_factory — matches production read_only_connect
     (plain tuple rows), so the package branch is tested under real conditions."""
     conn = sqlite3.connect(":memory:")
@@ -386,12 +388,12 @@ def _seed_pkg_graph(nodes, edges):
             (src, dst, kind),
         )
     conn.commit()
-    return conn
+    return GraphReader(conn)
 
 
 def test_package_branch_fires_entity_and_language(tmp_path) -> None:
     # A .py package: entity stem pkg_p, language {python}.
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[
             (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
             (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
@@ -400,9 +402,9 @@ def test_package_branch_fires_entity_and_language(tmp_path) -> None:
         edges=[(1, 2, "contains"), (2, 3, "contains")],
     )
     try:
-        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["packages/p"], reader, tmp_path, GuidanceIndex(files={}))
     finally:
-        conn.close()
+        reader.close()
     assert len(ctxs) == 1
     ctx = ctxs[0]
     assert ctx.package_stem == "pkg_p"  # fires `entity`
@@ -413,7 +415,7 @@ def test_package_branch_fires_entity_and_language(tmp_path) -> None:
 
 def test_package_branch_typescript_not_mislabeled(tmp_path) -> None:
     # Package node attrs would say javascript; file nodes say typescript → set must be {typescript}.
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[
             (1, "package", "ts-pkg", "packages/ts-pkg", json.dumps({"language": "javascript"}), "pkg:o/r/ts-pkg"),
             (2, "file", "x.ts", "packages/ts-pkg/x.ts", json.dumps({"language": "typescript"}), None),
@@ -421,14 +423,14 @@ def test_package_branch_typescript_not_mislabeled(tmp_path) -> None:
         edges=[(1, 2, "contains")],
     )
     try:
-        ctxs = resolve_path_contexts(["packages/ts-pkg"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["packages/ts-pkg"], reader, tmp_path, GuidanceIndex(files={}))
     finally:
-        conn.close()
+        reader.close()
     assert ctxs[0].languages == {"typescript"}
 
 
 def test_package_branch_mixed_language_union(tmp_path) -> None:
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[
             (1, "package", "m", "packages/m", None, "pkg:o/r/m"),
             (2, "file", "a.py", "packages/m/a.py", json.dumps({"language": "python"}), None),
@@ -437,14 +439,14 @@ def test_package_branch_mixed_language_union(tmp_path) -> None:
         edges=[(1, 2, "contains"), (1, 3, "contains")],
     )
     try:
-        ctxs = resolve_path_contexts(["packages/m"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["packages/m"], reader, tmp_path, GuidanceIndex(files={}))
     finally:
-        conn.close()
+        reader.close()
     assert ctxs[0].languages == {"python", "typescript"}
 
 
 def test_package_branch_aggregates_index(tmp_path) -> None:
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[
             (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
             (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
@@ -455,23 +457,23 @@ def test_package_branch_aggregates_index(tmp_path) -> None:
         files={"packages/p/a.py": IndexEntry(topics=["async"], tags=["retry"], content_hash="", scanned_at="")}
     )
     try:
-        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, index)
+        ctxs = resolve_path_contexts(["packages/p"], reader, tmp_path, index)
     finally:
-        conn.close()
+        reader.close()
     assert "async" in ctxs[0].index_topics
     assert "retry" in ctxs[0].index_tags
 
 
 def test_package_branch_no_match_stays_dark(tmp_path) -> None:
     # A non-package path with no package ancestor: all signal inputs empty, no crash.
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")],
         edges=[],
     )
     try:
-        ctxs = resolve_path_contexts(["docs/notes"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["docs/notes"], reader, tmp_path, GuidanceIndex(files={}))
     finally:
-        conn.close()
+        reader.close()
     ctx = ctxs[0]
     assert ctx.package_stem is None
     assert ctx.languages == set()
@@ -479,7 +481,7 @@ def test_package_branch_no_match_stays_dark(tmp_path) -> None:
 
 
 def test_package_branch_nested_subdir_resolves(tmp_path) -> None:
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[
             (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
             (2, "file", "a.py", "packages/p/src/a.py", json.dumps({"language": "python"}), None),
@@ -487,9 +489,9 @@ def test_package_branch_nested_subdir_resolves(tmp_path) -> None:
         edges=[(1, 2, "contains")],
     )
     try:
-        ctxs = resolve_path_contexts(["packages/p/src"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["packages/p/src"], reader, tmp_path, GuidanceIndex(files={}))
     finally:
-        conn.close()
+        reader.close()
     assert ctxs[0].package_stem == "pkg_p"
     assert ctxs[0].languages == {"python"}
 
@@ -498,11 +500,11 @@ def test_unresolved_real_file_with_graph_still_reads_disk(tmp_path) -> None:
     # A real on-disk file that is neither an admitted entity nor under a package
     # node: content must still come from disk so the keyword signal can match.
     (tmp_path / "README.md").write_text("alpha beta gamma", encoding="utf-8")
-    conn = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
+    reader = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
     try:
-        ctxs = resolve_path_contexts(["README.md"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["README.md"], reader, tmp_path, GuidanceIndex(files={}))
     finally:
-        conn.close()
+        reader.close()
     assert "alpha beta gamma" in ctxs[0].content
     assert ctxs[0].package_stem is None
 
@@ -523,14 +525,14 @@ def test_unresolved_file_with_graph_keeps_index_and_language(tmp_path) -> None:
     # Graph present, path is a real file that is NOT an admitted entity and NOT under any
     # package node: it must keep its rel-level index entry and extension language.
     (tmp_path / "conftest.py").write_text("x = 1", encoding="utf-8")
-    conn = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
+    reader = _seed_pkg_graph(nodes=[(1, "package", "p", "packages/p", None, "pkg:o/r/p")], edges=[])
     index = GuidanceIndex(
         files={"conftest.py": IndexEntry(topics=["fixtures"], tags=[], content_hash="", scanned_at="")}
     )
     try:
-        ctxs = resolve_path_contexts(["conftest.py"], conn, tmp_path, index)
+        ctxs = resolve_path_contexts(["conftest.py"], reader, tmp_path, index)
     finally:
-        conn.close()
+        reader.close()
     assert ctxs[0].index_topics == ["fixtures"]
     assert ctxs[0].languages == {"python"}
     assert ctxs[0].package_stem is None

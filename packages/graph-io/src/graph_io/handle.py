@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Iterator
 
 from workspace_io.paths import graph_dir
 
-from graph_io import cluster, queries, resolve, store, upsert
+from graph_io import cluster, graphml, queries, resolve, store, upsert
 from graph_io.queries import MatchRecord, NodeRecord
 
 if TYPE_CHECKING:
@@ -184,6 +184,10 @@ class GraphReader:
     # --- raw dump (ops_dump) ---
     def dump_sql(self) -> Iterator[str]:
         return self._conn.iterdump()
+
+    # --- graphml export ---
+    def to_graphml(self) -> str:
+        return graphml.to_graphml(self._conn)
 
     # --- cli/core raw-SQL ports (Task 3) ---
     def metadata(self, key):

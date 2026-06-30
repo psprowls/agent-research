@@ -375,7 +375,7 @@ def test_describe_repository_not_found_stderr_byte_identical(
     A seeded graph always has a repository node, so force the None branch by
     patching the typed query.
     """
-    with patch.object(graph_module.queries, "describe_repository", return_value=None):
+    with patch.object(graph_module.GraphReader, "describe_repository", return_value=None):
         result = runner.invoke(
             app,
             ["describe", "repository"],
@@ -402,13 +402,11 @@ def test_describe_entry_point_ambiguous_exits_ambiguous(
     runner: CliRunner,
     tmp_workspace: Path,
 ) -> None:
-    """Ambiguous bare entry-point name → AMBIGUOUS(7). Mock conn.execute to return >1 row."""
-    import sqlite3
+    """Ambiguous bare entry-point name → AMBIGUOUS(7). Mock reader to return >1 package."""
+    fake_reader = MagicMock()
+    fake_reader.resolve_entry_point.return_value = (None, ["pkg1", "pkg2"])
 
-    fake_conn = MagicMock(spec=sqlite3.Connection)
-    fake_conn.execute.return_value.fetchall.return_value = [("pkg1",), ("pkg2",)]
-
-    with patch.object(graph_module, "_connect_or_error", return_value=(fake_conn, exit_codes.SUCCESS, "")):
+    with patch.object(graph_module, "_connect_or_error", return_value=(fake_reader, exit_codes.SUCCESS, "")):
         result = runner.invoke(
             app,
             ["describe", "entry-point", "ambiguous-ep"],

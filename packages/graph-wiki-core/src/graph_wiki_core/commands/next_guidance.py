@@ -14,13 +14,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from graph_io.store import GraphNotInitializedError, read_only_connect
+import graph_io
+from graph_io.store import GraphNotInitializedError
 from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
 from wiki_io._workspace import resolve_wiki_and_repo
 from work_io import frontmatter as _frontmatter
 from work_io.lifecycle_lint import TERMINAL_STATUSES, VALID_PHASES, VALID_ROLES
-from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.guidance_recall import RankedGuidance, recall_and_rank
 from graph_wiki_core.commands.guidance_signals import (
@@ -156,14 +156,14 @@ async def run_next_guidance(
     if not index_present:
         result.warnings.append("no guidance index yet — run `gw guidance scan` to improve recall")
 
-    conn = None
+    reader = None
     if paths:
         try:
-            conn = read_only_connect(graph_dir(workspace) / "code.db")
+            reader = graph_io.open_reader(workspace)
         except GraphNotInitializedError:
-            conn = None
+            reader = None
     try:
-        path_contexts = resolve_path_contexts(paths, conn, repo, index)
+        path_contexts = resolve_path_contexts(paths, reader, repo, index)
         ranked, assembled, core_warnings = await recall_and_rank(
             kept,
             message,
@@ -185,8 +185,8 @@ async def run_next_guidance(
             drop_low=True,
         )
     finally:
-        if conn is not None:
-            conn.close()
+        if reader is not None:
+            reader.close()
 
     result.ranked = ranked
     result.assembled = assembled

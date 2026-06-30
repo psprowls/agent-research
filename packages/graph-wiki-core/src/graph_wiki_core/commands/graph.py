@@ -1,9 +1,9 @@
 """graph-wiki-core graph subcommands — typed graph_io API.
 
 Phase 59 (Plan 02): migrated off the legacy cli wrappers onto the typed
-library API. Replaces the Phase 38 namespace-construction + stdout-capture
-shim with direct calls to `graph_io.queries.*`, `graph_io.update.run`, and
-`graph_io.store.read_only_connect` (D-04..D-07).
+library API. All read access now routes through the `graph_io` handle API
+(`graph_io.open_reader(...)` → `GraphReader`); builds use `graph_io.update.run`
+(D-04..D-07).
 
 Trace records (when `--trace` is passed) reuse the Phase 9 OBS-04 schema
 (D-01, D-02: schema_version=1, NO bump) with the same `event` values:
@@ -19,30 +19,30 @@ Decision references:
   D-01 trace file naming `<ISO-Z>-<command>.jsonl`
   D-02 schema_version reuse (do NOT bump to 2)
   D-03 honest-omission of cost fields on proxy commands
-  D-04 shared connect+map helper (_open_graph_conn) reused by all describe + query
+  D-04 shared connect+map helper (_open_graph_reader) reused by all describe + query
   D-05 exit-code contract preserved exactly incl. AMBIGUOUS(7) for entry-point
   D-06 graph build uses update.run (raises on error)
   D-07 trace schema unchanged; exit_code from agent's own exception mapping
   D-08 describe is a Typer subapp with 6 sub-sub-commands
   D-09 kebab-case CLI names ↔ snake_case dispatch keys
 
-Pattern template: scan.py:540-558 (read_only_connect + except GraphNotInitializedError).
+Pattern template: open_reader + except GraphNotInitializedError/SchemaMismatchError.
 """
 
 from __future__ import annotations
 
 import datetime
 import json
-import sqlite3
 import time
 from pathlib import Path
 from typing import Any, Optional
 
+import graph_io
 import typer
-from graph_io import exit_codes, queries, update
-from graph_io import graphml as _graphml
+from graph_io import exit_codes, update
 from graph_io import render as _render
-from graph_io.store import GraphNotInitializedError, SchemaMismatchError, read_only_connect
+from graph_io.handle import GraphReader
+from graph_io.store import GraphNotInitializedError, SchemaMismatchError
 from workspace_io.config import resolve
 from workspace_io.paths import graph_dir
 
@@ -63,38 +63,36 @@ def _iso_utc_record_timestamp() -> str:
 
 def _connect_or_error(
     workspace: Path,
-) -> tuple[sqlite3.Connection | None, int, str]:
-    """Open a read-only graph connection, returning (conn, exit_code, stderr).
+) -> tuple[GraphReader | None, int, str]:
+    """Open a read-only GraphReader, returning (reader, exit_code, stderr).
 
-    No printing, no typer.Exit. On success returns (conn, SUCCESS, ""). On a
+    No printing, no typer.Exit. On success returns (reader, SUCCESS, ""). On a
     store error returns (None, NOT_INITIALIZED|SCHEMA_MISMATCH, "error: ...").
     Used by the printing-free core functions (run_describe/run_query). The
-    Typer-facing `_open_graph_conn` wraps this and raises typer.Exit.
+    Typer-facing `_open_graph_reader` wraps this and raises typer.Exit.
 
-    Source pattern: scan.py:540-558 (read_only_connect + except GraphNotInitializedError).
-    Does NOT close the connection on success — callers use try/finally: conn.close().
+    Does NOT close the reader on success — callers use try/finally: reader.close().
     """
-    db = graph_dir(workspace) / "code.db"
     try:
-        return read_only_connect(db), exit_codes.SUCCESS, ""
+        return graph_io.open_reader(workspace), exit_codes.SUCCESS, ""
     except GraphNotInitializedError as exc:
         return None, exit_codes.NOT_INITIALIZED, f"error: {exc}"
     except SchemaMismatchError as exc:
         return None, exit_codes.SCHEMA_MISMATCH, f"error: {exc}"
 
 
-def _open_graph_conn(workspace: Path) -> sqlite3.Connection:
-    """Open a read-only graph connection, raising typer.Exit on store errors.
+def _open_graph_reader(workspace: Path) -> GraphReader:
+    """Open a read-only GraphReader, raising typer.Exit on store errors.
 
     Thin Typer-facing wrapper over `_connect_or_error` (preserves the original
     CLI behavior: echo to stderr + raise typer.Exit with the mapped code).
-    Does NOT close the connection — callers use try/finally: conn.close().
+    Does NOT close the reader — callers use try/finally: reader.close().
     """
-    conn, exit_code, stderr = _connect_or_error(workspace)
-    if conn is None:
+    reader, exit_code, stderr = _connect_or_error(workspace)
+    if reader is None:
         typer.echo(stderr, err=True)
         raise typer.Exit(code=exit_code)
-    return conn
+    return reader
 
 
 def _trace_path(workspace: Path, command: str, shared_stamp: str) -> Path:
@@ -218,8 +216,8 @@ def run_describe(
     """Describe a graph entity (full describable set), printing-free (D-04).
 
     Dispatches over the shared `_render.format_<kind>` spine formatters using
-    the shared `queries.*` resolvers. Covers package/app/path/repository/domain/
-    dependency/agent_plugin/builtin/entry_point/test_suite.
+    the `GraphReader` describe/resolve methods. Covers package/app/path/repository/
+    domain/dependency/agent_plugin/builtin/entry_point/test_suite.
 
     Returns (exit_code, stdout, stderr). On success stdout is exactly the
     `_render.format_<kind>(...)` human string (byte-identical). not-found →
@@ -229,16 +227,16 @@ def run_describe(
     `depth` controls the children-tree depth (per-kind default when None).
     Existing callers that omit `depth` are unaffected.
     """
-    conn, exit_code, stderr = _connect_or_error(workspace)
-    if conn is None:
+    reader, exit_code, stderr = _connect_or_error(workspace)
+    if reader is None:
         return exit_code, "", stderr
 
     try:
         if kind == "repository":
-            desc = queries.describe_repository(conn)
+            desc = reader.describe_repository()
             if desc is None:
                 return exit_codes.GENERIC, "", "error: not found: repository"
-            children, eff = queries.children_for(conn, kind="repository", name=desc.name, depth=depth)
+            children, eff = reader.children_for(kind="repository", name=desc.name, depth=depth)
             out = _render.format_repo(desc, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
@@ -248,32 +246,32 @@ def run_describe(
             return exit_codes.GENERIC, "", "error: identifier required"
 
         if kind == "package":
-            desc = queries.describe_package(conn, name=identifier)
+            desc = reader.describe_package(name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: package not found: {identifier}"
-            children, eff = queries.children_for(conn, kind="package", name=desc.name, depth=depth)
+            children, eff = reader.children_for(kind="package", name=desc.name, depth=depth)
             out = _render.format_package(desc, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
         if kind == "path":
-            desc = queries.describe_path(conn, path=identifier)
+            desc = reader.describe_path(path=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: path not found in graph: {identifier}"
-            children, eff = queries.children_for(conn, kind="file", path=desc.path, depth=depth)
+            children, eff = reader.children_for(kind="file", path=desc.path, depth=depth)
             out = _render.format_path(desc, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
         if kind == "domain":
-            desc = queries.describe_domain(conn, name=identifier)
+            desc = reader.describe_domain(name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: not found: {identifier}"
-            packages, subdomains = queries.domain_members(conn, identifier)
-            children, eff = queries.children_for(conn, kind="domain", name=desc.name, depth=depth)
+            packages, subdomains = reader.domain_members(identifier)
+            children, eff = reader.children_for(kind="domain", name=desc.name, depth=depth)
             out = _render.format_domain(desc, packages, subdomains, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
         if kind == "entry_point":
-            desc, ambiguous = queries.resolve_entry_point(conn, identifier)
+            desc, ambiguous = reader.resolve_entry_point(identifier)
             if ambiguous:
                 packages = ", ".join(ambiguous)
                 return (
@@ -287,18 +285,18 @@ def run_describe(
             return exit_codes.SUCCESS, _render.format_entry_point(desc, fmt="human"), ""
 
         if kind == "test_suite":
-            desc = queries.describe_test_suite(conn, suite_name=identifier)
+            desc = reader.describe_test_suite(suite_name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: not found: {identifier}"
-            children, eff = queries.children_for(conn, kind="test_suite", name=desc.name, depth=depth)
+            children, eff = reader.children_for(kind="test_suite", name=desc.name, depth=depth)
             out = _render.format_suite(desc, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
         if kind == "app":
-            desc = queries.describe_app(conn, name=identifier)
+            desc = reader.describe_app(name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: app not found: {identifier}"
-            children, eff = queries.children_for(conn, kind="app", name=desc.name, depth=depth)
+            children, eff = reader.children_for(kind="app", name=desc.name, depth=depth)
             out = _render.format_app(desc, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
@@ -310,13 +308,13 @@ def run_describe(
                 ecosystem, _, dep_name = identifier.partition("/")
             else:
                 ecosystem, dep_name = "pypi", identifier
-            desc = queries.describe_dependency(conn, ecosystem=ecosystem, name=dep_name)
+            desc = reader.describe_dependency(ecosystem=ecosystem, name=dep_name)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: dependency not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_dependency(desc, fmt="human"), ""
 
         if kind == "agent_plugin":
-            desc = queries.describe_agent_plugin(conn, name=identifier)
+            desc = reader.describe_agent_plugin(name=identifier)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: agent_plugin not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_agent_plugin(desc, fmt="human"), ""
@@ -326,7 +324,7 @@ def run_describe(
             if "/" not in rest:
                 return exit_codes.GENERIC, "", f"error: malformed builtin URI: {identifier}"
             language, module_name = rest.split("/", 1)
-            desc = queries.describe_builtin(conn, language=language, module_name=module_name)
+            desc = reader.describe_builtin(language=language, module_name=module_name)
             if desc is None:
                 return exit_codes.GENERIC, "", f"error: builtin not found: {identifier}"
             return exit_codes.SUCCESS, _render.format_builtin(desc, fmt="human"), ""
@@ -334,7 +332,7 @@ def run_describe(
         # Unknown kind — caller should have validated; treat defensively.
         raise KeyError(kind)
     finally:
-        conn.close()
+        reader.close()
 
 
 def run_query(
@@ -354,14 +352,14 @@ def run_query(
     zero-result = SUCCESS). Does NOT enforce the missing-filter exit-2 guard
     (that is a CLI-arg concern handled by the caller).
     """
-    conn, exit_code, stderr = _connect_or_error(workspace)
-    if conn is None:
+    reader, exit_code, stderr = _connect_or_error(workspace)
+    if reader is None:
         return exit_code, "", stderr
 
     try:
-        records = queries.find(conn, name=name, kind=kind, in_package=in_package)
+        records = reader.find(name=name, kind=kind, in_package=in_package)
     finally:
-        conn.close()
+        reader.close()
 
     # D-07 quirk: --in-package non-match → exit 1 (distinct from name/kind
     # zero-result which stays SUCCESS). Source: q_find.py:66-68.
@@ -384,16 +382,16 @@ def run_export(workspace: Path, out_path: Path) -> tuple[int, str, str]:
     the full XML string. Otherwise stdout is a one-line summary and the file is
     written to out_path.
     """
-    conn, exit_code, stderr = _connect_or_error(workspace)
-    if conn is None:
+    reader, exit_code, stderr = _connect_or_error(workspace)
+    if reader is None:
         return exit_code, "", stderr
 
     try:
-        xml_str = _graphml.to_graphml(conn)
-        n_nodes = conn.execute("SELECT COUNT(*) FROM nodes").fetchone()[0]
-        n_edges = conn.execute("SELECT COUNT(*) FROM edges").fetchone()[0]
+        xml_str = reader.to_graphml()
+        n_nodes = reader.node_count()
+        n_edges = sum(reader.edge_counts_by_kind().values())
     finally:
-        conn.close()
+        reader.close()
 
     if str(out_path) == "-":
         return exit_codes.SUCCESS, xml_str, ""

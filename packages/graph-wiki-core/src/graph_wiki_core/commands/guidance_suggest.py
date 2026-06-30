@@ -11,11 +11,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from graph_io.store import GraphNotInitializedError, read_only_connect
+import graph_io
+from graph_io.store import GraphNotInitializedError
 from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
 from wiki_io._workspace import resolve_wiki_and_repo
-from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.guidance_recall import (
     RankedGuidance,
@@ -71,14 +71,14 @@ async def run_guidance_suggest(
     if not index_present:
         result.warnings.append("no guidance index yet — run `gw guidance scan` to improve recall")
 
-    conn = None
+    reader = None
     if paths:
         try:
-            conn = read_only_connect(graph_dir(workspace) / "code.db")
+            reader = graph_io.open_reader(workspace)
         except GraphNotInitializedError:
-            conn = None
+            reader = None
     try:
-        path_contexts = resolve_path_contexts(paths or [], conn, repo, index)
+        path_contexts = resolve_path_contexts(paths or [], reader, repo, index)
         ranked, assembled, recall_warnings = await recall_and_rank(
             pages,
             message,
@@ -91,8 +91,8 @@ async def run_guidance_suggest(
             make_llm_fn=make_llm_fn,
         )
     finally:
-        if conn is not None:
-            conn.close()
+        if reader is not None:
+            reader.close()
 
     result.ranked = ranked
     result.assembled = assembled

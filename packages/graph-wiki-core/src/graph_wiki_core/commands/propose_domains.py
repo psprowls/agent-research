@@ -45,16 +45,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
+import graph_io
 import typer
 import yaml
 from graph_io.cluster import (
     Cluster,
     ClusterResult,
     CrossCuttingHub,
-    compute_clusters,
 )
-from graph_io.queries import list_packages
-from graph_io.store import GraphNotInitializedError, read_only_connect
+from graph_io.store import GraphNotInitializedError
 from langchain_core.messages import HumanMessage
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from workspace_io.manifest import read_graph_domains
@@ -556,24 +555,26 @@ def propose_domains_cmd(
     """
     _repo_root, workspace_root = _resolve_paths(workspace)  # repo_root unused since D8 moved output to workspace_root
 
-    # D-23: in-process compute_clusters — NOT a subprocess to cg.
-    db_path = graph_dir(workspace_root) / "code.db"
+    # D-23: in-process domain clustering — NOT a subprocess to cg.
     try:
-        conn = read_only_connect(db_path)
+        reader = graph_io.open_reader(workspace_root)
     except GraphNotInitializedError as exc:
         typer.echo(f"error: graph not initialized: {exc}", err=True)
         raise typer.Exit(code=2)
 
-    cluster_result: ClusterResult = compute_clusters(conn, hub_threshold=hub_threshold)
+    try:
+        cluster_result: ClusterResult = reader.domain_clusters(hub_threshold=hub_threshold)
 
-    # Existing domains (for parent options + cycle-immune edges).
-    # Reads graph.domains from <workspace>/.graph-wiki.yaml (D8).
-    existing = _load_existing_domains(workspace_root)
-    existing_edges = _existing_parent_edges(existing)
-    existing_domain_names = tuple(sorted(existing.keys()))
+        # Existing domains (for parent options + cycle-immune edges).
+        # Reads graph.domains from <workspace>/.graph-wiki.yaml (D8).
+        existing = _load_existing_domains(workspace_root)
+        existing_edges = _existing_parent_edges(existing)
+        existing_domain_names = tuple(sorted(existing.keys()))
 
-    # D-09 grounding set.
-    valid_packages = {n.name for n in list_packages(conn)}
+        # D-09 grounding set.
+        valid_packages = {n.name for n in reader.list_packages()}
+    finally:
+        reader.close()
 
     # D-03: hubs-by-cluster-id (invert CrossCuttingHub.connects_clusters).
     hubs_by_cluster_id: dict[int, list[str]] = {}

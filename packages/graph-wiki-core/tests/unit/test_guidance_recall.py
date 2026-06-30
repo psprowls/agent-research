@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 
+from graph_io.handle import GraphReader
 from graph_wiki_core.commands.guidance_recall import recall_and_rank
 from graph_wiki_core.commands.guidance_signals import (
     GuidancePage,
@@ -149,7 +150,7 @@ async def test_default_drop_low_false_preserves_lows():
 
 def _seed_pkg_graph(nodes, edges):
     """In-memory graph: nodes = (id, kind, name, path, attrs_json, uri),
-    edges = (src, dst, kind). Returns an open sqlite3 connection.
+    edges = (src, dst, kind). Returns an open GraphReader over the in-memory db.
     Deliberately does NOT set row_factory — matches production read_only_connect
     (plain tuple rows), so the package branch is exercised under real conditions."""
     conn = sqlite3.connect(":memory:")
@@ -169,7 +170,7 @@ def _seed_pkg_graph(nodes, edges):
             (src, dst, kind),
         )
     conn.commit()
-    return conn
+    return GraphReader(conn)
 
 
 def test_dir_affects_recalls_via_entity_and_language(tmp_path) -> None:
@@ -177,7 +178,7 @@ def test_dir_affects_recalls_via_entity_and_language(tmp_path) -> None:
     # enclosing package (stem "pkg_p", language python) and must fire the `entity`
     # signal through compute_candidates — not message-only. Pre-Task-3 the directory
     # affects produced no package stem, so `entity` never fired and this would FAIL.
-    conn = _seed_pkg_graph(
+    reader = _seed_pkg_graph(
         nodes=[
             (1, "package", "p", "packages/p", None, "pkg:o/r/p"),
             (2, "file", "a.py", "packages/p/a.py", json.dumps({"language": "python"}), None),
@@ -214,10 +215,10 @@ def test_dir_affects_recalls_via_entity_and_language(tmp_path) -> None:
         language="swift",
     )
     try:
-        ctxs = resolve_path_contexts(["packages/p"], conn, tmp_path, GuidanceIndex(files={}))
+        ctxs = resolve_path_contexts(["packages/p"], reader, tmp_path, GuidanceIndex(files={}))
         cands = compute_candidates([py_page, swift_page], "", ctxs, 5)
     finally:
-        conn.close()
+        reader.close()
 
     py = next((c for c in cands if c.page.slug == "python/async"), None)
     sw = next((c for c in cands if c.page.slug == "swift/ui"), None)

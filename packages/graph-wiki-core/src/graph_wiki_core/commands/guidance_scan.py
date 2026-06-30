@@ -13,8 +13,8 @@ from datetime import date
 from pathlib import Path
 from typing import Any, cast
 
-from graph_io.queries import describe_path
-from graph_io.store import GraphNotInitializedError, read_only_connect
+import graph_io
+from graph_io.store import GraphNotInitializedError
 from guidance_io.index_store import GuidanceIndex, IndexEntry, content_hash, load_index, save_index
 from guidance_io.vocab import load_vocab, write_tags_yaml
 from guidance_io.vocab import seed_tags as seed_tags_fn
@@ -49,31 +49,17 @@ class GuidanceScanResult:
     vocab_hash: str = ""
 
 
-def _enumerate_files(conn, package: str | None, paths: list[str] | None) -> list[str]:
+def _enumerate_files(reader, package: str | None, paths: list[str] | None) -> list[str]:
     if paths:
         wanted = {Path(p).as_posix() for p in paths}
-        rows = conn.execute("SELECT path FROM nodes WHERE kind='file' AND path IS NOT NULL").fetchall()
-        return sorted({r[0] for r in rows if r[0] in wanted})
+        return sorted({p for p in reader.file_paths() if p in wanted})
     if package:
-        rows = conn.execute(
-            "SELECT f.path FROM nodes p "
-            "JOIN edges ce ON ce.src = p.id AND ce.kind='contains' "
-            "JOIN nodes f ON ce.dst = f.id AND f.kind='file' "
-            "WHERE p.kind IN ('package','app') AND LOWER(p.name)=LOWER(?)",
-            (package,),
-        ).fetchall()
-        return sorted({r[0] for r in rows if r[0]})
-    rows = conn.execute("SELECT path FROM nodes WHERE kind='file' AND path IS NOT NULL").fetchall()
-    return sorted({r[0] for r in rows if r[0] and not r[0].endswith(_SKIP_SUFFIXES)})
+        return reader.file_paths_in_package(package)
+    return sorted({p for p in reader.file_paths() if p and not p.endswith(_SKIP_SUFFIXES)})
 
 
-def _symbols_for(conn, rel: str) -> list[str]:
-    import sqlite3
-
-    try:
-        desc = describe_path(conn, path=rel)
-    except sqlite3.OperationalError:
-        return []
+def _symbols_for(reader, rel: str) -> list[str]:
+    desc = reader.describe_path(path=rel)
     if desc is None:
         return []
     return [c.name for c in desc.children]
@@ -112,13 +98,13 @@ async def run_guidance_scan(
         return result  # no guidance corpus → nothing to classify against
 
     try:
-        conn = read_only_connect(graph_dir(workspace) / "code.db")
+        reader = graph_io.open_reader(workspace)
     except GraphNotInitializedError as exc:
         result.errors.append(f"graph not initialized: {exc}")
         return result
 
     try:
-        files = _enumerate_files(conn, package, paths)
+        files = _enumerate_files(reader, package, paths)
         result.total = len(files)
         index = load_index(workspace)
         vocab_changed = index.vocab_hash != vocab.vocab_hash
@@ -142,7 +128,7 @@ async def run_guidance_scan(
                 result.skipped.append(rel)
                 continue
             head = data.decode("utf-8", errors="replace")
-            worklist.append((rel, head, chash, _symbols_for(conn, rel)))
+            worklist.append((rel, head, chash, _symbols_for(reader, rel)))
             if limit is not None and len(worklist) >= limit:
                 break
 
@@ -195,7 +181,7 @@ async def run_guidance_scan(
         save_index(workspace, GuidanceIndex(vocab_hash=vocab.vocab_hash, files=new_files))
         return result
     finally:
-        conn.close()
+        reader.close()
 
 
 def _resolve_seams(make_llm_fn, load_role_config_fn, subagent_pool_type, task_result_type):
