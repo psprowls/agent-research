@@ -38,6 +38,7 @@ from work_io import filing as _filing
 from work_io import frontmatter as _frontmatter
 from work_io import hierarchy as _hierarchy
 from work_io import lifecycle_lint as _lint
+from work_io import paths as _paths
 from work_io import plan_table as _plan_table
 from work_io import sidecar as _sidecar
 from work_io import workflow as _workflow
@@ -614,6 +615,7 @@ async def run_work_file(
         item_body = item_body.rstrip("\n") + "\n\n" + pointer + "\n"
 
     result = _filing.write_work_item(wiki, fm, item_body, force=force)
+    _paths.work_item_dir(wiki.parent, result["slug"]).mkdir(parents=True, exist_ok=True)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
 
     return IngestResult(

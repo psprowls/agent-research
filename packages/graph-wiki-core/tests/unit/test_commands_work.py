@@ -164,6 +164,28 @@ def test_run_work_file_returns_ingest_result(tmp_path: Path) -> None:
     assert "work" in result.page_path
 
 
+def test_run_work_file_creates_work_item_dir(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Test bug",
+            kind="bug",
+            summary="Something is broken",
+            affects=["packages/foo"],
+        )
+    )
+
+    work_item_dir = wiki / "work" / result.slug
+    assert work_item_dir.is_dir()
+    assert list(work_item_dir.iterdir()) == []
+
+
 def test_run_work_file_emits_full_schema_frontmatter(tmp_path: Path) -> None:
     import asyncio
 
