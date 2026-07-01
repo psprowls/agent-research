@@ -531,6 +531,29 @@ def test_child_with_unmet_dep_blocks(tmp_path: Path) -> None:
     assert any("child-a" in b for b in result.blockers)
 
 
+@pytest.mark.asyncio
+async def test_depends_on_resolves_against_nested_archived_item(tmp_path: Path) -> None:
+    """A depends_on reference to a slug archived under _archive/<slug>/00-open-work.md
+    resolves as met, not an unmet blocker (the nested-shape counterpart to d3f37cf4)."""
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+
+    archived_dir = work_dir / "_archive" / "2026-01-01-dep"
+    archived_dir.mkdir(parents=True)
+    (archived_dir / "00-open-work.md").write_text(
+        "---\ntitle: dep\nstatus: resolved\nkind: bug\n---\n\n## Summary\ndone\n",
+        encoding="utf-8",
+    )
+
+    _write_hierarchy_item(work_dir, "blocked", kind="bug", status="open", depends_on=["2026-01-01-dep"])
+
+    result = await run_work_next(workspace_path=workspace, slug="blocked")
+
+    assert not any("2026-01-01-dep" in blk for blk in result.blockers)
+
+
 # ---------------------------------------------------------------------------
 # run_work_file: --parent / --depends-on (epic attachment)
 # ---------------------------------------------------------------------------

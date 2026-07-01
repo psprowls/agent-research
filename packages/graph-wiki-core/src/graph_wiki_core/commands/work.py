@@ -147,21 +147,26 @@ def _vault_commit(wiki: Path) -> str | None:
 
 
 def _load_items(work_dir: Path) -> list[dict]:
-    """Parse every work/*.md (excluding _archive/) into lint-shaped item dicts.
+    """Parse work items into lint-shaped item dicts: slug, fm, plan.
 
-    Each dict carries: slug, fm (frontmatter dict), plan (PlanResult).
-    Unparseable pages are skipped.
+    The live `work/` dir is flat (`work/<slug>.md`); an `_archive` dir nests
+    each item under its own subdirectory (`_archive/<slug>/00-open-work.md`,
+    alongside the rest of its archived working dir) — slug then comes from the
+    parent directory name, not the file stem. Unparseable pages are skipped.
     """
     items: list[dict] = []
     if not work_dir.exists():
         return items
-    for md in sorted(work_dir.glob("*.md")):
+    is_archive = work_dir.name == "_archive"
+    pages = sorted(work_dir.glob("*/00-open-work.md")) if is_archive else sorted(work_dir.glob("*.md"))
+    for md in pages:
         try:
             fm, body = _frontmatter.parse(md.read_text(encoding="utf-8"))
         except Exception:
             continue
         plan = _plan_table.parse_plan(body)
-        items.append({"slug": md.stem, "fm": fm, "plan": plan})
+        slug = md.parent.name if is_archive else md.stem
+        items.append({"slug": slug, "fm": fm, "plan": plan})
     return items
 
 
