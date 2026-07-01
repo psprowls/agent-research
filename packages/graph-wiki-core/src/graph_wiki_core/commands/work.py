@@ -211,6 +211,29 @@ def _write_active_work_pointer(workspace: Path, slug: str, phase: str) -> None:
         return
 
 
+def _clear_active_work_pointer_if_archived(workspace: Path, archived_slugs: set[str]) -> None:
+    """Delete `.graph-wiki/active-work.json` if it points at a just-archived item.
+
+    Otherwise a later SessionEnd hook would resurrect an orphaned
+    wiki/work/<slug>/ directory for an item that no longer lives there
+    (its real content has moved to wiki/work/_archive/<slug>/). Fail-open
+    on any missing/unreadable/malformed pointer, matching
+    `_write_active_work_pointer`'s degrade contract.
+    """
+    pointer_path = graph_dir(workspace) / "active-work.json"
+    try:
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return
+    if not isinstance(pointer, dict):
+        return
+    if pointer.get("slug") in archived_slugs:
+        try:
+            pointer_path.unlink()
+        except OSError:
+            pass
+
+
 def _load_items(work_dir: Path) -> list[dict]:
     """Parse work items into lint-shaped item dicts: slug, fm, plan.
 
@@ -513,6 +536,7 @@ async def run_work_archive(
         for action in plan.actions:
             _move(action)
             repoint.rewrote.extend(_repoint_in_dir_doc(action, wiki.parent))
+        _clear_active_work_pointer_if_archived(wiki.parent, {a.slug for a in plan.actions})
         await run_work_regen_index(workspace_path=workspace_path)
 
     return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped, repointed=repoint.rewrote)

@@ -520,6 +520,136 @@ async def test_run_work_archive_skips_repoint_when_no_doc_pointer(tmp_path: Path
 
 
 # ---------------------------------------------------------------------------
+# run_work_archive: clears stale active-work pointer (Task 5)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_clears_active_work_pointer_when_slug_matches(tmp_path: Path) -> None:
+    """A pointer naming the just-archived slug is deleted, not left stale."""
+    import json
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+    slug = next(f.stem for f in work_dir.glob("*.md"))
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    pointer_path.parent.mkdir(parents=True)
+    pointer_path.write_text(json.dumps({"slug": slug, "phase": "execute", "updated": "x"}), encoding="utf-8")
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert len(result.moved) == 1
+    assert not pointer_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_leaves_active_work_pointer_when_slug_does_not_match(tmp_path: Path) -> None:
+    """A pointer naming a different (still-active) item is left byte-identical."""
+    import json
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    pointer_path.parent.mkdir(parents=True)
+    pointer_bytes = json.dumps({"slug": "some-other-item", "phase": "execute", "updated": "x"}).encode("utf-8")
+    pointer_path.write_bytes(pointer_bytes)
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert len(result.moved) == 1
+    assert pointer_path.read_bytes() == pointer_bytes
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_no_active_work_pointer_file_no_crash(tmp_path: Path) -> None:
+    """No pointer file present -> archive completes normally, no crash."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    assert not pointer_path.exists()
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert len(result.moved) == 1
+    assert not pointer_path.exists()
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_malformed_active_work_pointer_no_crash(tmp_path: Path) -> None:
+    """Malformed pointer JSON -> archive still succeeds (fail-open)."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    pointer_path.parent.mkdir(parents=True)
+    pointer_path.write_text("{not valid json", encoding="utf-8")
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert len(result.moved) == 1
+    # Fail-open: left as-is, matches _write_active_work_pointer's degrade contract.
+    assert pointer_path.read_text(encoding="utf-8") == "{not valid json"
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_non_dict_active_work_pointer_no_crash(tmp_path: Path) -> None:
+    """Pointer file holding valid-but-non-object JSON (e.g. a bare number) is
+    ignored rather than crashing on `.get()`."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    pointer_path.parent.mkdir(parents=True)
+    pointer_path.write_text("5", encoding="utf-8")
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert len(result.moved) == 1
+    assert pointer_path.read_text(encoding="utf-8") == "5"
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_dry_run_does_not_touch_active_work_pointer(tmp_path: Path) -> None:
+    """Dry-run archive never touches the pointer file (no real moves happen)."""
+    import json
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+    slug = next(f.stem for f in work_dir.glob("*.md"))
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    pointer_path.parent.mkdir(parents=True)
+    pointer_bytes = json.dumps({"slug": slug, "phase": "execute", "updated": "x"}).encode("utf-8")
+    pointer_path.write_bytes(pointer_bytes)
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=True)
+
+    assert result.dry_run is True
+    assert pointer_path.read_bytes() == pointer_bytes
+
+
+# ---------------------------------------------------------------------------
 # run_work_next: epic/dep hierarchy gates (live scan population)
 # ---------------------------------------------------------------------------
 
