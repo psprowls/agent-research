@@ -22,10 +22,11 @@ uses).
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 from wiki_io._workspace import resolve_wiki_and_repo
@@ -43,6 +44,7 @@ from work_io import plan_table as _plan_table
 from work_io import results as _results
 from work_io import sidecar as _sidecar
 from work_io import workflow as _workflow
+from workspace_io.paths import graph_dir
 
 from graph_wiki_core.commands.ingest import IngestResult
 
@@ -185,6 +187,28 @@ def _write_results_stub(workspace: Path, repo: Path, slug: str, *, phase: str, s
         return
     body = _results.render(phase=phase, start_sha=start_sha, end_sha=end_sha, files=files, commits=commits)
     _paths.artifact_path(workspace, slug, phase, "results", ext="md").write_text(body, encoding="utf-8")
+
+
+def _write_active_work_pointer(workspace: Path, slug: str, phase: str) -> None:
+    """Best-effort: stamp `.graph-wiki/active-work.json` with the item now in flight.
+
+    Read by the opt-in SessionEnd transcript-capture hook to attribute a
+    session's transcript to this item/phase. The call site skips invoking
+    this entirely when the resulting phase is the terminal `done` — `done`
+    is not a `PHASE_ORDINALS` member and `artifact_path` raises on it, so a
+    `phase: "done"` pointer would make the *next* SessionEnd hook crash.
+
+    Silent no-op on any OSError (permissions, disk full, missing parent) — a
+    provenance nice-to-have, not something `advance` should ever fail on
+    (matches `_write_results_stub`'s degrade contract).
+    """
+    pointer = {"slug": slug, "phase": phase, "updated": datetime.now(timezone.utc).isoformat()}
+    pointer_path = graph_dir(workspace) / "active-work.json"
+    try:
+        pointer_path.parent.mkdir(parents=True, exist_ok=True)
+        pointer_path.write_text(json.dumps(pointer, indent=2) + "\n", encoding="utf-8")
+    except OSError:
+        return
 
 
 def _load_items(work_dir: Path) -> list[dict]:
@@ -610,6 +634,10 @@ async def run_work_advance(
         fm[t.stamp_doc] = rel
         stamped[t.stamp_doc] = rel
     fm["updated"] = date.today().isoformat()
+
+    resulting_phase = fm.get("phase")
+    if resulting_phase and resulting_phase != "done":
+        _write_active_work_pointer(workspace, slug, str(resulting_phase))
 
     if t.sync_plan_table:
         body = _plan_table.ensure_plan_row(

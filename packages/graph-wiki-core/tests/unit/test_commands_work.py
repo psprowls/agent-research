@@ -1061,6 +1061,56 @@ async def test_run_work_advance_creates_missing_working_dir(tmp_path: Path) -> N
     assert (wiki / "work" / stem).is_dir()
 
 
+@pytest.mark.asyncio
+async def test_run_work_advance_writes_active_work_pointer(tmp_path: Path) -> None:
+    """Every real-pipeline-phase advance stamps .graph-wiki/active-work.json."""
+    import json
+
+    from graph_wiki_core.commands.work import run_work_advance, run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    await run_work_file(workspace_path=workspace, title="Fix Bug", kind="bug", summary="s")
+    stem = next((wiki / "work").glob("*fix-bug.md")).stem
+
+    result = await run_work_advance(workspace_path=workspace, slug=stem)  # entry -> design
+
+    assert result.phase == "design"
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    assert pointer["slug"] == stem
+    assert pointer["phase"] == "design"
+    assert pointer["updated"]  # non-empty ISO 8601 timestamp
+
+
+@pytest.mark.asyncio
+async def test_run_work_advance_skips_pointer_write_on_terminal_done(tmp_path: Path) -> None:
+    """Landing on the terminal `done` phase leaves the pointer at the prior real phase."""
+    import json
+
+    from graph_wiki_core.commands.work import run_work_advance, run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work = wiki / "work"
+    await run_work_file(workspace_path=workspace, title="Small Fix", kind="bug", summary="s", effort="small")
+    stem = next(work.glob("*small-fix.md")).stem
+
+    await run_work_advance(workspace_path=workspace, slug=stem)  # entry -> design
+    (work / stem / "01-design-spec.md").write_text("spec\n", encoding="utf-8")
+    await run_work_advance(workspace_path=workspace, slug=stem)  # design -> execute (bug/small skips plan)
+    await run_work_advance(workspace_path=workspace, slug=stem, owner="me")  # dispatch execute
+    await run_work_advance(workspace_path=workspace, slug=stem)  # execute -> finish
+
+    pointer_path = workspace / ".graph-wiki" / "active-work.json"
+    before = json.loads(pointer_path.read_text(encoding="utf-8"))
+    assert before["phase"] == "finish"
+
+    result = await run_work_advance(workspace_path=workspace, slug=stem, resolved_in="pr#1")  # finish -> done
+
+    assert result.phase == "done"
+    after = json.loads(pointer_path.read_text(encoding="utf-8"))
+    assert after == before  # untouched — still "finish", never overwritten with "done"
+
+
 def test_file_no_parent_omits_keys_and_pointer(tmp_path: Path) -> None:
     import asyncio
 
