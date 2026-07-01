@@ -20,6 +20,7 @@ from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
 from wiki_io._workspace import resolve_wiki_and_repo
 from work_io import frontmatter as _frontmatter
+from work_io import paths as _paths
 from work_io.lifecycle_lint import TERMINAL_STATUSES, VALID_PHASES, VALID_ROLES
 
 from graph_wiki_core.commands.guidance_recall import RankedGuidance, recall_and_rank
@@ -34,12 +35,26 @@ from graph_wiki_core.commands.work import WorkNextResult
 _NON_DISPATCHING_STATUSES = TERMINAL_STATUSES | {"mitigated"}
 _PHASES_WITHOUT_GUIDANCE = {"finish", "done"}
 
+AUTO_GUIDANCE_FILE = "auto"
+
+
+def resolve_guidance_target(file: str, workspace: Path, slug: str, phase: str | None) -> Path | None:
+    """Empty string -> None (skip writing). "auto" -> the canonical per-phase guidance
+    path via work_io.paths.artifact_path (phase falls back to "open" if unresolved).
+    Any other value -> Path(file) verbatim (explicit override, unchanged)."""
+    if not file:
+        return None
+    if file != AUTO_GUIDANCE_FILE:
+        return Path(file)
+    return _paths.artifact_path(workspace, slug, phase or "open", "guidance", ext="md")
+
 
 @dataclass
 class NextGuidanceResult:
     ranked: list[RankedGuidance] = field(default_factory=list)
     assembled: str | None = None
     warnings: list[str] = field(default_factory=list)
+    target_path: Path | None = None
 
 
 def derive_recall_inputs(fm: dict) -> tuple[str, list[str], str | None]:
@@ -120,6 +135,7 @@ async def run_next_guidance(
     # Caller (CLI) passes the phase resolved by run_work_next so freshly-filed items
     # (no frontmatter phase yet) still get phase-specific guidance on first dispatch.
     phase: str | None = None,
+    file: str = "",
 ) -> NextGuidanceResult:
     """Load work item <slug>, phase-filter guidance, recall→rank. See module docstring."""
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
@@ -135,6 +151,7 @@ async def run_next_guidance(
     message, paths, frontmatter_phase = derive_recall_inputs(fm)
     # Prefer the caller-supplied resolved phase; fall back to frontmatter-derived one.
     effective_phase = phase if phase is not None else frontmatter_phase
+    result.target_path = resolve_guidance_target(file, workspace, slug, effective_phase)
 
     pages = load_guidance_pages(workspace)
     if not pages:

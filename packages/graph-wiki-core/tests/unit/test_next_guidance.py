@@ -12,6 +12,7 @@ from graph_wiki_core.commands.next_guidance import (
     run_next_guidance,
 )
 from graph_wiki_core.commands.work import WorkNextResult
+from work_io import paths as _paths
 
 
 def _page(slug: str, workflow: list[str], role: list[str] | None = None) -> GuidancePage:
@@ -264,3 +265,55 @@ async def test_run_next_guidance_role_off_at_design(tmp_path: Path):
     result = await run_next_guidance("wi", workspace_path=ws, no_rank=True, phase="design")
     slugs = {r.slug for r in result.ranked}
     assert "python/review-design" in slugs
+
+
+def test_resolve_guidance_target_empty_string_skips(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_guidance_target
+
+    assert resolve_guidance_target("", tmp_path, "wi", "design") is None
+
+
+def test_resolve_guidance_target_auto_uses_artifact_path(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_guidance_target
+
+    result = resolve_guidance_target("auto", tmp_path, "wi", "design")
+    assert result == _paths.artifact_path(tmp_path, "wi", "design", "guidance", ext="md")
+
+
+def test_resolve_guidance_target_auto_falls_back_to_open_phase(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_guidance_target
+
+    result = resolve_guidance_target("auto", tmp_path, "wi", None)
+    assert result == _paths.artifact_path(tmp_path, "wi", "open", "guidance", ext="md")
+
+
+def test_resolve_guidance_target_explicit_path_passthrough(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_guidance_target
+
+    result = resolve_guidance_target("/tmp/x.md", tmp_path, "wi", "design")
+    assert result == Path("/tmp/x.md")
+
+
+async def test_run_next_guidance_populates_target_path_auto(tmp_path: Path):
+    ws = tmp_path / "ws"
+    _write_workitem(
+        ws,
+        "wi",
+        {"title": "WI", "summary": "add retry backoff", "affects": ["python"], "phase": "plan", "status": "open"},
+    )
+    _write_guidance(ws, "python", "retry", _guidance_fm("python", ["backoff"], ["plan"]), "## Guidance\nRetry.\n")
+
+    result = await run_next_guidance("wi", workspace_path=ws, no_rank=True, file="auto", phase="plan")
+    assert result.target_path == _paths.artifact_path(ws, "wi", "plan", "guidance", ext="md")
+
+
+async def test_run_next_guidance_populates_target_path_on_early_return(tmp_path: Path):
+    """target_path must be set even when the work item has no guidance pages to rank —
+    the CLI needs to know the resolved target regardless of whether anything was ranked."""
+    ws = tmp_path / "ws"
+    _write_workitem(ws, "wi", {"title": "WI", "summary": "x", "affects": [], "phase": "plan", "status": "open"})
+    (ws / "wiki" / "guidance").mkdir(parents=True)
+
+    result = await run_next_guidance("wi", workspace_path=ws, no_rank=True, file="auto", phase="plan")
+    assert result.ranked == []
+    assert result.target_path == _paths.artifact_path(ws, "wi", "plan", "guidance", ext="md")
