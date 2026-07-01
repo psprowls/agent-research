@@ -13,6 +13,8 @@ class ArchiveAction:
     slug: str
     src: Path
     dst: Path
+    working_dir_src: Path | None = None
+    working_dir_dst: Path | None = None
 
 
 @dataclass
@@ -59,6 +61,18 @@ def plan_archive(
             skipped.append({"slug": slug, "reason": f"status={status!r} is not terminal"})
             continue
 
-        actions.append(ArchiveAction(slug=slug, src=md, dst=archived_dir / md.name))
+        item_archive_dir = archived_dir / slug
+        working_dir = work_dir / slug
+        working_dir_src = working_dir if working_dir.is_dir() else None
+        working_dir_dst = item_archive_dir if working_dir_src is not None else None
+        actions.append(
+            ArchiveAction(
+                slug=slug,
+                src=md,
+                dst=item_archive_dir / "00-open-work.md",
+                working_dir_src=working_dir_src,
+                working_dir_dst=working_dir_dst,
+            )
+        )
 
     return ArchivePlan(actions=actions, skipped=skipped)

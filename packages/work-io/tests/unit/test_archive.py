@@ -58,15 +58,44 @@ def test_targeted_mode_missing_slug_goes_to_skipped(tmp_path: Path) -> None:
     assert "not found" in plan.skipped[0]["reason"]
 
 
-def test_archive_dst_is_archive_subdir(tmp_path: Path) -> None:
+def test_archive_dst_is_nested_under_slug_dir(tmp_path: Path) -> None:
     work_dir = tmp_path
     _make_item(work_dir, "wontfix-item", status="wontfix", updated_days_ago=0)
 
     plan = plan_archive(work_dir)
 
     assert len(plan.actions) == 1
-    assert plan.actions[0].dst.parent.name == "_archive"
-    assert plan.actions[0].dst.name == plan.actions[0].src.name
+    action = plan.actions[0]
+    assert action.dst.name == "00-open-work.md"
+    assert action.dst.parent.name == action.slug
+    assert action.dst.parent.parent.name == "_archive"
+
+
+def test_archive_action_includes_working_dir_when_present(tmp_path: Path) -> None:
+    work_dir = tmp_path
+    _make_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0)
+    slug = next(f.stem for f in work_dir.glob("*.md"))
+    working_dir = work_dir / slug
+    working_dir.mkdir()
+    (working_dir / "01-design-spec.md").write_text("spec\n")
+
+    plan = plan_archive(work_dir)
+
+    assert len(plan.actions) == 1
+    action = plan.actions[0]
+    assert action.working_dir_src == working_dir
+    assert action.working_dir_dst == work_dir / "_archive" / slug
+
+
+def test_archive_action_working_dir_none_when_absent(tmp_path: Path) -> None:
+    work_dir = tmp_path
+    _make_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0)
+
+    plan = plan_archive(work_dir)
+
+    assert len(plan.actions) == 1
+    assert plan.actions[0].working_dir_src is None
+    assert plan.actions[0].working_dir_dst is None
 
 
 def test_all_terminal_statuses_eligible(tmp_path: Path) -> None:
