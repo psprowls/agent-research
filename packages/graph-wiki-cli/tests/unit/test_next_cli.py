@@ -60,6 +60,7 @@ def test_next_file_writes_bundle(tmp_path: Path):
     ng = NextGuidanceResult(
         ranked=[RankedGuidance("python/retry", "high", ["message"], "matches")],
         assembled="<!-- python/retry -->\nRetry it.",
+        target_path=out,
     )
     with (
         patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)),
@@ -110,6 +111,47 @@ def test_next_passes_resolved_phase_to_guidance():
     assert res.exit_code == 0
     assert guidance.called
     assert guidance.call_args.kwargs["phase"] == "design"
+
+
+def test_next_default_file_writes_to_auto_resolved_target(tmp_path: Path):
+    """No --file passed: CLI must default file="auto" and write to whatever
+    target_path run_next_guidance resolved, not compose its own path."""
+    wn = WorkNextResult(slug="wi", status="open", kind="feature", phase="plan")
+    out = tmp_path / "wiki" / "work" / "wi" / "02-plan-guidance.md"
+    ng = NextGuidanceResult(
+        ranked=[RankedGuidance("python/retry", "high", ["message"], "matches")],
+        assembled="<!-- python/retry -->\nRetry it.",
+        target_path=out,
+    )
+    with (
+        patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)),
+        patch("graph_wiki_cli.cli.run_next_guidance", new=AsyncMock(return_value=ng)) as guidance,
+    ):
+        res = runner.invoke(app, ["next", "wi", "--json"])
+    assert res.exit_code == 0
+    assert out.read_text(encoding="utf-8") == "<!-- python/retry -->\nRetry it."
+    payload = json.loads(res.stdout)
+    assert payload["guidance_file"] == str(out)
+    assert guidance.call_args.kwargs["file"] == "auto"
+
+
+def test_next_file_empty_string_skips_write():
+    """--file "" explicitly opts out: target_path is None, nothing written."""
+    wn = WorkNextResult(slug="wi", status="open", kind="feature", phase="plan")
+    ng = NextGuidanceResult(
+        ranked=[RankedGuidance("python/retry", "high", ["message"], "matches")],
+        assembled="<!-- python/retry -->\nRetry it.",
+        target_path=None,
+    )
+    with (
+        patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)),
+        patch("graph_wiki_cli.cli.run_next_guidance", new=AsyncMock(return_value=ng)) as guidance,
+    ):
+        res = runner.invoke(app, ["next", "wi", "--json", "--file", ""])
+    assert res.exit_code == 0
+    payload = json.loads(res.stdout)
+    assert payload["guidance_file"] is None
+    assert guidance.call_args.kwargs["file"] == ""
 
 
 def test_advance_passthrough():

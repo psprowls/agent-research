@@ -530,7 +530,12 @@ def next_cmd(
     slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
     human: bool = typer.Option(False, "--human", help="Human-readable ranked guidance list"),
     json_output: bool = typer.Option(False, "--json", help="Emit the work-next envelope + guidance as JSON"),
-    file: str = typer.Option("", "--file", help="Write assembled top-N guidance bodies to this path"),
+    file: str = typer.Option(
+        "auto",
+        "--file",
+        help='Write the assembled guidance bundle to this path ("auto" = canonical '
+        'work/<slug>/NN-<phase>-guidance.md; "" = skip writing).',
+    ),
     budget: int = typer.Option(0, "--budget", help="Token cap for the --file bundle (0 = unlimited)"),
     top: int = typer.Option(5, "--top", help="How many ranked guidance pages to attach"),
     no_rank: bool = typer.Option(False, "--no-rank", help="Force deterministic recall-only ordering"),
@@ -557,15 +562,15 @@ def next_cmd(
                 budget=budget or None,
                 no_rank=no_rank,
                 phase=wn.phase,
+                file=file,
             )
         )
         guidance = [dataclasses.asdict(r) for r in ng.ranked]
         guidance_warnings = list(ng.warnings)
-        if file and ng.assembled is not None:
-            out = Path(file)
-            out.parent.mkdir(parents=True, exist_ok=True)
-            out.write_text(ng.assembled, encoding="utf-8")
-            guidance_file = str(out)
+        if ng.target_path is not None and ng.assembled is not None:
+            ng.target_path.parent.mkdir(parents=True, exist_ok=True)
+            ng.target_path.write_text(ng.assembled, encoding="utf-8")
+            guidance_file = str(ng.target_path)
 
     if json_output:
         payload = dataclasses.asdict(wn)
