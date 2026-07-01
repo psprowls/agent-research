@@ -34,7 +34,7 @@ AskUserQuestion:
 
 The scope fixes these targets for the rest of the run:
 
-| Scope | Config files (Features 1 & 3) | Hook registrations (Feature 2) |
+| Scope | Config files (Features 1 & 3) | Hook registrations (Features 2 & 4) |
 |-------|-------------------------------|--------------------------------|
 | This project | `<workspace>/.graph-wiki/<file>.json` | `<cwd>/.claude/settings.json` |
 | User-level | `~/.claude/graph-wiki/<file>.json` | `~/.claude/settings.json` |
@@ -139,6 +139,29 @@ AskUserQuestion:
 
 After writing the file, tell the user: this feature has no enforcement gates — it is delivered by a notice injected at session start, so it takes effect from the next session on (the current session keeps per-task behavior). Off-switch: delete the file, or remove the `commitStrategy` key.
 
+## Feature 4: Session Transcript Capture
+
+One-line intro: a `SessionEnd` hook copies this session's transcript (plus any subagent sidechain transcripts) into the active work item's directory whenever `gw work advance` has stamped an active-work pointer — so a finished item's `work/<slug>/` accumulates its own session history. Full explanation: README.md → "Capture Session Transcripts for the Active Work Item".
+
+```yaml
+AskUserQuestion:
+  question: "Enable session transcript capture for the active work item?"
+  header: "Transcripts"
+  multiSelect: false
+  options:
+    - label: "Yes, capture transcripts"
+      description: "Register the SessionEnd hook. No pointer (session never touched gw work advance) → silent no-op."
+    - label: "No"
+      description: "Nothing is written. Transcripts stay in ~/.claude/projects/ only."
+```
+
+On yes, write the hook registration into the scope's settings target — `<cwd>/.claude/settings.json` for this-project scope, `~/.claude/settings.json` for user-level:
+
+1. Take the JSON block from README.md → "Recommended Workflow Configuration" → "Capture Session Transcripts for the Active Work Item".
+2. **Verify the script path before writing** — same check as Feature 2 step 2.
+3. **Merge, never overwrite; duplicate check spans both scopes; confirm the write** — apply Feature 2's steps 3-5 verbatim, targeting the `hooks.SessionEnd` array instead of `hooks.PostToolUse`/`hooks.Stop`.
+4. This feature does NOT touch the `permissions.deny` list (that's Feature 2 step 6 only).
+
 ## Closing
 
-Report in one short block: the chosen scope, files written (confirmed absolute paths), features skipped, and how to undo each — delete the scope's `model-routing.json` (routing); remove the hook objects you added from the arrays in the scope's settings file, `<cwd>/.claude/settings.json` or `~/.claude/settings.json` (gate hooks); delete the scope's `workflow.json` or remove its `commitStrategy` key (commit strategy). Do not commit. Do not re-ask any question.
+Report in one short block: the chosen scope, files written (confirmed absolute paths), features skipped, and how to undo each — delete the scope's `model-routing.json` (routing); remove the hook objects you added from the arrays in the scope's settings file, `<cwd>/.claude/settings.json` or `~/.claude/settings.json` (gate hooks, transcript capture); delete the scope's `workflow.json` or remove its `commitStrategy` key (commit strategy). Do not commit. Do not re-ask any question.

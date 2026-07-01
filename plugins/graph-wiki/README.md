@@ -187,6 +187,32 @@ Opt in via `.claude/settings.json`:
 
 See the header of `hooks/examples/stop-revalidate-user-gates.sh` for the full list of completion keywords and the `GRAPH_WIKI_USERGATE_STOP_GUARD=0` escape hatch.
 
+### Capture Session Transcripts for the Active Work Item
+
+Optional `SessionEnd` hook that copies the session's transcript (plus any subagent sidechain transcripts) into the active work item's `work/<slug>/` directory, so a finished item accumulates its own session history instead of it being scattered across `~/.claude/projects/*/*.jsonl`. Reads `.graph-wiki/active-work.json` — the pointer `gw work advance` stamps on every design/plan/execute/finish transition. No pointer (a session that never touched `gw work advance`) → silent no-op.
+
+Opt in via `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/session-end-transcript-capture.sh"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+See the header of `hooks/examples/session-end-transcript-capture.sh` for the naming convention and the `GRAPH_WIKI_TRANSCRIPT_CAPTURE_GUARD=0` escape hatch. Traces to the same `/tmp/claude-hooks/` family of logs (override via `GRAPH_WIKI_TRANSCRIPT_CAPTURE_TRACE_LOG`).
+
 ### Enforce blockedBy Ordering on in_progress
 
 Optional `PreToolUse` hook on `TaskUpdate` that refuses to move a task into `status=in_progress` while its `blockedBy` list still points at tasks that are not yet `completed`. Motivation: observed failure mode — a coordinator jumps to a later task ("this one is simpler, zero setup") even though its declared prerequisites feed it. The plan meant V0.x to catalog state before V1.x replays consume it; without the catalog, the replay runs blind.
