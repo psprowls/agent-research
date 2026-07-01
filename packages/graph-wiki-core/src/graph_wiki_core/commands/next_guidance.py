@@ -143,6 +143,7 @@ async def run_next_guidance(
     repo = repo_path.resolve() if repo_path else resolved_repo
 
     result = NextGuidanceResult()
+    result.target_path = resolve_guidance_target(file, workspace, slug, phase)
 
     item_path = wiki / "work" / f"{slug}.md"
     if not item_path.exists():

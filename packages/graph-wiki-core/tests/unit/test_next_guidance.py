@@ -317,3 +317,11 @@ async def test_run_next_guidance_populates_target_path_on_early_return(tmp_path:
     result = await run_next_guidance("wi", workspace_path=ws, no_rank=True, file="auto", phase="plan")
     assert result.ranked == []
     assert result.target_path == _paths.artifact_path(ws, "wi", "plan", "guidance", ext="md")
+
+
+async def test_run_next_guidance_populates_target_path_when_item_missing(tmp_path: Path):
+    ws = tmp_path / "ws"
+    (ws / "wiki" / "work").mkdir(parents=True)
+
+    result = await run_next_guidance("missing", workspace_path=ws, no_rank=True, file="auto", phase="plan")
+    assert result.target_path == _paths.artifact_path(ws, "missing", "plan", "guidance", ext="md")
