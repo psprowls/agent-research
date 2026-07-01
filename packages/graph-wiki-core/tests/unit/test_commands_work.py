@@ -447,6 +447,46 @@ async def test_run_work_archive_dry_run_does_not_write_repoint(tmp_path: Path) -
     assert len(result.repointed) == 1
 
 
+@pytest.mark.asyncio
+async def test_run_work_archive_repoints_in_dir_spec_doc(tmp_path: Path) -> None:
+    """spec_doc pointing at the item's own working dir is rewritten to _archive/<slug>/
+    after the page moves — same filename, new directory."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    slug = "2026-01-01-foo"
+    working_dir = work_dir / slug
+    working_dir.mkdir(parents=True)
+    (working_dir / "01-design-spec.md").write_text("spec\n", encoding="utf-8")
+    (work_dir / f"{slug}.md").write_text(
+        f"---\nstatus: resolved\nspec_doc: wiki/work/{slug}/01-design-spec.md\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    archived_page = work_dir / "_archive" / slug / "00-open-work.md"
+    assert f"spec_doc: wiki/work/_archive/{slug}/01-design-spec.md" in archived_page.read_text(encoding="utf-8")
+    assert result.repointed == [
+        f"wiki/work/_archive/{slug}/00-open-work.md (spec_doc) -> wiki/work/_archive/{slug}/01-design-spec.md"
+    ]
+
+
+@pytest.mark.asyncio
+async def test_run_work_archive_skips_repoint_when_no_doc_pointer(tmp_path: Path) -> None:
+    """An item with no spec_doc/plan_doc archives cleanly with no repoint entry."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0)
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    assert result.repointed == []
+
+
 # ---------------------------------------------------------------------------
 # run_work_next: epic/dep hierarchy gates (live scan population)
 # ---------------------------------------------------------------------------

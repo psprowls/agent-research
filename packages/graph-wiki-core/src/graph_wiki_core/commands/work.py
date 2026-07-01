@@ -398,6 +398,23 @@ def _move(action: _archive.ArchiveAction) -> None:
     _git_mv_or_rename(action.src, action.dst)
 
 
+def _repoint_in_dir_doc(action: _archive.ArchiveAction, workspace: Path) -> str | None:
+    """Rewrite spec_doc/plan_doc on the just-moved page if it pointed into the
+    item's own (now-moved) working dir. Returns a human-readable repoint entry,
+    or None when no pointer needed rewriting."""
+    fm, body = _frontmatter.parse(action.dst.read_text(encoding="utf-8"))
+    prefix = f"wiki/work/{action.slug}/"
+    for key in ("spec_doc", "plan_doc"):
+        pointer = fm.get(key)
+        if pointer and str(pointer).startswith(prefix):
+            new_pointer = f"wiki/work/_archive/{action.slug}/" + str(pointer)[len(prefix) :]
+            fm[key] = new_pointer
+            action.dst.write_text(_frontmatter.emit(fm) + "\n" + body, encoding="utf-8")
+            rel_dst = action.dst.relative_to(workspace).as_posix()
+            return f"{rel_dst} ({key}) -> {new_pointer}"
+    return None
+
+
 async def run_work_archive(
     workspace_path: Path | None = None,
     slugs: list[str] | None = None,
@@ -422,6 +439,9 @@ async def run_work_archive(
     if not dry_run and plan.actions:
         for action in plan.actions:
             _move(action)
+            entry = _repoint_in_dir_doc(action, wiki.parent)
+            if entry:
+                repoint.rewrote.append(entry)
         await run_work_regen_index(workspace_path=workspace_path)
 
     return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped, repointed=repoint.rewrote)
