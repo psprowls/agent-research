@@ -694,6 +694,20 @@ async def run_work_file(
                 "not 'epic'; children may only attach to an epic"
             )
 
+    # Validate --depends-on before writing anything: every value must exact-match
+    # a known slug (active or archived), same fail-safe exact-match convention as
+    # work_io.hierarchy.dep_states. A bare title-slug missing its date prefix gets
+    # a hint when exactly one known slug matches by title.
+    if depends_on:
+        unresolved = _hierarchy.unresolved_depends_on(_load_items_for_deps(wiki / "work"), depends_on)
+        if unresolved:
+            parts = [f"{v!r} (did you mean {h!r}?)" if h else repr(v) for v, h in unresolved.items()]
+            raise ValueError(
+                "--depends-on: no work item matches "
+                + ", ".join(parts)
+                + "; pass the full slug from `gw work file --json`'s `slug` field"
+            )
+
     # Build frontmatter in wiki-schema.md ("Work pages") key order. Optional
     # scalars are omitted when unset rather than emitted as null placeholders;
     # list keys (affects, tags) are always present. Lifecycle-transition keys

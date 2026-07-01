@@ -77,6 +77,12 @@ def test_work_file_parent_and_depends_on(tmp_path: Path) -> None:
         "---\ntitle: epic-x\nkind: epic\nstatus: accepted\nopened: 2026-06-26\nupdated: 2026-06-26\n---\nbody\n",
         encoding="utf-8",
     )
+    # Pre-create the sibling items --depends-on references.
+    for slug in ("2026-06-26-sib-a", "2026-06-26-sib-b"):
+        (work_dir / f"{slug}.md").write_text(
+            f"---\ntitle: {slug}\nkind: feature\nstatus: open\nopened: 2026-06-26\nupdated: 2026-06-26\n---\nbody\n",
+            encoding="utf-8",
+        )
 
     result = runner.invoke(
         app,

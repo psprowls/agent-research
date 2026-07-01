@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from work_io.hierarchy import ChildRollup, child_rollup, dep_states
+from work_io.hierarchy import ChildRollup, child_rollup, dep_states, unresolved_depends_on
 
 
 def _item(slug: str, status: str = "open", parent: str | None = None) -> dict:
@@ -46,3 +46,28 @@ def test_dep_states_missing_is_unmet() -> None:
 def test_dep_states_all_met() -> None:
     items = [_item("dep1", status="resolved"), _item("dep2", status="superseded")]
     assert dep_states(items, ("dep1", "dep2")) == ()
+
+
+def test_unresolved_depends_on_exact_match_is_absent() -> None:
+    items = [_item("2026-06-26-sib")]
+    assert unresolved_depends_on(items, ["2026-06-26-sib"]) == {}
+
+
+def test_unresolved_depends_on_no_title_match_maps_to_none() -> None:
+    items = [_item("2026-06-26-sib")]
+    assert unresolved_depends_on(items, ["ghost"]) == {"ghost": None}
+
+
+def test_unresolved_depends_on_unique_title_match_maps_to_full_slug() -> None:
+    items = [_item("2026-06-26-sib")]
+    assert unresolved_depends_on(items, ["sib"]) == {"sib": "2026-06-26-sib"}
+
+
+def test_unresolved_depends_on_ambiguous_title_match_maps_to_none() -> None:
+    items = [_item("2026-06-26-sib"), _item("2026-06-27-sib")]
+    assert unresolved_depends_on(items, ["sib"]) == {"sib": None}
+
+
+def test_unresolved_depends_on_archived_slug_counts_as_known() -> None:
+    items = [_item("2026-06-26-sib", status="resolved")]
+    assert unresolved_depends_on(items, ["2026-06-26-sib"]) == {}

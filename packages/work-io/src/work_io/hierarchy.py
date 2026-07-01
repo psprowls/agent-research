@@ -8,9 +8,12 @@ frontmatter-parsing or graph-wiki-core dependency.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from work_io.lifecycle_lint import TERMINAL_STATUSES
+
+_DATE_PREFIX_RE = re.compile(r"^\d{4}-\d{2}-\d{2}-")
 
 
 @dataclass(frozen=True)
@@ -38,3 +41,15 @@ def dep_states(items: list[dict], depends_on: tuple[str, ...]) -> tuple[str, ...
     """
     by_slug = {it["slug"]: it for it in items}
     return tuple(d for d in depends_on if by_slug.get(d, {}).get("status") not in TERMINAL_STATUSES)
+
+
+def unresolved_depends_on(items: list[dict], depends_on: list[str]) -> dict[str, str | None]:
+    """Values with no matching slug, mapped to a same-title hint or None."""
+    known = {it["slug"] for it in items}
+    unresolved: dict[str, str | None] = {}
+    for value in depends_on:
+        if value in known:
+            continue
+        title_matches = [s for s in known if _DATE_PREFIX_RE.sub("", s) == value]
+        unresolved[value] = title_matches[0] if len(title_matches) == 1 else None
+    return unresolved

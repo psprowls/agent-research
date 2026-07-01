@@ -680,6 +680,7 @@ def test_file_child_writes_parent_and_pointer(tmp_path: Path) -> None:
     workspace, wiki = _make_workspace(tmp_path)
     work_dir = wiki / "work"
     _write_hierarchy_item(work_dir, "2026-06-26-epic-x", kind="epic", status="accepted", phase="plan")
+    _write_hierarchy_item(work_dir, "2026-06-26-sib", kind="feature", status="open")
 
     asyncio.run(
         run_work_file(
@@ -708,6 +709,7 @@ def test_file_child_frontmatter_key_order(tmp_path: Path) -> None:
     workspace, wiki = _make_workspace(tmp_path)
     work_dir = wiki / "work"
     _write_hierarchy_item(work_dir, "2026-06-26-epic-x", kind="epic", status="accepted", phase="plan")
+    _write_hierarchy_item(work_dir, "2026-06-26-sib", kind="feature", status="open")
 
     asyncio.run(
         run_work_file(
@@ -724,6 +726,97 @@ def test_file_child_frontmatter_key_order(tmp_path: Path) -> None:
     text = next(work_dir.glob("*child-a.md")).read_text(encoding="utf-8")
     assert text.index("affects:") < text.index("parent:") < text.index("opened:")
     assert text.index("parent:") < text.index("depends_on:") < text.index("opened:")
+
+
+def test_file_child_rejects_nonexistent_depends_on(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    with pytest.raises(ValueError, match="ghost"):
+        asyncio.run(
+            run_work_file(
+                workspace_path=workspace,
+                title="Child",
+                kind="feature",
+                summary="x",
+                depends_on=["ghost"],
+            )
+        )
+
+
+def test_file_child_depends_on_bare_title_slug_hints_full_slug(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "2026-06-26-sib", kind="feature", status="open")
+
+    with pytest.raises(ValueError, match=r"did you mean '2026-06-26-sib'"):
+        asyncio.run(
+            run_work_file(
+                workspace_path=workspace,
+                title="Child",
+                kind="feature",
+                summary="x",
+                depends_on=["sib"],
+            )
+        )
+
+
+def test_file_child_depends_on_ambiguous_title_slug_gets_no_hint(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "2026-06-26-sib", kind="feature", status="open")
+    _write_hierarchy_item(work_dir, "2026-06-27-sib", kind="feature", status="open")
+
+    with pytest.raises(ValueError) as exc_info:
+        asyncio.run(
+            run_work_file(
+                workspace_path=workspace,
+                title="Child",
+                kind="feature",
+                summary="x",
+                depends_on=["sib"],
+            )
+        )
+    assert "did you mean" not in str(exc_info.value)
+
+
+def test_file_child_depends_on_archived_sibling_files_successfully(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    archive_dir = work_dir / "_archive" / "2026-06-26-sib"
+    archive_dir.mkdir(parents=True)
+    _write_hierarchy_item(archive_dir, "00-open-work", kind="feature", status="resolved")
+
+    asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Child",
+            kind="feature",
+            summary="x",
+            depends_on=["2026-06-26-sib"],
+        )
+    )
+
+    page = next(work_dir.glob("*child.md"))
+    assert "2026-06-26-sib" in page.read_text(encoding="utf-8")
 
 
 def test_file_child_rejects_non_epic_parent(tmp_path: Path) -> None:
