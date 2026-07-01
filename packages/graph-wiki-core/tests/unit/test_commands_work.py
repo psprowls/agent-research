@@ -474,6 +474,38 @@ async def test_run_work_archive_repoints_in_dir_spec_doc(tmp_path: Path) -> None
 
 
 @pytest.mark.asyncio
+async def test_run_work_archive_repoints_both_spec_and_plan_doc(tmp_path: Path) -> None:
+    """An item that reached both design and plan phases before archiving has both
+    spec_doc and plan_doc pointing into its own working dir — both must be rewritten,
+    not just the first one found."""
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    slug = "2026-01-01-bar"
+    working_dir = work_dir / slug
+    working_dir.mkdir(parents=True)
+    (working_dir / "01-design-spec.md").write_text("spec\n", encoding="utf-8")
+    (working_dir / "02-plan.md").write_text("plan\n", encoding="utf-8")
+    (work_dir / f"{slug}.md").write_text(
+        f"---\nstatus: resolved\nspec_doc: wiki/work/{slug}/01-design-spec.md\n"
+        f"plan_doc: wiki/work/{slug}/02-plan.md\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+    result = await run_work_archive(workspace_path=workspace, dry_run=False)
+
+    archived_page = work_dir / "_archive" / slug / "00-open-work.md"
+    archived_text = archived_page.read_text(encoding="utf-8")
+    assert f"spec_doc: wiki/work/_archive/{slug}/01-design-spec.md" in archived_text
+    assert f"plan_doc: wiki/work/_archive/{slug}/02-plan.md" in archived_text
+    assert result.repointed == [
+        f"wiki/work/_archive/{slug}/00-open-work.md (spec_doc) -> wiki/work/_archive/{slug}/01-design-spec.md",
+        f"wiki/work/_archive/{slug}/00-open-work.md (plan_doc) -> wiki/work/_archive/{slug}/02-plan.md",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_run_work_archive_skips_repoint_when_no_doc_pointer(tmp_path: Path) -> None:
     """An item with no spec_doc/plan_doc archives cleanly with no repoint entry."""
     from graph_wiki_core.commands.work import run_work_archive
