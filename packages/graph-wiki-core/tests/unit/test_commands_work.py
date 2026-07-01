@@ -136,11 +136,36 @@ def test_run_work_archive_executes_move(tmp_path: Path) -> None:
     workspace, wiki = _make_workspace(tmp_path)
     work_dir = wiki / "work"
     _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+    slug = next(f.stem for f in work_dir.glob("*.md"))
+    working_dir = work_dir / slug
+    working_dir.mkdir()
+    (working_dir / "01-design-spec.md").write_text("spec content\n", encoding="utf-8")
 
     result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
 
     assert len(result.moved) == 1
-    assert (work_dir / "_archive").exists()
+    archived_item_dir = work_dir / "_archive" / slug
+    assert (archived_item_dir / "00-open-work.md").exists()
+    assert (archived_item_dir / "01-design-spec.md").read_text(encoding="utf-8") == "spec content\n"
+    assert not working_dir.exists()
+
+
+def test_run_work_archive_executes_move_without_working_dir(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+    slug = next(f.stem for f in work_dir.glob("*.md"))
+
+    result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+
+    assert len(result.moved) == 1
+    archived_item_dir = work_dir / "_archive" / slug
+    assert (archived_item_dir / "00-open-work.md").exists()
+    assert list(archived_item_dir.iterdir()) == [archived_item_dir / "00-open-work.md"]
 
 
 def test_run_work_file_returns_ingest_result(tmp_path: Path) -> None:

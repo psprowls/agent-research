@@ -371,18 +371,26 @@ async def run_work_status(workspace_path: Path | None = None) -> WorkStatusResul
 # ---------------------------------------------------------------------------
 
 
-def _move(action: _archive.ArchiveAction) -> None:
-    """Move a work item into _archive/, preferring `git mv`, falling back to rename."""
-    action.dst.parent.mkdir(parents=True, exist_ok=True)
+def _git_mv_or_rename(src: Path, dst: Path) -> None:
+    """Move a path, preferring `git mv`, falling back to `os.rename`."""
+    dst.parent.mkdir(parents=True, exist_ok=True)
     result = subprocess.run(
-        ["git", "mv", str(action.src), str(action.dst)],
-        cwd=action.src.parent,
+        ["git", "mv", str(src), str(dst)],
+        cwd=src.parent,
         capture_output=True,
         text=True,
         check=False,
     )
     if result.returncode != 0:
-        os.rename(action.src, action.dst)
+        os.rename(src, dst)
+
+
+def _move(action: _archive.ArchiveAction) -> None:
+    """Move a work item's working dir (if present) then its page into _archive/<slug>/."""
+    if action.working_dir_src is not None:
+        assert action.working_dir_dst is not None
+        _git_mv_or_rename(action.working_dir_src, action.working_dir_dst)
+    _git_mv_or_rename(action.src, action.dst)
 
 
 async def run_work_archive(
