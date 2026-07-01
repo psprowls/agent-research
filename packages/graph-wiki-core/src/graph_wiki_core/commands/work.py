@@ -138,8 +138,9 @@ def _git_run(repo: Path, *args: str) -> str | None:
             capture_output=True,
             text=True,
             check=False,
+            timeout=5,
         )
-    except (OSError, ValueError):
+    except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
     if out.returncode != 0:
         return None

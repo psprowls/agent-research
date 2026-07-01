@@ -537,6 +537,77 @@ def test_advance_no_repo_degrades(tmp_path: Path) -> None:
     assert not (wiki / "work" / slug / "03-execute-results.md").exists()
 
 
+def test_advance_execute_complete_writes_results_stub_rename(tmp_path: Path) -> None:
+    import asyncio
+    import subprocess
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "old.py").write_text("value = 1\n")
+    start_sha = _commit_all(repo, "seed")
+
+    slug = _write_item(
+        wiki / "work",
+        "renaming",
+        kind="bug",
+        status="in-progress",
+        phase="execute",
+        effort="small",
+        owner="pat",
+        phase_started_commit=start_sha,
+    )
+
+    subprocess.run(["git", "mv", "old.py", "new.py"], cwd=repo, check=True)
+    end_sha = _commit_all(repo, "refactor: rename module")
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    stub = wiki / "work" / slug / "03-execute-results.md"
+    assert stub.exists()
+    content = stub.read_text()
+    assert f"`{start_sha[:7]}`..`{end_sha[:7]}`" in content
+    file_lines = [line for line in content.splitlines() if line.startswith("- ") and ".py" in line]
+    assert file_lines == ["- new.py"]
+    assert "old.py" not in content
+    assert "R100" not in content
+
+
+def test_advance_invalid_start_sha_degrades(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "README.md").write_text("seed\n")
+    _commit_all(repo, "seed")
+
+    unreachable_sha = "deadbeef" + "0" * 32
+    slug = _write_item(
+        wiki / "work",
+        "unreachable-start",
+        kind="bug",
+        status="in-progress",
+        phase="execute",
+        effort="small",
+        owner="pat",
+        phase_started_commit=unreachable_sha,
+    )
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    assert result.phase == "finish"
+    assert not (wiki / "work" / slug / "03-execute-results.md").exists()
+
+
 def test_advance_stamps_phase_started_commit_entering_execute(tmp_path: Path) -> None:
     import asyncio
     from unittest.mock import patch
