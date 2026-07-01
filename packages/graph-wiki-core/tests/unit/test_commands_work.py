@@ -626,6 +626,47 @@ async def test_depends_on_resolves_against_nested_archived_item(tmp_path: Path) 
     assert not any("2026-01-01-dep" in blk for blk in result.blockers)
 
 
+@pytest.mark.asyncio
+async def test_depends_on_resolves_against_mixed_legacy_and_nested_archived_items(tmp_path: Path) -> None:
+    """An _archive/ dir with BOTH a legacy flat item (_archive/<slug>.md, predating the
+    nested-archive feature) and a new nested item (_archive/<slug>/00-open-work.md) must
+    resolve depends_on against both — pre-existing flat-archived items are never migrated
+    into the new shape (no-migrations-until-v2.0), so _load_items has to keep finding them."""
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    archive_dir = work_dir / "_archive"
+    archive_dir.mkdir(parents=True)
+
+    # Legacy flat-archived item.
+    (archive_dir / "2026-01-01-legacy-dep.md").write_text(
+        "---\ntitle: legacy dep\nstatus: resolved\nkind: bug\n---\n\n## Summary\ndone\n",
+        encoding="utf-8",
+    )
+
+    # New nested-archived item.
+    nested_dir = archive_dir / "2026-01-02-nested-dep"
+    nested_dir.mkdir()
+    (nested_dir / "00-open-work.md").write_text(
+        "---\ntitle: nested dep\nstatus: resolved\nkind: bug\n---\n\n## Summary\ndone\n",
+        encoding="utf-8",
+    )
+
+    _write_hierarchy_item(
+        work_dir,
+        "blocked",
+        kind="bug",
+        status="open",
+        depends_on=["2026-01-01-legacy-dep", "2026-01-02-nested-dep"],
+    )
+
+    result = await run_work_next(workspace_path=workspace, slug="blocked")
+
+    assert not any("2026-01-01-legacy-dep" in blk for blk in result.blockers)
+    assert not any("2026-01-02-nested-dep" in blk for blk in result.blockers)
+
+
 # ---------------------------------------------------------------------------
 # run_work_file: --parent / --depends-on (epic attachment)
 # ---------------------------------------------------------------------------
