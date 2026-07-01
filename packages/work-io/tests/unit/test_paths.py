@@ -71,3 +71,10 @@ def test_artifact_path_unknown_kind_raises(tmp_path):
 def test_artifact_path_returns_absolute_path(tmp_path):
     p = artifact_path(tmp_path, "slug", "design", "spec", ext="md")
     assert p.parent == work_item_dir(tmp_path, "slug")
+
+
+def test_sidechain_dir_derives_from_transcript_stem(tmp_path):
+    from work_io.paths import sidechain_dir
+
+    transcript = tmp_path / "abc123.jsonl"
+    assert sidechain_dir(transcript) == tmp_path / "abc123" / "subagents"

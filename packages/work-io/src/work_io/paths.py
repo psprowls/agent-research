@@ -64,3 +64,16 @@ def artifact_path(
 
     filename = "-".join(parts) + f".{ext}"
     return work_item_dir(workspace, slug) / filename
+
+
+def sidechain_dir(transcript_path: Path) -> Path:
+    """Where a SessionEnd hook finds this session's subagent sidechain transcripts.
+
+    Empirically confirmed against real `~/.claude/projects/` layout (not
+    officially documented): `<project-dir>/<session-id>/subagents/`, a
+    sibling of the main transcript `<project-dir>/<session-id>.jsonl`.
+    Contains `agent-<id>.jsonl` files plus an unused `.meta.json` sidecar
+    per agent.
+    """
+    p = Path(transcript_path)
+    return p.parent / p.stem / "subagents"
