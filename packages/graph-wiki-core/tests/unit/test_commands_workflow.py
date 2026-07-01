@@ -365,3 +365,196 @@ def test_advance_with_bystander_item_succeeds_and_scopes_findings(tmp_path: Path
     assert result.phase == "design"
     assert all(f["slug"] == slug for f in result.findings)
     assert bystander not in {f["slug"] for f in result.findings}
+
+
+def _init_git_repo(path: Path) -> None:
+    import subprocess
+
+    path.mkdir(parents=True, exist_ok=True)
+    subprocess.run(["git", "init", "-q", "-b", "main"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.email", "test@example.com"], cwd=path, check=True)
+    subprocess.run(["git", "config", "user.name", "test"], cwd=path, check=True)
+
+
+def _commit_all(path: Path, message: str) -> str:
+    import subprocess
+
+    subprocess.run(["git", "add", "-A"], cwd=path, check=True)
+    subprocess.run(["git", "commit", "-q", "-m", message], cwd=path, check=True)
+    out = subprocess.run(["git", "rev-parse", "HEAD"], cwd=path, capture_output=True, text=True, check=True)
+    return out.stdout.strip()
+
+
+def test_advance_execute_complete_writes_results_stub(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "README.md").write_text("seed\n")
+    start_sha = _commit_all(repo, "seed")
+
+    slug = _write_item(
+        wiki / "work",
+        "executing",
+        kind="bug",
+        status="in-progress",
+        phase="execute",
+        effort="small",
+        owner="pat",
+        phase_started_commit=start_sha,
+    )
+
+    (repo / "feature.py").write_text("value = 1\n")
+    end_sha = _commit_all(repo, "feat: add feature.py")
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    stub = wiki / "work" / slug / "03-execute-results.md"
+    assert stub.exists()
+    content = stub.read_text()
+    assert content.startswith("## Execute — results\n")
+    assert f"`{start_sha[:7]}`..`{end_sha[:7]}`" in content
+    assert "feature.py" in content
+    assert "feat: add feature.py" in content
+
+
+def test_advance_finish_complete_writes_results_stub(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "README.md").write_text("seed\n")
+    start_sha = _commit_all(repo, "seed")
+
+    slug = _write_item(
+        wiki / "work",
+        "finishing",
+        kind="bug",
+        status="in-progress",
+        phase="finish",
+        effort="small",
+        owner="pat",
+        phase_started_commit=start_sha,
+    )
+
+    (repo / "CHANGELOG.md").write_text("wrap up\n")
+    _commit_all(repo, "chore: wrap up")
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, resolved_in="pr#42"))
+
+    stub = wiki / "work" / slug / "04-finish-results.md"
+    assert stub.exists()
+    content = stub.read_text()
+    assert content.startswith("## Finish — results\n")
+    assert "CHANGELOG.md" in content
+    assert result.status == "resolved"
+
+
+def test_advance_epic_transition_writes_no_results_stub(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "README.md").write_text("seed\n")
+    start_sha = _commit_all(repo, "seed")
+
+    epic_slug = _write_item(
+        wiki / "work",
+        "epic-x",
+        kind="epic",
+        status="accepted",
+        phase="execute",
+        phase_started_commit=start_sha,
+    )
+    _write_item(wiki / "work", "child-a", kind="bug", status="resolved", parent=epic_slug)
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        result = asyncio.run(run_work_advance(workspace_path=workspace, slug=epic_slug))
+
+    assert result.phase == "finish"
+    assert not (wiki / "work" / epic_slug / "03-execute-results.md").exists()
+
+
+def test_advance_missing_phase_started_commit_degrades(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "README.md").write_text("seed\n")
+    _commit_all(repo, "seed")
+
+    slug = _write_item(
+        wiki / "work", "no-stamp", kind="bug", status="in-progress", phase="execute", effort="small", owner="pat"
+    )
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    assert result.phase == "finish"
+    assert not (wiki / "work" / slug / "03-execute-results.md").exists()
+
+
+def test_advance_no_repo_degrades(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work",
+        "no-repo",
+        kind="bug",
+        status="in-progress",
+        phase="execute",
+        effort="small",
+        owner="pat",
+        phase_started_commit="deadbeef",
+    )
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, None)):
+        result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    assert result.phase == "finish"
+    assert not (wiki / "work" / slug / "03-execute-results.md").exists()
+
+
+def test_advance_stamps_phase_started_commit_entering_execute(tmp_path: Path) -> None:
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    repo = tmp_path / "repo"
+    _init_git_repo(repo)
+    (repo / "README.md").write_text("seed\n")
+    head_sha = _commit_all(repo, "seed")
+
+    slug = _write_item(wiki / "work", "small-bug", kind="bug", status="open", phase="design", effort="small")
+
+    with patch("graph_wiki_core.commands.work.resolve_wiki_and_repo", return_value=(wiki, repo)):
+        result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+    fm = _read_fm(wiki, slug)
+    assert fm["phase"] == "execute"
+    assert fm["phase_started_commit"] == head_sha
+    assert result.stamped["phase_started_commit"] == head_sha

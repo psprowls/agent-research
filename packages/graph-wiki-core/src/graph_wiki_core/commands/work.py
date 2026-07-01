@@ -40,6 +40,7 @@ from work_io import hierarchy as _hierarchy
 from work_io import lifecycle_lint as _lint
 from work_io import paths as _paths
 from work_io import plan_table as _plan_table
+from work_io import results as _results
 from work_io import sidecar as _sidecar
 from work_io import workflow as _workflow
 
@@ -128,12 +129,12 @@ class WorkAdvanceResult:
 # ---------------------------------------------------------------------------
 
 
-def _vault_commit(wiki: Path) -> str | None:
-    """Best-effort HEAD of the wiki's git repo; None when not a repo."""
+def _git_run(repo: Path, *args: str) -> str | None:
+    """Best-effort `git <args>` in `repo`; returns stdout, or None on any failure."""
     try:
         out = subprocess.run(
-            ["git", "rev-parse", "HEAD"],
-            cwd=wiki,
+            ["git", *args],
+            cwd=repo,
             capture_output=True,
             text=True,
             check=False,
@@ -142,8 +143,47 @@ def _vault_commit(wiki: Path) -> str | None:
         return None
     if out.returncode != 0:
         return None
-    commit = out.stdout.strip()
-    return commit or None
+    return out.stdout
+
+
+def _git_head(repo: Path) -> str | None:
+    """Best-effort HEAD sha of the git repo at `repo`; None when not a repo or no commits."""
+    out = _git_run(repo, "rev-parse", "HEAD")
+    sha = out.strip() if out is not None else ""
+    return sha or None
+
+
+def _git_diff_files(repo: Path, start_sha: str, end_sha: str) -> list[str] | None:
+    """Best-effort list of file paths changed in `start_sha..end_sha`; None on git failure."""
+    out = _git_run(repo, "diff", "--name-status", f"{start_sha}..{end_sha}")
+    if out is None:
+        return None
+    return [line.split("\t")[-1] for line in out.splitlines() if line.strip()]
+
+
+def _git_log_commits(repo: Path, start_sha: str, end_sha: str) -> list[str] | None:
+    """Best-effort `git log --oneline` lines for `start_sha..end_sha`; None on git failure."""
+    out = _git_run(repo, "log", "--oneline", f"{start_sha}..{end_sha}")
+    if out is None:
+        return None
+    return [line for line in out.splitlines() if line.strip()]
+
+
+def _write_results_stub(workspace: Path, repo: Path, slug: str, *, phase: str, start_sha: str) -> None:
+    """Best-effort: write work/<slug>/NN-<phase>-results.md as a mechanical git-facts stub.
+
+    Silent no-op on any git failure — a provenance nice-to-have, not something
+    `advance` should ever fail on (matches the `_git_head` degrade contract).
+    """
+    end_sha = _git_head(repo)
+    if end_sha is None:
+        return
+    files = _git_diff_files(repo, start_sha, end_sha)
+    commits = _git_log_commits(repo, start_sha, end_sha)
+    if files is None or commits is None:
+        return
+    body = _results.render(phase=phase, start_sha=start_sha, end_sha=end_sha, files=files, commits=commits)
+    _paths.artifact_path(workspace, slug, phase, "results", ext="md").write_text(body, encoding="utf-8")
 
 
 def _load_items(work_dir: Path) -> list[dict]:
@@ -286,7 +326,7 @@ async def run_work_regen_index(workspace_path: Path | None = None) -> WorkRegenR
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
     work_dir = wiki / "work"
 
-    sidecar = _sidecar.build_sidecar(work_dir, _vault_commit(wiki))
+    sidecar = _sidecar.build_sidecar(work_dir, _git_head(wiki))
     _sidecar.write_sidecar(wiki, sidecar)
 
     return WorkRegenResult(
@@ -539,6 +579,18 @@ async def run_work_advance(
     _paths.work_item_dir(workspace, slug).mkdir(parents=True, exist_ok=True)
 
     applied: dict = {}
+    stamped: dict = {}
+
+    old_phase = fm.get("phase")
+    if repo is not None and state.kind != "epic" and t.phase and t.phase != old_phase:
+        if old_phase in ("execute", "finish") and fm.get("phase_started_commit"):
+            _write_results_stub(workspace, repo, slug, phase=str(old_phase), start_sha=str(fm["phase_started_commit"]))
+        if t.phase in ("execute", "finish"):
+            head = _git_head(repo)
+            if head is not None:
+                fm["phase_started_commit"] = head
+                stamped["phase_started_commit"] = head
+
     if t.phase:
         applied["phase"] = [fm.get("phase"), t.phase]
         fm["phase"] = t.phase
@@ -546,7 +598,6 @@ async def run_work_advance(
         applied["status"] = [fm.get("status"), t.status]
         fm["status"] = t.status
 
-    stamped: dict = {}
     for key, value in (("effort", effort), ("owner", owner), ("resolved_in", resolved_in)):
         if value:
             fm[key] = value
