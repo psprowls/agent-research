@@ -165,6 +165,17 @@ def _load_items(work_dir: Path) -> list[dict]:
     return items
 
 
+def _load_items_for_deps(work_dir: Path) -> list[dict]:
+    """Active items plus archived ones, for depends_on / child_rollup resolution.
+
+    A `depends_on` or `parent` reference to an item can outlive that item's
+    presence in work/ — archiving moves terminal items to work/_archive/, but
+    the reference itself is untouched. Dependency and rollup lookups must see
+    both sets or a resolved-and-archived dependency reads back as unmet.
+    """
+    return _load_items(work_dir) + _load_items(work_dir / "_archive")
+
+
 def _hierarchy_view(items: list[dict]) -> list[dict]:
     """Project loaded items ({slug, fm, plan}) to the {slug, status, parent} shape
     the work_io.hierarchy helpers consume."""
@@ -286,7 +297,9 @@ async def run_work_lint(workspace_path: Path | None = None) -> WorkLintResult:
     items = _load_items(work_dir)
     sidecar = _sidecar.load_sidecar(wiki)
 
-    findings = _lint.run_lint(items, repo, sidecar, workspace_root=wiki.parent)
+    findings = _lint.run_lint(
+        items, repo, sidecar, workspace_root=wiki.parent, archived_items=_load_items(work_dir / "_archive")
+    )
     return WorkLintResult(
         total_items=len(items),
         findings=[
@@ -419,7 +432,7 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
     except (FileNotFoundError, ValueError) as e:
         return WorkNextResult(slug=slug, blockers=[str(e)])
 
-    state = _state_from_fm(fm, items=_load_items(wiki / "work"), slug=slug)
+    state = _state_from_fm(fm, items=_load_items_for_deps(wiki / "work"), slug=slug)
     r = _workflow.route(state)
     phase = state.phase or (r.on_dispatch.phase if r.on_dispatch else None)
     artifact = None
@@ -468,7 +481,7 @@ async def run_work_advance(
     workspace = wiki.parent
     path, fm, body = _load_item(wiki, slug)
 
-    items_before = _load_items(wiki / "work")
+    items_before = _load_items_for_deps(wiki / "work")
     state = _state_from_fm(fm, effort_override=effort, items=items_before, slug=slug)
     r = _workflow.route(state)
     if r.blockers:
@@ -520,7 +533,9 @@ async def run_work_advance(
 
     items = _load_items(wiki / "work")
     sidecar = _sidecar.load_sidecar(wiki)
-    findings = _lint.run_lint(items, repo, sidecar, workspace_root=workspace)
+    findings = _lint.run_lint(
+        items, repo, sidecar, workspace_root=workspace, archived_items=_load_items(wiki / "work" / "_archive")
+    )
     return WorkAdvanceResult(
         slug=slug,
         phase=str(fm["phase"]) if fm.get("phase") else None,

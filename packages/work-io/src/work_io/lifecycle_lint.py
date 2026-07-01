@@ -43,11 +43,17 @@ def run_lint(
     repo_root: Path | None,
     sidecar: dict | None,
     workspace_root: Path | None = None,
+    archived_items: list[dict] | None = None,
 ) -> list[LintFinding]:
     """Run all lifecycle rules. Each item dict has keys: slug, fm, plan (PlanResult).
 
     workspace_root enables the workspace-relative checks (rule 23, and the
     workspace fallback in rule 11); when None those checks are skipped.
+
+    archived_items (terminal items already moved to work/_archive/) are consulted
+    for parent/depends_on resolution only (rules 24-27) — a reference to an
+    archived item is valid and should not read back as missing. They are excluded
+    from every per-item rule and from the depends-on-cycle graph.
     """
     findings: list[LintFinding] = []
 
@@ -238,7 +244,7 @@ def run_lint(
                     )
 
     # 24-29. hierarchy rules (cross-item; resolved against the full item set)
-    by_slug = {it["slug"]: it["fm"] for it in items}
+    by_slug = {it["slug"]: it["fm"] for it in items + (archived_items or [])}
     dep_graph: dict[str, list[str]] = {}
     for item in items:
         slug = item["slug"]
