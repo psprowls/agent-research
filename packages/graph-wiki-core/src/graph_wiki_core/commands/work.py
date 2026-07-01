@@ -437,6 +437,7 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
     phase = state.phase or (r.on_dispatch.phase if r.on_dispatch else None)
     artifact = None
     if r.artifact_slot:
+        assert phase is not None, "artifact_slot implies a known phase (see work_io.workflow.route)"
         kind = _ARTIFACT_KIND[r.artifact_slot]
         artifact = {"path": str(_paths.artifact_path(workspace, slug, phase, kind, ext="md"))}
 
