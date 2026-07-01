@@ -48,7 +48,7 @@ def test_next_fresh_bug_routes_to_systematic_debugging(tmp_path: Path) -> None:
     assert result.blockers == []
     assert result.action == {"skill": "systematic-debugging", "reason": "bug entering the pipeline at design"}
     assert result.phase == "design"
-    assert result.artifact == {"path": str(workspace / "raw" / "specs" / f"{slug}.md")}
+    assert result.artifact == {"path": str(wiki / "work" / slug / "01-design-spec.md")}
     assert result.on_dispatch == {"phase": "design", "status": "open", "requires": []}
     assert result.on_complete == {"phase": "plan-or-execute", "status": "open", "requires": ["effort"]}
 
@@ -181,8 +181,8 @@ def test_advance_design_complete_small_bug_shortcuts_to_execute(tmp_path: Path) 
 
     workspace, wiki = _make_workspace(tmp_path)
     slug = _write_item(wiki / "work", "small-bug", kind="bug", phase="design")
-    (workspace / "raw" / "specs").mkdir(parents=True)
-    (workspace / "raw" / "specs" / f"{slug}.md").write_text("# findings\n")
+    (wiki / "work" / slug).mkdir(parents=True)
+    (wiki / "work" / slug / "01-design-spec.md").write_text("# findings\n")
 
     result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug, effort="small"))
 
@@ -190,8 +190,8 @@ def test_advance_design_complete_small_bug_shortcuts_to_execute(tmp_path: Path) 
     assert fm["phase"] == "execute"
     assert fm["status"] == "open"  # shortcut skips accepted
     assert fm["effort"] == "small"
-    assert fm["spec_doc"] == f"raw/specs/{slug}.md"
-    assert result.stamped["spec_doc"] == f"raw/specs/{slug}.md"
+    assert fm["spec_doc"] == f"wiki/work/{slug}/01-design-spec.md"
+    assert result.stamped["spec_doc"] == f"wiki/work/{slug}/01-design-spec.md"
 
 
 def test_advance_plan_complete_sets_accepted_and_syncs_plan_table(tmp_path: Path) -> None:
@@ -202,15 +202,15 @@ def test_advance_plan_complete_sets_accepted_and_syncs_plan_table(tmp_path: Path
 
     workspace, wiki = _make_workspace(tmp_path)
     slug = _write_item(wiki / "work", "big-feature", kind="feature", phase="plan")
-    (workspace / "raw" / "plans").mkdir(parents=True)
-    (workspace / "raw" / "plans" / f"{slug}.md").write_text("# plan\n")
+    (wiki / "work" / slug).mkdir(parents=True)
+    (wiki / "work" / slug / "02-plan-plan.md").write_text("# plan\n")
 
     result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
 
     fm, body = frontmatter.parse((wiki / "work" / f"{slug}.md").read_text())
     assert fm["status"] == "accepted"
     assert fm["phase"] == "execute"
-    assert fm["plan_doc"] == f"raw/plans/{slug}.md"
+    assert fm["plan_doc"] == f"wiki/work/{slug}/02-plan-plan.md"
     parsed = plan_table.parse_plan(body)
     assert parsed.state == "ok"  # rule 4 passes by construction
     assert any(f"raw/plans/{slug}.md" in row["action"] for row in parsed.rows)

@@ -681,19 +681,17 @@ async def test_epic_pipeline_end_to_end(tmp_path: Path) -> None:
     epic_stem = next(work.glob("*epic-x.md")).stem
 
     # design: write the spec artifact (stamp_doc + lint look for it), then advance
-    # entry -> design -> plan.
-    (workspace / "raw" / "specs").mkdir(parents=True, exist_ok=True)
-    (workspace / "raw" / "specs" / f"{epic_stem}.md").write_text("epic spec\n", encoding="utf-8")
+    # entry -> design -> plan. gw work file already created wiki/work/<epic_stem>/.
+    (work / epic_stem / "01-design-spec.md").write_text("epic spec\n", encoding="utf-8")
     adv1 = await run_work_advance(workspace_path=workspace, slug=epic_stem)  # enter design
     assert adv1.phase == "design"
     adv2 = await run_work_advance(workspace_path=workspace, slug=epic_stem)  # design -> plan
     assert adv2.phase == "plan"
-    assert adv2.stamped.get("spec_doc") == f"raw/specs/{epic_stem}.md"
+    assert adv2.stamped.get("spec_doc") == f"wiki/work/{epic_stem}/01-design-spec.md"
 
     # plan: write the plan_doc artifact; file the two children BEFORE advancing to
     # execute. The child's parent must be the EPIC'S FILE STEM.
-    (workspace / "raw" / "plans").mkdir(parents=True, exist_ok=True)
-    (workspace / "raw" / "plans" / f"{epic_stem}.md").write_text("epic plan\n", encoding="utf-8")
+    (work / epic_stem / "02-plan-plan.md").write_text("epic plan\n", encoding="utf-8")
     await run_work_file(
         workspace_path=workspace,
         title="Child A",
@@ -715,7 +713,7 @@ async def test_epic_pipeline_end_to_end(tmp_path: Path) -> None:
     adv3 = await run_work_advance(workspace_path=workspace, slug=epic_stem)  # plan -> execute
     assert adv3.phase == "execute"
     assert adv3.status == "accepted"
-    assert adv3.stamped.get("plan_doc") == f"raw/plans/{epic_stem}.md"
+    assert adv3.stamped.get("plan_doc") == f"wiki/work/{epic_stem}/02-plan-plan.md"
 
     # 2. Child B blocks on Child A until A is terminal.
     rb = await run_work_next(workspace_path=workspace, slug=b_stem)
@@ -760,6 +758,53 @@ async def test_epic_pipeline_end_to_end(tmp_path: Path) -> None:
     family = {epic_stem, a_stem, b_stem}
     errors = [f for f in lint.findings if f["slug"] in family and f["severity"] == "error"]
     assert errors == [], errors
+
+
+@pytest.mark.asyncio
+async def test_run_work_next_artifact_path_at_design(tmp_path: Path) -> None:
+    """A freshly-filed item's reported design artifact lives in its working dir."""
+    from graph_wiki_core.commands.work import run_work_file, run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    await run_work_file(workspace_path=workspace, title="Widget", kind="feature", summary="s")
+    stem = next((wiki / "work").glob("*widget.md")).stem
+
+    result = await run_work_next(workspace_path=workspace, slug=stem)
+
+    assert result.artifact == {"path": str(wiki / "work" / stem / "01-design-spec.md")}
+
+
+@pytest.mark.asyncio
+async def test_run_work_next_artifact_path_at_plan(tmp_path: Path) -> None:
+    """An item at the plan stage reports its plan artifact under the working dir."""
+    from graph_wiki_core.commands.work import run_work_advance, run_work_file, run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    await run_work_file(workspace_path=workspace, title="Widget", kind="feature", summary="s")
+    stem = next((wiki / "work").glob("*widget.md")).stem
+    await run_work_advance(workspace_path=workspace, slug=stem)  # entry -> design
+    (wiki / "work" / stem / "01-design-spec.md").write_text("spec\n", encoding="utf-8")
+    await run_work_advance(workspace_path=workspace, slug=stem)  # design -> plan (feature: no effort fork)
+
+    result = await run_work_next(workspace_path=workspace, slug=stem)
+
+    assert result.artifact == {"path": str(wiki / "work" / stem / "02-plan-plan.md")}
+
+
+@pytest.mark.asyncio
+async def test_run_work_advance_creates_missing_working_dir(tmp_path: Path) -> None:
+    """Items filed before the per-item working dir existed get one lazily on advance."""
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    _write_item(wiki / "work", "legacy-item", status="open", kind="feature")
+    stem = next((wiki / "work").glob("*legacy-item.md")).stem
+    assert not (wiki / "work" / stem).exists()
+
+    result = await run_work_advance(workspace_path=workspace, slug=stem)  # entry -> design
+
+    assert result.phase == "design"
+    assert (wiki / "work" / stem).is_dir()
 
 
 def test_file_no_parent_omits_keys_and_pointer(tmp_path: Path) -> None:

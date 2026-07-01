@@ -406,6 +406,9 @@ async def run_work_archive(
 # ---------------------------------------------------------------------------
 
 
+_ARTIFACT_KIND = {"specs": "spec", "plans": "plan"}
+
+
 async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> WorkNextResult:
     """Compute the workflow routing decision for one work item. Read-only."""
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
@@ -421,7 +424,8 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
     phase = state.phase or (r.on_dispatch.phase if r.on_dispatch else None)
     artifact = None
     if r.artifact_slot:
-        artifact = {"path": str(workspace / "raw" / r.artifact_slot / f"{slug}.md")}
+        kind = _ARTIFACT_KIND[r.artifact_slot]
+        artifact = {"path": str(_paths.artifact_path(workspace, slug, phase, kind, ext="md"))}
 
     return WorkNextResult(
         slug=slug,
@@ -479,6 +483,8 @@ async def run_work_advance(
     if "resolved_in" in t.requires and not (resolved_in or fm.get("resolved_in")):
         raise ValueError("resolved-in required to advance: pass --resolved-in <pr/commit>")
 
+    _paths.work_item_dir(workspace, slug).mkdir(parents=True, exist_ok=True)
+
     applied: dict = {}
     if t.phase:
         applied["phase"] = [fm.get("phase"), t.phase]
@@ -493,8 +499,9 @@ async def run_work_advance(
             fm[key] = value
             stamped[key] = value
     if t.stamp_doc:
-        slot = "specs" if t.stamp_doc == "spec_doc" else "plans"
-        rel = f"raw/{slot}/{slug}.md"
+        phase = "design" if t.stamp_doc == "spec_doc" else "plan"
+        kind = "spec" if t.stamp_doc == "spec_doc" else "plan"
+        rel = _paths.artifact_path(workspace, slug, phase, kind, ext="md").relative_to(workspace).as_posix()
         fm[t.stamp_doc] = rel
         stamped[t.stamp_doc] = rel
     fm["updated"] = date.today().isoformat()
