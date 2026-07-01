@@ -147,6 +147,20 @@ def test_guess_source_type_note_fallback() -> None:
     assert guess_source_type(None, None) == "note"
 
 
+def test_guess_source_type_work_dir_spec() -> None:
+    from wiki_io.ingest_source import guess_source_type
+
+    rel = Path("wiki/work/2026-06-30-some-item/01-design-spec.md")
+    assert guess_source_type(rel, None) == "spec"
+
+
+def test_guess_source_type_work_dir_plan_unaffected() -> None:
+    from wiki_io.ingest_source import guess_source_type
+
+    rel = Path("wiki/work/2026-06-30-some-item/02-plan-plan.md")
+    assert guess_source_type(rel, None) == "note"
+
+
 # ---------------------------------------------------------------------------
 # language_for
 # ---------------------------------------------------------------------------

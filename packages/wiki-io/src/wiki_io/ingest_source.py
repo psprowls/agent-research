@@ -266,6 +266,8 @@ def guess_source_type(rel_to_workspace: Path | None, rel_to_repo: Path | None) -
         parts = rel_to_workspace.parts
         if "specs" in parts:
             return "spec"
+        if "work" in parts and rel_to_workspace.stem.endswith("-spec"):
+            return "spec"
         if "articles" in parts:
             return "article"
         if "prs" in parts:
