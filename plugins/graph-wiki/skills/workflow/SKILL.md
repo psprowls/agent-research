@@ -31,7 +31,7 @@ Run `gw next <slug> --json`.
 
 `gw next` wraps the read-only `gw work next` and adds two keys to the JSON:
 `guidance` (ranked phase-relevant pages) and `guidance_warnings`. `--file`
-defaults to `"auto"`, which resolves to `work/<slug>/NN-<phase>-guidance.md`
+defaults to `"auto"`, which resolves to `wiki/work/<slug>/NN-<phase>-guidance.md`
 and writes the assembled guidance bodies there when any matched; pass an
 explicit `--file <path>` to override, or `--file ""` to skip writing entirely.
 The parent dir is created on demand. The resolved (or skipped) target comes

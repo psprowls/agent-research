@@ -53,7 +53,7 @@ gw guidance suggest "review this diff" --role review "${path_args[@]}" --slug "$
 
 - If the JSON shows ranked guidance, set the reviewer template's `{REVIEW_GUIDANCE}`
   placeholder to a `## Review guidance` block pointing at the bundle, using the
-  JSON's returned bundle path (`work/<slug>/NN-<phase>-guidance-review.md`):
+  JSON's returned bundle path (`wiki/work/<slug>/NN-<phase>-guidance-review.md`):
 
   ```
   ## Review guidance
