@@ -47,9 +47,9 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 │   ├── transcripts/            # meeting / design-session notes
 │   └── assets/                 # images, diagrams referenced by sources
 ├── work/                       # unified work tracker (owned by workspace_io)
-│   ├── <slug>.md                # the work-item page (flat)
-│   └── <slug>/                  # per-item working dir: 01-design-spec.md, 02-plan-plan.md,
-│                                 # NN-<phase>-guidance.md, transcripts, result stubs
+│   ├── <slug>.md               # the work-item page (flat)
+│   └── <slug>/                 # per-item working dir: 01-design-spec.md, 02-plan-plan.md,
+│                                # NN-<phase>-guidance.md, transcripts, result stubs
 ├── knowledge/                  # other plugin-managed knowledge stores
 └── wiki/                       # this plugin's curated knowledge base
     ├── index.md                # Content catalog (LLM updates every ingest/scan)
