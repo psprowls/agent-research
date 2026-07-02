@@ -666,7 +666,7 @@ async def run_work_advance(
     if t.sync_plan_table:
         body = _plan_table.ensure_plan_row(
             body,
-            action=f"Execute implementation plan: raw/plans/{slug}.md",
+            action=f"Execute implementation plan: {fm['plan_doc']}",
             done_when="Implementation lands and the item is resolved",
             rationale="Workflow plan stage complete",
         )

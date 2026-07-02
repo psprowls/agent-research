@@ -213,7 +213,7 @@ def test_advance_plan_complete_sets_accepted_and_syncs_plan_table(tmp_path: Path
     assert fm["plan_doc"] == f"wiki/work/{slug}/02-plan-plan.md"
     parsed = plan_table.parse_plan(body)
     assert parsed.state == "ok"  # rule 4 passes by construction
-    assert any(f"raw/plans/{slug}.md" in row["action"] for row in parsed.rows)
+    assert any(fm["plan_doc"] in row["action"] for row in parsed.rows)
     assert "accepted-without-plan" not in {f["rule_id"] for f in result.findings}
 
 
