@@ -15,6 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import graph_io
+import typer
 from graph_io import GraphNotInitializedError
 from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_index_path
@@ -47,6 +48,22 @@ def resolve_guidance_target(file: str, workspace: Path, slug: str, phase: str | 
     if file != AUTO_GUIDANCE_FILE:
         return Path(file)
     return _paths.artifact_path(workspace, slug, phase or "open", "guidance", ext="md")
+
+
+def resolve_suggest_target(
+    file: str, workspace: Path | None, slug: str | None, phase: str | None, role: str | None
+) -> Path | None:
+    """Empty string -> None (skip writing). "auto" -> the canonical per-phase,
+    role-aware guidance path via work_io.paths.artifact_path (requires slug,
+    phase, and a resolved workspace). Any other value -> Path(file) verbatim
+    (explicit override, unchanged)."""
+    if not file:
+        return None
+    if file != AUTO_GUIDANCE_FILE:
+        return Path(file)
+    if not (workspace and slug and phase):
+        raise typer.BadParameter("--file auto requires --slug and --phase (and a resolved workspace)")
+    return _paths.artifact_path(workspace, slug, phase, "guidance", role=role, ext="md")
 
 
 @dataclass

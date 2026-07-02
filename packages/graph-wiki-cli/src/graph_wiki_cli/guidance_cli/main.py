@@ -19,6 +19,7 @@ import typer
 from graph_wiki_core.commands.guidance_archive import run_guidance_archive
 from graph_wiki_core.commands.guidance_scan import run_guidance_scan
 from graph_wiki_core.commands.guidance_suggest import run_guidance_suggest
+from graph_wiki_core.commands.next_guidance import resolve_suggest_target
 from workspace_io.config import resolve
 
 OUTPUT_FORMATS = ["human", "json"]
@@ -108,7 +109,11 @@ def suggest_cmd(
     candidates: int = typer.Option(12, "--candidates", help="Recall slate size before ranking."),
     assemble: bool = typer.Option(False, "--assemble", help="Also emit the concatenated top-N bodies."),
     budget: Optional[int] = typer.Option(None, "--budget", help="Token cap for --assemble."),
-    file: str = typer.Option("", "--file", help="Write assembled top-N guidance bodies to this path."),
+    file: str = typer.Option(
+        "", "--file", help='Write assembled top-N guidance bodies to this path ("auto" resolves via --slug/--phase).'
+    ),
+    slug: Optional[str] = typer.Option(None, "--slug", help="Work item slug — enables --file auto."),
+    phase: Optional[str] = typer.Option(None, "--phase", help="Work item phase — used with --slug for --file auto."),
     fmt: Optional[str] = typer.Option(None, "--fmt", help="Output format override (human|json)."),
 ) -> None:
     """Rank the guidance pages relevant to a coding task."""
@@ -119,6 +124,7 @@ def suggest_cmd(
         args.fmt = fmt
     if role is not None and role not in ("implement", "review"):
         raise typer.BadParameter("role must be one of: implement, review")
+    target = resolve_suggest_target(file, args.workspace, slug, phase, role)
     result = _run(
         run_guidance_suggest(
             message,
@@ -128,14 +134,13 @@ def suggest_cmd(
             role=role,
             top=top,
             candidates=candidates,
-            assemble=assemble or bool(file),
+            assemble=assemble or target is not None,
             budget=budget,
         )
     )
-    if file and result.assembled is not None:
-        out = Path(file)
-        out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(result.assembled, encoding="utf-8")
+    if target is not None and result.assembled is not None:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(result.assembled, encoding="utf-8")
     if args.fmt == "json":
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
         return
