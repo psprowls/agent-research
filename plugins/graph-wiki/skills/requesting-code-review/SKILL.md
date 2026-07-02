@@ -31,25 +31,30 @@ HEAD_SHA=$(git rev-parse HEAD)
 
 **2. Recall review-time guidance (diff-scoped):**
 
+**Determine the work-item slug and phase first.** If you were reached via the
+pipeline (dispatched into `subagent-driven-development` or `executing-plans`,
+which were themselves dispatched with a work-item slug and phase in their
+brief), you already know both — use them. If this is an ad-hoc review with no
+tracked work item, skip straight to step 3 with `{REVIEW_GUIDANCE}` empty;
+there is no bundle to build.
+
 The reviewer holds the strongest recall signal — the changed paths. Recall
 review-role guidance against them and assemble it into a bundle:
 
 ```bash
 changed=$(git diff --name-only "$BASE_SHA".."$HEAD_SHA")
-# slug = work-item slug when invoked from the pipeline; otherwise a stable fallback.
-slug="${WORK_ITEM_SLUG:-review-$(git rev-parse --short "$HEAD_SHA")}"
-bundle="<workspace>/raw/guidance/${slug}-review.md"
-gw guidance suggest --role review --path $changed --file "$bundle" --assemble --fmt json
+gw guidance suggest --role review --path $changed --slug "$slug" --phase "$phase" --file auto --assemble --fmt json
 ```
 
 (If `gw` is not on PATH: `uv run --package graph-wiki-cli gw guidance suggest …`.)
 
 - If the JSON shows ranked guidance, set the reviewer template's `{REVIEW_GUIDANCE}`
-  placeholder to a `## Review guidance` block pointing at the bundle:
+  placeholder to a `## Review guidance` block pointing at the bundle, using the
+  JSON's returned bundle path (`work/<slug>/NN-<phase>-guidance-review.md`):
 
   ```
   ## Review guidance
-  Diff-scoped, review-role guidance assembled at: raw/guidance/<slug>-review.md
+  Diff-scoped, review-role guidance assembled at: <bundle path from the JSON>
   Read it before reviewing.
   ```
 
