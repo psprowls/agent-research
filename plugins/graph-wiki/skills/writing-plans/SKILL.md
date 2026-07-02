@@ -350,9 +350,9 @@ TaskUpdate:
 
 ## Task Persistence
 
-At plan completion, write the task persistence file **in the same directory as the plan document**.
+At plan completion, write the task persistence file **in the same directory as the plan document**, wherever it was actually written (the default `<workspace>/raw/plans/`, or `artifact.path`'s directory — e.g. `<workspace>/wiki/work/<slug>/` — when pipeline-dispatched).
 
-If the plan is saved to `<workspace>/raw/plans/2026-01-15-feature.md`, the tasks file MUST be saved to `<workspace>/raw/plans/2026-01-15-feature.md.tasks.json`.
+E.g. plan at `<workspace>/raw/plans/2026-01-15-feature.md` → tasks file at `<workspace>/raw/plans/2026-01-15-feature.md.tasks.json`. Plan at `<workspace>/wiki/work/<slug>/02-plan-plan.md` → tasks file at `<workspace>/wiki/work/<slug>/02-plan-plan.md.tasks.json`.
 
 ```json
 {
@@ -376,7 +376,7 @@ If the plan is saved to `<workspace>/raw/plans/2026-01-15-feature.md`, the tasks
 }
 ```
 
-Both the plan `.md` and `.tasks.json` must be co-located in `<workspace>/raw/plans/`.
+Both the plan `.md` and `.tasks.json` must be co-located in the same directory, whichever one the plan was actually written to.
 
 ### Resuming Work
 
