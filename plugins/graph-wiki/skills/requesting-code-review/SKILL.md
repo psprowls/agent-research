@@ -42,8 +42,11 @@ The reviewer holds the strongest recall signal — the changed paths. Recall
 review-role guidance against them and assemble it into a bundle:
 
 ```bash
+# $slug and $phase come from the pipeline dispatch context described above
 changed=$(git diff --name-only "$BASE_SHA".."$HEAD_SHA")
-gw guidance suggest --role review --path $changed --slug "$slug" --phase "$phase" --file auto --assemble --fmt json
+path_args=()
+while IFS= read -r f; do path_args+=(--path "$f"); done <<< "$changed"
+gw guidance suggest "review this diff" --role review "${path_args[@]}" --slug "$slug" --phase "$phase" --file auto --assemble --fmt json
 ```
 
 (If `gw` is not on PATH: `uv run --package graph-wiki-cli gw guidance suggest …`.)

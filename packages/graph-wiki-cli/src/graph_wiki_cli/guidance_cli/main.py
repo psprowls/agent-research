@@ -138,11 +138,15 @@ def suggest_cmd(
             budget=budget,
         )
     )
+    guidance_file: Optional[str] = None
     if target is not None and result.assembled is not None:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(result.assembled, encoding="utf-8")
+        guidance_file = str(target)
     if args.fmt == "json":
-        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+        payload = dataclasses.asdict(result)
+        payload["guidance_file"] = guidance_file
+        typer.echo(json.dumps(payload, indent=2))
         return
     for w in result.warnings:
         typer.echo(f"note: {w}", err=True)

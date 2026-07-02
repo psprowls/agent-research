@@ -155,6 +155,8 @@ def test_guidance_suggest_file_explicit_path_ignores_slug_phase(tmp_path) -> Non
 
 
 def test_guidance_suggest_json() -> None:
+    import json
+
     from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
 
     fake = GuidanceSuggestResult(
@@ -164,6 +166,47 @@ def test_guidance_suggest_json() -> None:
         result = runner.invoke(app, ["guidance", "--mode", "test", "suggest", "add retry", "--fmt", "json"])
     assert result.exit_code == 0, result.output
     assert '"slug": "python/retry"' in result.output
+    payload = json.loads(result.output)
+    assert payload["guidance_file"] is None
+
+
+def test_guidance_suggest_json_includes_guidance_file_when_written(tmp_path, monkeypatch) -> None:
+    import json
+
+    from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
+
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))
+    fake = GuidanceSuggestResult(
+        ranked=[RankedGuidance("python/review", "high", ["index"], "matches")],
+        assembled="ASSEMBLED BODY",
+        index_present=True,
+    )
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_suggest", return_value=fake):
+        result = runner.invoke(
+            app,
+            [
+                "guidance",
+                "--mode",
+                "test",
+                "suggest",
+                "review diff",
+                "--role",
+                "review",
+                "--slug",
+                "my-slug",
+                "--phase",
+                "plan",
+                "--file",
+                "auto",
+                "--fmt",
+                "json",
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    expected = tmp_path / "wiki" / "work" / "my-slug" / "02-plan-guidance-review.md"
+    assert payload["guidance_file"] == str(expected)
+    assert expected.read_text(encoding="utf-8") == "ASSEMBLED BODY"
 
 
 def test_guidance_archive_help() -> None:
