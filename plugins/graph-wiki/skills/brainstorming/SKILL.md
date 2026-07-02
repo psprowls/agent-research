@@ -71,10 +71,10 @@ Read the `slug` field from the JSON. Announce: *"Auto-filed as `<slug>`."* Then 
 When the design is approved and you are about to write the spec (Checklist step 6), **before** writing it:
 
 1. **Refine the item's frontmatter** from the now-complete design — `summary`, `affects`, and `effort`. There is no `gw work edit` command: edit `<workspace>/wiki/work/<slug>.md` directly. Derive the values and announce them — no second confirm. Set `effort` here so `/graph-wiki:next` is not later blocked waiting for it.
-2. **Write the spec to the item's path:** `<workspace>/raw/specs/<slug>.md` (not the default `YYYY-MM-DD-<topic>-design.md` name), so the stamped `spec_doc` pointer and the ingestor line up.
+2. **Write the spec to the item's path:** `<workspace>/wiki/work/<slug>/01-design-spec.md` (the working directory already exists — `gw work file` created it at filing time), so the stamped `spec_doc` pointer and the ingestor line up.
 3. **Advance the item:** `gw work advance <slug>`. This is the same design-complete transition the `workflow` skill applies — it stamps `spec_doc` and moves the phase `design → plan`.
 
-**Error fallback:** if `gw work advance` fails, report it. The spec is already at `raw/specs/<slug>.md`, so the user can recover with `/graph-wiki:next <slug>`.
+**Error fallback:** if `gw work advance` fails, report it. The spec is already at `wiki/work/<slug>/01-design-spec.md`, so the user can recover with `/graph-wiki:next <slug>`.
 
 ### Step 4a — Terminal behavior (auto-file mode only)
 
@@ -94,7 +94,7 @@ You MUST create a task for each of these items and complete them in order:
 4. **Propose 2-3 approaches** — with trade-offs and your recommendation
 5. **Present design** — in sections scaled to their complexity, get user approval after each section
 6. **Write design doc** — save to the graph-wiki workspace spec inbox: `<workspace>/raw/specs/YYYY-MM-DD-<topic>-design.md`. The workspace doc-routing hook injects the resolved absolute path into your context — use it if present. Then commit.
-   - **(auto-file mode only)** instead refine the item's frontmatter, write the spec to `<workspace>/raw/specs/<slug>.md`, and run `gw work advance <slug>` (Auto-file Mode → Step 3a)
+   - **(auto-file mode only)** instead refine the item's frontmatter, write the spec to `<workspace>/wiki/work/<slug>/01-design-spec.md`, and run `gw work advance <slug>` (Auto-file Mode → Step 3a)
 7. **Spec self-review** — quick inline check for placeholders, contradictions, ambiguity, scope (see below)
 8. **User reviews written spec** — ask user to review the spec file before proceeding
 9. **Transition to implementation** — invoke writing-plans skill to create implementation plan
