@@ -26,11 +26,11 @@ output** so later `--depends-on` values name real siblings, not guesses.
 ## Inputs
 
 Your dispatch brief carries the epic's `title`, `kind` (`epic`), `summary`,
-`affects`, `effort`, and links to its prior artifacts. Read the epic's `spec_doc`
-(from its frontmatter in `<workspace>/wiki/work/<epic-slug>.md` — by convention
-`<workspace>/wiki/work/<epic-slug>/01-design-spec.md`) first — it contains one
-medium-detail section per anticipated child. Read the work item at
-`<workspace>/wiki/work/<epic-slug>.md` for current frontmatter.
+`affects`, `effort`, and links to its prior artifacts. Read the work item at
+`<workspace>/wiki/work/<epic-slug>.md` for current frontmatter, including its
+`spec_doc` pointer (by convention `<workspace>/wiki/work/<epic-slug>/01-design-spec.md`).
+Read that `spec_doc` target first — it contains one medium-detail section per
+anticipated child.
 
 ## Steps
 
