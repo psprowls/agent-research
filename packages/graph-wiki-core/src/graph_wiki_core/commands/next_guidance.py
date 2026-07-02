@@ -63,6 +63,8 @@ def resolve_suggest_target(
         return Path(file)
     if not (workspace and slug and phase):
         raise typer.BadParameter("--file auto requires --slug and --phase (and a resolved workspace)")
+    if phase not in _paths.PHASE_ORDINALS:
+        raise typer.BadParameter(f"--phase {phase!r} is invalid; expected one of {sorted(_paths.PHASE_ORDINALS)}")
     return _paths.artifact_path(workspace, slug, phase, "guidance", role=role, ext="md")
 
 

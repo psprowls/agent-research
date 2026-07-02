@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 import yaml
 from graph_wiki_core.commands.guidance_signals import GuidancePage
 from graph_wiki_core.commands.next_guidance import (
@@ -325,3 +326,39 @@ async def test_run_next_guidance_populates_target_path_when_item_missing(tmp_pat
 
     result = await run_next_guidance("missing", workspace_path=ws, no_rank=True, file="auto", phase="plan")
     assert result.target_path == _paths.artifact_path(ws, "missing", "plan", "guidance", ext="md")
+
+
+def test_resolve_suggest_target_empty_string_skips(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_suggest_target
+
+    assert resolve_suggest_target("", tmp_path, "wi", "plan", None) is None
+
+
+def test_resolve_suggest_target_explicit_path_passthrough(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_suggest_target
+
+    result = resolve_suggest_target("some/path.md", tmp_path, "wi", "plan", None)
+    assert result == Path("some/path.md")
+
+
+def test_resolve_suggest_target_auto_uses_artifact_path_with_role(tmp_path: Path):
+    from graph_wiki_core.commands.next_guidance import resolve_suggest_target
+
+    result = resolve_suggest_target("auto", tmp_path, "wi", "plan", "review")
+    assert result == _paths.artifact_path(tmp_path, "wi", "plan", "guidance", role="review", ext="md")
+
+
+def test_resolve_suggest_target_auto_requires_slug_phase_workspace():
+    import typer
+    from graph_wiki_core.commands.next_guidance import resolve_suggest_target
+
+    with pytest.raises(typer.BadParameter):
+        resolve_suggest_target("auto", None, None, None, None)
+
+
+def test_resolve_suggest_target_auto_invalid_phase_raises_bad_parameter(tmp_path: Path):
+    import typer
+    from graph_wiki_core.commands.next_guidance import resolve_suggest_target
+
+    with pytest.raises(typer.BadParameter):
+        resolve_suggest_target("auto", tmp_path, "slug", "bogus-phase", None)
