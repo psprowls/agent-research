@@ -33,7 +33,7 @@ Code comments go stale. README files rot. Architecture diagrams drift from reali
 
 ## Architecture
 
-The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The workspace defaults to `<repo>/graph-wiki/` and is discovered automatically via `workspace_io` (override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archive/`) and `work/` (unified work tracker) are siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
+The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The workspace defaults to `<repo>/graph-wiki/` and is discovered automatically via `workspace_io` (override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (external-source inbox — articles, specs, PRs, tickets dropped in for ingest; ingested sources move to `raw/_archive/`) and `work/` (unified work tracker — each item's page plus a per-item `work/<slug>/` working directory collecting its spec, plan, guidance bundles, and transcripts as it moves through the pipeline) are siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
 
 ```
 <repo>/graph-wiki/              # workspace; Obsidian vault opens here
@@ -46,7 +46,10 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 │   ├── tickets/                # Linear / Jira / GitHub issue exports
 │   ├── transcripts/            # meeting / design-session notes
 │   └── assets/                 # images, diagrams referenced by sources
-├── work/                       # unified bugs / tech debt / features / initiatives / spikes (owned by workspace_io)
+├── work/                       # unified work tracker (owned by workspace_io)
+│   ├── <slug>.md                # the work-item page (flat)
+│   └── <slug>/                  # per-item working dir: 01-design-spec.md, 02-plan-plan.md,
+│                                 # NN-<phase>-guidance.md, transcripts, result stubs
 ├── knowledge/                  # other plugin-managed knowledge stores
 └── wiki/                       # this plugin's curated knowledge base
     ├── index.md                # Content catalog (LLM updates every ingest/scan)
