@@ -27,8 +27,9 @@ output** so later `--depends-on` values name real siblings, not guesses.
 
 Your dispatch brief carries the epic's `title`, `kind` (`epic`), `summary`,
 `affects`, `effort`, and links to its prior artifacts. Read the epic's `spec_doc`
-(`<workspace>/raw/specs/<epic-slug>.md`) first — it contains one medium-detail
-section per anticipated child. Read the work item at
+(from its frontmatter in `<workspace>/wiki/work/<epic-slug>.md` — by convention
+`<workspace>/wiki/work/<epic-slug>/01-design-spec.md`) first — it contains one
+medium-detail section per anticipated child. Read the work item at
 `<workspace>/wiki/work/<epic-slug>.md` for current frontmatter.
 
 ## Steps
@@ -62,7 +63,8 @@ section per anticipated child. Read the work item at
    `<workspace>/wiki/work/<child-slug>.md` directly. Prefer ordering over the
    second pass.
 
-5. **Write the plan_doc** at `<workspace>/raw/plans/<epic-slug>.md`: the
+5. **Write the plan_doc** at `<workspace>/wiki/work/<epic-slug>/02-plan-plan.md`
+   (or wherever the dispatch brief's `artifact.path` points, if set): the
    decomposition rationale plus the dependency graph — which child blocks which
    and why, and which children are independent and can run in parallel. List each
    child by its filed slug and `kind`. The children **are** the executable plan,
