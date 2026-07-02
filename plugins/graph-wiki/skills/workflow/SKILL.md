@@ -12,6 +12,12 @@ decision (routing, transitions, validation); this skill only relays.
 stage gets a fresh context window. The work item plus `raw/` artifacts are the
 durable state between sessions; nothing depends on conversation memory.
 
+**Invariant:** a work item's slug — and its `wiki/work/<slug>/` working directory
+— always exists before any spec or plan is written. `gw work file` creates the
+working directory at filing time. Brainstorming's auto-file mode enforces this
+for standalone invocations; every stage dispatched from this pipeline assumes
+it already holds.
+
 The workspace doc-routing hook injects the resolved absolute workspace path into your context — use it if present when you see `<workspace>` mentioned in a command or instruction.
 
 If `gw` is not on PATH, run it as
@@ -21,12 +27,15 @@ If `gw` is not on PATH, run it as
 
 ### 1. Resolve & report
 
-Run `gw next <slug> --json --file <workspace>/raw/guidance/<slug>.md`.
+Run `gw next <slug> --json`.
 
 `gw next` wraps the read-only `gw work next` and adds two keys to the JSON:
-`guidance` (ranked phase-relevant pages) and `guidance_warnings`. It also writes
-the assembled guidance bodies to the `--file` path when any matched. The
-`--file` parent dir is created on demand. All the blocker / terminal / dispatch
+`guidance` (ranked phase-relevant pages) and `guidance_warnings`. `--file`
+defaults to `"auto"`, which resolves to `work/<slug>/NN-<phase>-guidance.md`
+and writes the assembled guidance bodies there when any matched; pass an
+explicit `--file <path>` to override, or `--file ""` to skip writing entirely.
+The parent dir is created on demand. The resolved (or skipped) target comes
+back in the JSON's `guidance_file` key. All the blocker / terminal / dispatch
 fields the steps below read are unchanged from `gw work next`.
 
 - If `blockers` is non-empty:
@@ -76,7 +85,7 @@ Invoke the stage skill named by `action.skill` via the Skill tool (namespaced
 
   ```
   ## Relevant guidance
-  Phase-relevant guidance assembled at: raw/guidance/<slug>.md
+  Phase-relevant guidance assembled at: <guidance_file value from gw next's JSON output>
   Read it before starting this stage.
   ```
 
