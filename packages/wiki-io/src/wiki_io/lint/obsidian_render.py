@@ -18,6 +18,8 @@ from typing import Literal
 
 from markdown_it import MarkdownIt
 
+from wiki_io.lint.common import WIKILINK_RE
+
 GROUP = "obsidian_render"
 
 
@@ -154,7 +156,8 @@ def check(pages: dict) -> list[LintFinding]:
         tokens = parser.parse(text)
         findings.extend(_check_angle_brackets(slug, tokens))
         findings.extend(_check_callouts(slug, tokens, src_lines))
-        # rules 3-4 appended in later tasks
+        findings.extend(_check_wikilinks(slug, tokens))
+        # rule 4 appended in the next task
     return findings
 
 
@@ -228,6 +231,47 @@ def _check_callouts(slug: str, tokens, src_lines) -> list[LintFinding]:
                     f"{slug}:{line0 + 1}: unknown callout type `{m.group(1)}`",
                 )
             )
+    return out
+
+
+# An opening ``[[`` or ``![[`` — used to find candidate spans to validate.
+_WIKILINK_OPEN_RE = re.compile(r"!?\[\[")
+
+
+def _check_wikilinks(slug: str, tokens) -> list[LintFinding]:
+    out: list[LintFinding] = []
+    for tok in tokens:
+        if tok.type != "inline" or not tok.map:
+            continue
+        line = tok.map[0] + 1
+        # Join only text children — code_inline / autolink children are dropped,
+        # so `[[foo` inside backticks never reaches the scan.
+        text = "".join(c.content for c in (tok.children or []) if c.type == "text")
+        for m in _WIKILINK_OPEN_RE.finditer(text):
+            # Anchor the candidate span at the ``[[`` (the last two chars of the
+            # match), so an ``![[…]]`` embed is validated from its brackets, not
+            # from the leading ``!`` — otherwise WIKILINK_RE.match would fail on
+            # the ``!`` and false-flag a valid embed.
+            rest = text[m.end() - 2 :]
+            valid = WIKILINK_RE.match(rest)
+            if valid is None:
+                out.append(
+                    LintFinding(
+                        "obsidian-render-wikilink",
+                        "error",
+                        slug,
+                        f"{slug}:{line}: unbalanced wikilink `{rest[:30]}` — missing closing ]]",
+                    )
+                )
+            elif not valid.group(1).strip():
+                out.append(
+                    LintFinding(
+                        "obsidian-render-wikilink",
+                        "error",
+                        slug,
+                        f"{slug}:{line}: empty wikilink target `{valid.group(0)}`",
+                    )
+                )
     return out
 
 

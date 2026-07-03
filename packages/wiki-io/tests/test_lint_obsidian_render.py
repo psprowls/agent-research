@@ -62,3 +62,25 @@ def test_valid_callouts_and_plain_quote_pass():
         c="> just an ordinary blockquote, not a callout\n",
     )
     assert [f for f in check(pages) if f.rule_id == "obsidian-render-callout"] == []
+
+
+# ---- wikilinks ------------------------------------------------------------
+
+
+def test_malformed_wikilink_flagged():
+    pages = _pages(
+        a="see [[foo and then more text on the same line\n",  # unbalanced
+        b="an empty [[]] target\n",  # empty target
+    )
+    findings = [f for f in check(pages) if f.rule_id == "obsidian-render-wikilink"]
+    assert {f.slug for f in findings} == {"a", "b"}
+    assert all(f.severity == "error" for f in findings)
+
+
+def test_valid_wikilinks_and_code_pass():
+    pages = _pages(
+        a="link to [[concepts/foo]] and embed ![[concepts/foo]]\n",
+        b="anchored [[concepts/foo#heading]] and aliased [[concepts/foo|Foo]]\n",
+        c="code span `[[foo` is not a real link\n",
+    )
+    assert [f for f in check(pages) if f.rule_id == "obsidian-render-wikilink"] == []
