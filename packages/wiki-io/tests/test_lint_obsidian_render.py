@@ -84,3 +84,19 @@ def test_valid_wikilinks_and_code_pass():
         c="code span `[[foo` is not a real link\n",
     )
     assert [f for f in check(pages) if f.rule_id == "obsidian-render-wikilink"] == []
+
+
+# ---- table pipes ----------------------------------------------------------
+
+
+def test_unescaped_table_pipe_flagged():
+    text = "| a | b |\n|---|---|\n| x|y | 2 |\n"  # x|y is an unescaped interior pipe
+    findings = [f for f in check(_pages(t=text)) if f.rule_id == "obsidian-render-table-pipe"]
+    assert len(findings) == 1
+    assert findings[0].severity == "warn"
+    assert findings[0].message.startswith("t:3:")
+
+
+def test_escaped_pipe_and_clean_table_pass():
+    text = "| a | b |\n|---|---|\n| x\\|y | 2 |\n| p | q |\n"
+    assert [f for f in check(_pages(t=text)) if f.rule_id == "obsidian-render-table-pipe"] == []

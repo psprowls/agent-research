@@ -18,7 +18,7 @@ from typing import Literal
 
 from markdown_it import MarkdownIt
 
-from wiki_io.lint.common import WIKILINK_RE
+from wiki_io.lint.common import WIKILINK_RE, _split_pipes
 
 GROUP = "obsidian_render"
 
@@ -157,7 +157,7 @@ def check(pages: dict) -> list[LintFinding]:
         findings.extend(_check_angle_brackets(slug, tokens))
         findings.extend(_check_callouts(slug, tokens, src_lines))
         findings.extend(_check_wikilinks(slug, tokens))
-        # rule 4 appended in the next task
+        findings.extend(_check_table_pipes(slug, tokens, src_lines))
     return findings
 
 
@@ -270,6 +270,31 @@ def _check_wikilinks(slug: str, tokens) -> list[LintFinding]:
                         "error",
                         slug,
                         f"{slug}:{line}: empty wikilink target `{valid.group(0)}`",
+                    )
+                )
+    return out
+
+
+def _check_table_pipes(slug: str, tokens, src_lines) -> list[LintFinding]:
+    out: list[LintFinding] = []
+    for tok in tokens:
+        if tok.type != "table_open" or not tok.map:
+            continue
+        start, end = tok.map  # half-open line range for the whole table
+        rows = [i for i in range(start, min(end, len(src_lines))) if src_lines[i].lstrip().startswith("|")]
+        if len(rows) < 2:
+            continue
+        header_cols = len(_split_pipes(src_lines[rows[0]].strip()))
+        # rows[1] is the |---|---| delimiter; body rows start at rows[2]
+        for i in rows[2:]:
+            if len(_split_pipes(src_lines[i].strip())) > header_cols:
+                out.append(
+                    LintFinding(
+                        "obsidian-render-table-pipe",
+                        "warn",
+                        slug,
+                        f"{slug}:{i + 1}: unescaped `|` in a table cell "
+                        "(escape as `\\|`) — row splits into too many columns",
                     )
                 )
     return out
