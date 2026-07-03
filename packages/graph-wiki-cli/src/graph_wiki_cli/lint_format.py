@@ -67,6 +67,15 @@ def format_wiki_lint(result: Any) -> list[str]:
     else:
         lines.append("[OK] Guidance frontmatter: 0\n")
 
+    if result.obsidian_render_findings:
+        by_rule: dict[str, list[str]] = {}
+        for f in result.obsidian_render_findings:
+            by_rule.setdefault(f["rule_id"], []).append(f"[{f['severity']}] {f['message']}")
+        items = [line for rule in sorted(by_rule) for line in by_rule[rule]]
+        _section("Obsidian render", items)
+    else:
+        lines.append("[OK] Obsidian render: 0\n")
+
     return lines
 
 

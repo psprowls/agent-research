@@ -38,6 +38,7 @@ from wiki_io.lint.concept_kind import check as check_concept_kind
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
+from wiki_io.lint.obsidian_render import check as check_obsidian_render
 from wiki_io.lint.package_sync import check as check_package_sync_drift
 from wiki_io.lint.scanner_heading import check as check_scanner_heading
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
@@ -98,6 +99,7 @@ class LintResult:
     errors: list[str] = field(default_factory=list)
     open_proposals: int = 0
     guidance_lint_findings: list[dict] = field(default_factory=list)
+    obsidian_render_findings: list[dict] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -355,6 +357,15 @@ async def run_lint(
         if f["severity"] == "error":
             errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
 
+    # Obsidian render-correctness lint (owned by wiki-io)
+    obsidian_render_findings = [
+        {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
+        for f in check_obsidian_render(pages)
+    ]
+    for f in obsidian_render_findings:
+        if f["severity"] == "error":
+            errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
+
     return LintResult(
         wiki=str(wiki),
         total_pages=mech["total_pages"],
@@ -378,4 +389,5 @@ async def run_lint(
         errors=errors,
         open_proposals=open_proposals,
         guidance_lint_findings=guidance_findings,
+        obsidian_render_findings=obsidian_render_findings,
     )
