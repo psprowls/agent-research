@@ -8,6 +8,7 @@ dependencies = [
     "workspace-io",
     "graph-io",
     "work-io",
+    "markdown-it-py>=3.0",
 ]
 
 [build-system]
