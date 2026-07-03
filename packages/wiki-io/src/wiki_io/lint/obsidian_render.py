@@ -86,6 +86,47 @@ _HTML_ALLOWLIST = frozenset(
 # tokens in the first place.
 _TAG_RE = re.compile(r"^</?([a-zA-Z][a-zA-Z0-9-]*)")
 
+# Obsidian's built-in callout types (lowercased). Unknown types render with a
+# default icon in Obsidian but are usually typos, so they warn.
+_CALLOUT_TYPES = frozenset(
+    {
+        "note",
+        "abstract",
+        "summary",
+        "tldr",
+        "info",
+        "todo",
+        "tip",
+        "hint",
+        "important",
+        "success",
+        "check",
+        "done",
+        "question",
+        "help",
+        "faq",
+        "warning",
+        "caution",
+        "attention",
+        "failure",
+        "fail",
+        "missing",
+        "danger",
+        "error",
+        "bug",
+        "example",
+        "quote",
+        "cite",
+    }
+)
+
+# A well-formed callout header: ``[!type]`` optional fold marker (+/-) then an
+# optional space-separated title. Anchored to the start of the (already
+# ``> ``-stripped) first blockquote line.
+_CALLOUT_OK_RE = re.compile(r"^\[!([a-zA-Z][a-zA-Z0-9-]*)\][+-]?(?:\s.*)?$")
+# The "attempted callout" trigger — first line opens with [! or [![.
+_CALLOUT_ATTEMPT_RE = re.compile(r"^\[!?\[?!")
+
 
 def _make_parser() -> MarkdownIt:
     # commonmark preset + the core `table` block rule. NOT "gfm-like" (enables
@@ -109,9 +150,11 @@ def check(pages: dict) -> list[LintFinding]:
         text = page.get("text", "")
         if not text:
             continue
+        src_lines = text.splitlines()
         tokens = parser.parse(text)
         findings.extend(_check_angle_brackets(slug, tokens))
-        # rules 2-4 appended in later tasks
+        findings.extend(_check_callouts(slug, tokens, src_lines))
+        # rules 3-4 appended in later tasks
     return findings
 
 
@@ -152,6 +195,40 @@ def _flag_html(out: list[LintFinding], slug: str, html: str, line: int) -> None:
             f"{slug}:{line}: bare <{name}> renders as raw HTML — wrap in backticks: `{frag}`",
         )
     )
+
+
+def _check_callouts(slug: str, tokens, src_lines) -> list[LintFinding]:
+    out: list[LintFinding] = []
+    for tok in tokens:
+        if tok.type != "blockquote_open" or not tok.map:
+            continue
+        line0 = tok.map[0]  # 0-indexed line of the ``>`` line
+        raw = src_lines[line0] if line0 < len(src_lines) else ""
+        first = raw.lstrip()
+        if first.startswith(">"):
+            first = first[1:].lstrip()
+        if not _CALLOUT_ATTEMPT_RE.match(first):
+            continue  # ordinary blockquote — not a callout attempt
+        m = _CALLOUT_OK_RE.match(first)
+        if m is None:
+            out.append(
+                LintFinding(
+                    "obsidian-render-callout",
+                    "warn",
+                    slug,
+                    f"{slug}:{line0 + 1}: malformed callout header `{first[:40]}` — expected `> [!type] title`",
+                )
+            )
+        elif m.group(1).lower() not in _CALLOUT_TYPES:
+            out.append(
+                LintFinding(
+                    "obsidian-render-callout",
+                    "warn",
+                    slug,
+                    f"{slug}:{line0 + 1}: unknown callout type `{m.group(1)}`",
+                )
+            )
+    return out
 
 
 def _walk(tokens):

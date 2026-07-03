@@ -39,3 +39,26 @@ def test_real_html_and_autolinks_and_code_pass():
 def test_templates_dir_excluded():
     pages = _pages(**{".templates/entity": "placeholder <slug> token\n"})
     assert check(pages) == []
+
+
+# ---- callouts -------------------------------------------------------------
+
+
+def test_malformed_callout_flagged():
+    pages = _pages(
+        a="> [![note] title\n> body\n",  # double bracket
+        b="> [!note title\n> body\n",  # unclosed
+        c="> [!bogus] x\n> body\n",  # unknown type
+    )
+    findings = [f for f in check(pages) if f.rule_id == "obsidian-render-callout"]
+    assert {f.slug for f in findings} == {"a", "b", "c"}
+    assert all(f.severity == "warn" for f in findings)
+
+
+def test_valid_callouts_and_plain_quote_pass():
+    pages = _pages(
+        a="> [!note] a title\n> body\n",
+        b="> [!warning]- folded\n> body\n",
+        c="> just an ordinary blockquote, not a callout\n",
+    )
+    assert [f for f in check(pages) if f.rule_id == "obsidian-render-callout"] == []
