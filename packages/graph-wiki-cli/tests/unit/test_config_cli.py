@@ -64,3 +64,52 @@ def test_init_non_interactive(tmp_path, monkeypatch):
     )
     assert r.exit_code == 0, r.output
     assert "workflow.model_routing" in r.output
+
+
+def test_hooks_enable_disable_repo_override(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))
+    repo = tmp_path / "elsewhere"
+    repo.mkdir()
+    r = runner.invoke(app, ["config", "hooks", "enable", "transcript", "--repo", str(repo)])
+    assert r.exit_code == 0, r.output
+    settings = repo / ".claude" / "settings.local.json"
+    assert settings.exists()
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    commands = [h["command"] for entry in data["hooks"]["SessionEnd"] for h in entry["hooks"]]
+    assert any("session-end-transcript-capture.sh" in c for c in commands)
+
+    r = runner.invoke(app, ["config", "hooks", "disable", "transcript", "--repo", str(repo)])
+    assert r.exit_code == 0, r.output
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    assert "hooks" not in data
+
+
+def test_init_repo_override(tmp_path, monkeypatch):
+    _seed(tmp_path)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))
+    repo = tmp_path / "elsewhere"
+    repo.mkdir()
+    r = runner.invoke(
+        app,
+        [
+            "config",
+            "init",
+            "--model-routing",
+            "off",
+            "--commit-strategy",
+            "per-task",
+            "--no-gates",
+            "--transcript",
+            "--write-env",
+            "--repo",
+            str(repo),
+        ],
+    )
+    assert r.exit_code == 0, r.output
+    settings = repo / ".claude" / "settings.local.json"
+    assert settings.exists()
+    data = json.loads(settings.read_text(encoding="utf-8"))
+    assert data["env"]["GRAPH_WIKI_WORKSPACE"] == str(tmp_path)
+    commands = [h["command"] for entry in data["hooks"]["SessionEnd"] for h in entry["hooks"]]
+    assert any("session-end-transcript-capture.sh" in c for c in commands)

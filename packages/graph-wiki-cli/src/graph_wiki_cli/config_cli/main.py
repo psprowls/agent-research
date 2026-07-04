@@ -33,6 +33,10 @@ config_app = typer.Typer(
 
 _WS_OPT = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)")
 
+_REPO_OPT = typer.Option(
+    "", "--repo", help="Repo whose .claude/settings.local.json is written (default: workspace_io discovery)"
+)
+
 
 def _ws(workspace: str) -> Path | None:
     return Path(workspace) if workspace else None
@@ -128,9 +132,9 @@ hooks_app = typer.Typer(name="hooks", help="Register/unregister opt-in hooks in 
 config_app.add_typer(hooks_app, name="hooks")
 
 
-def _run_hooks(action: str, feature: str) -> None:
+def _run_hooks(action: str, feature: str, repo: str) -> None:
     try:
-        result = asyncio.run(run_config_hooks(action, feature))
+        result = asyncio.run(run_config_hooks(action, feature, repo_root=_ws(repo)))
     except (ValueError, RuntimeError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=2)
@@ -144,20 +148,27 @@ def _run_hooks(action: str, feature: str) -> None:
 
 
 @hooks_app.command()
-def enable(feature: str = typer.Argument(..., help="gates | transcript")) -> None:
+def enable(
+    feature: str = typer.Argument(..., help="gates | transcript"),
+    repo: str = _REPO_OPT,
+) -> None:
     """Merge the feature's hook registrations (gates also denies EnterPlanMode)."""
-    _run_hooks("enable", feature)
+    _run_hooks("enable", feature, repo)
 
 
 @hooks_app.command()
-def disable(feature: str = typer.Argument(..., help="gates | transcript")) -> None:
+def disable(
+    feature: str = typer.Argument(..., help="gates | transcript"),
+    repo: str = _REPO_OPT,
+) -> None:
     """Remove the feature's hook registrations (gates also un-denies EnterPlanMode)."""
-    _run_hooks("disable", feature)
+    _run_hooks("disable", feature, repo)
 
 
 @config_app.command()
 def init(
     workspace: str = _WS_OPT,
+    repo: str = _REPO_OPT,
     model_routing: str = typer.Option("", "--model-routing", help="guided | fixed:<model> | off (blank = ask)"),
     commit_strategy: str = typer.Option("", "--commit-strategy", help="per-task | at-end (blank = ask)"),
     gates: bool = typer.Option(None, "--gates/--no-gates", help="Gate enforcement hooks (blank = ask)"),
@@ -169,6 +180,9 @@ def init(
     ),
 ) -> None:
     """Interactive terminal onboarding — the same write paths as gw config set/hooks.
+
+    --repo pins which repo's .claude/settings.local.json receives hook and env
+    writes (default: workspace_io discovery).
 
     First run against an external workspace needs --workspace: the repo-side
     pointer no longer exists and the env block it would come from is what this
@@ -206,7 +220,7 @@ def init(
                 typer.confirm("Write GRAPH_WIKI_WORKSPACE into .claude/settings.local.json?", default=False) or None
             )
     try:
-        result = asyncio.run(run_config_init(answers, ws))
+        result = asyncio.run(run_config_init(answers, ws, repo_root=_ws(repo)))
     except (RegistryError, ValueError, RuntimeError) as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=2)
