@@ -76,6 +76,7 @@ from graph_wiki_core.commands.query import run_query  # noqa: E402
 from graph_wiki_core.commands.scan import run_scan  # noqa: E402
 from graph_wiki_core.commands.work import run_work_advance, run_work_next  # noqa: E402
 
+from graph_wiki_cli.config_cli.main import config_app  # noqa: E402
 from graph_wiki_cli.graph_cli.main import graph_app  # noqa: E402
 from graph_wiki_cli.guidance_cli.main import guidance_app  # noqa: E402
 from graph_wiki_cli.lint_format import format_wiki_lint, format_work_lint  # noqa: E402
@@ -636,6 +637,9 @@ def advance(
         for f in result.findings:
             typer.echo(f"  [{f['severity']}] {f['rule_id']} — {f['message']}")
 
+
+# config command namespace: the sole programmatic writer for graph-wiki config.
+app.add_typer(config_app, name="config")
 
 # graph command namespace: native Typer subapp for code-graph operations.
 app.add_typer(graph_app, name="graph")

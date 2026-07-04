@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 # PreToolUse hook on TaskCreate: enforce modelTier in plan tasks when routing is enabled.
 #
-# When a project opts in to model routing (.graph-wiki/model-routing.json exists),
-# every plan task (one with a ```json:metadata fence) MUST carry a valid "modelTier".
-# Ad-hoc tasks without a metadata fence are not affected.
+# When the workspace manifest carries workflow.model_routing (see `gw config
+# list`), every plan task (one with a ```json:metadata fence) MUST carry a
+# valid "modelTier". Ad-hoc tasks without a metadata fence are not affected.
 #
 # Valid tiers: mechanical | standard | frontier
 # A concrete "model" pin in the fence overrides tier enforcement entirely.
 #
-# Fail-open by design: missing/unparseable routing file → dormant (allow).
-# Unparseable fence JSON → allow (malformed fences are someone else's problem).
+# Fail-open by design: missing config.json, or absent/empty
+# workflow.model_routing → dormant (allow). Unparseable fence JSON → allow
+# (malformed fences are someone else's problem).
 #
 # Kill switch: GRAPH_WIKI_ROUTING_GUARD=0 to disable.
 
@@ -32,6 +33,9 @@ fi
 
 trap 'trace "?" "error" "trap-ERR"; echo "$ALLOW"; exit 0' ERR
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${AGENT_RESEARCH_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+
 INPUT=$(cat)
 
 # 2. Only applies to TaskCreate. One jq pass for the scalar fields (was three
@@ -45,33 +49,37 @@ FIELDS=$(echo "$INPUT" | jq -r '[(.tool_name // ""), (.cwd // ""), (.tool_input.
 
 [[ "$TOOL_NAME" != "TaskCreate" ]] && { trace "?" "skip" "tool=$TOOL_NAME"; echo "$ALLOW"; exit 0; }
 
-# Resolve workspace raw dirs. Prints "specs<TAB>plans" on success, or a line
-# starting with ERR: on failure. Runs in the session cwd so discovery works.
+# Resolve the workspace's .graph-wiki artifacts dir. Prints the absolute path
+# on success, or a line starting with ERR: on failure. Runs in the session cwd
+# so discovery works.
 RESOLVED=$(uv run --project "$ROOT" python -c '
 import sys
 from pathlib import Path
 try:
     from workspace_io import config, paths
-    raw = paths.raw_dir(config.resolve(Path.cwd()).workspace)
-    sys.stdout.write(str(raw))
+    sys.stdout.write(str(paths.graph_dir(config.resolve(Path.cwd()).workspace)))
 except Exception as e:
     sys.stdout.write("ERR:" + str(e).replace("\n", " "))
 ' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
 
-# 3. Locate routing file: project first, then user-level default. First found wins.
-ROUTING_FILE="${RESOLVED}/.graph-wiki/model-routing.json"
-if [[ ! -f "$ROUTING_FILE" ]]; then
-    ROUTING_FILE="$HOME/.claude/graph-wiki/model-routing.json"
-fi
+case "$RESOLVED" in ERR:*|"")
+    trace "?" "skip" "workspace-resolve-failed"
+    echo "$ALLOW"; exit 0 ;;
+esac
 
-if [[ ! -f "$ROUTING_FILE" ]]; then
-    trace "?" "skip" "no-routing-file"
+# 3. Locate config.json and its workflow.model_routing mapping.
+CONFIG_FILE="${RESOLVED}/config.json"
+ROUTING_LABEL="<workspace>/.graph-wiki/config.json (workflow.model_routing)"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    trace "?" "skip" "no-config-json"
     echo "$ALLOW"; exit 0
 fi
 
-# Verify routing file is parseable (fail-open if not).
-if ! jq empty "$ROUTING_FILE" 2>/dev/null; then
-    trace "?" "skip" "routing-file-unparseable"
+# Routing mapping = .workflow.model_routing. Absent key, empty object, or
+# unparseable JSON → dormant (fail-open).
+if ! jq -e '.workflow.model_routing | select(type == "object" and . != {})' "$CONFIG_FILE" >/dev/null 2>&1; then
+    trace "?" "skip" "routing-absent-or-unparseable"
     echo "$ALLOW"; exit 0
 fi
 
@@ -101,10 +109,10 @@ if ! printf '%s' "$DESCRIPTION" | grep -q '```json:metadata'; then
     {
         echo "PLAN TASK MISSING METADATA FENCE"
         echo ""
-        echo "This project has opted in to subagent model routing, and the TaskCreate"
-        echo "for '$SUBJECT' is plan-shaped ($PLAN_SHAPED) but its description carries"
-        echo "no \`\`\`json:metadata fence. Plan tasks MUST follow the full structured"
-        echo "body (graph-wiki:writing-plans → Native Task Integration):"
+        echo "This project has opted in to subagent model routing ($ROUTING_LABEL),"
+        echo "and the TaskCreate for '$SUBJECT' is plan-shaped ($PLAN_SHAPED) but its"
+        echo "description carries no \`\`\`json:metadata fence. Plan tasks MUST follow"
+        echo "the full structured body (graph-wiki:writing-plans → Native Task Integration):"
         echo ""
         echo "  **Goal:** / **Files:** / **Acceptance Criteria:** / **Verify:** sections,"
         echo "  ending with a json:metadata fence:"
@@ -118,7 +126,8 @@ if ! printf '%s' "$DESCRIPTION" | grep -q '```json:metadata'; then
         echo "  2. If this is genuinely an ad-hoc task (not part of a plan), rephrase"
         echo "     the subject without the numbered-plan prefix and without template"
         echo "     headers, then retry."
-        echo "  3. If routing should not apply here, the user can delete the routing file."
+        echo "  3. If routing should not apply to this project, the user can run"
+        echo "     'gw config unset workflow.model_routing.<tier>' for all tiers."
         echo ""
         echo "Full rationale: docs/model-routing-flow.md."
         echo "(Runtime disable: GRAPH_WIKI_ROUTING_GUARD=0. Trace log: $TRACE_LOG)"
@@ -177,7 +186,7 @@ trace "?" "block" "missing-or-invalid-tier tier='$MODEL_TIER' subject=$SUBJECT"
     echo "PLAN TASK MISSING MODEL TIER"
     echo ""
     echo "This project has opted in to subagent model routing"
-    echo "(.graph-wiki/model-routing.json), so every plan task's"
+    echo "($ROUTING_LABEL), so every plan task's"
     echo "json:metadata fence MUST carry a \"modelTier\". The TaskCreate"
     echo "for '$SUBJECT' $PROBLEM_DESC."
     echo ""
@@ -197,8 +206,8 @@ trace "?" "block" "missing-or-invalid-tier tier='$MODEL_TIER' subject=$SUBJECT"
     echo "  1. Re-issue TaskCreate with \"modelTier\" added to the fence."
     echo "  2. If this task is genuinely not a plan task, strip the json:metadata fence"
     echo "     instead."
-    echo "  3. If routing should not apply to this project, the user can delete"
-    echo "     .graph-wiki/model-routing.json."
+    echo "  3. If routing should not apply to this project, the user can run"
+    echo "     'gw config unset workflow.model_routing.<tier>' for all tiers."
     echo ""
     echo "Full rationale: docs/model-routing-flow.md."
     echo "(Runtime disable: GRAPH_WIKI_ROUTING_GUARD=0. Trace log: $TRACE_LOG)"

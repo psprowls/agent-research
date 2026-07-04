@@ -72,8 +72,9 @@ sibling directory holding generated artifacts (`<workspace>/wiki/`, `raw/`,
 `.graph-wiki/code.db`). Most commands need to find one or both.
 
 **The common case needs no flags.** When you run `gw` from inside a repository that
-has already been bootstrapped (its `.graph-wiki.local.yaml` pins the workspace, and
-that workspace contains a `.graph-wiki.yaml` manifest), both the repo and the
+has already been bootstrapped (`GRAPH_WIKI_WORKSPACE` is set — normally via the
+repo's `.claude/settings.local.json` env block — or the default `<repo>/graph-wiki`
+workspace contains a `.graph-wiki.yaml` manifest), both the repo and the
 workspace resolve automatically — `gw scan`, `gw wiki lint`, `gw work status`, etc.
 all just work without `--workspace` or `--repo`. The flags below are only for
 running from outside such a repo, pointing at a different workspace, or operating on
@@ -87,15 +88,16 @@ These take `--workspace`. Resolution precedence (`wiki_io._workspace.resolve_wik
 1. **`--workspace PATH`** flag, if given — short-circuits everything else.
 2. **`GRAPH_WIKI_WORKSPACE`** env var, if set.
 3. **Discovery from the current directory** — walk up from cwd for `.git` to find
-   the repo, then read that repo's `.graph-wiki.local.yaml` `workspace-directory:`
-   key; if unset, default to `<repo>/graph-wiki`.
+   the repo, then default to `<repo>/graph-wiki` (the repo-side
+   `.graph-wiki.local.yaml` `workspace-directory:` pointer is dead; `resolve()`
+   warns if it finds one).
 
 In all cases the resolved workspace must contain a `.graph-wiki.yaml` manifest, or
 the command errors with `No .graph-wiki.yaml found in <ws>. Run: gw bootstrap`.
 
-**When you can omit `--workspace`:** if `GRAPH_WIKI_WORKSPACE` is exported, or if
-you run from inside a repo whose `.graph-wiki.local.yaml` pins the workspace (this
-repo's setup). Otherwise pass `--workspace` explicitly. `--repo` exists only on
+**When you can omit `--workspace`:** if `GRAPH_WIKI_WORKSPACE` is set (this repo
+pins it via the `.claude/settings.local.json` env block), or if the default
+`<repo>/graph-wiki` workspace exists. Otherwise pass `--workspace` explicitly. `--repo` exists only on
 `bootstrap` (to override the cwd walk-up when creating a brand-new vault).
 
 ### Graph commands (`gw graph ...`)

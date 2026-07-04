@@ -1,9 +1,10 @@
 """Backend selector for graph-wiki plugin shims.
 
 Resolves the workspace via `workspace_io.resolve()` (the same resolver every
-other surface uses — it honors `.graph-wiki.local.yaml`'s `workspace-directory`
-and the `GRAPH_WIKI_WORKSPACE` override) and reads the `[plugin]` block from
-`<workspace>/.graph-wiki.yaml`. Returns 'claude' (default) or 'bedrock'.
+other surface uses — `GRAPH_WIKI_WORKSPACE` is the only external-workspace
+pointer; a legacy repo-side `.graph-wiki.local.yaml` `workspace-directory` key
+is inert) and reads the `[plugin]` block from `<workspace>/.graph-wiki.yaml`.
+Returns 'claude' (default) or 'bedrock'.
 """
 
 from __future__ import annotations
@@ -19,7 +20,8 @@ def backend_for(command: str, repo_root: str | None = None) -> str:
 
     The `[plugin]` block is read from the resolved workspace manifest
     (`<workspace>/.graph-wiki.yaml`), NOT from cwd. `repo_root`, when given,
-    seeds workspace discovery (walk-up for `.git` + `.graph-wiki.local.yaml`).
+    seeds workspace discovery (walk-up for `.git`; the legacy
+    `.graph-wiki.local.yaml` `workspace-directory` key is not consulted).
     """
     try:
         from pathlib import Path

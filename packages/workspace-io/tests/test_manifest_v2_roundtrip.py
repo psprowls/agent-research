@@ -16,12 +16,14 @@ def test_v2_write_then_read(tmp_path):
     }
     write(mpath, data)
     result = read(mpath)
-    # read() fills in defaults for plugin, state_gate, and graph when absent from disk.
+    # read() fills in defaults for plugin, state_gate, graph, workflow, and roles when absent from disk.
     expected = dict(
         data,
         plugin={"backend_default": "claude", "backend_overrides": {}},
         state_gate={"enabled": True, "branches": ["main"]},
         graph={"domains": {}, "resources": {}, "resource_matchers": []},
+        workflow={"commit_strategy": "per-task", "model_routing": {}},
+        roles={},
     )
     assert result == expected
 
@@ -60,42 +62,37 @@ def test_v2_block_style_no_flow(tmp_path):
 
 
 def test_v2_roles_roundtrip(tmp_path):
-    """Populated per-plugin roles[] survives write → read verbatim (order + fields)."""
+    """Populated top-level roles: mapping survives write → read verbatim (fields + values)."""
     mpath = tmp_path / ".graph-wiki.yaml"
     data = {
         "version": 2,
         "initialized_at": "2026-05-19",
         "plugins": [
-            {
-                "name": "graph-wiki-agent",
-                "installed_version": "0.7.0",
-                "applied_version": "0.7.0",
-                "roles": [
-                    {
-                        "name": "preflight",
-                        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-                        "region": "us-east-1",
-                        "max_tokens": 64,
-                        "max_concurrency": 1,
-                    },
-                    {
-                        "name": "librarian",
-                        "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-                        "region": "us-east-1",
-                        "max_tokens": 2048,
-                        "max_concurrency": 5,
-                    },
-                ],
-            }
+            {"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"},
         ],
+        "roles": {
+            "preflight": {
+                "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "region": "us-east-1",
+                "max_tokens": 64,
+                "max_concurrency": 1,
+            },
+            "librarian": {
+                "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+                "region": "us-east-1",
+                "max_tokens": 2048,
+                "max_concurrency": 5,
+            },
+        },
     }
     write(mpath, data)
     result = read(mpath)
-    assert result["plugins"][0]["roles"] == data["plugins"][0]["roles"]
+    assert result["roles"] == data["roles"]
+    assert "roles" not in result["plugins"][0]
 
 
 def test_v2_roles_absent_round_trips_cleanly(tmp_path):
-    """Plugin with no roles key produces no roles key on read (no roles: [] artifact)."""
+    """Manifest with no roles key produces {} on read (no roles: {} artifact on disk)."""
     mpath = tmp_path / ".graph-wiki.yaml"
     data = {
         "version": 2,
@@ -106,9 +103,8 @@ def test_v2_roles_absent_round_trips_cleanly(tmp_path):
     }
     write(mpath, data)
     result = read(mpath)
-    assert "roles" not in result["plugins"][0]
-    # .get() must not raise
-    assert result["plugins"][0].get("roles") is None
+    assert result["roles"] == {}
+    assert "roles:" not in mpath.read_text(encoding="utf-8")
 
 
 def test_v2_topic_roundtrips(tmp_path):
@@ -200,7 +196,7 @@ def test_v2_plugin_roundtrip(tmp_path):
 
 
 def test_v2_absent_blocks_stay_clean(tmp_path):
-    """Vanilla data (no graph/state_gate/plugin keys) writes no block keys on disk."""
+    """Vanilla data (no graph/state_gate/plugin/workflow/roles keys) writes no block keys on disk."""
     mpath = tmp_path / ".graph-wiki.yaml"
     data = {
         "version": 2,
@@ -212,6 +208,8 @@ def test_v2_absent_blocks_stay_clean(tmp_path):
     assert "graph:" not in text
     assert "state_gate:" not in text
     assert "plugin:" not in text
+    assert "workflow:" not in text
+    assert "roles:" not in text
 
 
 def test_v2_default_valued_blocks_omitted(tmp_path):
@@ -224,12 +222,16 @@ def test_v2_default_valued_blocks_omitted(tmp_path):
         "plugin": {"backend_default": "claude", "backend_overrides": {}},
         "state_gate": {"enabled": True, "branches": ["main"]},
         "graph": {"domains": {}, "resources": {}, "resource_matchers": []},
+        "workflow": {"commit_strategy": "per-task", "model_routing": {}},
+        "roles": {},
     }
     write(mpath, data)
     text = mpath.read_text(encoding="utf-8")
     assert "graph:" not in text
     assert "state_gate:" not in text
     assert "plugin:" not in text
+    assert "workflow:" not in text
+    assert "roles:" not in text
 
 
 def test_v2_graph_partial_no_empty_siblings(tmp_path):

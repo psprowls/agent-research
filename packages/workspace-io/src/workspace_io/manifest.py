@@ -10,6 +10,10 @@ _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
 _KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
 _KNOWN_GRAPH_KEYS = {"domains", "resources", "resource_matchers"}
+_KNOWN_WORKFLOW_KEYS = {"commit_strategy", "model_routing"}
+_VALID_COMMIT_STRATEGIES = {"per-task", "at-end"}
+_VALID_ROUTING_TIERS = {"mechanical", "standard", "frontier"}
+_KNOWN_ROLE_FIELDS = {"model_id", "region", "max_tokens", "max_concurrency", "backend"}
 
 
 def read(path: Path) -> dict:
@@ -101,15 +105,62 @@ def read(path: Path) -> dict:
         if not isinstance(matchers, list):
             raise RuntimeError(f"{path}: graph.resource_matchers must be a list, got {type(matchers).__name__}")
         raw["graph"] = {"domains": domains, "resources": resources, "resource_matchers": matchers}
+    # Validate and normalise the optional [workflow] block (config consolidation).
+    # Always returns {"commit_strategy": str, "model_routing": dict}; absent →
+    # per-task commits with routing off.
+    workflow = raw.get("workflow")
+    if workflow is None:
+        raw["workflow"] = {"commit_strategy": "per-task", "model_routing": {}}
+    else:
+        if not isinstance(workflow, dict):
+            raise RuntimeError(f"{path}: 'workflow' must be a mapping, got {type(workflow).__name__}")
+        unknown = set(workflow.keys()) - _KNOWN_WORKFLOW_KEYS
+        if unknown:
+            raise RuntimeError(f"{path}: unknown keys in workflow block: {sorted(unknown)}")
+        commit_strategy = workflow.get("commit_strategy", "per-task")
+        if commit_strategy not in _VALID_COMMIT_STRATEGIES:
+            raise RuntimeError(
+                f"{path}: workflow.commit_strategy must be one of "
+                f"{sorted(_VALID_COMMIT_STRATEGIES)}, got {commit_strategy!r}"
+            )
+        routing = workflow.get("model_routing", {}) or {}
+        if not isinstance(routing, dict):
+            raise RuntimeError(f"{path}: workflow.model_routing must be a mapping")
+        unknown_tiers = set(routing.keys()) - _VALID_ROUTING_TIERS
+        if unknown_tiers:
+            raise RuntimeError(
+                f"{path}: unknown tiers in workflow.model_routing: {sorted(unknown_tiers)} "
+                f"(valid: {sorted(_VALID_ROUTING_TIERS)})"
+            )
+        for tier, val in routing.items():
+            if not isinstance(val, str) or not val.strip():
+                raise RuntimeError(f"{path}: workflow.model_routing[{tier!r}] must be a non-empty string")
+        raw["workflow"] = {"commit_strategy": commit_strategy, "model_routing": routing}
+    # Validate and normalise the optional top-level [roles] mapping (flattened
+    # from plugins[].roles[] — schema change, no migration per pre-v2 rule).
+    roles = raw.get("roles")
+    if roles is None:
+        raw["roles"] = {}
+    else:
+        if not isinstance(roles, dict):
+            raise RuntimeError(f"{path}: 'roles' must be a mapping, got {type(roles).__name__}")
+        for name, fields in roles.items():
+            if not isinstance(fields, dict):
+                raise RuntimeError(f"{path}: roles[{name!r}] must be a mapping")
+            unknown_fields = set(fields.keys()) - _KNOWN_ROLE_FIELDS
+            if unknown_fields:
+                raise RuntimeError(
+                    f"{path}: unknown fields in roles[{name!r}]: {sorted(unknown_fields)} "
+                    f"(valid: {sorted(_KNOWN_ROLE_FIELDS)})"
+                )
     return raw
 
 
 def write(path: Path, data: dict) -> None:
     """Write v2 manifest. Creates parent dirs.
 
-    Preserves per-plugin `roles[]` when present and non-empty; absent and empty
-    both result in no `roles:` key on disk (avoids writing `roles: []` for plugins
-    with no role overrides).
+    `plugins[]` entries keep only name/version provenance — role config lives
+    in the top-level `roles:` mapping (see below), never nested under a plugin.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     plugins_payload = []
@@ -119,9 +170,6 @@ def write(path: Path, data: dict) -> None:
             "installed_version": p.get("installed_version"),
             "applied_version": p.get("applied_version"),
         }
-        roles = p.get("roles")
-        if roles:
-            entry["roles"] = roles
         plugins_payload.append(entry)
     payload = {
         "version": 2,
@@ -134,8 +182,8 @@ def write(path: Path, data: dict) -> None:
         payload["topic"] = str(topic)
     payload["plugins"] = plugins_payload
     # Round-trip optional blocks using the same omit-when-absent-or-default
-    # pattern as `roles` and `topic` above. Guards prevent writing default-valued
-    # blocks that read() would re-inject anyway (avoids disk churn on vanilla manifests).
+    # pattern as `topic` above. Guards prevent writing default-valued blocks
+    # that read() would re-inject anyway (avoids disk churn on vanilla manifests).
     plugin = data.get("plugin")
     if plugin is not None:
         if plugin.get("backend_default", "claude") != "claude" or plugin.get("backend_overrides"):
@@ -155,28 +203,34 @@ def write(path: Path, data: dict) -> None:
             graph_payload["resource_matchers"] = graph["resource_matchers"]
         if graph_payload:
             payload["graph"] = graph_payload
+    workflow = data.get("workflow")
+    if workflow is not None:
+        wf_payload = {}
+        if workflow.get("commit_strategy", "per-task") != "per-task":
+            wf_payload["commit_strategy"] = workflow["commit_strategy"]
+        if workflow.get("model_routing"):
+            wf_payload["model_routing"] = workflow["model_routing"]
+        if wf_payload:
+            payload["workflow"] = wf_payload
+    roles = data.get("roles")
+    if roles:
+        payload["roles"] = roles
     path.write_text(
         yaml.safe_dump(payload, sort_keys=False, default_flow_style=False),
         encoding="utf-8",
     )
 
 
-def read_roles(plugin_name: str, manifest_path: Path) -> list[dict]:
-    """Return the `roles[]` list for the named plugin, or [] when absent.
+def read_roles(manifest_path: Path) -> dict[str, dict]:
+    """Return the top-level `roles:` mapping ({role_name: field_dict}) or {}.
 
-    Resolution: read the manifest, find the first plugin entry whose `name`
-    matches, and return its `roles` list. Returns [] when the manifest is
-    missing, the plugin is absent, or the plugin entry has no `roles` key.
+    Flattened schema: roles live at the manifest top level, not nested under
+    plugins[]. Returns {} when the manifest is missing or carries no roles.
 
-    This is a read-only accessor — does not mutate disk or validate role-dict
-    field shape. Callers (model_adapter.loader) decide how to merge with
-    packaged defaults on a per-role basis.
+    This is a read-only accessor — does not mutate disk. Callers
+    (graph_wiki_core.roles) merge with packaged defaults on a per-role basis.
     """
-    manifest = read(manifest_path)
-    for plugin in manifest.get("plugins", []):
-        if plugin.get("name") == plugin_name:
-            return plugin.get("roles") or []
-    return []
+    return read(manifest_path).get("roles") or {}
 
 
 def read_state_gate(manifest_path: Path) -> tuple[bool, list[str]]:

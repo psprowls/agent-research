@@ -9,7 +9,8 @@ by `workspace_io.manifest.read()` / `write()`. The v2 envelope:
 
 - `version: 2` — required; v1 is rejected with a clear error (D-14).
 - `initialized_at: YYYY-MM-DD` — workspace creation date (string on read).
-- `plugins:` — list of registered-plugin records; see below.
+- `plugins:` — list of registered-plugin records (name/version provenance only —
+  no per-plugin `roles:` key; roles live at the top level, see below).
 - `plugin:` (singular, optional) — top-level routing block with `backend_default`
   and `backend_overrides`. Validated by `manifest.read()`; see `manifest.py` for
   the exact rules.
@@ -17,27 +18,33 @@ by `workspace_io.manifest.read()` / `write()`. The v2 envelope:
   narrative-provenance stamping. `{enabled: bool, branches: [str, ...]}`,
   defaulting to `{enabled: true, branches: [main]}` when absent. Validated and
   normalized by `manifest.read()`; read via `read_state_gate()`.
+- `workflow:` (top-level, optional) — `{commit_strategy: str, model_routing: dict}`.
+  `commit_strategy` is one of `per-task` / `at-end` (default `per-task`).
+  `model_routing` maps tiers (`mechanical` / `standard` / `frontier`) to a
+  model name/alias string. Absent → `{commit_strategy: "per-task", model_routing: {}}`.
+- `roles:` (top-level, optional) — flattened per-workspace model-role overrides;
+  see below.
 
-### Per-plugin `roles:` block
+### Top-level `roles:` mapping
 
-Each entry in `plugins:` may carry a nested `roles:` list. This is the
-per-workspace override for the plugin's model-role tiers (e.g. `preflight`,
-`librarian`). Roles absent from this list fall back to the packaged
-`model_adapter/models.toml` defaults per-role (not all-or-nothing); the
-resolution lives in `packages/model-adapter/`.
+`roles:` is a top-level mapping of `{role_name: field_dict}` — the
+per-workspace override for model-role tiers (e.g. `preflight`, `librarian`).
+Roles absent from this mapping fall back to the packaged
+`graph_wiki_core/models.toml` defaults per-role (not all-or-nothing); the
+resolution lives in `packages/graph-wiki-core/src/graph_wiki_core/roles.py`.
 
-Each role record has exactly the four fields the loader consumes:
+Each role dict may carry these fields:
 
 | Field             | Type | Purpose                                     |
-| ----------------- | ---- | ------------------------------------------- |
-| `name`            | str  | role identifier (e.g. `preflight`)          |
+| ----------------- | ---- | -------------------------------------------- |
 | `model_id`        | str  | Bedrock model ARN / inference profile       |
 | `region`          | str  | AWS region                                  |
 | `max_tokens`      | int  | passed to `ChatBedrockConverse`             |
 | `max_concurrency` | int  | consumed by subagent runtime / eval harness |
+| `backend`         | str  | e.g. `bedrock` / `vercel`                   |
 
-Adding fields here is a code change in `model_adapter.loader` — the IO layer
-does not validate or default per-role fields.
+`manifest.read()` validates the field set (unknown fields raise) but does not
+otherwise interpret the values — that's `graph_wiki_core.roles`'s job.
 
 Example:
 
@@ -48,13 +55,13 @@ plugins:
 - name: graph-wiki-agent
   installed_version: 0.1.1
   applied_version: 0.1.1
-  roles:
-  - name: preflight
+roles:
+  preflight:
     model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     region: "us-east-1"
     max_tokens: 64
     max_concurrency: 1
-  - name: librarian
+  librarian:
     model_id: "us.anthropic.claude-haiku-4-5-20251001-v1:0"
     region: "us-east-1"
     max_tokens: 2048
@@ -67,13 +74,12 @@ plugins:
 from pathlib import Path
 from workspace_io import read_roles
 
-roles = read_roles("graph-wiki-agent", Path(".graph-wiki.yaml"))
-# -> list[dict]; [] when manifest missing, plugin absent, or no roles key
+roles = read_roles(Path(".graph-wiki.yaml"))
+# -> dict[str, dict]; {} when manifest missing or no roles key
 ```
 
-`read_roles` is a thin read-only lookup — it does not validate role-dict field
-shape. Callers (e.g. `model_adapter.loader`) decide how to merge with packaged
-defaults on a per-role basis.
+`read_roles` is a thin read-only lookup — it does not decide how to merge with
+packaged defaults. Callers (e.g. `graph_wiki_core.roles`) do that per-role.
 
 ## State gate
 

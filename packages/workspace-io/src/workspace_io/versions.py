@@ -7,6 +7,7 @@ from pathlib import Path
 
 import workspace_io.manifest as manifest
 from workspace_io.paths import manifest_path
+from workspace_io.projection import write_projection
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,7 @@ def warn_if_stale(workspace: Path, *, plugin: str, version: str) -> bool:
         return False
     entry["installed_version"] = version
     manifest.write(mpath, data)
+    write_projection(workspace)
     return True
 
 

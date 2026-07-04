@@ -2,13 +2,14 @@
 # PreToolUse hook on Agent: enforce per-task model-tier routing via project config.
 #
 # Ships plugin-level (registered via hooks/hooks.json) but stays dormant unless
-# the project opts in by creating .graph-wiki/model-routing.json. With the
-# file present, each Agent dispatch's model parameter must agree with the
-# in_progress task's resolved tier — or with the reviewer tier ("standard"),
-# because spec & code-quality reviewer subagents are dispatched while the same
-# task is still in_progress.
+# the project opts in via `gw config set workflow.model_routing.<tier> <model>`.
+# With a non-empty workflow.model_routing mapping present, each Agent dispatch's
+# model parameter must agree with the in_progress task's resolved tier — or
+# with the reviewer tier ("standard"), because spec & code-quality reviewer
+# subagents are dispatched while the same task is still in_progress.
 #
-# model-routing.json maps tier names to model strings, e.g.:
+# workflow.model_routing (in <workspace>/.graph-wiki/config.json) maps tier
+# names to model strings, e.g.:
 #   {"mechanical":"haiku","standard":"sonnet","frontier":"inherit"}
 #
 # The value "inherit" means any model (or none) is acceptable.
@@ -21,10 +22,9 @@
 #   3. subagent_type set and != "general-purpose" → allow (custom agent types —
 #      llama/Explore/code-reviewer/etc. — have their own cost profiles and often
 #      no model param; only implementer/reviewer-grade dispatches are routed).
-#   4. Routing file absent or unparseable → allow (dormant / fail-open).
-#      Lookup: <workspace>/.graph-wiki/model-routing.json first, else
-#      $HOME/.claude/graph-wiki/model-routing.json (user-level default).
-#      First file found wins entirely; no merging.
+#   4. config.json absent/unparseable, or workflow.model_routing absent/empty
+#      → allow (dormant / fail-open). Lookup: <workspace>/.graph-wiki/config.json
+#      via workspace_io.paths.graph_dir().
 #   5. No in_progress task, or task has neither "model" nor "modelTier" → allow.
 #   6. Task has a concrete "model" pin → allow (dispatch-validate hook owns pins).
 #   7. Task tier not in routing file → allow (fail-open, typos must not brick dispatches).
@@ -55,6 +55,9 @@ fi
 
 trap 'trace "?" "error" "trap-ERR"; echo "$ALLOW"; exit 0' ERR
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${AGENT_RESEARCH_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+
 INPUT=$(cat)
 
 # One jq pass for every scalar input field (was five separate jq spawns).
@@ -74,36 +77,35 @@ if [[ -n "$AGENT_TYPE" && "$AGENT_TYPE" != "general-purpose" ]]; then
     echo "$ALLOW"; exit 0
 fi
 
-# Resolve workspace raw dirs. Prints "specs<TAB>plans" on success, or a line
-# starting with ERR: on failure. Runs in the session cwd so discovery works.
+# Resolve the workspace's .graph-wiki artifacts dir. Prints the absolute path
+# on success, or a line starting with ERR: on failure.
 RESOLVED=$(uv run --project "$ROOT" python -c '
 import sys
 from pathlib import Path
 try:
     from workspace_io import config, paths
-    raw = paths.raw_dir(config.resolve(Path.cwd()).workspace)
-    sys.stdout.write(str(raw))
+    sys.stdout.write(str(paths.graph_dir(config.resolve(Path.cwd()).workspace)))
 except Exception as e:
     sys.stdout.write("ERR:" + str(e).replace("\n", " "))
 ' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
 
-# Locate routing file: project first, then user-level default. First found wins.
-[[ -z "$RESOLVED" ]]
-ROUTING_FILE="${RESOLVED}/.graph-wiki/model-routing.json"
-ROUTING_LABEL="<workspace>/.graph-wiki/model-routing.json"
-if [[ ! -f "$ROUTING_FILE" ]]; then
-    ROUTING_FILE="${HOME}/.claude/graph-wiki/model-routing.json"
-    ROUTING_LABEL="~/.claude/graph-wiki/model-routing.json"
-fi
+case "$RESOLVED" in ERR:*|"")
+    trace "?" "skip" "workspace-resolve-failed"
+    echo "$ALLOW"; exit 0 ;;
+esac
 
-if [[ ! -f "$ROUTING_FILE" ]]; then
-    trace "?" "skip" "no-routing-file"
+CONFIG_FILE="${RESOLVED}/config.json"
+ROUTING_LABEL="<workspace>/.graph-wiki/config.json (workflow.model_routing)"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    trace "?" "skip" "no-config-json"
     echo "$ALLOW"; exit 0
 fi
 
-# Parse routing file; fail-open if unparseable.
-ROUTING_JSON=$(jq '.' "$ROUTING_FILE" 2>/dev/null) || {
-    trace "?" "skip" "routing-file-unparseable"
+# Routing mapping = .workflow.model_routing. Absent key, empty object, or
+# unparseable JSON → dormant (fail-open).
+ROUTING_JSON=$(jq -e '.workflow.model_routing | select(type == "object" and . != {})' "$CONFIG_FILE" 2>/dev/null) || {
+    trace "?" "skip" "routing-absent-or-unparseable"
     echo "$ALLOW"; exit 0
 }
 
@@ -305,14 +307,14 @@ fi
 
 trace "$TASK_ID" "block" "tier-mismatch tiers=$TIERS_DISPLAY allowed=${ALLOWED[*]} got=$AGENT_MODEL"
 
-STANDARD_DISPLAY="${STANDARD_RESOLVED:-(tier 'standard' not mapped in routing file)}"
+STANDARD_DISPLAY="${STANDARD_RESOLVED:-(tier 'standard' not mapped in workflow.model_routing)}"
 PRIMARY_RESOLVED="${ALLOWED[0]}"
 
 {
     echo "AGENT DISPATCH DOES NOT MATCH TASK MODEL TIER"
     echo
     echo "Task #$TASK_ID ('$SUBJECT') is the most recent of the in_progress"
-    echo "tasks (tiers in progress: $TIERS_DISPLAY). The active routing file"
+    echo "tasks (tiers in progress: $TIERS_DISPLAY). The active routing config"
     echo "($ROUTING_LABEL) resolves those to model '$PRIMARY_RESOLVED'"
     echo "(full allowed set: ${ALLOWED[*]}). Your Agent call passed model='$GOT_DISPLAY'."
     echo
@@ -328,8 +330,10 @@ PRIMARY_RESOLVED="${ALLOWED[0]}"
     echo "  2. If this dispatch is genuinely not work for any in_progress task"
     echo "     (unrelated helper call), or a tier is wrong, update that task's"
     echo "     metadata via TaskUpdate transparently, then retry."
-    echo "  3. Escalate to the user via AskUserQuestion if you believe the routing"
-    echo "     mapping itself is wrong."
+    echo "  3. If the mapping itself is wrong, the user can adjust it with"
+    echo "     'gw config set workflow.model_routing.<tier> <model>', or turn"
+    echo "     routing off entirely with 'gw config unset workflow.model_routing.<tier>'"
+    echo "     for each tier."
     echo
     echo "Tier rules: docs/model-routing-flow.md"
     echo "(Runtime disable: GRAPH_WIKI_ROUTING_GUARD=0. Trace log: $TRACE_LOG)"

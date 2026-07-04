@@ -6,7 +6,7 @@ A Claude Code plugin that builds and maintains a persistent, cross-referenced kn
 
 `graph-wiki` gives your repo a comprehensive workflow including work tracking, code graph, and acompounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
 
-By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories. You can override the default wiki location by creating a `.graph-wiki.local.yaml` file in the repository root (and setting `workspace-directory: <workspace>`), or by setting the `GRAPH_WIKI_WORKSPACE` environment variable.
+By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories. You can override the default wiki location by setting the `GRAPH_WIKI_WORKSPACE` environment variable — normally via the repo's `.claude/settings.local.json` env block, which `gw config init --write-env` writes for you.
 
 The plugin has two delivery surfaces that share the same wiki format:
 
@@ -91,11 +91,69 @@ Sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `g
 
 ## Recommended Workflow Configuration
 
+All workflow configuration lives in the committed workspace manifest
+(`<workspace>/.graph-wiki.yaml`) and is written exclusively through `gw
+config` — never by hand-editing the manifest or the hook-registration files.
+`gw config list` documents every knob (including the env-only ones read
+directly by hooks); `gw config init` is the interactive terminal setup that
+walks the same features below; `/graph-wiki:onboard` is the in-Claude
+equivalent of `gw config init`. If `gw` isn't on PATH, prefix any command with
+`uv run --package graph-wiki-cli`.
+
+### Subagent Model Routing
+
+Plan execution dispatches an implementer plus reviewers per task; by default
+every dispatch inherits the session model, so on frontier-priced sessions the
+most expensive model multiplies across tasks that are, by design, mechanical.
+Model routing lets you cap cost per tier instead.
+
+```bash
+gw config set workflow.model_routing.mechanical haiku
+gw config set workflow.model_routing.standard sonnet
+gw config set workflow.model_routing.frontier inherit
+```
+
+- `mechanical` — implementer/fix-dispatch tier for well-specified steps.
+- `standard` — spec and code-quality reviewers, and any task whose steps need judgment the plan can't fully spell out.
+- `frontier` — tasks that need full reasoning; `inherit` means "use the session model," which is also the value for any tier you don't want capped.
+
+Setting all three to the same model gives a single fixed cap instead of
+graduated tiers. Every `gw config set`/`unset` call regenerates
+`<workspace>/.graph-wiki/config.json` — the projection the routing gates
+(`pre-agent-model-routing`, `pre-taskcreate-model-tier`) and the
+session-start notice read on every relevant tool call and at session start
+respectively. There is no separate sync step and no restart required for the
+gates; the session-start notice appears from the next session.
+
+Off-switch: `gw config unset workflow.model_routing.<tier>` per tier (an
+empty/absent mapping means routing is off — every subagent inherits the
+session model). Kill switch for the enforcement gates without touching
+config: `GRAPH_WIKI_ROUTING_GUARD=0`.
+
+### Commit Strategy
+
+Plan execution commits after every task by default — each task ends with its
+own Commit step and implementer subagents commit their own work. Switching to
+a single commit at the end of the plan gives one reviewable commit per
+feature.
+
+```bash
+gw config set workflow.commit_strategy at-end
+```
+
+Valid values: `per-task` (the default) and `at-end`. At plan-writing and
+dispatch time, `at-end` is delivered by a notice injected at session start —
+it tells the agent to omit per-task Commit steps, add one final commit task
+blocked by all implementation tasks, and instruct implementer subagents not
+to commit. There is no enforcement gate for this key; compliance depends on
+the agent honoring the session-start notice, so it takes effect from the next
+session on (the current session keeps per-task behavior).
+
+Off-switch: `gw config unset workflow.commit_strategy`.
+
 ### Disable Auto Plan Mode
 
-Claude Code may automatically enter Plan mode during planning tasks, which conflicts with the structured skill workflows in this plugin. To prevent this, add `EnterPlanMode` to your permission deny list.
-
-**In your project's `.claude/settings.json`:**
+Claude Code may automatically enter Plan mode during planning tasks, which conflicts with the structured skill workflows in this plugin. `gw config hooks enable gates` (below) adds `EnterPlanMode` to your permission deny list as part of enabling gate enforcement. To add only the deny entry without the gate hooks, edit `.claude/settings.local.json` directly:
 
 ```json
 {
@@ -109,9 +167,9 @@ This blocks the model from calling `EnterPlanMode`, ensuring the brainstorming a
 
 ### Block Commits With Incomplete Tasks
 
-Optional `PreToolUse` hook that blocks `git commit` while a native task is `in_progress`. Pending tasks pass through, so per-task commit flows work as intended.
+Optional `PreToolUse` hook that blocks `git commit` while a native task is `in_progress`. Pending tasks pass through, so per-task commit flows work as intended. `gw config` does not manage this hook; register it by hand.
 
-Opt in via `.claude/settings.json`:
+Manual alternative — opt in via `.claude/settings.local.json`:
 
 ```json
 {
@@ -122,7 +180,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/pre-commit-check-tasks.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/pre-commit-check-tasks.sh"
           }
         ]
       }
@@ -139,7 +197,13 @@ Optional `PostToolUse` hook that blocks when Claude closes a **user-thrown gate*
 
 Non-gate tasks pass through silently. The hook only fires when `TaskUpdate` sets status to `completed`.
 
-Opt in via `.claude/settings.json`:
+```bash
+gw config hooks enable gates
+```
+
+This registers both the per-task hook below and the end-of-plan Stop hook (next section) in one call, merging into `.claude/settings.local.json` and also adding `permissions.deny: ["EnterPlanMode"]`. Off-switch: `gw config hooks disable gates` (removes both hooks; only removes the `EnterPlanMode` deny if this call is the one that added it).
+
+Manual alternative — opt in via `.claude/settings.local.json`:
 
 ```json
 {
@@ -150,7 +214,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/post-task-complete-revalidate.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/post-task-complete-revalidate.sh"
           }
         ]
       }
@@ -165,7 +229,9 @@ See the header of `hooks/examples/post-task-complete-revalidate.sh` for how it p
 
 Optional `Stop` hook that complements the PostToolUse hook above. It fires when Claude signals plan completion ("plan complete", "both gates passed", "implementation complete", etc.) but the transcript shows user-thrown gate tasks were closed without subsequent per-criterion proof. Requires Claude to post evidence in the form `AC: <criterion> — PROVEN BY <evidence>` before it can stop.
 
-Opt in via `.claude/settings.json`:
+Included in `gw config hooks enable gates` (see above) — no separate command. Off-switch: `gw config hooks disable gates`.
+
+Manual alternative — opt in via `.claude/settings.local.json`:
 
 ```json
 {
@@ -176,7 +242,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/stop-revalidate-user-gates.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/stop-revalidate-user-gates.sh"
           }
         ]
       }
@@ -191,7 +257,13 @@ See the header of `hooks/examples/stop-revalidate-user-gates.sh` for the full li
 
 Optional `SessionEnd` hook that copies the session's transcript (plus any subagent sidechain transcripts) into the active work item's `work/<slug>/` directory, so a finished item accumulates its own session history instead of it being scattered across `~/.claude/projects/*/*.jsonl`. Reads `.graph-wiki/active-work.json` — the pointer `gw work advance` stamps on every design/plan/execute/finish transition. No pointer (a session that never touched `gw work advance`) → silent no-op.
 
-Opt in via `.claude/settings.json`:
+```bash
+gw config hooks enable transcript
+```
+
+Off-switch: `gw config hooks disable transcript`.
+
+Manual alternative — opt in via `.claude/settings.local.json`:
 
 ```json
 {
@@ -202,7 +274,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/session-end-transcript-capture.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/session-end-transcript-capture.sh"
           }
         ]
       }
@@ -230,7 +302,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/pre-task-blockedby-enforce.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/pre-task-blockedby-enforce.sh"
           }
         ]
       }
@@ -260,7 +332,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/pre-agent-task-dispatch-validate.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/pre-agent-task-dispatch-validate.sh"
           }
         ]
       }
@@ -288,7 +360,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/post-agent-return-validate.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/post-agent-return-validate.sh"
           }
         ]
       }
@@ -324,7 +396,7 @@ Opt in via `.claude/settings.json`:
         "hooks": [
           {
             "type": "command",
-            "command": "bash ~/.claude/plugins/marketplaces/agent-research/hooks/examples/stop-deflection-guard.sh"
+            "command": "bash <agent-research checkout>/plugins/graph-wiki/hooks/examples/stop-deflection-guard.sh"
           }
         ]
       }
