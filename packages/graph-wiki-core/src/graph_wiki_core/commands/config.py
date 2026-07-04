@@ -7,7 +7,8 @@ interactive init flow live in this module too (added by later tasks).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import json
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from workspace_io.projection import write_projection
@@ -116,3 +117,158 @@ async def run_config_list(workspace_path: Path | None = None) -> list[ConfigValu
 async def run_config_sync(workspace_path: Path | None = None) -> Path:
     """Regenerate `<workspace>/.graph-wiki/config.json` from the manifest and return its path."""
     return write_projection(_resolve_workspace(workspace_path))
+
+
+# --- Host wiring: .claude/settings.local.json ------------------------------
+# Host config (hook registrations, permissions.deny, the env block), not
+# graph-wiki config — written by deterministic JSON merge, never hand-diffed.
+
+
+@dataclass(frozen=True)
+class HookWiring:
+    array: str  # settings hooks key: "PostToolUse" | "Stop" | "SessionEnd"
+    matcher: str
+    script: str  # filename under plugins/graph-wiki/hooks/examples/
+
+    @staticmethod
+    def for_feature(feature: str) -> tuple["HookWiring", ...]:
+        if feature == "gates":
+            return (
+                HookWiring("PostToolUse", "TaskUpdate", "post-task-complete-revalidate.sh"),
+                HookWiring("Stop", "", "stop-revalidate-user-gates.sh"),
+            )
+        if feature == "transcript":
+            return (HookWiring("SessionEnd", "", "session-end-transcript-capture.sh"),)
+        raise ValueError(f"unknown hooks feature {feature!r} (valid: gates, transcript)")
+
+
+@dataclass
+class HooksResult:
+    settings_path: Path
+    changed: bool
+    added: list[str] = field(default_factory=list)
+    removed: list[str] = field(default_factory=list)
+    skipped: list[str] = field(default_factory=list)
+
+
+def _default_scripts_dir() -> Path:
+    # gw runs from the agent-research checkout (uv workspace): walk up from
+    # this module to the repo root and use the plugin's examples dir.
+    for candidate in Path(__file__).resolve().parents:
+        examples = candidate / "plugins" / "graph-wiki" / "hooks" / "examples"
+        if examples.is_dir():
+            return examples
+    raise RuntimeError(
+        "could not locate plugins/graph-wiki/hooks/examples/ — "
+        "is graph-wiki-core running outside the agent-research checkout?"
+    )
+
+
+def _settings_path(repo_root: Path) -> Path:
+    return Path(repo_root) / ".claude" / "settings.local.json"
+
+
+def _read_settings(path: Path) -> dict:
+    if not path.exists():
+        return {}
+    return json.loads(path.read_text(encoding="utf-8")) or {}
+
+
+def _write_settings(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    # Confirm the write: re-read and re-parse; raises on corruption.
+    json.loads(path.read_text(encoding="utf-8"))
+
+
+def _resolve_repo_root(repo_root: Path | None) -> Path:
+    if repo_root is not None:
+        return Path(repo_root).resolve()
+    from workspace_io import resolve
+
+    return resolve().repo_root
+
+
+async def run_config_hooks(
+    action: str,
+    feature: str,
+    *,
+    repo_root: Path | None = None,
+    scripts_dir: Path | None = None,
+) -> HooksResult:
+    """Merge (enable) or remove (disable) a hook feature's registrations in settings.local.json.
+
+    Dedup is by script filename inside the `command` string, so enabling twice
+    is a no-op and disable removes exactly what enable added. `gates` also
+    manages `permissions.deny: ["EnterPlanMode"]`. Every write is re-read and
+    re-parsed to confirm the entries landed; a parse failure raises.
+    """
+    if action not in ("enable", "disable"):
+        raise ValueError(f"unknown hooks action {action!r} (valid: enable, disable)")
+    repo = _resolve_repo_root(repo_root)
+    scripts = Path(scripts_dir) if scripts_dir is not None else _default_scripts_dir()
+    target = _settings_path(repo)
+    data = _read_settings(target)
+    result = HooksResult(settings_path=target, changed=False)
+    hooks_block = data.setdefault("hooks", {})
+
+    for wiring in HookWiring.for_feature(feature):
+        arr = hooks_block.setdefault(wiring.array, [])
+        present = any(wiring.script in h.get("command", "") for e in arr for h in e.get("hooks", []))
+        if action == "enable":
+            if present:
+                result.skipped.append(wiring.script)
+                continue
+            script_path = scripts / wiring.script
+            if not script_path.is_file():
+                raise RuntimeError(f"hook script missing: {script_path}")
+            arr.append(
+                {
+                    "matcher": wiring.matcher,
+                    "hooks": [{"type": "command", "command": f"bash {script_path}"}],
+                }
+            )
+            result.added.append(wiring.script)
+            result.changed = True
+        else:
+            kept = []
+            for e in arr:
+                e_hooks = [h for h in e.get("hooks", []) if wiring.script not in h.get("command", "")]
+                if e_hooks:
+                    kept.append({**e, "hooks": e_hooks})
+                elif e.get("hooks"):
+                    result.removed.append(wiring.script)
+                    result.changed = True
+                else:
+                    kept.append(e)
+            hooks_block[wiring.array] = kept
+            if not hooks_block[wiring.array]:
+                del hooks_block[wiring.array]
+
+    if feature == "gates":
+        deny = data.setdefault("permissions", {}).setdefault("deny", [])
+        if action == "enable" and "EnterPlanMode" not in deny:
+            deny.append("EnterPlanMode")
+            result.changed = True
+        if action == "disable" and "EnterPlanMode" in deny:
+            deny.remove("EnterPlanMode")
+            result.changed = True
+        if not data["permissions"]["deny"]:
+            del data["permissions"]["deny"]
+        if not data["permissions"]:
+            del data["permissions"]
+    if not data.get("hooks"):
+        data.pop("hooks", None)
+
+    if result.changed:
+        _write_settings(target, data)
+    return result
+
+
+def write_workspace_env_block(repo_root: Path, workspace: Path) -> Path:
+    """Merge `{"env": {"GRAPH_WIKI_WORKSPACE": <abs workspace>}}` into settings.local.json."""
+    target = _settings_path(Path(repo_root))
+    data = _read_settings(target)
+    data.setdefault("env", {})["GRAPH_WIKI_WORKSPACE"] = str(Path(workspace).resolve())
+    _write_settings(target, data)
+    return target
