@@ -48,6 +48,20 @@ def test_routing_notice_from_config_json(tmp_path):
 def test_no_routing_notice_when_absent(tmp_path):
     ctx = run_hook(_seed(tmp_path))
     assert "model-routing-active" not in ctx
+    assert "workflow-config-active" not in ctx
+    assert "graph-wiki-config-stale" not in ctx
+    assert "graph-wiki-legacy-config" not in ctx
+
+
+def test_fail_open_on_garbage_config_json(tmp_path):
+    """A corrupt config.json must not break the hook: exit 0, valid JSON, no notices."""
+    ws = _seed(tmp_path)
+    (ws / ".graph-wiki" / "config.json").write_text("not json{{{", encoding="utf-8")
+    ctx = run_hook(ws)  # run_hook asserts exit 0 and parses the hook JSON
+    assert "model-routing-active" not in ctx
+    assert "workflow-config-active" not in ctx
+    assert "graph-wiki-config-stale" not in ctx
+    assert "graph-wiki-legacy-config" not in ctx
 
 
 def test_commit_strategy_notice(tmp_path):

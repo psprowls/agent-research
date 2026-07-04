@@ -59,8 +59,14 @@ except Exception as e:
 # The python block may append a config-notice line and a resume suggestion,
 # each after its own unique delimiter (config emitted first, then resume).
 # Split each off so $RESOLVED stays the raw-dir-only value the notices below
-# use. Each split only depends on its own delimiter, so the order the two
-# case statements run in doesn't matter.
+# use. ORDER MATTERS: the resume split MUST run before the config split.
+# The resume block is the LAST segment of the stream, so splitting it off
+# first leaves $RESOLVED ending at the config JSON. If the config split ran
+# first, its ${RESOLVED#...} would capture the config JSON PLUS the resume
+# delimiter and text into $config_info (and its ${RESOLVED%%...} would
+# truncate $RESOLVED before the resume delimiter, losing the suggestion) —
+# and a resume suggestion mentioning workflow.json or '"stale": true' would
+# then false-positive the legacy/stale notices below.
 resume_message=""
 # resume_display holds the same suggestion WITHOUT the leading blank lines, for
 # the user-facing systemMessage channel (additionalContext gets resume_message).
