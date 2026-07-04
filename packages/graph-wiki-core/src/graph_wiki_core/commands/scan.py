@@ -245,10 +245,10 @@ async def _run_package_reader_pass(
         todo_sections = find_todo_human_sections(page_text, entity_kind=kind)
         if not todo_sections:
             continue
-        graph_path = str(candidate.graph_path or "")
-        if not graph_path:
+        if candidate.graph_path is None:
             errors.append(f"{uri}: package_reader missing graph path")
             continue
+        graph_path = candidate.graph_path
         item = PackageReaderItem(
             uri=uri,
             kind=kind,
@@ -311,7 +311,7 @@ def _record_package_reader_candidate(
     candidate: _PackageReaderCandidate,
 ) -> None:
     existing = candidates.get(uri)
-    if existing is None or (not existing.graph_path and candidate.graph_path):
+    if existing is None or (existing.graph_path is None and candidate.graph_path is not None):
         candidates[uri] = candidate
 
 
@@ -1553,7 +1553,7 @@ async def _bedrock_provider(
                 continue
             ws_dict = {
                 "name": task.name,
-                "path": task.graph_path or None,
+                "path": task.graph_path,
                 "type": task.kind,
                 "language": task.language,
             }
@@ -1654,7 +1654,7 @@ async def _bedrock_provider(
                     uri=task.uri,
                     candidate=_PackageReaderCandidate(
                         page_path=Path(task.page_path),
-                        graph_path=task.graph_path or None,
+                        graph_path=task.graph_path,
                         kind=task.kind,
                         name=task.name,
                         language=task.language,
