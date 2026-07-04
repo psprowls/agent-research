@@ -273,3 +273,79 @@ def write_workspace_env_block(repo_root: Path, workspace: Path) -> Path:
     data.setdefault("env", {})["GRAPH_WIKI_WORKSPACE"] = str(Path(workspace).resolve())
     _write_settings(target, data)
     return target
+
+
+# --- gw config init ---------------------------------------------------------
+
+_GUIDED_TIERS = {"mechanical": "haiku", "standard": "sonnet", "frontier": "inherit"}
+_ROUTING_KEYS = tuple(f"workflow.model_routing.{t}" for t in ("mechanical", "standard", "frontier"))
+
+
+@dataclass
+class InitAnswers:
+    """None = skip the feature entirely (unanswered)."""
+
+    model_routing: str | None = None  # "guided" | "fixed:<model>" | "off"
+    commit_strategy: str | None = None  # "per-task" | "at-end"
+    gates: bool | None = None
+    transcript: bool | None = None
+    write_env: bool | None = None
+
+
+@dataclass
+class InitResult:
+    actions: list[str] = field(default_factory=list)
+
+
+async def run_config_init(
+    answers: InitAnswers,
+    workspace_path: Path | None = None,
+    *,
+    repo_root: Path | None = None,
+    scripts_dir: Path | None = None,
+) -> InitResult:
+    workspace = _resolve_workspace(workspace_path)
+    result = InitResult()
+
+    if answers.model_routing is not None:
+        if answers.model_routing == "guided":
+            for tier, model in _GUIDED_TIERS.items():
+                await run_config_set(f"workflow.model_routing.{tier}", model, workspace)
+            result.actions.append(
+                "gw config set workflow.model_routing.{mechanical=haiku,standard=sonnet,frontier=inherit}"
+            )
+        elif answers.model_routing.startswith("fixed:"):
+            model = answers.model_routing.split(":", 1)[1]
+            for key in _ROUTING_KEYS:
+                await run_config_set(key, model, workspace)
+            result.actions.append(f"gw config set workflow.model_routing.* {model}")
+        elif answers.model_routing == "off":
+            for key in _ROUTING_KEYS:
+                await run_config_unset(key, workspace)
+            result.actions.append("gw config unset workflow.model_routing.*")
+        else:
+            raise ValueError(f"invalid model_routing answer {answers.model_routing!r}")
+
+    if answers.commit_strategy is not None:
+        if answers.commit_strategy == "at-end":
+            await run_config_set("workflow.commit_strategy", "at-end", workspace)
+            result.actions.append("gw config set workflow.commit_strategy at-end")
+        elif answers.commit_strategy == "per-task":
+            await run_config_unset("workflow.commit_strategy", workspace)
+            result.actions.append("gw config unset workflow.commit_strategy (per-task default)")
+        else:
+            raise ValueError(f"invalid commit_strategy answer {answers.commit_strategy!r}")
+
+    for feature, answer in (("gates", answers.gates), ("transcript", answers.transcript)):
+        if answer is None:
+            continue
+        action = "enable" if answer else "disable"
+        hr = await run_config_hooks(action, feature, repo_root=repo_root, scripts_dir=scripts_dir)
+        result.actions.append(f"gw config hooks {action} {feature} -> {hr.settings_path}")
+
+    if answers.write_env:
+        repo = _resolve_repo_root(repo_root)
+        target = write_workspace_env_block(repo, workspace)
+        result.actions.append(f"wrote GRAPH_WIKI_WORKSPACE env block -> {target}")
+
+    return result
