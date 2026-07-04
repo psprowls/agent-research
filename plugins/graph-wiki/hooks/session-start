@@ -20,6 +20,30 @@ try:
     ws = config.resolve(Path.cwd()).workspace
     sys.stdout.write(str(paths.raw_dir(ws)))
     try:
+        import hashlib, json as _json
+        gw_dir = paths.graph_dir(ws)
+        cfg_file = gw_dir / "config.json"
+        info = {"routing": None, "commit_strategy": None, "stale": False, "legacy": []}
+        if cfg_file.exists():
+            cfg = _json.loads(cfg_file.read_text(encoding="utf-8"))
+            wf = cfg.get("workflow") or {}
+            routing = wf.get("model_routing") or {}
+            if isinstance(routing, dict) and routing:
+                info["routing"] = routing
+            info["commit_strategy"] = wf.get("commit_strategy")
+            mpath = paths.manifest_path(ws)
+            embedded = (cfg.get("_meta") or {}).get("manifest_sha256")
+            if mpath.exists() and embedded:
+                actual = hashlib.sha256(mpath.read_bytes()).hexdigest()
+                info["stale"] = actual != embedded
+        for legacy in ("model-routing.json", "workflow.json"):
+            if (gw_dir / legacy).exists():
+                info["legacy"].append(legacy)
+        sys.stdout.write("\n<<<GRAPHWIKI_CONFIG>>>\n")
+        sys.stdout.write(_json.dumps(info))
+    except Exception:
+        pass  # fail-open: notices are optional
+    try:
         from work_io.sidecar import load_sidecar
         from work_io.resume import format_resume_suggestion, select_resume_suggestions
         suggestion = select_resume_suggestions(load_sidecar(paths.wiki_dir(ws)))
@@ -32,8 +56,11 @@ except Exception as e:
     sys.stdout.write("ERR:" + str(e).replace("\n", " "))
 ' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
 
-# The python block may append a resume suggestion after a unique delimiter.
-# Split it off so $RESOLVED stays the raw-dir-only value the notices below use.
+# The python block may append a config-notice line and a resume suggestion,
+# each after its own unique delimiter (config emitted first, then resume).
+# Split each off so $RESOLVED stays the raw-dir-only value the notices below
+# use. Each split only depends on its own delimiter, so the order the two
+# case statements run in doesn't matter.
 resume_message=""
 # resume_display holds the same suggestion WITHOUT the leading blank lines, for
 # the user-facing systemMessage channel (additionalContext gets resume_message).
@@ -49,52 +76,42 @@ case "$RESOLVED" in
     ;;
 esac
 
-# Model routing opt-in notice — when the project carries the routing file, or
-# a user-level default exists at ~/.claude/graph-wiki/ (project file wins).
-# Knowledge is injected here so agents never depend on voluntarily reading docs.
-# The file is project-controlled (hostile) content: strip ALL control bytes
-# (not just \n\r\t) or an embedded \x01/\x0b/\x0c would invalidate the JSON
-# this hook emits and kill the whole bootstrap injection. LC_ALL=C keeps tr
-# byte-wise so invalid UTF-8 cannot make BSD tr abort mid-stream, and
-# iconv -c drops any invalid UTF-8 bytes that would equally break the JSON.
+config_info=""
+case "$RESOLVED" in
+  *"<<<GRAPHWIKI_CONFIG>>>"*)
+    config_info="${RESOLVED#*<<<GRAPHWIKI_CONFIG>>>$'\n'}"
+    RESOLVED="${RESOLVED%%$'\n'<<<GRAPHWIKI_CONFIG>>>*}"
+    ;;
+esac
+
+# Model routing / commit-strategy / staleness / legacy-file notices — all
+# derived from <workspace>/.graph-wiki/config.json (the manifest projection),
+# read by the python block above and passed here via $config_info. That JSON
+# is built entirely from values the python block constructed itself (the
+# routing mapping is re-serialized JSON), so it is control-character-free by
+# construction and needs no sanitization pass before embedding.
+config_get() { printf '%s' "$config_info" | sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p"; }
+
 routing_message=""
-routing_file="${RESOLVED}/.graph-wiki/model-routing.json"
-routing_label="<workspace>/.graph-wiki/model-routing.json"
-if [ ! -f "$routing_file" ]; then
-    # User-level default: applies to every project without a project file.
-    routing_file="${HOME}/.claude/graph-wiki/model-routing.json"
-    routing_label="~/.claude/graph-wiki/model-routing.json"
-fi
-if [ -f "$routing_file" ]; then
-    routing_mapping=$(LC_ALL=C tr -d '[:cntrl:]' < "$routing_file" 2>/dev/null | iconv -f UTF-8 -t UTF-8 -c 2>/dev/null || echo '{}')
-    routing_message="\n\n<model-routing-active>This project routes plan-execution subagents to cheaper models. Mapping (${routing_label}): ${routing_mapping}. Plan-time: every plan task's json:metadata fence MUST carry \"modelTier\" — \"mechanical\" (1-2 files, complete spec with code in the steps, no design judgment; most tasks in a well-specified plan), \"standard\" (multi-file integration, pattern matching, debugging), or \"frontier\" (design/architecture judgment). Tie-break: spec completeness wins. Dispatch-time: pass the Agent model parameter resolved from the in-progress task's tier via the mapping (\"inherit\" = omit the parameter); spec and code-quality reviewers use the \"standard\" tier's model; the final whole-plan reviewer (after all tasks complete) stays at session level — omit the model parameter. A task metadata \"model\" pin overrides its tier. Plugin gates enforce both sides (kill switch: SUPERPOWERS_ROUTING_GUARD=0). Full rationale: docs/model-routing-flow.md in the plugin repo.</model-routing-active>"
+routing_mapping=$(printf '%s' "$config_info" | sed -n 's/.*"routing"[[:space:]]*:[[:space:]]*\({[^}]*}\).*/\1/p')
+if [ -n "$routing_mapping" ]; then
+    routing_message="\n\n<model-routing-active>This project routes plan-execution subagents to cheaper models. Mapping (<workspace>/.graph-wiki/config.json, from the manifest's workflow.model_routing): ${routing_mapping}. Plan-time: every plan task's json:metadata fence MUST carry \"modelTier\" — \"mechanical\" (1-2 files, complete spec with code in the steps, no design judgment; most tasks in a well-specified plan), \"standard\" (multi-file integration, pattern matching, debugging), or \"frontier\" (design/architecture judgment). Tie-break: spec completeness wins. Dispatch-time: pass the Agent model parameter resolved from the in-progress task's tier via the mapping (\"inherit\" = omit the parameter); spec and code-quality reviewers use the \"standard\" tier's model; the final whole-plan reviewer (after all tasks complete) stays at session level — omit the model parameter. A task metadata \"model\" pin overrides its tier. Plugin gates enforce both sides (kill switch: GRAPH_WIKI_ROUTING_GUARD=0). Configure: gw config set workflow.model_routing.<tier> <model>. Full rationale: docs/model-routing-flow.md in the plugin repo.</model-routing-active>"
 fi
 
-# Commit-strategy opt-in notice — when the project carries the workflow file,
-# or a user-level default exists at ~/.claude/graph-wiki/ (project file wins
-# entirely, no merging — same lookup pattern as model-routing.json).
-# The file is project-controlled (hostile) content: sanitize with the same
-# LC_ALL=C tr -d '[:cntrl:]' + iconv -c pass as the routing file BEFORE
-# parsing. Stripping control bytes also collapses the file to one line, which
-# makes the single-line sed extraction immune to multi-line JSON formatting.
-# The extracted value is only compared, never embedded in the notice.
-# Absent file, absent key, or any value other than "at-end" → no notice,
-# byte-identical default behavior (per-task commits). Fail-open throughout.
 workflow_message=""
-workflow_file="${RESOLVED}/.graph-wiki/workflow.json"
-workflow_label="<workspace>/.graph-wiki/workflow.json"
-if [ ! -f "$workflow_file" ]; then
-    # User-level default: applies to every project without a project file.
-    workflow_file="${HOME}/.claude/graph-wiki/workflow.json"
-    workflow_label="~/.claude/graph-wiki/workflow.json"
+if [ "$(config_get commit_strategy)" = "at-end" ]; then
+    workflow_message="\n\n<workflow-config-active>This project sets workflow.commit_strategy: at-end (<workspace>/.graph-wiki/config.json): one commit per plan, not per task. Plan-time: OMIT the per-task Commit step from every task's Steps; instead add ONE final task — 'Commit the full implementation' — at the end of the plan, blockedBy ALL implementation tasks, whose steps stage and commit the entire change set as a single commit. Dispatch-time: tell implementer subagents NOT to commit (replace the 'Commit your work' instruction with: do not commit; leave all changes in the working tree — the coordinator's final task makes the single commit). Reviewers review the uncommitted working-tree diff instead of per-task commit SHAs. This notice is the only delivery mechanism — no enforcement gate backs it; comply at plan-writing and dispatch time. Default (per-task commits) resumes via: gw config unset workflow.commit_strategy. Full rationale: docs/workflow-config-flow.md in the plugin repo.</workflow-config-active>"
 fi
-if [ -f "$workflow_file" ]; then
-    workflow_config=$(LC_ALL=C tr -d '[:cntrl:]' < "$workflow_file" 2>/dev/null | iconv -f UTF-8 -t UTF-8 -c 2>/dev/null || echo '{}')
-    commit_strategy=$(printf '%s' "$workflow_config" | sed -n 's/.*"commitStrategy"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
-    if [ "$commit_strategy" = "at-end" ]; then
-        workflow_message="\n\n<workflow-config-active>This project sets \"commitStrategy\": \"at-end\" (${workflow_label}): one commit per plan, not per task. Plan-time: OMIT the per-task Commit step from every task's Steps; instead add ONE final task — 'Commit the full implementation' — at the end of the plan, blockedBy ALL implementation tasks, whose steps stage and commit the entire change set as a single commit. Dispatch-time: tell implementer subagents NOT to commit (replace the 'Commit your work' instruction with: do not commit; leave all changes in the working tree — the coordinator's final task makes the single commit). Reviewers review the uncommitted working-tree diff instead of per-task commit SHAs. This notice is the only delivery mechanism — no enforcement gate backs it; comply at plan-writing and dispatch time. Default (per-task commits) resumes when the file or key is removed. Full rationale: docs/workflow-config-flow.md in the plugin repo.</workflow-config-active>"
-    fi
-fi
+
+stale_message=""
+case "$config_info" in *'"stale": true'*|*'"stale":true'*)
+    stale_message="\n\n<graph-wiki-config-stale>The workspace manifest (.graph-wiki.yaml) has changed since <workspace>/.graph-wiki/config.json was generated (hash mismatch — likely a hand-edit). Hooks read the projection, so it is out of date. Run: gw config sync</graph-wiki-config-stale>" ;;
+esac
+
+legacy_message=""
+case "$config_info" in *model-routing.json*|*workflow.json*)
+    legacy_message="\n\n<graph-wiki-legacy-config>Legacy onboard config files found in <workspace>/.graph-wiki/ (model-routing.json / workflow.json). They are ignored — configuration now lives in the workspace manifest via gw config. Re-run gw config init (or /graph-wiki:onboard) to migrate your choices, then delete the legacy files.</graph-wiki-legacy-config>" ;;
+esac
 
 # Read using-workflow content
 using_workflow_content=$(cat "${PLUGIN_ROOT}/skills/using-workflow/SKILL.md" 2>&1 || echo "Error reading using-workflow skill")
@@ -115,9 +132,11 @@ escape_for_json() {
 using_workflow_escaped=$(escape_for_json "$using_workflow_content")
 routing_escaped=$(escape_for_json "$routing_message")
 workflow_escaped=$(escape_for_json "$workflow_message")
+stale_escaped=$(escape_for_json "$stale_message")
+legacy_escaped=$(escape_for_json "$legacy_message")
 resume_escaped=$(escape_for_json "$resume_message")
 resume_display_escaped=$(escape_for_json "$resume_display")
-session_context="<EXTREMELY_IMPORTANT>\nYou have graph-wiki workflows.\n\n**Below is the full content of your 'graph-wiki:using-workflow' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_workflow_escaped}\n\n${routing_escaped}${workflow_escaped}${resume_escaped}\n</EXTREMELY_IMPORTANT>"
+session_context="<EXTREMELY_IMPORTANT>\nYou have graph-wiki workflows.\n\n**Below is the full content of your 'graph-wiki:using-workflow' skill - your introduction to using skills. For all other skills, use the 'Skill' tool:**\n\n${using_workflow_escaped}\n\n${routing_escaped}${workflow_escaped}${stale_escaped}${legacy_escaped}${resume_escaped}\n</EXTREMELY_IMPORTANT>"
 
 # Output context injection as JSON.
 # Cursor hooks expect additional_context (snake_case).
