@@ -155,6 +155,11 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
     # Parse outbound links from index.md files so that:
     # (a) pages only linked from an index are not flagged as orphans, and
     # (b) broken links inside index.md files are reported.
+    # Also retain each index.md's text/fm in index_pages so content checks
+    # (e.g. obsidian_render) that have no reason to skip index.md can opt in —
+    # unlike pages, index.md is intentionally excluded from orphan/stale/
+    # frontmatter checks (see the `continue` above).
+    index_pages: dict = {}
     for md in wiki.rglob("*.md"):
         rel = md.relative_to(wiki)
         if rel.name != "index.md":
@@ -169,6 +174,11 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
             continue
         idx_key = str(rel).replace("\\", "/")[:-3]
         text = md.read_text(encoding="utf-8", errors="replace")
+        index_pages[idx_key] = {
+            "path": idx_key + ".md",
+            "fm": parse_frontmatter(text),
+            "text": text,
+        }
         scan_text = strip_code(strip_frontmatter(text))
         for m in WIKILINK_RE.finditer(scan_text):
             target = m.group(1).strip()
@@ -288,6 +298,7 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
 
     return {
         "pages": pages,
+        "index_pages": index_pages,
         "orphans": orphans,
         "broken_links": broken_links,
         "stale": stale,
