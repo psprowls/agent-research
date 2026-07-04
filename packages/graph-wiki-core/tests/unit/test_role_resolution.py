@@ -410,3 +410,114 @@ def test_vercel_model_override(tmp_path, monkeypatch, real_workspace_role_overri
     llm = make_llm("librarian", model_override="anthropic/claude-sonnet-4")
     actual_model = getattr(llm, "model_name", None) or getattr(llm, "model", None)
     assert actual_model == "anthropic/claude-sonnet-4"
+
+
+# ---------------------------------------------------------------------------
+# Partial workspace override merge (bug fix: a workspace override carrying
+# only a subset of {model_id, region, max_tokens, max_concurrency, backend}
+# used to REPLACE the whole packaged role_cfg, so `role_cfg["model_id"]`
+# raised a bare KeyError for any role-scoped `gw config set`. make_llm now
+# merges the workspace override onto the packaged models.toml entry field by
+# field: workspace wins per-field, packaged fills in everything else.
+# ---------------------------------------------------------------------------
+
+
+def test_make_llm_partial_workspace_override_merges_onto_packaged_defaults(
+    tmp_path, monkeypatch, real_workspace_role_override
+):
+    """`gw config set roles.scanner.max_tokens 8192` (the reported repro) must
+    not brick make_llm: scanner keeps its packaged model_id/region/etc. and
+    only max_tokens changes.
+    """
+    from graph_wiki_core.roles import load_role_config, make_llm
+    from langchain_aws import ChatBedrockConverse
+
+    packaged = load_role_config("scanner")
+    workspace = _write_synthetic_workspace(tmp_path, {"scanner": {"max_tokens": 8192}})
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    llm = make_llm("scanner")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual_model = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual_model == packaged["model_id"]
+    assert llm.region_name == packaged["region"]
+    assert getattr(llm, "max_tokens", None) == 8192
+
+
+def test_make_llm_full_workspace_override_wins_every_field(tmp_path, monkeypatch, real_workspace_role_override):
+    """A fully-specified workspace override still wins on every field it sets
+    (no packaged field leaks through when the workspace sets all of them)."""
+    from graph_wiki_core.roles import make_llm
+    from langchain_aws import ChatBedrockConverse
+
+    workspace = _write_synthetic_workspace(
+        tmp_path,
+        {
+            "scanner": {
+                "model_id": WORKSPACE_OVERRIDE_ARN,
+                "region": "us-west-2",
+                "max_tokens": 111,
+                "max_concurrency": 1,
+            },
+        },
+    )
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    llm = make_llm("scanner")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual_model = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual_model == WORKSPACE_OVERRIDE_ARN
+    assert llm.region_name == "us-west-2"
+    assert getattr(llm, "max_tokens", None) == 111
+
+
+def test_make_llm_workspace_only_role_absent_from_packaged_models_toml(
+    tmp_path, monkeypatch, real_workspace_role_override
+):
+    """A role with no packaged models.toml entry can still be fully defined by
+    the workspace alone -- `roles.*` is an open wildcard in the config catalog
+    (config_catalog.py), so `gw config set roles.<new-role>.model_id ...` is a
+    legal way to introduce a role that only exists at the workspace layer.
+    """
+    from graph_wiki_core.roles import load_role_config, make_llm
+    from langchain_aws import ChatBedrockConverse
+
+    with pytest.raises(KeyError):
+        load_role_config("workspace_only_role")
+
+    workspace = _write_synthetic_workspace(
+        tmp_path,
+        {
+            "workspace_only_role": {
+                "model_id": WORKSPACE_OVERRIDE_ARN,
+                "region": "us-west-2",
+                "max_tokens": 256,
+                "max_concurrency": 2,
+            },
+        },
+    )
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    llm = make_llm("workspace_only_role")
+    assert isinstance(llm, ChatBedrockConverse)
+    actual_model = getattr(llm, "model_id", None) or getattr(llm, "model", None)
+    assert actual_model == WORKSPACE_OVERRIDE_ARN
+    assert llm.region_name == "us-west-2"
+    assert getattr(llm, "max_tokens", None) == 256
+
+
+def test_make_llm_workspace_only_role_missing_model_id_raises_actionable_keyerror(
+    tmp_path, monkeypatch, real_workspace_role_override
+):
+    """When a role has no packaged entry AND the workspace override omits
+    model_id, make_llm still raises KeyError (unchanged failure mode) but with
+    an actionable message instead of the bare `'model_id'` from a raw dict
+    lookup.
+    """
+    from graph_wiki_core.roles import make_llm
+
+    workspace = _write_synthetic_workspace(tmp_path, {"workspace_only_role": {"max_tokens": 256}})
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    with pytest.raises(KeyError, match="model_id"):
+        make_llm("workspace_only_role")

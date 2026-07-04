@@ -6,9 +6,6 @@ set -euo pipefail
 # Determine plugin root directory
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PLUGIN_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
-# plugins/graph-wiki/hooks -> repo root is three levels up. Used as the uv
-# project so workspace_io is importable without relying on AGENT_RESEARCH_ROOT.
-ROOT="${AGENT_RESEARCH_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
 
 # Resolve workspace raw dirs. Prints "specs<TAB>plans" on success, or a line
 # starting with ERR: on failure. Runs in the session cwd so discovery works.

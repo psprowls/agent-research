@@ -7,9 +7,12 @@ constructors -- this module owns the *role* concept; model_adapter owns the
 *client*.
 
 Resolution order for make_llm(role):
-  1. Workspace manifest (<workspace>/.graph-wiki.yaml top-level roles.<role>)
-     if present.
-  2. Packaged graph_wiki_core/models.toml [roles.<role>].
+  1. Packaged graph_wiki_core/models.toml [roles.<role>], if present, as the
+     base.
+  2. Workspace manifest (<workspace>/.graph-wiki.yaml top-level roles.<role>)
+     fields layered on top, per field -- a partial override (e.g. just
+     max_tokens) fills in only the fields it sets and keeps the packaged
+     values for the rest.
 """
 
 from __future__ import annotations
@@ -50,21 +53,41 @@ def _workspace_role_override(role: str) -> dict | None:
 def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
     """Return a chat model configured for the given role.
 
-    Resolution order: workspace manifest override -> packaged models.toml.
-    Backend is driven by the resolved role's ``backend`` key (default
-    ``"bedrock"``; ``"vercel"`` selects the AI Gateway).
+    Resolution order: workspace manifest override merged, field by field, onto
+    the packaged models.toml entry for the role -- the workspace can set any
+    subset of {model_id, region, max_tokens, max_concurrency, backend} and the
+    rest fall back to the packaged defaults. When the role has no packaged
+    entry at all, the workspace override (if any) IS the definition. Backend
+    is driven by the resolved role's ``backend`` key (default ``"bedrock"``;
+    ``"vercel"`` selects the AI Gateway).
 
     Raises:
-        KeyError: when `role` is absent from both sources.
+        KeyError: when `role` is absent from both sources, or resolves with no
+            `model_id` (only reachable for a workspace-only role definition
+            that omits it, since packaged roles always carry one).
         GatewayAccessDenied: for a vercel role when AI_GATEWAY_API_KEY is unset.
     """
     workspace_cfg = _workspace_role_override(role)
-    if workspace_cfg is not None:
-        role_cfg = workspace_cfg
-    else:
-        role_cfg = _load_models_config()["roles"][role]  # KeyError if absent
+    packaged_cfg = _load_models_config()["roles"].get(role)
 
-    model_id = model_override if model_override is not None else role_cfg["model_id"]
+    if packaged_cfg is None and workspace_cfg is None:
+        raise KeyError(role)
+    if packaged_cfg is None:
+        role_cfg = workspace_cfg
+    elif workspace_cfg is None:
+        role_cfg = packaged_cfg
+    else:
+        role_cfg = {**packaged_cfg, **workspace_cfg}
+
+    if model_override is not None:
+        model_id = model_override
+    elif "model_id" in role_cfg:
+        model_id = role_cfg["model_id"]
+    else:
+        raise KeyError(
+            f"role {role!r} has no model_id: no packaged models.toml entry exists for it, and "
+            "the workspace override does not set model_id either"
+        )
     max_tokens = role_cfg.get("max_tokens")
     if role_cfg.get("backend", "bedrock") == "vercel":
         return make_gateway_llm(model_id, max_tokens=max_tokens)
