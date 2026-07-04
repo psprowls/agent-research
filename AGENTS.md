@@ -49,7 +49,7 @@ graph-wiki-core    command + prompt + orchestration logic shared by ALL delivery
 
 ### Workspace ≠ repo (critical mental model)
 
-The **repo** is the source code being documented. The **workspace** is a *separate sibling directory* holding the generated artifacts: `<workspace>/wiki/`, `<workspace>/raw/`, and `<workspace>/.graph-wiki/code.db` (the graph DB does **not** live in this repo). For this repo the workspace is pinned in `.graph-wiki.local.yaml` (`workspace-directory:`). Resolution order in `workspace_io.config.resolve()`: `GRAPH_WIKI_WORKSPACE` env var → `.graph-wiki.local.yaml` → discovery. Path accessors live in `workspace_io.paths`.
+The **repo** is the source code being documented. The **workspace** is a *separate sibling directory* holding the generated artifacts: `<workspace>/wiki/`, `<workspace>/raw/`, and `<workspace>/.graph-wiki/code.db` (the graph DB does **not** live in this repo). For this repo the workspace is pinned via the `GRAPH_WIKI_WORKSPACE` env block in `.claude/settings.local.json`. Resolution order in `workspace_io.config.resolve()`: `GRAPH_WIKI_WORKSPACE` env var → discovery (the repo-side `.graph-wiki.local.yaml` pointer is dead; `resolve()` warns if it finds one). Path accessors live in `workspace_io.paths`.
 
 - `gw scan --workspace <ws>` discovers the repo from cwd.
 - `gw graph update --full --repo <repo> --mode test` — `graph build`/`update` resolve the repo *from the workspace*, so always pass `--repo` explicitly or it dies with "ambiguous argument HEAD". Graph updates are incremental; classification-logic changes need `--full`.

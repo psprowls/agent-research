@@ -6,7 +6,7 @@ A Claude Code plugin that builds and maintains a persistent, cross-referenced kn
 
 `graph-wiki` gives your repo a comprehensive workflow including work tracking, code graph, and acompounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
 
-By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories. You can override the default wiki location by creating a `.graph-wiki.local.yaml` file in the repository root (and setting `workspace-directory: <workspace>`), or by setting the `GRAPH_WIKI_WORKSPACE` environment variable.
+By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see wiki, raw sources, and the work tracker as sibling directories. You can override the default wiki location by setting the `GRAPH_WIKI_WORKSPACE` environment variable — normally via the repo's `.claude/settings.local.json` env block, which `gw config init --write-env` writes for you.
 
 The plugin has two delivery surfaces that share the same wiki format:
 
