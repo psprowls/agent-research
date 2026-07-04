@@ -8,13 +8,9 @@ Plan execution commits per task, by construction: the `writing-plans` Task Struc
 
 ## Design decisions
 
-**One config file, one key.** `<workspace>/.graph-wiki/workflow.json`, project-level, with a user-level fallback at `~/.claude/graph-wiki/workflow.json`. Lookup is project first, then user — the first file found wins entirely, no merging (the same lookup pattern as `model-routing.json`). Content:
+**One config key.** `workflow.commit_strategy`, a key in the workspace manifest (`<workspace>/.graph-wiki.yaml`), set via `gw config set workflow.commit_strategy at-end` (or `gw config unset workflow.commit_strategy` to revert) and projected to `<workspace>/.graph-wiki/config.json`, the same manifest → config.json path used by `workflow.model_routing`. `gw config` is the sole writer.
 
-```json
-{"commitStrategy": "at-end"}
-```
-
-Valid values: `"per-task"` (the default) and `"at-end"`. Absent file, absent key, or any unrecognized value → per-task, byte-identical to today's behavior. Setting `"per-task"` explicitly is equivalent to no file; its only use is a project file overriding a user-level `"at-end"` default.
+Valid values: `"per-task"` (the default) and `"at-end"`. Absent key, or any unrecognized value → per-task, byte-identical to today's behavior. Setting `"per-task"` explicitly (`gw config unset workflow.commit_strategy`) is equivalent to the key being absent.
 
 **Delivery via the session-start notice, not skill prose.** When `commitStrategy` resolves to `at-end`, `hooks/session-start` injects a compact `<workflow-config-active>` block into session context, telling the agent: omit per-task Commit steps from plans, add one final "Commit the full implementation" task (blockedBy all implementation tasks), and instruct implementer subagents not to commit — the coordinator's final task makes the single commit. Knowledge arrives deterministically at session start; no voluntary file read is required. The skills themselves are untouched — no conditional instructions for agents to skip under load, and vanilla behavior cannot regress because the skill text did not change.
 
@@ -29,15 +25,15 @@ Valid values: `"per-task"` (the default) and `"at-end"`. Absent file, absent key
 - **No enforcement gate.** The notice is the only mechanism; it relies on plan-time and dispatch-time compliance. Plans written before the config existed keep their per-task Commit steps — the notice does not rewrite existing plans.
 - **No commit policy.** Message format, signing, branch protection, push behavior are out of scope; the key only decides *when* plan execution commits.
 - **No partial-progress safety net at `at-end`.** With a single final commit, a mid-plan failure leaves all changes uncommitted in the working tree. That is inherent to the chosen strategy; teams who want incremental recovery points should stay on the default.
-- **No merging of project and user files.** The first file found wins entirely, exactly like model routing.
+- **No project/user-level merging.** There is a single workspace manifest; `gw config` is the sole writer, exactly like model routing.
 
 ## Future directions (explicitly out of scope today)
 
 - **TaskCreate-gate hardening:** if live sessions show drift (plans still carrying per-task Commit steps while `at-end` is configured), a PreToolUse gate on TaskCreate could block plan tasks whose steps contain commit commands — same self-teaching block-message pattern as the model-tier gate.
-- **More workflow keys:** `workflow.json` is deliberately named generically; future workflow preferences can live alongside `commitStrategy` without a new file or lookup mechanism.
+- **More workflow keys:** the `workflow.*` namespace is deliberately generic; future workflow preferences can live alongside `commit_strategy` in the same manifest block without a new lookup mechanism.
 
 ## Verifying it works
 
-- Session notice: start a session in a project whose `<workspace>/.graph-wiki/workflow.json` contains `{"commitStrategy": "at-end"}`; the injected context contains `<workflow-config-active>`. Remove the file (or set `"per-task"`): the block is absent and output is byte-identical to vanilla.
+- Session notice: start a session in a project whose `<workspace>/.graph-wiki/config.json` contains `{"workflow": {"commit_strategy": "at-end"}}` (set via `gw config set workflow.commit_strategy at-end`); the injected context contains `<workflow-config-active>`. Unset the key (or set it to `"per-task"`): the block is absent and output is byte-identical to vanilla.
 - Hook output stays valid JSON in both states: run `hooks/session-start` with `CLAUDE_PLUGIN_ROOT` set and pipe the output through `python3 -c "import json,sys; json.load(sys.stdin)"`.
 - Plan-level: with the notice active, a freshly written plan must contain no per-task Commit steps and exactly one final commit task blocked by all implementation tasks.

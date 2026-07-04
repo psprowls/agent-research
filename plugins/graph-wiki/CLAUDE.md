@@ -62,7 +62,7 @@ The shim under that path resolves the implementation from `wiki_io` via the `uv`
 
 ## Wiki layout invariants
 
-The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.local.yaml`'s `workspace-directory` path key). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
+The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; the repo-side `.graph-wiki.local.yaml` `workspace-directory` pointer is dead — `GRAPH_WIKI_WORKSPACE`, normally injected via the repo's `.claude/settings.local.json` env block, is the only external-workspace pointer). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
 
 - `<workspace>/raw/` — staging inbox for sources. The LLM never edits file contents here; a successful ingest moves the source to `raw/_archive/<same relative path>`. Owned by `workspace_io`.
 - `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
