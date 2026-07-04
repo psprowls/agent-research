@@ -10,6 +10,10 @@ are read (graph_io/update.py, the bash hooks under plugins/graph-wiki/hooks/).
 test_config_catalog.py pins the two copies together (spec §4 accepted
 duplication — graph-io cannot import from core, and the hooks are bash).
 
+Internal sentinels (GRAPH_WIKI_BOOTSTRAP_REEXEC, GRAPH_WIKI_SHIM_REEXEC — uv
+re-exec loop guards set by the tooling itself) are not config knobs and are
+deliberately absent.
+
 Deferred (recorded, not built): a contribution protocol letting each package
 register its own entries into workspace-io. For now this is one static module.
 """
