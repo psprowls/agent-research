@@ -79,8 +79,85 @@ def test_agent_hook_dormant_with_empty_routing(tmp_path):
     assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
 
 
+def _armed_transcript(tmp_path: Path) -> Path:
+    """writing-plans Skill use, then a TaskCreate after it -> guard arms."""
+    lines = [
+        {
+            "type": "assistant",
+            "message": {
+                "content": [{"type": "tool_use", "name": "Skill", "input": {"skill": "graph-wiki:writing-plans"}}]
+            },
+        },
+        {
+            "type": "assistant",
+            "message": {"content": [{"type": "tool_use", "name": "TaskCreate", "input": {"subject": "Task 1: x"}}]},
+        },
+    ]
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text("\n".join(json.dumps(entry) for entry in lines) + "\n", encoding="utf-8")
+    return transcript
+
+
+def _handoff_payload(transcript: Path, labels: list[str]) -> dict:
+    return {
+        "tool_name": "AskUserQuestion",
+        "transcript_path": str(transcript),
+        "tool_input": {
+            "questions": [
+                {
+                    "question": "How should we proceed?",
+                    "options": [{"label": label} for label in labels],
+                }
+            ]
+        },
+    }
+
+
+def test_handoff_guard_dormant_without_routing(tmp_path):
+    ws = _seed_workspace(tmp_path, routing=None)
+    transcript = _armed_transcript(tmp_path)
+    proc = run_hook("pre-askuser-handoff-guard", _handoff_payload(transcript, ["Phase 1", "Phase 2"]), ws)
+    assert proc.returncode == 0
+    assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_handoff_guard_blocks_noncompliant_when_routing_active(tmp_path):
+    ws = _seed_workspace(tmp_path, routing={"mechanical": "haiku", "standard": "sonnet"})
+    transcript = _armed_transcript(tmp_path)
+    proc = run_hook("pre-askuser-handoff-guard", _handoff_payload(transcript, ["Phase 1", "Phase 2"]), ws)
+    assert proc.returncode == 2
+    assert "Subagent-Driven" in proc.stderr
+    assert "Parallel Session" in proc.stderr
+
+
+def test_handoff_guard_allows_compliant_when_routing_active(tmp_path):
+    ws = _seed_workspace(tmp_path, routing={"mechanical": "haiku", "standard": "sonnet"})
+    transcript = _armed_transcript(tmp_path)
+    proc = run_hook(
+        "pre-askuser-handoff-guard",
+        _handoff_payload(transcript, ["Subagent-Driven (this session)", "Parallel Session (separate)"]),
+        ws,
+    )
+    assert proc.returncode == 0
+    assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
+def test_handoff_guard_dormant_on_malformed_config(tmp_path):
+    ws = _seed_workspace(tmp_path, routing=None)
+    (ws / ".graph-wiki" / "config.json").write_text("{not json", encoding="utf-8")
+    transcript = _armed_transcript(tmp_path)
+    proc = run_hook("pre-askuser-handoff-guard", _handoff_payload(transcript, ["Phase 1", "Phase 2"]), ws)
+    assert proc.returncode == 0
+    assert json.loads(proc.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+
 def test_no_home_fallback_left_in_sources():
-    for hook in ("pre-agent-model-routing", "pre-taskcreate-model-tier", "session-start"):
+    for hook in (
+        "pre-agent-model-routing",
+        "pre-taskcreate-model-tier",
+        "pre-askuser-handoff-guard",
+        "session-start",
+    ):
         text = (HOOKS / hook).read_text(encoding="utf-8")
         assert ".claude/graph-wiki" not in text, hook
         assert "model-routing.json" not in text or hook == "session-start", hook

@@ -1,8 +1,8 @@
 """Unit tests for the plugin shims' `_config.backend_for` resolution.
 
 `backend_for` must resolve the workspace the same way every other surface does
-— via `workspace_io.resolve()` (which honors `.graph-wiki.local.yaml`'s
-`workspace-directory` and the `GRAPH_WIKI_WORKSPACE` override) — and read the
+— via `workspace_io.resolve()` (the `GRAPH_WIKI_WORKSPACE` override, else
+discovery; the repo-side `.graph-wiki.local.yaml` pointer is dead) — and read the
 `plugin:` block from `<workspace>/.graph-wiki.yaml`, NOT from cwd.
 """
 

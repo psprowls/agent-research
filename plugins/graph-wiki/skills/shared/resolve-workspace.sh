@@ -6,10 +6,12 @@
 # Echoes NOTHING (empty stdout, exit 0) when no workspace resolves —
 # callers decide their own fallback; this helper never invents one.
 #
-# Resolution chain:
+# Resolution chain (mirrors workspace_io.config.resolve()):
 #   1. $GRAPH_WIKI_WORKSPACE set and non-empty -> echo it.
-#   2. Else walk up from start-dir (default $PWD) for .graph-wiki.local.yaml;
-#      if found, extract the `workspace-directory:` value and echo it.
+#   2. Else walk up from start-dir (default $PWD) for a git repo root
+#      (.git may be a dir, or a file in worktrees/submodules). At the FIRST
+#      repo root found: echo <repo>/graph-wiki if that directory exists,
+#      else echo nothing. Never bind to a parent repo's workspace.
 #   3. Else echo nothing.
 #
 # Kept dependency-free so it works in non-graph-wiki projects where the
@@ -21,23 +23,15 @@ if [[ -n "${GRAPH_WIKI_WORKSPACE:-}" ]]; then
   exit 0
 fi
 
-# 2. Walk up from the start dir looking for .graph-wiki.local.yaml.
+# 2. Walk up from the start dir looking for a git repo root.
 dir="${1:-$PWD}"
 dir="$(cd "$dir" 2>/dev/null && pwd -P)" || exit 0
 while [[ -n "$dir" ]]; do
-  if [[ -f "$dir/.graph-wiki.local.yaml" ]]; then
-    # Flat YAML: `workspace-directory: /abs/path`. Tolerant extraction —
-    # strip the key, surrounding quotes, and whitespace. No YAML parser.
-    value="$(sed -n 's/^[[:space:]]*workspace-directory:[[:space:]]*//p' \
-      "$dir/.graph-wiki.local.yaml" | head -1)"
-    value="${value%"${value##*[![:space:]]}"}"   # rstrip
-    value="${value#"${value%%[![:space:]]*}"}"   # lstrip
-    value="${value%\"}"; value="${value#\"}"
-    value="${value%\'}"; value="${value#\'}"
-    if [[ -n "$value" ]]; then
-      echo "$value"
-      exit 0
+  if [[ -e "$dir/.git" ]]; then
+    if [[ -d "$dir/graph-wiki" ]]; then
+      echo "$dir/graph-wiki"
     fi
+    exit 0
   fi
   [[ "$dir" == "/" ]] && break
   dir="$(dirname "$dir")"

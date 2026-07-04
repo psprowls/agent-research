@@ -17,15 +17,20 @@
 # Decision order:
 #   1. GRAPH_WIKI_ROUTING_GUARD=0 → allow.
 #   2. tool_name != "AskUserQuestion" → allow.
-#   3. Routing file absent (two-location lookup, same as sibling gates) → allow (dormant).
+#   3. config.json absent/unparseable, or workflow.model_routing absent/empty
+#      → allow (dormant). Lookup: <workspace>/.graph-wiki/config.json via
+#      workspace_io.paths.graph_dir(), same as sibling gates.
 #   4. Scan transcript: compute arm_pos (last writing-plans signal + TaskCreate after it).
 #      Not armed → allow.
 #   5. Armed + this call carries compliant two-option structure → allow.
 #   6. Armed + question contains "CLARIFICATION" token → allow (legitimate mid-plan question).
 #   7. Otherwise → block (exit 2) with teach message and verbatim required YAML.
 #
-# Opt-in umbrella: same routing file that gates model-routing (<workspace>/docs/graph-wiki/model-routing.json
-# or ~/.claude/graph-wiki/model-routing.json). Present → active. Absent → dormant.
+# Opt-in umbrella: the same workflow.model_routing mapping that gates the other
+# routing hooks — <workspace>/.graph-wiki/config.json (projected from the
+# manifest by `gw config set workflow.model_routing.<tier> <model>`).
+# Non-empty mapping → active. Absent/empty → dormant.
+# Off switch: `gw config unset workflow.model_routing.<tier>` for all tiers.
 #
 # Escape hatch: GRAPH_WIKI_ROUTING_GUARD=0
 
@@ -47,6 +52,9 @@ fi
 
 trap 'trace "?" "error" "trap-ERR"; echo "$ALLOW"; exit 0' ERR
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="${AGENT_RESEARCH_ROOT:-$(cd "${SCRIPT_DIR}/../../.." && pwd)}"
+
 INPUT=$(cat)
 
 # One jq pass for the scalar input fields (was three separate jq spawns).
@@ -59,29 +67,35 @@ FIELDS=$(echo "$INPUT" | jq -r '[(.tool_name // ""), (.cwd // ""), (.transcript_
 
 [[ "$TOOL_NAME" != "AskUserQuestion" ]] && { trace "?" "skip" "tool=$TOOL_NAME"; echo "$ALLOW"; exit 0; }
 
-# Resolve workspace raw dirs. Prints "specs<TAB>plans" on success, or a line
-# starting with ERR: on failure. Runs in the session cwd so discovery works.
+# Resolve the workspace's .graph-wiki artifacts dir. Prints the absolute path
+# on success, or a line starting with ERR: on failure. Runs in the session cwd
+# so discovery works.
 RESOLVED=$(uv run --project "$ROOT" python -c '
 import sys
 from pathlib import Path
 try:
     from workspace_io import config, paths
-    raw = paths.raw_dir(config.resolve(Path.cwd()).workspace)
-    sys.stdout.write(str(raw))
+    sys.stdout.write(str(paths.graph_dir(config.resolve(Path.cwd()).workspace)))
 except Exception as e:
     sys.stdout.write("ERR:" + str(e).replace("\n", " "))
 ' 2>/dev/null) || RESOLVED="ERR:uv-invocation-failed"
 
+case "$RESOLVED" in ERR:*|"")
+    trace "?" "skip" "workspace-resolve-failed"
+    echo "$ALLOW"; exit 0 ;;
+esac
 
-# Locate routing file: project first, then user-level default. First found wins.
-[[ -z "$RESULVED" ]]
-ROUTING_FILE="${RESOLVED}/.graph-wiki/model-routing.json"
-if [[ ! -f "$ROUTING_FILE" ]]; then
-    ROUTING_FILE="$HOME/.claude/graph-wiki/model-routing.json"
+CONFIG_FILE="${RESOLVED}/config.json"
+
+if [[ ! -f "$CONFIG_FILE" ]]; then
+    trace "?" "skip" "no-config-json"
+    echo "$ALLOW"; exit 0
 fi
 
-if [[ ! -f "$ROUTING_FILE" ]]; then
-    trace "?" "skip" "no-routing-file"
+# Routing mapping = .workflow.model_routing. Absent key, empty object, or
+# unparseable JSON → dormant (fail-open).
+if ! jq -e '.workflow.model_routing | select(type == "object" and . != {})' "$CONFIG_FILE" >/dev/null 2>&1; then
+    trace "?" "skip" "routing-absent-or-unparseable"
     echo "$ALLOW"; exit 0
 fi
 
@@ -284,7 +298,8 @@ trace "?" "block" "armed=true, required labels missing"
     echo "     model routing and task dispatch operate."
     echo "  2. If this is a genuine mid-plan clarification (not the handoff), include"
     echo "     the literal token CLARIFICATION in the question text and retry."
-    echo "  3. The user can disable with GRAPH_WIKI_ROUTING_GUARD=0."
+    echo "  3. The user can disable with GRAPH_WIKI_ROUTING_GUARD=0, or turn off"
+    echo "     routing entirely: 'gw config unset workflow.model_routing.<tier>' for all tiers."
     echo ""
     echo "Tier/handoff rationale: docs/model-routing-flow.md"
     echo "(Trace log: $TRACE_LOG)"
