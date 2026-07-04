@@ -85,6 +85,7 @@ from wiki_io.update_tokens import update_vault
 from workspace_io import manifest as _manifest
 from workspace_io.paths import graph_dir, manifest_path
 
+from graph_wiki_core.commands._reindex import regen_indexes_and_backlinks
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import (
@@ -1784,38 +1785,6 @@ async def _bedrock_provider(
 # ---------------------------------------------------------------------------
 
 
-def _regen_indexes_and_log(wiki: Path) -> None:
-    """Step 12: regenerate wiki/index.md + per-folder sub-indexes + backlinks.
-
-    Lifted from run_scan's Step 12 block. Opens its own read-only reader for
-    generate_index (graph-driven) and closes it; update_index + backlink regen
-    are graph-independent.
-    """
-    reader = None
-    try:
-        reader = open_reader(wiki.parent)
-    except GraphNotInitializedError:
-        reader = None
-    try:
-        if reader is not None:
-            display_name = _manifest.read(manifest_path(wiki.parent)).get("topic")
-            generate_index(reader, wiki, display_name)
-        try:
-            update_index(wiki)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("update_index failed (non-fatal): %s", exc)
-        try:
-            regenerate_referenced_in_wiki(wiki)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("regenerate_referenced_in_wiki failed (non-fatal): %s", exc)
-    finally:
-        if reader is not None:
-            try:
-                reader.close()
-            except Exception:  # noqa: BLE001
-                pass
-
-
 def _apply_propagate_results(worklist: ScanWorklist, results: ScanResults, wiki: Path) -> int:
     """M4 apply: write one source:drift ledger origin per stale finding, then
     stamp ``drift_propagated_commit`` for every considered candidate (idempotence).
@@ -1981,7 +1950,7 @@ async def apply_scan_results(
         out.propagated += _apply_propagate_results(worklist, results, wiki)
 
     # --- Index + backlink + log ---
-    _regen_indexes_and_log(wiki)
+    regen_indexes_and_backlinks(wiki)
 
     return out
 

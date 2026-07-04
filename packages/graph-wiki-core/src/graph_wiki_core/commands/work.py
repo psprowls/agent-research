@@ -46,6 +46,7 @@ from work_io import sidecar as _sidecar
 from work_io import workflow as _workflow
 from workspace_io.paths import graph_dir
 
+from graph_wiki_core.commands._reindex import regen_indexes_and_backlinks
 from graph_wiki_core.commands.ingest import IngestResult
 
 # Stuck thresholds (mirror lifecycle_lint rules 12/13).
@@ -538,13 +539,25 @@ async def run_work_archive(
             repoint.rewrote.extend(_repoint_in_dir_doc(action, wiki.parent))
         _clear_active_work_pointer_if_archived(wiki.parent, {a.slug for a in plan.actions})
         await run_work_regen_index(workspace_path=workspace_path)
-        # Mirror the filing path's index side-effect (_apply_work_item_side_effects):
-        # refresh the sub-indexes so archived items drop out of work/index.md.
+        # Archive moves an existing linked file, so — unlike filing, which merely
+        # lacks a graph-owned index.md entry until the next scan — the master
+        # index and entity backlinks now dangle too. Run the full scan Step-12
+        # bundle, not just update_index. Best-effort: each step logs and
+        # continues on failure (see regen_indexes_and_backlinks).
+        regen_indexes_and_backlinks(wiki)
         # Inbound wikilinks from other pages are intentionally left pointing at the
         # pre-archive path as a supersession-history breadcrumb; only pointers on
         # the archived item's own page (spec_doc/plan_doc) are repointed, above.
-        if (wiki / "index.md").exists():
-            update_index(wiki)
+        if (wiki / "log.md").exists():
+            for action in plan.actions:
+                append_log(
+                    wiki,
+                    "update",
+                    action.slug,
+                    detail=f"work/_archive/{action.slug}",
+                    silent=True,
+                    raise_exception=True,
+                )
 
     return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped, repointed=repoint.rewrote)
 

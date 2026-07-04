@@ -150,31 +150,59 @@ def test_run_work_archive_executes_move(tmp_path: Path) -> None:
     assert not working_dir.exists()
 
 
-def test_run_work_archive_updates_index_when_present(tmp_path: Path) -> None:
-    """Archiving a terminal item refreshes the sub-indexes (work/index.md +
-    per-category indexes), mirroring the filing path's index side-effect —
-    otherwise the sub-indexes keep listing the archived item as active."""
+def test_run_work_archive_regenerates_indexes_and_backlinks(tmp_path: Path) -> None:
+    """Archive moves an *existing linked* file, so — unlike filing, which merely
+    lacks a graph-owned index.md entry until the next scan — it must refresh
+    the full scan Step-12 bundle: sub-indexes, work/index.md, and entity
+    backlinks. Real (unmocked) run: no `.graph-wiki/code.db` exists, so
+    generate_index's graph-driven master-index regen is skipped, but
+    update_index and regenerate_referenced_in_wiki still run for real."""
     import asyncio
-    from unittest.mock import patch
 
     from graph_wiki_core.commands.work import run_work_archive
+    from wiki_io.backlink_index import regenerate_referenced_in_wiki
+    from wiki_io.update_index import update_index
 
     workspace, wiki = _make_workspace(tmp_path)
     work_dir = wiki / "work"
     (wiki / "index.md").write_text("", encoding="utf-8")
-    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
 
-    with patch("graph_wiki_core.commands.work.update_index") as mock_ui:
-        result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+    entities_dir = wiki / "entities"
+    entities_dir.mkdir()
+    (entities_dir / "pkg_demo.md").write_text(
+        "---\ntitle: demo\ncategory: entity\n---\n\n## Referenced in wiki\n\n_placeholder_\n",
+        encoding="utf-8",
+    )
+
+    # A second, still-open item stays behind so work/index.md has a nonempty
+    # entry list after archiving — update_index's writer skips the file
+    # entirely when the work-item list would be empty, a separate pre-existing
+    # quirk unrelated to this fix's scope.
+    _write_item(work_dir, "open-item", status="open", updated_days_ago=0)
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+    slug = next(f.stem for f in work_dir.glob("*.md") if "resolved-item" in f.stem)
+    item_path = work_dir / f"{slug}.md"
+    item_path.write_text(item_path.read_text(encoding="utf-8") + "\nSee [[entities/pkg_demo]].\n", encoding="utf-8")
+
+    # Seed the pre-archive backlink + sub-index state a prior scan would have produced.
+    regenerate_referenced_in_wiki(wiki)
+    update_index(wiki)
+    assert f"[[work/{slug}]]" in (entities_dir / "pkg_demo.md").read_text(encoding="utf-8")
+    assert slug in (work_dir / "index.md").read_text(encoding="utf-8")
+
+    result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
 
     assert len(result.moved) == 1
-    mock_ui.assert_called_once_with(wiki)
+    entity_body = (entities_dir / "pkg_demo.md").read_text(encoding="utf-8")
+    assert f"[[work/{slug}]]" not in entity_body
+    assert "No wiki pages reference this entity yet" in entity_body
+    assert slug not in (work_dir / "index.md").read_text(encoding="utf-8")
 
 
-def test_run_work_archive_skips_index_update_when_not_bootstrapped(tmp_path: Path) -> None:
-    """No index.md means the wiki predates bootstrap — archive should still
-    succeed without calling update_index (mirrors run_work_file's best-effort
-    behavior)."""
+def test_run_work_archive_calls_regen_bundle_regardless_of_index_md(tmp_path: Path) -> None:
+    """update_index/regenerate_referenced_in_wiki are graph-independent and
+    always attempted (best-effort internally) — no index.md existence gate,
+    unlike run_work_file's narrower filing side-effect."""
     import asyncio
     from unittest.mock import patch
 
@@ -184,15 +212,15 @@ def test_run_work_archive_skips_index_update_when_not_bootstrapped(tmp_path: Pat
     work_dir = wiki / "work"
     _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
 
-    with patch("graph_wiki_core.commands.work.update_index") as mock_ui:
+    with patch("graph_wiki_core.commands.work.regen_indexes_and_backlinks") as mock_regen:
         result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
 
     assert len(result.moved) == 1
-    mock_ui.assert_not_called()
+    mock_regen.assert_called_once_with(wiki)
 
 
-def test_run_work_archive_dry_run_does_not_update_index(tmp_path: Path) -> None:
-    """dry_run must not touch the index — nothing actually moved yet."""
+def test_run_work_archive_dry_run_does_not_regen_indexes(tmp_path: Path) -> None:
+    """dry_run must not touch the index/backlinks — nothing actually moved yet."""
     import asyncio
     from unittest.mock import patch
 
@@ -203,11 +231,72 @@ def test_run_work_archive_dry_run_does_not_update_index(tmp_path: Path) -> None:
     (wiki / "index.md").write_text("", encoding="utf-8")
     _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
 
-    with patch("graph_wiki_core.commands.work.update_index") as mock_ui:
+    with patch("graph_wiki_core.commands.work.regen_indexes_and_backlinks") as mock_regen:
         result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=True))
 
     assert result.dry_run is True
-    mock_ui.assert_not_called()
+    mock_regen.assert_not_called()
+
+
+def test_run_work_archive_appends_log_entry_when_present(tmp_path: Path) -> None:
+    """Archive mirrors the filing path's lifecycle log entry — otherwise the
+    lint log-gap rule flags archival as unlogged activity."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+    slug = next(f.stem for f in work_dir.glob("*.md"))
+
+    asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+
+    log_body = (wiki / "log.md").read_text(encoding="utf-8")
+    assert slug in log_body
+    assert f"work/_archive/{slug}" in log_body
+
+
+def test_run_work_archive_skips_log_entry_when_absent(tmp_path: Path) -> None:
+    """No log.md means the wiki predates bootstrap — archive should still
+    succeed without writing one (mirrors run_work_file's best-effort behavior)."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)  # no log.md
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+
+    assert len(result.moved) == 1
+    assert not (wiki / "log.md").exists()
+
+
+def test_run_work_archive_idempotent_second_run_is_noop(tmp_path: Path) -> None:
+    """Archiving with nothing left to move (already archived) is a no-op —
+    the regen bundle only runs when real moves happened."""
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    (wiki / "index.md").write_text("", encoding="utf-8")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    first = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+    assert len(first.moved) == 1
+
+    with patch("graph_wiki_core.commands.work.regen_indexes_and_backlinks") as mock_regen:
+        second = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+
+    assert second.moved == []
+    mock_regen.assert_not_called()
 
 
 def test_run_work_archive_executes_move_without_working_dir(tmp_path: Path) -> None:
