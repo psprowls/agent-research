@@ -18,6 +18,7 @@ from pathlib import Path
 from workspace_io import manifest
 from workspace_io import paths as _paths
 from workspace_io.config import resolve_workspace
+from workspace_io.projection import write_projection
 from workspace_io.render import render_workspace_claude_md
 
 _GITIGNORE_ENTRY = ".graph-wiki.local.yaml"
@@ -73,6 +74,8 @@ def init(
 
     if changed or not mpath.exists():
         manifest.write(mpath, data)
+
+    write_projection(workspace)  # regenerate <workspace>/.graph-wiki/config.json (unconditional, idempotent)
 
     render_workspace_claude_md(workspace)  # render <workspace>/CLAUDE.md
 

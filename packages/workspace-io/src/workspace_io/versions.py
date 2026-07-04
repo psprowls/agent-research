@@ -36,6 +36,10 @@ def warn_if_stale(workspace: Path, *, plugin: str, version: str) -> bool:
         return False
     entry["installed_version"] = version
     manifest.write(mpath, data)
+
+    from workspace_io.projection import write_projection
+
+    write_projection(workspace)
     return True
 
 
