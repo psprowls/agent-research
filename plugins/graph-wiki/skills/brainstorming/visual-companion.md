@@ -45,8 +45,8 @@ scripts/start-server.sh
 Save `screen_dir` and `state_dir` from the response. Tell user to open the URL.
 
 **Where sessions are saved (default, no `--project-dir`):** the script resolves a
-fallback chain — (1) a graph-wiki workspace (`GRAPH_WIKI_WORKSPACE` env var, or a
-`.graph-wiki.local.yaml` found by walking up) → `<workspace>/.graph-wiki/brainstorming/`; (2) else
+fallback chain — (1) a graph-wiki workspace (`GRAPH_WIKI_WORKSPACE` env var, or an existing
+`graph-wiki/` directory at the enclosing git repo root) → `<workspace>/.graph-wiki/brainstorming/`; (2) else
 the enclosing git repo → `<repo>/.brainstorming/`; (3) else `/tmp` (ephemeral,
 cleaned up on stop). The workspace and `.brainstorming/` locations both persist across
 server restarts.
