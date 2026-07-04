@@ -81,6 +81,36 @@ async def test_disable_removes_what_enable_added(repo, scripts_dir):
     assert "EnterPlanMode" not in s.get("permissions", {}).get("deny", [])
 
 
+async def test_disable_trims_mixed_entry_and_reports(repo, scripts_dir):
+    """An entry mixing the target script with an unrelated hook must be trimmed, not skipped."""
+    target = repo / ".claude" / "settings.local.json"
+    target.write_text(
+        json.dumps(
+            {
+                "hooks": {
+                    "PostToolUse": [
+                        {
+                            "matcher": "TaskUpdate",
+                            "hooks": [
+                                {"type": "command", "command": f"bash {scripts_dir}/post-task-complete-revalidate.sh"},
+                                {"type": "command", "command": "bash other-unrelated.sh"},
+                            ],
+                        }
+                    ]
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    result = await run_config_hooks("disable", "gates", repo_root=repo, scripts_dir=scripts_dir)
+    s = _settings(repo)
+    post = s["hooks"]["PostToolUse"]
+    assert not any("post-task-complete-revalidate.sh" in h["command"] for e in post for h in e["hooks"])
+    assert any("other-unrelated.sh" in h["command"] for e in post for h in e["hooks"])
+    assert result.changed
+    assert "post-task-complete-revalidate.sh" in result.removed
+
+
 def test_hook_wiring_tables_reference_real_scripts():
     repo_root = Path(__file__).resolve().parents[4]
     examples = repo_root / "plugins" / "graph-wiki" / "hooks" / "examples"

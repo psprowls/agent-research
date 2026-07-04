@@ -233,12 +233,13 @@ async def run_config_hooks(
         else:
             kept = []
             for e in arr:
-                e_hooks = [h for h in e.get("hooks", []) if wiring.script not in h.get("command", "")]
-                if e_hooks:
-                    kept.append({**e, "hooks": e_hooks})
-                elif e.get("hooks"):
+                original = e.get("hooks", [])
+                e_hooks = [h for h in original if wiring.script not in h.get("command", "")]
+                if len(e_hooks) < len(original):
                     result.removed.append(wiring.script)
                     result.changed = True
+                    if e_hooks:  # entry mixed target + unrelated hooks: keep the trimmed entry
+                        kept.append({**e, "hooks": e_hooks})
                 else:
                     kept.append(e)
             hooks_block[wiring.array] = kept
