@@ -7,8 +7,8 @@ constructors -- this module owns the *role* concept; model_adapter owns the
 *client*.
 
 Resolution order for make_llm(role):
-  1. Workspace manifest (<workspace>/.graph-wiki.yaml plugins[].roles[] for
-     plugin "graph-wiki-agent") if a role entry with name == role is present.
+  1. Workspace manifest (<workspace>/.graph-wiki.yaml top-level roles.<role>)
+     if present.
   2. Packaged graph_wiki_core/models.toml [roles.<role>].
 """
 
@@ -31,8 +31,9 @@ def _load_models_config() -> dict:
 def _workspace_role_override(role: str) -> dict | None:
     """Return the workspace-defined role dict for `role`, or None.
 
-    Returns None on any failure (no workspace, plugin absent, role absent,
-    ImportError in restricted test contexts).
+    Reads the manifest's flattened top-level `roles:` mapping. Returns None on
+    any failure (no workspace, role absent, ImportError in restricted test
+    contexts).
     """
     try:
         from workspace_io import read_roles, resolve
@@ -43,10 +44,7 @@ def _workspace_role_override(role: str) -> dict | None:
     except RuntimeError:
         return None
     manifest_path = cfg.workspace / ".graph-wiki.yaml"
-    for entry in read_roles("graph-wiki-agent", manifest_path):
-        if entry.get("name") == role:
-            return entry
-    return None
+    return read_roles(manifest_path).get(role)
 
 
 def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
