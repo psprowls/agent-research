@@ -15,7 +15,7 @@ import difflib
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import Mapping, Sequence
 
 import yaml
 
@@ -69,6 +69,13 @@ class ConfigEntry:
     allowed: tuple[str, ...] = ()
     secret: bool = False
 
+    def __post_init__(self) -> None:
+        # `allowed` is only checked for str entries (see coerce); reject it on
+        # other types at construction so catalog authors don't silently ship
+        # enum constraints that are never enforced.
+        if self.allowed and self.type != "str":
+            raise ValueError(f"ConfigEntry {self.key!r}: 'allowed' is only supported for type='str', not {self.type!r}")
+
 
 @dataclass(frozen=True)
 class Resolved:
@@ -83,18 +90,17 @@ def _matches(pattern: str, key: str) -> bool:
     return len(p) == len(k) and all(ps in ("*", ks) for ps, ks in zip(p, k))
 
 
-def find_entry(catalog: Iterable[ConfigEntry], key: str) -> ConfigEntry | None:
-    entries = tuple(catalog)
-    for entry in entries:
+def find_entry(catalog: Sequence[ConfigEntry], key: str) -> ConfigEntry | None:
+    for entry in catalog:
         if entry.key == key:
             return entry
-    for entry in entries:
+    for entry in catalog:
         if "*" in entry.key and _matches(entry.key, key):
             return entry
     return None
 
 
-def _unknown(catalog: Iterable[ConfigEntry], key: str) -> UnknownKeyError:
+def _unknown(catalog: Sequence[ConfigEntry], key: str) -> UnknownKeyError:
     near = difflib.get_close_matches(key, [e.key for e in catalog], n=3, cutoff=0.4)
     hint = f" — did you mean: {', '.join(near)}?" if near else ""
     return UnknownKeyError(f"unknown config key '{key}'{hint}")
@@ -172,7 +178,7 @@ def _unset_path(data: dict, key: str) -> bool:
 
 
 def resolve_key(
-    catalog: Iterable[ConfigEntry],
+    catalog: Sequence[ConfigEntry],
     key: str,
     *,
     workspace: Path,
@@ -183,7 +189,15 @@ def resolve_key(
     if entry is None:
         raise _unknown(catalog, key)
     if entry.env_var and str(environ.get(entry.env_var, "")).strip():
-        return Resolved(key, environ[entry.env_var], "env", entry)
+        raw_env = environ[entry.env_var]
+        # Coerce so Resolved.value is typed like manifest/default values.
+        # Reads stay fail-open: a malformed env value resolves to the raw
+        # string rather than raising (the consumer surfaces the problem).
+        try:
+            value = coerce(entry, raw_env)
+        except RegistryError:
+            value = raw_env
+        return Resolved(key, value, "env", entry)
     if entry.kind == "manifest":
         explicit = _get_path(_raw_manifest(workspace), key)
         if explicit is not None:
@@ -191,7 +205,7 @@ def resolve_key(
     return Resolved(key, entry.default, "default", entry)
 
 
-def _writable_entry(catalog: Iterable[ConfigEntry], key: str) -> ConfigEntry:
+def _writable_entry(catalog: Sequence[ConfigEntry], key: str) -> ConfigEntry:
     if key in LINK_FILE_KEYS:
         raise LinkFileKeyError(
             f"'{key}' lives in <workspace>/.graph-wiki.local.yaml — the machine-local "
@@ -212,18 +226,45 @@ def _writable_entry(catalog: Iterable[ConfigEntry], key: str) -> ConfigEntry:
     return entry
 
 
-def set_key(catalog: Iterable[ConfigEntry], key: str, raw_value: str, *, workspace: Path) -> Resolved:
+def _restore_manifest(mpath: Path, prev_bytes: bytes | None) -> None:
+    if prev_bytes is None:
+        mpath.unlink(missing_ok=True)
+    else:
+        mpath.write_bytes(prev_bytes)
+
+
+def set_key(catalog: Sequence[ConfigEntry], key: str, raw_value: str, *, workspace: Path) -> Resolved:
     entry = _writable_entry(catalog, key)
     value = coerce(entry, raw_value)
     mpath = paths.manifest_path(workspace)
     data = manifest.read(mpath)
     _set_path(data, key, value)
+    prev_bytes = mpath.read_bytes() if mpath.exists() else None
     manifest.write(mpath, data)
+    # Validate: the written manifest must still be read()-able. A coerced value
+    # can violate read()'s invariants (e.g. an empty branches list) and brick
+    # the workspace — restore the previous on-disk state instead.
+    try:
+        manifest.read(mpath)
+    except RuntimeError as exc:
+        _restore_manifest(mpath, prev_bytes)
+        raise InvalidValueError(f"'{key}': value {value!r} produces an invalid manifest: {exc}") from exc
+    # Verify persistence: manifest.write() serializes a fixed allowlist of
+    # blocks, so a catalog key outside it would vanish silently. A key absent
+    # because the value equals the entry default is fine (write()'s
+    # omit-when-default guards; equivalent to unset).
+    persisted = _get_path(_raw_manifest(workspace), key)
+    if persisted != value and not (persisted is None and value == entry.default):
+        _restore_manifest(mpath, prev_bytes)
+        raise RegistryError(
+            f"'{key}' maps to no serialized manifest block — manifest.write() dropped it. "
+            "The catalog entry and workspace_io.manifest.write() are out of sync."
+        )
     write_projection(workspace)
     return Resolved(key, value, "manifest", entry)
 
 
-def unset_key(catalog: Iterable[ConfigEntry], key: str, *, workspace: Path) -> bool:
+def unset_key(catalog: Sequence[ConfigEntry], key: str, *, workspace: Path) -> bool:
     _writable_entry(catalog, key)
     mpath = paths.manifest_path(workspace)
     data = manifest.read(mpath)
