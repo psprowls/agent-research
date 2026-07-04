@@ -1,24 +1,31 @@
 """Workspace resolution: cwd -> GraphWikiConfig.
 
 Discovery walks up from cwd looking for `.git`. Once the repo root is
-found, `.graph-wiki.local.yaml` is consulted for the `workspace-directory`
-key. Falls back to `<repo>/graph-wiki` when the key is absent.
+found, the workspace defaults to `<repo>/graph-wiki` — there is no
+repo-side pointer file consulted anymore. `GRAPH_WIKI_WORKSPACE` is the
+only external-workspace pointer: it is normally injected via the repo's
+`.claude/settings.local.json` env block (written by `gw config`), and it
+overrides discovery outright, pinning a workspace directory directly. In
+a bare terminal (no settings.local.json in play — a raw shell, CI, etc.)
+the equivalent options are passing `--workspace` explicitly, exporting
+`GRAPH_WIKI_WORKSPACE` in the shell, or using direnv to set it per-directory.
 
-Environment variable `GRAPH_WIKI_WORKSPACE` overrides discovery and pins
-a workspace directory directly (used by tests and tools that need explicit
-workspace injection).
+A legacy repo-side `.graph-wiki.local.yaml` carrying a `workspace-directory:`
+key is inert (ignored entirely) but `resolve()` emits a `UserWarning`
+pointing at the fix when it finds one, so stale pointers don't fail silently.
 
-The workspace manifest (`.graph-wiki.yaml`, layered with
-`.graph-wiki.local.yaml` on top) may also declare a `repo-directory:` key
-to pin the repo root explicitly — useful when the workspace itself lives
-in its own git repo (e.g. a separate wiki repo describing a source repo
-elsewhere on disk), where `.git`-discovery would otherwise bind to the
-wiki's own repo.
+The workspace manifest (`.graph-wiki.yaml`, layered with the workspace-side
+`.graph-wiki.local.yaml` on top — a different file, living inside the
+workspace, not the repo) may also declare a `repo-directory:` key to pin the
+repo root explicitly — useful when the workspace itself lives in its own git
+repo (e.g. a separate wiki repo describing a source repo elsewhere on disk),
+where `.git`-discovery would otherwise bind to the wiki's own repo.
 """
 
 from __future__ import annotations
 
 import os
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -144,14 +151,32 @@ def _multi_repo_members(workspace: Path) -> tuple[Path, ...]:
 
 
 def resolve_workspace(repo_root: Path) -> Path:
-    local = _local_config.read(repo_root / LOCAL_CONFIG_FILENAME)
-    raw = local.get(WORKSPACE_DIRECTORY_KEY, "").strip()
-    if not raw:
-        return (repo_root / DEFAULT_WORKSPACE_NAME).resolve()
-    expanded = Path(raw).expanduser()
-    if expanded.is_absolute():
-        return expanded.resolve()
-    return (repo_root / expanded).resolve()
+    """Default workspace location for a repo.
+
+    The repo-side `.graph-wiki.local.yaml` pointer is dead — `GRAPH_WIKI_WORKSPACE`
+    (normally injected via the repo's `.claude/settings.local.json` env block) is
+    the only external-workspace pointer.
+    """
+    return (repo_root / DEFAULT_WORKSPACE_NAME).resolve()
+
+
+def _warn_if_legacy_repo_pointer(repo_root: Path) -> None:
+    """Warn when a repo-side `.graph-wiki.local.yaml` still carries `workspace-directory:`.
+
+    The key is ignored (dead) — this only surfaces the stale file so it doesn't
+    fail silently.
+    """
+    legacy = repo_root / LOCAL_CONFIG_FILENAME
+    if not legacy.exists():
+        return
+    if WORKSPACE_DIRECTORY_KEY in _local_config.read(legacy):
+        warnings.warn(
+            f"{legacy}: the repo-side 'workspace-directory:' pointer is ignored. "
+            "Move the pointer to the repo's .claude/settings.local.json env block "
+            '("env": {"GRAPH_WIKI_WORKSPACE": "<workspace>"}) and delete the key.',
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWikiConfig:
@@ -174,11 +199,13 @@ def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWiki
         members = _multi_repo_members(workspace)
         if members:
             repo_root = members[0]
+        _warn_if_legacy_repo_pointer(repo_root)
         return GraphWikiConfig(workspace=workspace, repo_root=repo_root, members=members)
 
     # Normal discovery path
     cwd = Path(cwd) if cwd is not None else Path.cwd()
     repo_root = _find_repo_root(cwd) or cwd.resolve()
+    _warn_if_legacy_repo_pointer(repo_root)
     workspace = resolve_workspace(repo_root)
     # D-03: strict — raise if no .graph-wiki.yaml present in the resolved workspace.
     manifest = workspace / ".graph-wiki.yaml"

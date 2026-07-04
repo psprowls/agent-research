@@ -38,36 +38,36 @@ def test_local_yaml_present_but_key_missing_falls_back(tmp_path, monkeypatch):
     assert cfg.workspace == (repo / "graph-wiki").resolve()
 
 
-def test_local_yaml_with_absolute_path(tmp_path, monkeypatch):
+def test_repo_side_pointer_ignored_with_warning(tmp_path, monkeypatch):
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path / "repo")
     elsewhere = tmp_path / "elsewhere"
     elsewhere.mkdir()
-    _seed_manifest(elsewhere)
+    _seed_manifest(repo / "graph-wiki")
     (repo / ".graph-wiki.local.yaml").write_text(f"workspace-directory: {elsewhere}\n")
-    cfg = resolve(repo)
-    assert cfg.workspace == elsewhere.resolve()
+    with pytest.warns(UserWarning, match="settings.local.json"):
+        cfg = resolve(repo)
+    assert cfg.workspace == (repo / "graph-wiki").resolve()  # pointer is dead
 
 
-def test_local_yaml_with_relative_path(tmp_path, monkeypatch):
+def test_repo_side_file_without_pointer_no_warning(tmp_path, monkeypatch, recwarn):
     monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
     repo = _make_repo(tmp_path)
-    _seed_manifest(repo.parent / "sidecar")
-    (repo / ".graph-wiki.local.yaml").write_text("workspace-directory: ../sidecar\n")
-    cfg = resolve(repo)
-    assert cfg.workspace == (repo.parent / "sidecar").resolve()
+    (repo / ".graph-wiki.local.yaml").write_text("future-key: value\n")
+    _seed_manifest(repo / "graph-wiki")
+    resolve(repo)
+    assert not [w for w in recwarn if issubclass(w.category, UserWarning)]
 
 
-def test_local_yaml_with_tilde_expansion(tmp_path, monkeypatch):
-    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
-    fake_home = tmp_path / "home"
-    fake_home.mkdir()
-    monkeypatch.setenv("HOME", str(fake_home))
+def test_env_path_warns_on_repo_side_pointer(tmp_path, monkeypatch):
     repo = _make_repo(tmp_path / "repo")
-    _seed_manifest(fake_home / "graph-wiki" / "myproject")
-    (repo / ".graph-wiki.local.yaml").write_text("workspace-directory: ~/graph-wiki/myproject\n")
-    cfg = resolve(repo)
-    assert cfg.workspace == (fake_home / "graph-wiki" / "myproject").resolve()
+    ws = repo / "graph-wiki"
+    _seed_manifest(ws)
+    (repo / ".graph-wiki.local.yaml").write_text("workspace-directory: /dead\n")
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(ws))
+    with pytest.warns(UserWarning, match="ignored"):
+        cfg = resolve()
+    assert cfg.workspace == ws.resolve()
 
 
 def test_walks_up_to_find_git(tmp_path, monkeypatch):
