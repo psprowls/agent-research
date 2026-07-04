@@ -479,6 +479,30 @@ def test_mechanical_scan_resolves_overview_shorthand(tmp_path):
     assert all("entities/alpha" != t for _s, t in r["broken_links"])
 
 
+def test_mechanical_scan_returns_index_pages(tmp_path):
+    """mechanical_scan gains an index_pages dict keyed like pages, holding every
+    index.md's text/fm — but index.md entries stay absent from pages itself
+    (unchanged orphan/stale/frontmatter behavior)."""
+    from wiki_io.lint_wiki import mechanical_scan
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "index.md").write_text(
+        "---\ntitle: Index\ncategory: meta\nsummary: root index\n---\n\nWelcome.\n",
+        encoding="utf-8",
+    )
+
+    r = mechanical_scan(wiki, stale_days=90, log_gap_days=14)
+
+    assert "index_pages" in r
+    assert "index" in r["index_pages"]
+    assert r["index_pages"]["index"]["path"] == "index.md"
+    assert r["index_pages"]["index"]["text"].startswith("---\ntitle: Index")
+    assert r["index_pages"]["index"]["fm"]["title"] == "Index"
+    # index.md must still be absent from pages (orphan/stale/frontmatter checks unchanged).
+    assert "index" not in r["pages"]
+
+
 def test_proposals_invalid_schema_flagged(tmp_path):
     """proposals/ pages missing required proposal fields are flagged."""
     from wiki_io.lint_wiki import scan

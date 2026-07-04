@@ -360,7 +360,7 @@ async def run_lint(
     # Obsidian render-correctness lint (owned by wiki-io)
     obsidian_render_findings = [
         {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
-        for f in check_obsidian_render(pages)
+        for f in check_obsidian_render({**pages, **mech["index_pages"]})
     ]
     for f in obsidian_render_findings:
         if f["severity"] == "error":

@@ -574,6 +574,32 @@ async def test_run_lint_surfaces_guidance_findings(tmp_path) -> None:
     assert any("model-adapter/bad" in e for e in result.errors)
 
 
+@pytest.mark.asyncio
+async def test_run_lint_obsidian_render_sees_index_md(tmp_path) -> None:
+    """index.md content reaches check_obsidian_render — a bare <slug>-style
+    placeholder in wiki/index.md must surface as an obsidian_render_findings
+    entry with slug == "index", not be silently skipped."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir(parents=True)
+    (wiki / "index.md").write_text(
+        "---\ntitle: Index\ncategory: meta\nsummary: root index\n---\n\nSee wiki/work/<slug>/ working directory.\n",
+        encoding="utf-8",
+    )
+
+    with patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool:
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        result = await run_lint(workspace_path=tmp_path)
+
+    matches = [f for f in result.obsidian_render_findings if f["slug"] == "index"]
+    assert matches, f"expected an index-slug finding, got {result.obsidian_render_findings}"
+    assert matches[0]["rule_id"] == "obsidian-render-angle-bracket"
+
+
 def test_mechanical_scan_flags_stale_raw_source_path(tmp_path: Path) -> None:
     from wiki_io.lint_wiki import mechanical_scan
 
