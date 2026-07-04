@@ -38,6 +38,27 @@ def test_projection_embeds_manifest_hash(tmp_path):
     assert payload["_meta"]["manifest_mtime"] is not None
 
 
+def test_missing_manifest_meta_fields_both_none(tmp_path):
+    # No .graph-wiki.yaml at all: both _meta fields must agree (None), so the
+    # session-start staleness check never compares against an empty-bytes hash.
+    write_projection(tmp_path)
+    payload = json.loads(projection_path(tmp_path).read_text(encoding="utf-8"))
+    assert payload["_meta"]["manifest_sha256"] is None
+    assert payload["_meta"]["manifest_mtime"] is None
+    assert set(payload.keys()) == {"_meta"}
+
+
+def test_empty_manifest_file_projects_only_meta(tmp_path):
+    # A zero-byte manifest must not crash; the projection carries only _meta,
+    # with real (non-None) provenance since the file exists.
+    (tmp_path / ".graph-wiki.yaml").write_bytes(b"")
+    write_projection(tmp_path)
+    payload = json.loads(projection_path(tmp_path).read_text(encoding="utf-8"))
+    assert set(payload.keys()) == {"_meta"}
+    assert payload["_meta"]["manifest_sha256"] == hashlib.sha256(b"").hexdigest()
+    assert payload["_meta"]["manifest_mtime"] is not None
+
+
 def test_init_regenerates_projection(tmp_path):
     from workspace_io.init import init
 
