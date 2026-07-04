@@ -203,7 +203,8 @@ def test_make_llm_librarian_sets_max_tokens():
 
 
 def _write_synthetic_workspace(tmp_path, roles):
-    """Build a minimal workspace dir with `.graph-wiki.yaml` carrying the given roles."""
+    """Build a minimal workspace dir with `.graph-wiki.yaml` carrying the given
+    flattened top-level `roles:` mapping ({role_name: {field: value}})."""
     from workspace_io.manifest import write as manifest_write
 
     workspace = tmp_path / "ws"
@@ -218,43 +219,26 @@ def _write_synthetic_workspace(tmp_path, roles):
                     "name": "graph-wiki-agent",
                     "installed_version": "0.7.0",
                     "applied_version": "0.7.0",
-                    "roles": roles,
                 }
             ],
+            "roles": roles,
         },
     )
     return workspace
 
 
 def _write_vercel_workspace(tmp_path, role_name, model_id):
-    from workspace_io.manifest import write as manifest_write
-
-    workspace = tmp_path / "ws"
-    workspace.mkdir(parents=True, exist_ok=True)
-    manifest_write(
-        workspace / ".graph-wiki.yaml",
+    return _write_synthetic_workspace(
+        tmp_path,
         {
-            "version": 2,
-            "initialized_at": "2026-06-24",
-            "plugins": [
-                {
-                    "name": "graph-wiki-agent",
-                    "installed_version": "0.7.0",
-                    "applied_version": "0.7.0",
-                    "roles": [
-                        {
-                            "name": role_name,
-                            "backend": "vercel",
-                            "model_id": model_id,
-                            "max_tokens": 2048,
-                            "max_concurrency": 5,
-                        }
-                    ],
-                }
-            ],
+            role_name: {
+                "backend": "vercel",
+                "model_id": model_id,
+                "max_tokens": 2048,
+                "max_concurrency": 5,
+            }
         },
     )
-    return workspace
 
 
 def test_make_llm_uses_workspace_role_when_present(tmp_path, monkeypatch, real_workspace_role_override):
@@ -264,15 +248,14 @@ def test_make_llm_uses_workspace_role_when_present(tmp_path, monkeypatch, real_w
 
     workspace = _write_synthetic_workspace(
         tmp_path,
-        [
-            {
-                "name": "librarian",
+        {
+            "librarian": {
                 "model_id": WORKSPACE_OVERRIDE_ARN,
                 "region": "us-east-1",
                 "max_tokens": 1024,
                 "max_concurrency": 2,
             },
-        ],
+        },
     )
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
 
@@ -291,15 +274,14 @@ def test_make_llm_falls_back_to_packaged_when_role_absent_in_workspace(
 
     workspace = _write_synthetic_workspace(
         tmp_path,
-        [
-            {
-                "name": "librarian",
+        {
+            "librarian": {
                 "model_id": WORKSPACE_OVERRIDE_ARN,
                 "region": "us-east-1",
                 "max_tokens": 1024,
                 "max_concurrency": 2,
             },
-        ],
+        },
     )
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
 
