@@ -538,6 +538,13 @@ async def run_work_archive(
             repoint.rewrote.extend(_repoint_in_dir_doc(action, wiki.parent))
         _clear_active_work_pointer_if_archived(wiki.parent, {a.slug for a in plan.actions})
         await run_work_regen_index(workspace_path=workspace_path)
+        # Mirror the filing path's index side-effect (_apply_work_item_side_effects):
+        # refresh the sub-indexes so archived items drop out of work/index.md.
+        # Inbound wikilinks from other pages are intentionally left pointing at the
+        # pre-archive path as a supersession-history breadcrumb; only pointers on
+        # the archived item's own page (spec_doc/plan_doc) are repointed, above.
+        if (wiki / "index.md").exists():
+            update_index(wiki)
 
     return WorkArchiveResult(dry_run=dry_run, moved=moved, skipped=plan.skipped, repointed=repoint.rewrote)
 

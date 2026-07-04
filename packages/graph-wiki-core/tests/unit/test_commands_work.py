@@ -150,6 +150,66 @@ def test_run_work_archive_executes_move(tmp_path: Path) -> None:
     assert not working_dir.exists()
 
 
+def test_run_work_archive_updates_index_when_present(tmp_path: Path) -> None:
+    """Archiving a terminal item refreshes the sub-indexes (work/index.md +
+    per-category indexes), mirroring the filing path's index side-effect —
+    otherwise the sub-indexes keep listing the archived item as active."""
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    (wiki / "index.md").write_text("", encoding="utf-8")
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    with patch("graph_wiki_core.commands.work.update_index") as mock_ui:
+        result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+
+    assert len(result.moved) == 1
+    mock_ui.assert_called_once_with(wiki)
+
+
+def test_run_work_archive_skips_index_update_when_not_bootstrapped(tmp_path: Path) -> None:
+    """No index.md means the wiki predates bootstrap — archive should still
+    succeed without calling update_index (mirrors run_work_file's best-effort
+    behavior)."""
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)  # no index.md
+    work_dir = wiki / "work"
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    with patch("graph_wiki_core.commands.work.update_index") as mock_ui:
+        result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=False))
+
+    assert len(result.moved) == 1
+    mock_ui.assert_not_called()
+
+
+def test_run_work_archive_dry_run_does_not_update_index(tmp_path: Path) -> None:
+    """dry_run must not touch the index — nothing actually moved yet."""
+    import asyncio
+    from unittest.mock import patch
+
+    from graph_wiki_core.commands.work import run_work_archive
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    (wiki / "index.md").write_text("", encoding="utf-8")
+    _write_item(work_dir, "resolved-item", status="resolved", updated_days_ago=0, resolved_in="pr#1")
+
+    with patch("graph_wiki_core.commands.work.update_index") as mock_ui:
+        result = asyncio.run(run_work_archive(workspace_path=workspace, dry_run=True))
+
+    assert result.dry_run is True
+    mock_ui.assert_not_called()
+
+
 def test_run_work_archive_executes_move_without_working_dir(tmp_path: Path) -> None:
     import asyncio
 
