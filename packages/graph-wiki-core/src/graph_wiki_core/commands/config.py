@@ -53,7 +53,7 @@ def _to_config_value(workspace: Path, resolved: Resolved) -> ConfigValue:
         key=resolved.key,
         value=value,
         origin=resolved.origin,
-        default=entry.default,
+        default=_MASK if (entry.secret and entry.default not in (None, "")) else entry.default,
         description=entry.description,
         kind=entry.kind,
         env_var=entry.env_var,
