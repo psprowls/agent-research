@@ -111,6 +111,28 @@ async def test_disable_trims_mixed_entry_and_reports(repo, scripts_dir):
     assert "post-task-complete-revalidate.sh" in result.removed
 
 
+async def test_enable_missing_script_raises(repo, scripts_dir):
+    (scripts_dir / "session-end-transcript-capture.sh").unlink()
+    with pytest.raises(RuntimeError, match="hook script missing"):
+        await run_config_hooks("enable", "transcript", repo_root=repo, scripts_dir=scripts_dir)
+
+
+async def test_disable_when_not_present_is_noop(repo, scripts_dir):
+    result = await run_config_hooks("disable", "gates", repo_root=repo, scripts_dir=scripts_dir)
+    assert not result.changed
+    assert result.added == result.removed == result.skipped == []
+    assert not (repo / ".claude" / "settings.local.json").exists()
+
+
+async def test_disable_preserves_user_owned_deny(repo, scripts_dir):
+    """A deny with no gates hooks present is user-owned — disable gates must not strip it."""
+    target = repo / ".claude" / "settings.local.json"
+    target.write_text(json.dumps({"permissions": {"deny": ["EnterPlanMode"]}}), encoding="utf-8")
+    result = await run_config_hooks("disable", "gates", repo_root=repo, scripts_dir=scripts_dir)
+    assert not result.changed
+    assert "EnterPlanMode" in _settings(repo)["permissions"]["deny"]
+
+
 def test_hook_wiring_tables_reference_real_scripts():
     repo_root = Path(__file__).resolve().parents[4]
     examples = repo_root / "plugins" / "graph-wiki" / "hooks" / "examples"
@@ -124,3 +146,16 @@ async def test_write_env_block_merges(repo, tmp_path):
     s = _settings(repo)
     assert s["env"]["GRAPH_WIKI_WORKSPACE"] == str(ws.resolve())
     assert out == repo / ".claude" / "settings.local.json"
+
+
+async def test_write_env_block_preserves_env_and_overwrites_pointer(repo, tmp_path):
+    target = repo / ".claude" / "settings.local.json"
+    target.write_text(
+        json.dumps({"env": {"FOO": "bar", "GRAPH_WIKI_WORKSPACE": "/old/workspace"}}),
+        encoding="utf-8",
+    )
+    ws = tmp_path / "new-ws"
+    write_workspace_env_block(repo, ws)
+    s = _settings(repo)
+    assert s["env"]["FOO"] == "bar"
+    assert s["env"]["GRAPH_WIKI_WORKSPACE"] == str(ws.resolve())

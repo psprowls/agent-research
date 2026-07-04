@@ -126,7 +126,7 @@ async def run_config_sync(workspace_path: Path | None = None) -> Path:
 
 @dataclass(frozen=True)
 class HookWiring:
-    array: str  # settings hooks key: "PostToolUse" | "Stop" | "SessionEnd"
+    event: str  # settings hooks event key: "PostToolUse" | "Stop" | "SessionEnd"
     matcher: str
     script: str  # filename under plugins/graph-wiki/hooks/examples/
 
@@ -144,6 +144,14 @@ class HookWiring:
 
 @dataclass
 class HooksResult:
+    """Outcome of one run_config_hooks call — the CLI's display contract.
+
+    `skipped` is enable-only (scripts already registered). `added`/`removed`
+    may repeat a filename — one entry per matching settings entry, not per
+    unique script. Disabling a feature that was never enabled yields all three
+    lists empty and `changed=False` (and writes nothing).
+    """
+
     settings_path: Path
     changed: bool
     added: list[str] = field(default_factory=list)
@@ -200,8 +208,13 @@ async def run_config_hooks(
 
     Dedup is by script filename inside the `command` string, so enabling twice
     is a no-op and disable removes exactly what enable added. `gates` also
-    manages `permissions.deny: ["EnterPlanMode"]`. Every write is re-read and
-    re-parsed to confirm the entries landed; a parse failure raises.
+    manages `permissions.deny: ["EnterPlanMode"]`: enable adds it, and disable
+    removes it only when this call actually removed a gates hook — a deny
+    entry with no gates hooks present is treated as user-owned and left alone.
+    Residual edge (accepted per "disable removes what enable added"): a user
+    who enables gates and ALSO independently relies on the EnterPlanMode deny
+    will lose that deny on disable. Every write is re-read and re-parsed to
+    confirm the entries landed; a parse failure raises.
     """
     if action not in ("enable", "disable"):
         raise ValueError(f"unknown hooks action {action!r} (valid: enable, disable)")
@@ -213,7 +226,7 @@ async def run_config_hooks(
     hooks_block = data.setdefault("hooks", {})
 
     for wiring in HookWiring.for_feature(feature):
-        arr = hooks_block.setdefault(wiring.array, [])
+        arr = hooks_block.setdefault(wiring.event, [])
         present = any(wiring.script in h.get("command", "") for e in arr for h in e.get("hooks", []))
         if action == "enable":
             if present:
@@ -225,7 +238,7 @@ async def run_config_hooks(
             arr.append(
                 {
                     "matcher": wiring.matcher,
-                    "hooks": [{"type": "command", "command": f"bash {script_path}"}],
+                    "hooks": [{"type": "command", "command": f'bash "{script_path}"'}],
                 }
             )
             result.added.append(wiring.script)
@@ -242,16 +255,18 @@ async def run_config_hooks(
                         kept.append({**e, "hooks": e_hooks})
                 else:
                     kept.append(e)
-            hooks_block[wiring.array] = kept
-            if not hooks_block[wiring.array]:
-                del hooks_block[wiring.array]
+            hooks_block[wiring.event] = kept
+            if not hooks_block[wiring.event]:
+                del hooks_block[wiring.event]
 
     if feature == "gates":
         deny = data.setdefault("permissions", {}).setdefault("deny", [])
         if action == "enable" and "EnterPlanMode" not in deny:
             deny.append("EnterPlanMode")
             result.changed = True
-        if action == "disable" and "EnterPlanMode" in deny:
+        # Only strip the deny when this call actually removed a gates hook;
+        # a deny with no gates hooks present is user-owned — leave it alone.
+        if action == "disable" and result.removed and "EnterPlanMode" in deny:
             deny.remove("EnterPlanMode")
             result.changed = True
         if not data["permissions"]["deny"]:
