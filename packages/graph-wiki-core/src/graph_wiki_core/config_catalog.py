@@ -9,6 +9,8 @@ Env-only defaults here are documentation: behavioral defaults stay where they
 are read (graph_io/update.py, the bash hooks under plugins/graph-wiki/hooks/).
 test_config_catalog.py pins the two copies together (spec §4 accepted
 duplication — graph-io cannot import from core, and the hooks are bash).
+Author obligation: any new env-only entry whose default is read elsewhere must
+get a matching pin in test_config_catalog.py.
 
 Internal sentinels (GRAPH_WIKI_BOOTSTRAP_REEXEC, GRAPH_WIKI_SHIM_REEXEC — uv
 re-exec loop guards set by the tooling itself) are not config knobs and are
@@ -130,7 +132,9 @@ _ENV_ONLY_ENTRIES: tuple[ConfigEntry, ...] = (
         "a shell export.",
     ),
     # Hook kill switches (all default on; set to 0 to disable). Names verified
-    # against plugins/graph-wiki/hooks/ and hooks/examples/ on disk.
+    # against plugins/graph-wiki/hooks/ and hooks/examples/ on disk. Defaults
+    # are the string "1" deliberately: they mirror the bash `${VAR:-1}` literal
+    # a user would export; Python never reads these.
     _env("GRAPH_WIKI_AGENT_RETURN_GUARD", "1", "Kill switch for post-agent-return-validate hook."),
     _env("GRAPH_WIKI_DISPATCH_GUARD", "1", "Kill switch for pre-agent-task-dispatch-validate hook."),
     _env("GRAPH_WIKI_BLOCKEDBY_GUARD", "1", "Kill switch for pre-task-blockedby-enforce hook."),

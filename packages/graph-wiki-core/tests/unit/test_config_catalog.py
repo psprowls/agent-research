@@ -49,10 +49,16 @@ def test_hook_env_defaults_match_catalog():
     # bash defaults live in the shell scripts that read them; the catalog value
     # is documentation and must track them (spec §4 accepted duplication).
     sources = "".join(
-        p.read_text(encoding="utf-8")
+        # errors="ignore" so a future binary file in hooks/ can't break the pin.
+        p.read_text(encoding="utf-8", errors="ignore")
         for p in list(HOOKS_DIR.iterdir()) + list((HOOKS_DIR / "examples").iterdir())
         if p.is_file()
     )
-    assert f":-{entry('GRAPH_WIKI_CONTEXT_LIMIT').default}}}" in sources
-    assert f":-{entry('GRAPH_WIKI_DEFLECTION_THRESHOLD_PCT').default}}}" in sources
-    assert f":-{entry('GRAPH_WIKI_USERGATE_TRACE_LOG').default}}}" in sources
+    for var in (
+        "GRAPH_WIKI_CONTEXT_LIMIT",
+        "GRAPH_WIKI_DEFLECTION_THRESHOLD_PCT",
+        "GRAPH_WIKI_USERGATE_TRACE_LOG",
+        "GRAPH_WIKI_TRANSCRIPT_CAPTURE_TRACE_LOG",
+    ):
+        # Qualified ${VAR:-default} form so ":-50}" can't match some other var.
+        assert f"${{{var}:-{entry(var).default}}}" in sources, var
