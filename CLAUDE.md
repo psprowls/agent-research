@@ -35,7 +35,7 @@ uv run --package graph-wiki-cli pytest -m "not integration"   # skip Bedrock/sub
 ```
 source-parser      tree-sitter → span-bearing SourceTree + graph projection
 workspace-io       resolve workspace/repo paths, manifest + config IO (no business logic)
-model-adapter      make_llm(role) → _GuardedChatBedrockConverse; roles in models.toml
+model-adapter      make_bedrock_llm/make_gateway_llm → _GuardedChatBedrockConverse/_GuardedChatOpenAI; role resolution lives in graph-wiki-core
 subagent-runtime   SubagentPool — asyncio.Semaphore-bounded Bedrock fan-out + trace IO
 graph-io           SQLite code-graph store, scanning, classification, read-only queries
 wiki-io            vault (markdown+frontmatter) read/write primitives
@@ -56,9 +56,9 @@ The **repo** is the source code being documented. The **workspace** is a *separa
 
 ### Model access — never bypass the adapter
 
-- Always get models via `model_adapter.make_llm(role)`. Bedrock is the **default** backend (`_GuardedChatBedrockConverse`, translating `AccessDeniedException` → `BedrockAccessDenied`). A role may opt into the **Vercel AI Gateway** (`backend = "vercel"`) and receive a `_GuardedChatOpenAI` (a `langchain-openai` `ChatOpenAI` subclass, translating gateway 401s → `GatewayAccessDenied`); credentials come from `AI_GATEWAY_API_KEY` / `AI_GATEWAY_BASE_URL` (env only). Constructing `ChatBedrockConverse` or `ChatOpenAI` directly — outside the adapter — loses the guard and is forbidden.
+- Always get models via `model_adapter.make_bedrock_llm(model_id, ...)` or `model_adapter.make_gateway_llm(model_id, ...)` — never construct `ChatBedrockConverse` or `ChatOpenAI` directly, which loses the guard. Bedrock is the **default** backend (`_GuardedChatBedrockConverse`, translating `AccessDeniedException` → `BedrockAccessDenied`). The **Vercel AI Gateway** path returns a `_GuardedChatOpenAI` (a `langchain-openai` `ChatOpenAI` subclass, translating gateway 401s → `GatewayAccessDenied`); credentials come from `AI_GATEWAY_API_KEY` / `AI_GATEWAY_BASE_URL` (env only). Role resolution (mapping a role name like `scanner` to a model id/backend via `models.toml`) lives in `graph-wiki-core`, not in model-adapter.
 - **Never** add `langchain-anthropic` or `ChatBedrock` (legacy) — both route outside the Bedrock Converse path. The langchain pieces in use are `langchain-aws` (Bedrock), `langchain-openai` (gateway, adapter-internal only), and `langchain-core` primitives (`@tool`, message types).
-- Per-role model tiers (orchestrator, librarian, code_reader, scanner, synthesizer, preflight, …) live in `model_adapter/models.toml` with `sweep_candidates` for the eval harness. Per-workspace overrides go in `<workspace>/.graph-wiki.yaml`. Tests pin a workspace via `GRAPH_WIKI_WORKSPACE`.
+- Per-role model tiers (orchestrator, librarian, code_reader, scanner, synthesizer, preflight, …) live in `graph_wiki_core/models.toml` (resolved via `graph_wiki_core/roles.py`) with `sweep_candidates` for the eval harness. Per-workspace overrides go in `<workspace>/.graph-wiki.yaml`. Tests pin a workspace via `GRAPH_WIKI_WORKSPACE`.
 
 ### Subagent fan-out
 
