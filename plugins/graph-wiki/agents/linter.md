@@ -35,6 +35,13 @@ Parse the JSON. Capture:
 - Orphans, broken links, stale, missing frontmatter, duplicate titles, log gap
 - Connected components, hubs, sinks
 - **Code drift**: `missing_in_vault`, `orphaned_in_vault`, `exports_drift`
+- **Work lifecycle**: `work_lifecycle` — `{total_items, findings}`, all 29 lifecycle rules (same set as `gw work lint`)
+- **Obsidian render**: `obsidian_render_findings` — markdown that breaks Obsidian's renderer
+- **Guidance lint**: `guidance_lint_findings` — frontmatter/tag/placement findings for `wiki/guidance/` pages
+- **Scanner heading drift**: `scanner_heading_drift` — entity pages missing a scanner-owned section
+- **Source path drift**: `source_path_drift` — `sources/` pages whose `raw/` file was archived
+
+Any of the last five may fail-soft as `{"error": "<msg>"}` — report the error line, don't skip the section silently.
 
 **New check:** Beyond mono-wiki's mechanical and semantic checks, run `check_package_sync_drift` (in `lint_wiki.py`). Package sync drift is actionable: a package/app page whose source code has changed since its `last_sync_commit` should be re-scanned.
 
@@ -70,6 +77,11 @@ The report MUST be structured as:
 - ⚠️ <N> packages on disk missing vault pages: <names>
 - ⚠️ <N> vault package pages for non-existent packages: <names>
 - ⚠️ <N> contradictions vault↔code
+- ⚠️ Work lifecycle: <N> findings across <M> items (<E> error / <W> warn): <slug>: [<rule_id>] …
+- ⚠️ <N> Obsidian render findings: <page>: [<rule_id>] …
+- ⚠️ <N> guidance lint findings: <slug>: [<rule_id>] …
+- ⚠️ <N> scanner heading drift: <page> missing '<heading>'
+- ⚠️ <N> source path drift: <page> → <raw path> gone
 - <N> orphan vault pages
 - <N> broken links
 - <N> stale pages

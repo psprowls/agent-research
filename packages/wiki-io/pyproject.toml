@@ -8,6 +8,7 @@ dependencies = [
     "workspace-io",
     "graph-io",
     "work-io",
+    "guidance-io",
     "markdown-it-py>=3.0",
 ]
 
@@ -19,6 +20,7 @@ build-backend = "uv_build"
 workspace-io = { workspace = true }
 graph-io = { workspace = true }
 work-io = { workspace = true }
+guidance-io = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

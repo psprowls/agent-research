@@ -3,8 +3,10 @@ lint_wiki.py — Health-check a Code Wiki.
 
 Mechanical checks:
   - orphans, broken wikilinks, stale pages, missing frontmatter
-  - duplicate titles, log gaps
+  - duplicate titles, log gaps, source-path drift
   - code-drift (monorepo-specific): packages on disk vs. in the vault
+  - Obsidian render correctness, guidance frontmatter, work lifecycle,
+    scanner-heading drift (parity with gw lint's mechanical pass)
 
 Import-only library module; delivery surfaces pass resolved wiki/repo paths.
 
@@ -39,7 +41,9 @@ from wiki_io.lint.concept_kind import check as check_concept_kind
 from wiki_io.lint.dependency import check as check_dependency_layer
 from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
+from wiki_io.lint.obsidian_render import check as check_obsidian_render
 from wiki_io.lint.package_sync import check as check_package_sync_drift
+from wiki_io.lint.scanner_heading import check as check_scanner_heading
 from wiki_io.lint.workflow_hints import check as check_workflow_hints
 
 _SKIPPED: dict = {"skipped": True}
@@ -454,6 +458,48 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         else None
     )
 
+    # Parity checks with graph_wiki_core's gw lint (run_lint_all). Each is
+    # fail-soft in the code_drift style: an unexpected exception is surfaced
+    # as {"error": "<msg>"} in that key — never swallowed, never fatal to the
+    # pass. Expected absences (no guidance pages, no wiki/work/ dir) return
+    # empty findings, not errors.
+    def _fail_soft(fn):
+        try:
+            return fn()
+        except Exception as e:  # noqa: BLE001 — per-check isolation is the point
+            return {"error": str(e)}
+
+    def _serialize_findings(findings):
+        return [{"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message} for f in findings]
+
+    def _obsidian_render():
+        return _serialize_findings(check_obsidian_render({**pages, **mech["index_pages"]}))
+
+    def _guidance_lint():
+        import guidance_io.lint as _guidance_lint_mod
+
+        return _serialize_findings(_guidance_lint_mod.run_lint(workspace))
+
+    def _work_lifecycle():
+        from work_io import lifecycle_lint as _lifecycle_lint
+        from work_io import sidecar as _sidecar
+
+        work_dir = wiki / "work"
+        items = _lifecycle_lint.load_items(work_dir)
+        findings = _lifecycle_lint.run_lint(
+            items,
+            repo_path,
+            _sidecar.load_sidecar(wiki),
+            workspace_root=workspace,
+            archived_items=_lifecycle_lint.load_items(work_dir / "_archive"),
+        )
+        return {"total_items": len(items), "findings": _serialize_findings(findings)}
+
+    obsidian_render_findings = _fail_soft(_obsidian_render)
+    guidance_lint_findings = _fail_soft(_guidance_lint)
+    work_lifecycle = _fail_soft(_work_lifecycle)
+    scanner_heading_drift = _fail_soft(lambda: check_scanner_heading(pages))
+
     return {
         "wiki": str(wiki),
         "total_pages": mech["total_pages"],
@@ -462,6 +508,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         "stale": mech["stale"],
         "missing_frontmatter": mech["missing_frontmatter"],
         "missing_tokens": mech["missing_tokens"],
+        "source_path_drift": mech["source_path_drift"],
         "duplicate_titles": mech["duplicate_titles"],
         "log_gap": mech["log_gap"],
         "code_drift": code_drift,
@@ -471,6 +518,10 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         "dependency_layer": dependency_layer,
         "workflow_hints": workflow_hints_issues,
         "concept_kind": concept_kind_issues,
+        "obsidian_render_findings": obsidian_render_findings,
+        "guidance_lint_findings": guidance_lint_findings,
+        "work_lifecycle": work_lifecycle,
+        "scanner_heading_drift": scanner_heading_drift,
     }
 
 
@@ -578,6 +629,52 @@ def print_report(r):
     header("concept kind issues", len(ck))
     for issue in ck[:20]:
         print(f"   - {issue}")
+    print()
+
+    def _severity_summary(findings):
+        counts: dict[str, int] = {}
+        for f in findings:
+            counts[f["severity"]] = counts.get(f["severity"], 0) + 1
+        return ", ".join(f"{n} {sev}" for sev, n in sorted(counts.items())) or "0"
+
+    def _finding_section(label, findings):
+        """Render a parity-check section: {"error": ...} fail-soft dict or a
+        list of {rule_id, severity, slug, message} finding dicts."""
+        if isinstance(findings, dict):
+            print(f"[WARN] {label} check failed: {findings['error']}")
+        else:
+            header(label, len(findings))
+            if findings:
+                print(f"   severities: {_severity_summary(findings)}")
+            for f in findings[:20]:
+                print(f"   - {f['slug']}: [{f['rule_id']}] {f['message']}")
+        print()
+
+    _finding_section("Obsidian render findings", r.get("obsidian_render_findings", []))
+    _finding_section("Guidance lint findings", r.get("guidance_lint_findings", []))
+
+    wl = r.get("work_lifecycle")
+    if isinstance(wl, dict) and "error" in wl:
+        print(f"[WARN] Work lifecycle check failed: {wl['error']}")
+        print()
+    else:
+        wl = wl or {"total_items": 0, "findings": []}
+        print(f"Work lifecycle: {wl['total_items']} items")
+        _finding_section("Work lifecycle findings", wl["findings"])
+
+    shd = r.get("scanner_heading_drift", [])
+    if isinstance(shd, dict):
+        print(f"[WARN] Scanner heading drift check failed: {shd['error']}")
+    else:
+        header("Scanner heading drift", len(shd))
+        for issue in shd[:20]:
+            print(f"   - {issue}")
+    print()
+
+    spd = r.get("source_path_drift", [])
+    header("Source path drift", len(spd))
+    for p in spd[:20]:
+        print(f"   - {p}")
     print()
 
     findings = r.get("dependency_layer")
