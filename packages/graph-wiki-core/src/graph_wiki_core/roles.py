@@ -68,16 +68,11 @@ def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
         GatewayAccessDenied: for a vercel role when AI_GATEWAY_API_KEY is unset.
     """
     workspace_cfg = _workspace_role_override(role)
-    packaged_cfg = _load_models_config()["roles"].get(role)
+    packaged_cfg: dict | None = _load_models_config()["roles"].get(role)
 
     if packaged_cfg is None and workspace_cfg is None:
         raise KeyError(role)
-    if packaged_cfg is None:
-        role_cfg = workspace_cfg
-    elif workspace_cfg is None:
-        role_cfg = packaged_cfg
-    else:
-        role_cfg = {**packaged_cfg, **workspace_cfg}
+    role_cfg: dict = {**(packaged_cfg or {}), **(workspace_cfg or {})}
 
     if model_override is not None:
         model_id = model_override
