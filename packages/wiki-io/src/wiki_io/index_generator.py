@@ -45,10 +45,10 @@ import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from workspace_io.paths import wiki_dir, work_dir
 
+from wiki_io._graph_protocol import GraphReaderLike
 from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_GROUP_LABELS, KIND_GROUP_ORDER, kind_group
 from wiki_io.entity_writer import (
     ADMITTED_KINDS as _ADMITTED_KINDS,
@@ -61,9 +61,6 @@ from wiki_io.entity_writer import (
     short_filename as _short_filename,
 )
 from wiki_io.wikilinks import vault_wikilink
-
-if TYPE_CHECKING:
-    from graph_io.handle import GraphReader
 
 # ============================================================================
 # Module constants (D-09, D-12)
@@ -131,7 +128,7 @@ _REPO_LESS_SCHEMES: frozenset[str] = frozenset({"dependency", "builtin"})
 def _parse_repo_key(uri: str) -> str | None:
     """Extract the '{org}/{repo}' segment from a graph URI (D-R7).
 
-    URI shapes locked since Phase 28 (`graph_io.uri`):
+    URI shapes locked since Phase 28 (the graph's URI scheme):
 
       repo:{org}/{repo}                            -> exactly 2 segments
       pkg: app: agent_plugin: domain: test_suite:           -> {org}/{repo}/{...}, >= 3 segments
@@ -211,7 +208,7 @@ class PlacedEntity:
 # ============================================================================
 
 
-def _compute_qualifying_domains(reader: "GraphReader", *, kind: str, name: str, uri: str = "") -> set[str]:
+def _compute_qualifying_domains(reader: GraphReaderLike, *, kind: str, name: str, uri: str = "") -> set[str]:
     """Return the set of domain names that qualify for this entity (D-04).
 
     Thin wrapper over `reader.qualifying_domains` (the SQL was ported verbatim
@@ -231,7 +228,7 @@ def _compute_qualifying_domains(reader: "GraphReader", *, kind: str, name: str, 
 
 
 def _consumer_pkgs_in_domain(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     *,
     kind: str,
     entity_uri: str = "",
@@ -251,7 +248,7 @@ def _consumer_pkgs_in_domain(
 
 
 def _consumer_pkgs(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     *,
     kind: str,
     entity_uri: str = "",
@@ -295,7 +292,7 @@ def _read_entity_summary(wiki_root: Path, entity: PlacedEntity, collision_set: f
 
 
 def _place_entities(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     wiki_root: Path,
     collision_set: frozenset[str],
 ) -> tuple[
@@ -578,12 +575,12 @@ def _scan_guidance_topics(wiki_root: Path) -> list[tuple[str, int]]:
 # ============================================================================
 
 
-def _list_subdomains(reader: "GraphReader", parent_name: str) -> list[str]:
+def _list_subdomains(reader: GraphReaderLike, parent_name: str) -> list[str]:
     """Return child domain names for `parent_name` (via `domain_contains_domain`)."""
     return reader.subdomains(parent_name)
 
 
-def _is_top_level_domain(reader: "GraphReader", name: str) -> bool:
+def _is_top_level_domain(reader: GraphReaderLike, name: str) -> bool:
     """True if `name` has NO inbound `domain_contains_domain` edge."""
     return reader.is_top_level_domain(name)
 
@@ -621,7 +618,7 @@ def _entity_bullet(entity: PlacedEntity, collision_set: frozenset[str], indent: 
 
 
 def _render_pkg_nested(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     pkg: PlacedEntity,
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
     name_to_entity: dict[str, PlacedEntity],
@@ -694,7 +691,7 @@ def _kind_major(entities: list[PlacedEntity]) -> list[PlacedEntity]:
 
 
 def _render_entity_heading(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     entity: PlacedEntity,
     *,
     level: int,
@@ -721,7 +718,7 @@ def _render_entity_heading(
 
 
 def _render_domain_section(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     domain_buckets: dict[str, list[PlacedEntity]],
     *,
     domain_name: str,
@@ -774,7 +771,7 @@ def _render_domain_section(
 
 
 def _render_repository_section(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     *,
     repo_name: str,
     domain_buckets: dict[str, list[PlacedEntity]],
@@ -891,7 +888,7 @@ def _render_guidance_section(topics: list[tuple[str, int]]) -> list[str]:
 
 
 def _render(
-    reader: "GraphReader", wiki_root: Path, display_name: str | None = None
+    reader: GraphReaderLike, wiki_root: Path, display_name: str | None = None
 ) -> tuple[str, int, int, int, int, int]:
     """Render the full index.
 
@@ -968,7 +965,7 @@ def _render(
     return text, entity_count, curated_count, domain_count, direct_count, repo_count
 
 
-def generate_index(reader: "GraphReader", wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
+def generate_index(reader: GraphReaderLike, wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
     """Render `wiki/index.md` and write-if-changed. Atomic on POSIX.
 
     `display_name` titles the index (the wiki's human topic); falls back to the

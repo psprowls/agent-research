@@ -15,8 +15,8 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING
 
+from wiki_io._graph_protocol import GraphReaderLike
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     _compute_collision_set,
@@ -24,15 +24,12 @@ from wiki_io.entity_writer import (
     short_filename,
 )
 
-if TYPE_CHECKING:
-    from graph_io.handle import GraphReader
-
 # Entity-kind nodes worth a name-fallback match (file names are noisy).
 # Mirrors the former `_ENTITY_KINDS` in graph_wiki_core.commands.ingest.
 ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method", "domain"})
 
 
-def lookup_entity_by_path(reader: "GraphReader", repo_root: Path, source_path: Path) -> tuple[str, str] | None:
+def lookup_entity_by_path(reader: GraphReaderLike, repo_root: Path, source_path: Path) -> tuple[str, str] | None:
     """Return (uri, name) for the package CONTAINING the source file, or None.
 
     Resolves source_path relative to repo_root (POSIX-style), then joins
@@ -53,7 +50,7 @@ def lookup_entity_by_path(reader: "GraphReader", repo_root: Path, source_path: P
     return uri, name
 
 
-def lookup_entity_by_name(reader: "GraphReader", name: str) -> tuple[str, str] | None:
+def lookup_entity_by_name(reader: GraphReaderLike, name: str) -> tuple[str, str] | None:
     """Return (uri, name) for the unique entity-kind match by name, or None.
 
     When more than one entity-kind node shares the name, emit one stderr
@@ -75,7 +72,7 @@ def lookup_entity_by_name(reader: "GraphReader", name: str) -> tuple[str, str] |
     return matched_uri, matched_name
 
 
-def lookup_package_by_dir(reader: "GraphReader", repo_root: Path, dir_path: Path) -> tuple[str, str, int] | None:
+def lookup_package_by_dir(reader: GraphReaderLike, repo_root: Path, dir_path: Path) -> tuple[str, str, int] | None:
     """Return (uri, name, node_id) for the package/app a directory names, or None.
 
     Resolves dir_path relative to repo_root (POSIX-style), then matches a
@@ -102,18 +99,18 @@ def lookup_package_by_dir(reader: "GraphReader", repo_root: Path, dir_path: Path
     return None
 
 
-def files_in_package(reader: "GraphReader", node_id: int) -> list[tuple]:
+def files_in_package(reader: GraphReaderLike, node_id: int) -> list[tuple]:
     """Return the file rows (id, path, attrs_json) contained in a package/app node.
 
     Joins package --contains--> file (the same shape guidance_scan enumerates).
-    Rows are plain tuples (graph_io connections do not set row_factory), so read
+    Rows are plain tuples (the graph reader's connections do not set row_factory), so read
     them positionally: r[0]=id, r[1]=path, r[2]=attrs_json. Empty list when the
     node contains no file nodes.
     """
     return reader.files_in_node(node_id)
 
 
-def entity_filename_for_uri(uri: str, reader: "GraphReader | None" = None) -> str | None:
+def entity_filename_for_uri(uri: str, reader: GraphReaderLike | None = None) -> str | None:
     """Return the scanner's on-disk entity filename stem for a graph URI, or
     None when the URI maps to no admitted entity page.
 

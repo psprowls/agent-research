@@ -38,7 +38,7 @@ import hashlib
 
 # Admitted entity kinds — the 7 graph-derived kinds the wiki materializes
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
-# `graph_io.queries._VALID_KINDS` casing. Phase 43+ imports this constant when
+# the graph store's `_VALID_KINDS` casing. Phase 43+ imports this constant when
 # routing graph rows to the correct template / URI builder.
 #
 # Phase 51 PKGFAM-03 / D-04: the retired family-grouping kind is gone;
@@ -69,7 +69,7 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
     }
 )
 
-# Map admitted kind names to their URI prefix as produced by `graph_io.uri`
+# Map admitted kind names to their URI prefix as produced by the graph's URI
 # builders. Two prefixes are shortened aliases of the kind name (`repository`
 # -> `repo`, `package` -> `pkg`); the remaining four are identical.
 #
@@ -84,7 +84,7 @@ _URI_PREFIX_BY_KIND: dict[str, str] = {
     "app": "app",
     "agent_plugin": "agent_plugin",
     # Phase 52 D-05: filename-layer alias only. Graph URIs (built by
-    # `graph_io.uri.dependency_uri`) continue to use the `dependency:` prefix;
+    # the graph's `dependency_uri` builder) continue to use the `dependency:` prefix;
     # the short-form filename for dependency entities is `dep_<name>` and is
     # produced by `short_filename` via
     # `_FILENAME_PREFIX_BY_URI_PREFIX["dependency"] = "dep"`.
@@ -266,7 +266,7 @@ from contextlib import contextmanager  # noqa: E402
 from dataclasses import dataclass, field  # noqa: E402
 from importlib.resources import files as _resource_files  # noqa: E402
 from pathlib import Path  # noqa: E402
-from typing import TYPE_CHECKING, Any, Callable, Iterator  # noqa: E402
+from typing import Any, Callable, Iterator  # noqa: E402
 
 import frontmatter  # noqa: E402
 import yaml  # noqa: E402
@@ -278,10 +278,8 @@ def _load_frontmatter(path: Path) -> frontmatter.Post:
     return frontmatter.load(str(path))
 
 
+from wiki_io._graph_protocol import GraphReaderLike  # noqa: E402
 from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table  # noqa: E402
-
-if TYPE_CHECKING:
-    from graph_io.handle import GraphReader
 
 # Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
 # Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
@@ -859,7 +857,7 @@ def _is_template_body_default(body: str, template_body: str) -> bool:
 
 
 def _compute_collision_set(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     admitted_kinds: frozenset[str],
     list_fns: dict[str, Callable],
 ) -> frozenset[str]:
@@ -977,7 +975,7 @@ def _agent_plugin_table_variables(reader: Any, node: Any) -> dict[str, str]:
 
 
 def write_entities(
-    reader: "GraphReader",
+    reader: GraphReaderLike,
     wiki_root: Path,
     admitted_kinds: frozenset[str],
 ) -> EntityWriteResult:
