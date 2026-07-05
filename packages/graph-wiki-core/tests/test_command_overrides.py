@@ -656,6 +656,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
             "graph_wiki_core.commands.lint.mechanical_scan",
             return_value={
                 "pages": non_empty_pages,
+                "index_pages": {},
                 "total_pages": 1,
                 "orphans": [],
                 "broken_links": [],

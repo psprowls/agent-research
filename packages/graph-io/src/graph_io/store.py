@@ -33,7 +33,16 @@ def _apply_pragmas(conn: sqlite3.Connection) -> None:
 
 
 def _check_schema_version(conn: sqlite3.Connection) -> None:
-    row = conn.execute("SELECT value FROM metadata WHERE key = 'schema_version'").fetchone()
+    try:
+        row = conn.execute("SELECT value FROM metadata WHERE key = 'schema_version'").fetchone()
+    except sqlite3.OperationalError as exc:
+        # A DB file that exists but has never had the schema applied (e.g. an
+        # empty placeholder file) is functionally uninitialized, same as a
+        # missing file — surface it as GraphNotInitializedError, not a raw
+        # sqlite error, so callers only need one guard.
+        if "no such table" in str(exc):
+            raise GraphNotInitializedError(f"graph DB has no schema applied yet: {exc}") from exc
+        raise
     found = row[0] if row else None
     if found != str(schema.SCHEMA_VERSION):
         raise SchemaMismatchError(found=found, expected=schema.SCHEMA_VERSION)
