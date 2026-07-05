@@ -235,34 +235,10 @@ def _clear_active_work_pointer_if_archived(workspace: Path, archived_slugs: set[
             pass
 
 
-def _load_items(work_dir: Path) -> list[dict]:
-    """Parse work items into lint-shaped item dicts: slug, fm, plan.
-
-    The live `work/` dir is flat (`work/<slug>.md`); an `_archive` dir may
-    contain items in either shape — legacy flat (`_archive/<slug>.md`, from
-    before the nested-archive feature) or nested (`_archive/<slug>/00-open-work.md`,
-    alongside the rest of its archived working dir, slug from the parent dir
-    name). Both shapes are checked so pre-existing archived items stay
-    resolvable (no-migrations-until-v2.0 policy — old items are never
-    rewritten into the new shape). Unparseable pages are skipped.
-    """
-    items: list[dict] = []
-    if not work_dir.exists():
-        return items
-    is_archive = work_dir.name == "_archive"
-    if is_archive:
-        pages = sorted(work_dir.glob("*/00-open-work.md")) + sorted(work_dir.glob("*.md"))
-    else:
-        pages = sorted(work_dir.glob("*.md"))
-    for md in pages:
-        try:
-            fm, body = _frontmatter.parse(md.read_text(encoding="utf-8"))
-        except Exception:
-            continue
-        plan = _plan_table.parse_plan(body)
-        slug = md.parent.name if (is_archive and md.name == "00-open-work.md") else md.stem
-        items.append({"slug": slug, "fm": fm, "plan": plan})
-    return items
+# Shared work-item loader lives in work-io so both lint surfaces (gw lint and
+# the plugin's lint_wiki.py scan()) load items identically; keep the private
+# alias so internal callers (incl. _load_items_for_deps) are unchanged.
+_load_items = _lint.load_items
 
 
 def _load_items_for_deps(work_dir: Path) -> list[dict]:

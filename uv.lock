@@ -3162,6 +3162,7 @@ version = "0.1.1"
 source = { editable = "packages/wiki-io" }
 dependencies = [
     { name = "graph-io" },
+    { name = "guidance-io" },
     { name = "markdown-it-py" },
     { name = "python-frontmatter" },
     { name = "work-io" },
@@ -3171,6 +3172,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "graph-io", editable = "packages/graph-io" },
+    { name = "guidance-io", editable = "packages/guidance-io" },
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "python-frontmatter", specifier = ">=1.1" },
     { name = "work-io", editable = "packages/work-io" },
