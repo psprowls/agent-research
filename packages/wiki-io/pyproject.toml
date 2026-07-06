@@ -6,7 +6,6 @@ requires-python = ">=3.11"
 dependencies = [
     "python-frontmatter>=1.1",
     "workspace-io",
-    "graph-io",
     "work-io",
     "guidance-io",
     "markdown-it-py>=3.0",
@@ -18,7 +17,6 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 workspace-io = { workspace = true }
-graph-io = { workspace = true }
 work-io = { workspace = true }
 guidance-io = { workspace = true }
 

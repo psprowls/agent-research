@@ -1,9 +1,9 @@
 # packages/wiki-io/src/wiki_io/_graph_protocol.py
 """Structural protocol for the graph-reader surface wiki-io consumes.
 
-Mirrors the subset of `graph_io.handle.GraphReader`'s methods actually called
-from `entity_lookup.py`, `index_generator.py`, and `entity_writer.py` — lets
-wiki-io type its reader parameters without depending on graph-io at runtime.
+Mirrors the subset of the graph store's `GraphReader` class's methods actually
+called from `entity_lookup.py`, `index_generator.py`, and `entity_writer.py` —
+lets wiki-io type its reader parameters without depending on graph-io at runtime.
 Method signatures are copied verbatim from `GraphReader`; if `GraphReader`'s
 shape changes, this protocol must be updated by hand — there is no structural
 enforcement (see the epic's risk notes).
