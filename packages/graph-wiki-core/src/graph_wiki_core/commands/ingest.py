@@ -40,11 +40,7 @@ from subagent_runtime.pool import SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
-from wiki_io.entity_lookup import (
-    entity_filename_for_uri,
-    lookup_entity_by_name,
-    lookup_entity_by_path,
-)
+from wiki_io.entity_lookup import match_entity
 from wiki_io.ingest_source import (
     PREVIEW_CHARS,
     RAW_FOLDER_TYPE_MAP,
@@ -1319,14 +1315,10 @@ async def run_ingest_source(
         #
         # Surfaces: grep -r "entity_uri: pkg:" wiki/ will find all entity-backed
         # pages; a v1.8 tool may parse + reconcile against the live graph.
-        canonical: tuple[str, str] | None = lookup_entity_by_path(reader, repo, source_path)
-        if canonical is None:
-            canonical = lookup_entity_by_name(reader, title_guess)
-        canonical_uri: str | None = canonical[0] if canonical else None
         # Slice 4: the matched entity drives a [[entities/<stem>]] forward-link
         # whose target equals the scanner's on-disk filename. None when the
         # match has no entity page (cls:/fn:/method:) — no link is written.
-        entity_stem: str | None = entity_filename_for_uri(canonical_uri, reader) if canonical_uri else None
+        canonical_uri, entity_stem = match_entity(reader, repo, source_path, title_guess)
 
         # Dispatch on the path-guessed source_type. raw/skill/ → the skill branch
         # (writes guidance pages directly); everything else → the default branch.

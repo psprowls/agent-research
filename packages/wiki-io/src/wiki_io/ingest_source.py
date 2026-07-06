@@ -21,11 +21,11 @@ Exports:
     pick_representative(root, entries) -> str | None
     folder_brief(root, rel_to_wiki) -> dict
     build_folder_ingest_brief(source_path, wiki, repo) -> dict
-    build_ingest_brief(source_path, wiki, repo, workspace_root) -> dict
+    build_ingest_brief(source_path, wiki, repo, workspace_root, reader=None) -> dict
     resolve_skill_anchor(source_path) -> Path | None
     SkillBundle   (dataclass — directory-aware skill ingest)
     gather_skill_sources(anchor) -> SkillBundle
-    build_skill_ingest_brief(anchor, wiki, repo, workspace_root) -> dict
+    build_skill_ingest_brief(anchor, wiki, repo, workspace_root, reader=None) -> dict
     _HTMLTextExtractor
 """
 
@@ -38,6 +38,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from wiki_io._graph_protocol import GraphReaderLike
 from wiki_io.scan_monorepo import compute_state_gate
 
 PREVIEW_CHARS = 1200
@@ -331,40 +332,19 @@ def pick_representative(root: Path, entries: list[tuple[str, int]]) -> str | Non
     return sorted_entries[0][0]
 
 
-def _build_entity_match(workspace_root: Path, repo: Path, source_path: Path, title_guess: str) -> dict:
+def _build_entity_match(reader: GraphReaderLike | None, repo: Path, source_path: Path, title_guess: str) -> dict:
     """Resolve the entity a source belongs to and the on-disk entity filename.
 
-    Bedrock-free. Opens a read-only graph reader; returns
-    {"uri": None, "entity_filename": None} when the graph is missing or no
-    entity matches (the harness agent proceeds without a link in that case).
+    Bedrock-free. `reader` is opened (and its GraphNotInitializedError handled)
+    by the caller; returns {"uri": None, "entity_filename": None} when there is
+    no reader or no entity matches (the harness agent proceeds without a link).
     """
-    import graph_io
-    from graph_io import GraphNotInitializedError
+    if reader is None:
+        return {"uri": None, "entity_filename": None}
+    from wiki_io.entity_lookup import match_entity
 
-    from wiki_io.entity_lookup import (
-        entity_filename_for_uri,
-        lookup_entity_by_name,
-        lookup_entity_by_path,
-    )
-
-    empty = {"uri": None, "entity_filename": None}
-    try:
-        reader = graph_io.open_reader(workspace_root)
-    except GraphNotInitializedError:
-        return empty
-    try:
-        match = lookup_entity_by_path(reader, repo, source_path)
-        if match is None:
-            match = lookup_entity_by_name(reader, title_guess)
-        if match is None:
-            return empty
-        uri = match[0]
-        return {"uri": uri, "entity_filename": entity_filename_for_uri(uri, reader)}
-    finally:
-        try:
-            reader.close()
-        except Exception:
-            pass
+    uri, entity_filename = match_entity(reader, repo, source_path, title_guess)
+    return {"uri": uri, "entity_filename": entity_filename}
 
 
 def _resolve_source_path(source_path: Path, repo: Path) -> Path:
@@ -389,7 +369,9 @@ def build_folder_ingest_brief(source_path: Path, wiki: Path, repo: Path) -> dict
     return brief
 
 
-def build_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root: Path) -> dict:
+def build_ingest_brief(
+    source_path: Path, wiki: Path, repo: Path, workspace_root: Path, reader: GraphReaderLike | None = None
+) -> dict:
     source_path = _resolve_source_path(source_path, repo)
     text, title = extract(source_path)
     title_guess = title or source_path.stem.replace("-", " ").title()
@@ -434,7 +416,7 @@ def build_ingest_brief(source_path: Path, wiki: Path, repo: Path, workspace_root
         "suggested_summary_path": suggested,
         "merge_mode": page_exists,
         "in_repo_doc": in_repo_doc,
-        "entity_match": _build_entity_match(workspace_root, repo, source_path, title_guess),
+        "entity_match": _build_entity_match(reader, repo, source_path, title_guess),
         "state_gate": compute_state_gate(repo, workspace=workspace_root),
     }
 
@@ -624,7 +606,9 @@ def gather_skill_sources(anchor: Path) -> SkillBundle:
     )
 
 
-def build_skill_ingest_brief(anchor: Path, wiki: Path, repo: Path, workspace_root: Path) -> dict:
+def build_skill_ingest_brief(
+    anchor: Path, wiki: Path, repo: Path, workspace_root: Path, reader: GraphReaderLike | None = None
+) -> dict:
     """Build a skill-aware ingest brief for the plugin's Claude branch.
 
     Pure / Bedrock-free, consistent with build_ingest_brief / build_folder_ingest_brief.
@@ -661,6 +645,6 @@ def build_skill_ingest_brief(anchor: Path, wiki: Path, repo: Path, workspace_roo
         "excluded_files": bundle.excluded_files,
         "scripts_dominant": bundle.scripts_dominant,
         "warnings": warnings,
-        "entity_match": _build_entity_match(workspace_root, repo, bundle.skill_dir, title_guess),
+        "entity_match": _build_entity_match(reader, repo, bundle.skill_dir, title_guess),
         "state_gate": compute_state_gate(repo, workspace=workspace_root),
     }

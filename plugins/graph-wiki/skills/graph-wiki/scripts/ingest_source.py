@@ -38,6 +38,7 @@ def main() -> None:
     if _backend_for("ingest") == "bedrock":
         _run_bedrock()
 
+    import graph_io
     from wiki_io._workspace import resolve_wiki_and_repo
     from wiki_io.ingest_source import (
         build_batch_ingest_brief,
@@ -70,36 +71,47 @@ def main() -> None:
     workspace_root = workspace_path if workspace_path is not None else wiki.parent
     source_path = Path(source_arg).expanduser()
 
-    resolved = _source_for_branch(source_path, repo)
-    limit = None if args.all_units else args.limit
-    brief = build_batch_ingest_brief(
-        source_path=resolved,
-        wiki=wiki,
-        repo=repo,
-        workspace_root=workspace_root,
-        limit=limit,
-    )
-    if brief is None:
-        anchor = resolve_skill_anchor(resolved)
-        if anchor is not None:
-            brief = build_skill_ingest_brief(
-                anchor=anchor,
-                wiki=wiki,
-                repo=repo,
-                workspace_root=workspace_root,
-            )
-        elif resolved.is_dir():
-            brief = build_folder_ingest_brief(source_path=source_path, wiki=wiki, repo=repo)
-            if "_error" in brief:
-                print(f"[error] {brief['_error']}", file=sys.stderr)
-                sys.exit(1)
-        else:
-            brief = build_ingest_brief(
-                source_path=source_path,
-                wiki=wiki,
-                repo=repo,
-                workspace_root=workspace_root,
-            )
+    try:
+        reader = graph_io.open_reader(workspace_root)
+    except graph_io.GraphNotInitializedError:
+        reader = None
+
+    try:
+        resolved = _source_for_branch(source_path, repo)
+        limit = None if args.all_units else args.limit
+        brief = build_batch_ingest_brief(
+            source_path=resolved,
+            wiki=wiki,
+            repo=repo,
+            workspace_root=workspace_root,
+            limit=limit,
+        )
+        if brief is None:
+            anchor = resolve_skill_anchor(resolved)
+            if anchor is not None:
+                brief = build_skill_ingest_brief(
+                    anchor=anchor,
+                    wiki=wiki,
+                    repo=repo,
+                    workspace_root=workspace_root,
+                    reader=reader,
+                )
+            elif resolved.is_dir():
+                brief = build_folder_ingest_brief(source_path=source_path, wiki=wiki, repo=repo)
+                if "_error" in brief:
+                    print(f"[error] {brief['_error']}", file=sys.stderr)
+                    sys.exit(1)
+            else:
+                brief = build_ingest_brief(
+                    source_path=source_path,
+                    wiki=wiki,
+                    repo=repo,
+                    workspace_root=workspace_root,
+                    reader=reader,
+                )
+    finally:
+        if reader is not None:
+            reader.close()
 
     if args.json_output:
         print(json.dumps(brief, indent=2))

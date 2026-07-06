@@ -136,3 +136,18 @@ def entity_filename_for_uri(uri: str, reader: GraphReaderLike | None = None) -> 
         return short_filename(uri, collision_set)
     except ValueError:
         return None
+
+
+def match_entity(
+    reader: GraphReaderLike, repo: Path, source_path: Path, title_guess: str
+) -> tuple[str | None, str | None]:
+    """Returns (canonical_uri, entity_stem) — the lookup_entity_by_path -> fallback
+    lookup_entity_by_name -> entity_filename_for_uri sequence, extracted so both the
+    plugin's brief-builder path and core's run_ingest_source can share it."""
+    match = lookup_entity_by_path(reader, repo, source_path)
+    if match is None:
+        match = lookup_entity_by_name(reader, title_guess)
+    if match is None:
+        return None, None
+    uri = match[0]
+    return uri, entity_filename_for_uri(uri, reader)

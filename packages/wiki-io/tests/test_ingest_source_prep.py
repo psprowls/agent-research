@@ -53,12 +53,19 @@ def test_build_ingest_brief_emits_brief_without_bedrock(tmp_path: Path, monkeypa
     src.write_text("# Graph IO Store\n\nBody text.", encoding="utf-8")
     _seed_db(workspace, "graph-io", "pkg:o/r/graph-io", rel)
 
-    brief = prep.build_ingest_brief(
-        source_path=Path(rel),
-        wiki=wiki,
-        repo=workspace,
-        workspace_root=workspace,
-    )
+    import graph_io
+
+    reader = graph_io.open_reader(workspace)
+    try:
+        brief = prep.build_ingest_brief(
+            source_path=Path(rel),
+            wiki=wiki,
+            repo=workspace,
+            workspace_root=workspace,
+            reader=reader,
+        )
+    finally:
+        reader.close()
 
     assert brief["title"]
     assert brief["source_type"] == "doc"
@@ -108,12 +115,19 @@ def test_build_ingest_brief_no_entity_match_has_null_fields(tmp_path: Path, monk
         "packages/other/src/other/mod.py",
     )
 
-    brief = prep.build_ingest_brief(
-        source_path=Path(rel),
-        wiki=wiki,
-        repo=workspace,
-        workspace_root=workspace,
-    )
+    import graph_io
+
+    reader = graph_io.open_reader(workspace)
+    try:
+        brief = prep.build_ingest_brief(
+            source_path=Path(rel),
+            wiki=wiki,
+            repo=workspace,
+            workspace_root=workspace,
+            reader=reader,
+        )
+    finally:
+        reader.close()
 
     assert brief["entity_match"] == {"uri": None, "entity_filename": None}
 

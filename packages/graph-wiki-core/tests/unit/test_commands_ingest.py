@@ -2164,8 +2164,7 @@ async def test_run_ingest_source_skill_writes_guidance_and_skips_suggest(tmp_pat
             pass
 
     monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    monkeypatch.setattr(ingest_mod, "match_entity", lambda reader, repo, sp, title: (None, None))
 
     planner_yaml = (
         "- title: Use a Virtualizer\n"
@@ -2236,8 +2235,7 @@ async def test_run_ingest_source_skill_falls_back_when_plan_unparseable(tmp_path
             pass
 
     monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    monkeypatch.setattr(ingest_mod, "match_entity", lambda reader, repo, sp, title: (None, None))
     # Default branch's suggest phase: stub it out so no graph tools are needed.
     monkeypatch.setattr(ingest_mod, "build_graph_tools", lambda conn: [])
 
@@ -2337,8 +2335,7 @@ async def test_run_ingest_source_skill_directory_forces_skill_and_excludes(tmp_p
             pass
 
     monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    monkeypatch.setattr(ingest_mod, "match_entity", lambda reader, repo, sp, title: (None, None))
 
     captured: dict = {}
 
@@ -2419,8 +2416,7 @@ async def test_run_ingest_source_raw_skill_single_file_still_works(tmp_path, mon
             pass
 
     monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    monkeypatch.setattr(ingest_mod, "match_entity", lambda reader, repo, sp, title: (None, None))
 
     planner_yaml = (
         "- title: Use a Virtualizer\n"
@@ -2483,8 +2479,7 @@ def _setup_archive_test_workspace(tmp_path, monkeypatch):
             pass
 
     monkeypatch.setattr(ingest_mod, "open_reader", lambda db: _Conn())
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_path", lambda conn, repo, sp: None)
-    monkeypatch.setattr(ingest_mod, "lookup_entity_by_name", lambda conn, name: None)
+    monkeypatch.setattr(ingest_mod, "match_entity", lambda reader, repo, sp, title: (None, None))
     monkeypatch.setattr(ingest_mod, "build_graph_tools", lambda conn: [])
 
     async def _fake_suggest(**kwargs):
