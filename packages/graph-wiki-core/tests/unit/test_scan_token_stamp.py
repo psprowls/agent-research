@@ -114,3 +114,31 @@ def test_structural_scan_does_not_stamp_tokens(tmp_workspace, monkeypatch):
     asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
 
     assert calls == []
+
+
+@pytest.fixture(autouse=True)
+def _offline_count_tokens():
+    """Shadow the parent conftest's autouse `_offline_count_tokens` fixture for
+    this file only: the two identity tests below need the *real*, unpatched
+    `count_tokens` binding to verify it. Safe to skip the stub here — the two
+    scan-behavior tests above replace `update_vault` wholesale, so they never
+    invoke the real (possibly live-Bedrock) counter regardless."""
+    yield
+
+
+def test_scan_module_uses_graph_io_count_tokens() -> None:
+    """scan.py's `count_tokens` binding is the real graph-io offline tiktoken
+    counter, not a stand-in — the only thing enforcing this is import-time
+    identity, since every other test here monkeypatches it before running."""
+    from graph_io.tokens import count_tokens
+
+    assert scan_module.count_tokens is count_tokens
+
+
+def test_query_module_uses_graph_io_count_tokens() -> None:
+    """query.py's `count_tokens` binding (prompt/context budgeting) is the real
+    graph-io offline tiktoken counter, not a stand-in."""
+    from graph_io.tokens import count_tokens
+    from graph_wiki_core.commands import query as query_module
+
+    assert query_module.count_tokens is count_tokens

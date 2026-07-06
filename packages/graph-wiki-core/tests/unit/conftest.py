@@ -30,6 +30,10 @@ _REAL_WORKSPACE_ROLE_OVERRIDE = _roles._workspace_role_override
 
 @pytest.fixture(autouse=True)
 def _offline_count_tokens(monkeypatch):
+    # Maintenance note: add a patch line here for every new direct importer of
+    # `graph_io.tokens.count_tokens` (i.e. every module that does
+    # `from graph_io.tokens import count_tokens`) — this fixture only stubs the
+    # bindings named below, not the underlying `graph_io.tokens.count_tokens`.
     from graph_wiki_core.commands import query as query_module
     from graph_wiki_core.commands import scan as scan_module
 

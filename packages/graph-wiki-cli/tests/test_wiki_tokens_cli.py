@@ -67,3 +67,13 @@ def test_tokens_command_dry_run_does_not_write(tmp_path, monkeypatch):
 
     assert result.exit_code == 0, result.stdout
     assert page.read_text(encoding="utf-8") == original
+
+
+def test_util_main_uses_graph_io_count_tokens() -> None:
+    """util_cli/main.py's `count_tokens` binding is the real graph-io offline
+    tiktoken counter, not a stand-in — every test above monkeypatches it before
+    running, so import-time identity is the only thing left enforcing this."""
+    import graph_wiki_cli.util_cli.main as util_main
+    from graph_io.tokens import count_tokens
+
+    assert util_main.count_tokens is count_tokens
