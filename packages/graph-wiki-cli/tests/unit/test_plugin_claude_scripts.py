@@ -545,22 +545,42 @@ def test_init_vault_script_claude_branch_forwards_repo_without_workspace(
     ]
 
 
-def test_reconcile_doc_pointers_shim_delegates(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_reconcile_doc_pointers_shim_reconciles_directly(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """The shim no longer delegates to wiki_io.reconcile_doc_pointers (deleted) —
+    it calls work_io.doc_pointers.sweep and wiki_io._workspace.resolve_wiki_and_repo
+    directly, inlined from the old wiki-io module."""
     _install_claude_backend(monkeypatch)
+    workspace = tmp_path / "workspace"
+    _install_fake_wiki_io(monkeypatch, workspace)
 
-    called = {}
-    module = types.ModuleType("wiki_io.reconcile_doc_pointers")
+    work_io_pkg = types.ModuleType("work_io")
+    work_io_pkg.__path__ = []  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "work_io", work_io_pkg)
+    doc_pointers_module = types.ModuleType("work_io.doc_pointers")
 
-    def fake_main() -> None:
-        called["ran"] = True
+    class _Report:
+        rewrote = ["work/foo.md"]
+        ok = ["work/bar.md"]
+        unfixable: list[str] = []
 
-    module.main = fake_main  # type: ignore[attr-defined]
-    package = types.ModuleType("wiki_io")
-    package.__path__ = []  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "wiki_io", package)
-    monkeypatch.setitem(sys.modules, "wiki_io.reconcile_doc_pointers", module)
+    calls: list[tuple[Path, bool]] = []
+
+    def fake_sweep(wiki_parent, dry_run=False):
+        calls.append((wiki_parent, dry_run))
+        return _Report()
+
+    doc_pointers_module.sweep = fake_sweep  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "work_io.doc_pointers", doc_pointers_module)
+
     monkeypatch.setattr(sys, "argv", ["reconcile_doc_pointers.py"])
 
     runpy.run_path(str(_SCRIPT_DIR / "reconcile_doc_pointers.py"), run_name="__main__")
 
-    assert called.get("ran") is True
+    assert calls == [(workspace, False)]
+    out = capsys.readouterr().out
+    assert "repointed: work/foo.md" in out
+    assert "reconcile: 1 repointed, 1 ok, 0 unfixable" in out
