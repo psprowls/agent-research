@@ -17,6 +17,28 @@ import pytest
 PLAIN_HELP_ENV = {**os.environ, "NO_COLOR": "1", "TERM": "dumb", "COLUMNS": "200"}
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_from_ambient_workspace():
+    """Strip `GRAPH_WIKI_WORKSPACE` for the whole graph-wiki-cli test session.
+
+    `graph_cli/`'s subprocess-based tests invoke the `gw` CLI via bare
+    `subprocess.run(...)` with no `env=` override, so the child inherits this
+    process's environment; `graph_cli/conftest.py`'s `seeded_db` fixture also
+    calls `graph_io.update.run` without an explicit `workspace=`. Either path
+    resolves through `workspace_io.config.resolve()`, which binds to the
+    ambient env var over the tests' own tmp repo whenever it's set (e.g. a
+    real workspace pinned in this repo's `.claude/settings.local.json`).
+    Clearing it here — in os.environ, so subprocess children see it too —
+    closes that gap regardless of invocation directory (package-local conftest
+    fixtures apply even when pytest's rootdir resolves to this package rather
+    than the workspace root).
+    """
+    mp = pytest.MonkeyPatch()
+    mp.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    yield
+    mp.undo()
+
+
 def _resolve_sample_monorepo_fixture() -> Path:
     """Resolve packages/graph-io/tests/fixtures/sample_monorepo."""
     try:

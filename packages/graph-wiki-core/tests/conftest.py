@@ -42,6 +42,24 @@ INTEGRATION_GATE = pytest.mark.skipif(
 )
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolate_from_ambient_workspace():
+    """Strip `GRAPH_WIKI_WORKSPACE` for the whole graph-wiki-core test session.
+
+    `seeded_graph_conn`/`seeded_graph_workspace` below call `graph_io.update.run`
+    on their own tmp repo without passing `workspace=` explicitly, so it resolves
+    via `workspace_io.config.resolve()` — which binds to the ambient env var over
+    the tmp repo whenever it's set (e.g. a real workspace pinned in this repo's
+    `.claude/settings.local.json`). Mirrors packages/graph-io/tests/conftest.py's
+    fixture of the same name; needed here too since this package's tests run in
+    a separate pytest session with its own conftest chain.
+    """
+    mp = pytest.MonkeyPatch()
+    mp.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
+    yield
+    mp.undo()
+
+
 @pytest.fixture
 def fixture_vault_path() -> Path:
     """Return the Path to packages/wiki-io/tests/fixtures/round-trip-vault.
