@@ -28,9 +28,9 @@ from wiki_io.drift import extract_narrative, section_hash
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
 from wiki_io.git_state import changed_files_since
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals, upsert_proposal
-from wiki_io.scan_monorepo import build_repo_paths, owning_repo
 from workspace_io.paths import graph_dir
 
+from graph_wiki_core.commands._repo_gates import build_repo_paths, owning_repo
 from graph_wiki_core.prompts.drift_propagator import (
     build_drift_propagator_prompt,
     parse_drift_propagator_verdict,

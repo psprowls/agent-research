@@ -78,7 +78,6 @@ from wiki_io.scan_monorepo import (
     build_dir_file_map,
     build_file_map,
     compute_state_gate,
-    owning_repo,
 )
 from wiki_io.update_index import update_index
 from wiki_io.update_tokens import update_vault
@@ -86,6 +85,7 @@ from workspace_io import manifest as _manifest
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_wiki_core.commands._reindex import regen_indexes_and_backlinks
+from graph_wiki_core.commands._repo_gates import build_repo_paths, compute_state_gates, owning_repo
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
 from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import (
@@ -1177,8 +1177,6 @@ async def _build_scan_worklist_body(
     # back to the single-repo `repo`/`head`. Per-entity HEAD gating reads `gates`.
     repo_paths: dict[str, Path] = {}
     if members:
-        from wiki_io.scan_monorepo import build_repo_paths, compute_state_gates
-
         gates = compute_state_gates(members, workspace=wiki.parent)
         repo_paths = build_repo_paths(members)
     else:

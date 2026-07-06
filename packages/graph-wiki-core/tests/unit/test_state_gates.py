@@ -1,6 +1,6 @@
 import subprocess
 
-from wiki_io.scan_monorepo import compute_state_gates
+from graph_wiki_core.commands._repo_gates import compute_state_gates
 
 
 def _mk(root, name):
