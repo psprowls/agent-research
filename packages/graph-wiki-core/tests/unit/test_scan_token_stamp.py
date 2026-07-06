@@ -85,7 +85,7 @@ def test_narrated_scan_stamps_tokens(tmp_workspace, monkeypatch):
     monkeypatch.setattr(
         scan_module,
         "update_vault",
-        lambda w, **kw: calls.append(w) or {"updated": [], "unchanged": [], "skipped": []},
+        lambda w, ct, **kw: calls.append(w) or {"updated": [], "unchanged": [], "skipped": []},
         raising=False,
     )
 
@@ -109,7 +109,7 @@ def test_structural_scan_does_not_stamp_tokens(tmp_workspace, monkeypatch):
     )
 
     calls: list = []
-    monkeypatch.setattr(scan_module, "update_vault", lambda w, **kw: calls.append(w), raising=False)
+    monkeypatch.setattr(scan_module, "update_vault", lambda w, ct, **kw: calls.append(w), raising=False)
 
     asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
 

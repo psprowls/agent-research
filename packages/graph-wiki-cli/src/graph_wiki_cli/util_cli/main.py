@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from graph_io.tokens import count_tokens
 from graph_wiki_core.commands.log import run_log
 from subagent_runtime.trace_io import render_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
@@ -370,7 +371,7 @@ def tokens(
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=1)
 
-    result = update_vault(wiki, dry_run=dry_run)
+    result = update_vault(wiki, count_tokens, dry_run=dry_run)
 
     if json_output:
         typer.echo(json.dumps(result, indent=2))

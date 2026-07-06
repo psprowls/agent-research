@@ -25,7 +25,11 @@ def _hash_tree(root: Path) -> dict[str, str]:
     return digests
 
 
-def test_round_trip_all_fixture_pages(round_trip_vault: Path, tmp_path: Path, monkeypatch):
+def _fake_count_tokens(text: str) -> int:
+    return len(text.split())
+
+
+def test_round_trip_all_fixture_pages(round_trip_vault: Path, tmp_path: Path):
     """VAULT-04: second pass of update_vault must be byte-identical to first-pass output.
 
     Procedure:
@@ -44,19 +48,17 @@ def test_round_trip_all_fixture_pages(round_trip_vault: Path, tmp_path: Path, mo
     # Keep the default-safe round-trip gate offline and fast. Live CountTokens
     # behavior is covered by the gated integration test; this test only needs a
     # deterministic count to exercise frontmatter stamping and idempotency.
-    monkeypatch.setattr(update_tokens, "count_tokens", lambda text, model_id=None, region=None: len(text.split()))
-
     copy = tmp_path / "vault"
     shutil.copytree(round_trip_vault, copy)
 
     # First pass: stamps tokens onto fixture pages that lack a stable tokens field.
-    update_tokens.update_vault(copy)
+    update_tokens.update_vault(copy, _fake_count_tokens)
 
     # Snapshot bytes after first pass.
     before = _hash_tree(copy)
 
     # Second pass: MUST be a no-op.
-    result = update_tokens.update_vault(copy)
+    result = update_tokens.update_vault(copy, _fake_count_tokens)
     assert result["updated"] == [], f"Second pass should be idempotent but reported updates: {result['updated'][:5]}"
 
     # Strong invariant: byte-identical tree before and after second pass.

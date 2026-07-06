@@ -46,13 +46,13 @@ import bm25s
 import graph_io
 from bm25s.tokenization import Tokenized, Tokenizer
 from graph_io import GraphReader
+from graph_io.tokens import count_tokens
 from langchain_aws import BedrockEmbeddings
 from langchain_core.messages import HumanMessage, SystemMessage, ToolMessage
 from langchain_core.tools import tool
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from subagent_runtime.trace_io import write_trace_record
 from wiki_io._workspace import resolve_wiki_and_repo
-from wiki_io.update_tokens import count_tokens
 from workspace_io.paths import graph_dir
 
 from graph_wiki_core.graph_tools import build_graph_tools

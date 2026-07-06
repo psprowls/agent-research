@@ -26,9 +26,7 @@ def _seed_wiki(tmp_path: Path) -> Path:
 
 
 def _patch_count_tokens(monkeypatch, value):
-    from wiki_io import update_tokens
-
-    monkeypatch.setattr(update_tokens, "count_tokens", lambda text: value)
+    monkeypatch.setattr("graph_wiki_cli.util_cli.main.count_tokens", lambda text: value)
 
 
 def test_tokens_command_stamps_real_count(tmp_path, monkeypatch):

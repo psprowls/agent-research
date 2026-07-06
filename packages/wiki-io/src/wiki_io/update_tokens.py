@@ -2,24 +2,24 @@
 update_tokens.py — Stamp `tokens: <count>` frontmatter on every wiki page.
 
 Counts tokens against a stable baseline — the file content with any existing
-`tokens` field stripped — using the offline tiktoken counter shared with the
-code-graph (`graph_io.tokens.count_tokens`, o200k_base), then idempotently
-rewrites the `tokens` field via `python-frontmatter`. Counting is local and
-deterministic (no Bedrock/network call), so the same encoder used for graph-node
-counts is used here, keeping the two comparable. Stripping the field before
-counting avoids a circular dependency: a file that already contains `tokens: N`
-would produce a different count than the same file before the field was added,
-breaking idempotency. Re-running on an unchanged vault is a no-op.
+`tokens` field stripped — using a `count_tokens` callable injected by the
+caller (real callers pass the graph-io package's offline tiktoken counter,
+`tokens.count_tokens`, o200k_base, so vault token counts stay comparable to
+graph-node counts), then idempotently rewrites the `tokens` field via
+`python-frontmatter`. Stripping the field before counting avoids a circular
+dependency: a file that already contains `tokens: N` would produce a
+different count than the same file before the field was added, breaking
+idempotency. Re-running on an unchanged vault is a no-op. This module itself
+has no dependency on graph-io — the counter is injected by the caller.
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Iterator
+from typing import Callable, Iterator
 
 import frontmatter
-from graph_io.tokens import count_tokens
 from workspace_io.paths import work_dir
 
 SKIP_FILENAMES = {"index.md", "log.md"}
@@ -36,8 +36,8 @@ def iter_pages(wiki: Path) -> Iterator[Path]:
         yield path
 
 
-def update_page(path: Path, dry_run: bool = False) -> tuple[str, int | None]:
-    """Stamp the `tokens` field on a single page.
+def update_page(path: Path, count_tokens: Callable[[str], int], dry_run: bool = False) -> tuple[str, int | None]:
+    """Stamp the `tokens` field on a single page using the injected `count_tokens`.
 
     Counts tokens on the stripped baseline (existing `tokens` field
     removed before encoding) so the stored count is stable across runs.
@@ -89,7 +89,6 @@ def update_page(path: Path, dry_run: bool = False) -> tuple[str, int | None]:
 
     if not dry_run:
         # Update the tokens field while preserving original YAML formatting.
-        # At this point, we know has_frontmatter is True (checked earlier)
         updated_lines = []
         tokens_found = False
 
@@ -114,21 +113,22 @@ def update_page(path: Path, dry_run: bool = False) -> tuple[str, int | None]:
     return ("updated", count)
 
 
-def update_vault(wiki: Path, dry_run: bool = False) -> dict[str, list[str]]:
-    """Walk `wiki` and `work/`, stamp `tokens` on every page, return {updated, unchanged, skipped} lists."""
+def update_vault(wiki: Path, count_tokens: Callable[[str], int], dry_run: bool = False) -> dict[str, list[str]]:
+    """Walk `wiki` and `work/`, stamp `tokens` on every page via the injected
+    `count_tokens`, return {updated, unchanged, skipped} lists."""
     result: dict[str, list[str]] = {"updated": [], "unchanged": [], "skipped": []}
     workspace = wiki.parent
 
     # Process wiki pages
     for page in iter_pages(wiki):
-        status, _ = update_page(page, dry_run=dry_run)
+        status, _ = update_page(page, count_tokens, dry_run=dry_run)
         result[status].append(str(page.relative_to(workspace)))
 
     # Process work items (now under the wiki)
     work_root = work_dir(workspace)
     if work_root.exists():
         for page in iter_pages(work_root):
-            status, _ = update_page(page, dry_run=dry_run)
+            status, _ = update_page(page, count_tokens, dry_run=dry_run)
             result[status].append(str(page.relative_to(workspace)))
 
     for bucket in result.values():

@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
 from graph_io import GraphNotInitializedError, exit_codes, open_reader
+from graph_io.tokens import count_tokens
 from langchain_core.messages import HumanMessage, SystemMessage
 
 # Bedrock fan-out stack — imported only for the narrated path (narrate=True).
@@ -2044,7 +2045,7 @@ async def run_scan(
         # Stamp `tokens` frontmatter on every page now that all writes are done.
         # Bedrock-only (CountTokens), so it runs solely on the narrated path — the
         # narrate=False plugin branch has no AWS access. Idempotent across re-scans.
-        update_vault(wiki)
+        update_vault(wiki, count_tokens)
 
         entity_create_count = len(scan_result.entities_created)
         entity_update_count = len(scan_result.entities_updated)

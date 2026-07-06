@@ -11,6 +11,10 @@ from __future__ import annotations
 from pathlib import Path
 
 
+def _unreachable_count_tokens(text: str) -> int:
+    raise AssertionError("count_tokens should not be called for truncated frontmatter — skip happens before counting")
+
+
 def test_update_page_skips_truncated_frontmatter(tmp_path: Path):
     from wiki_io.update_tokens import update_page
 
@@ -21,7 +25,7 @@ def test_update_page_skips_truncated_frontmatter(tmp_path: Path):
     )
     before = page.read_text(encoding="utf-8")
 
-    status, count = update_page(page, dry_run=False)
+    status, count = update_page(page, _unreachable_count_tokens, dry_run=False)
 
     assert status == "skipped"
     assert count == 0
@@ -37,7 +41,7 @@ def test_truncated_frontmatter_emits_stderr_warning(tmp_path: Path, capsys):
         encoding="utf-8",
     )
 
-    update_page(page, dry_run=False)
+    update_page(page, _unreachable_count_tokens, dry_run=False)
 
     err = capsys.readouterr().err
     assert "no closing frontmatter fence" in err
