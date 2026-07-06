@@ -242,12 +242,12 @@ def build_workspace_index(members: list[Path]) -> dict[str, tuple[str, str, str,
     Maps normalized package name -> (stored_kind, real_name, rel_path, repo_uri),
     rel_path relative to the package's OWN member repo root.
     """
-    from graph_io.update import _derive_repo_context  # noqa: PLC0415 — avoid import cycle at module load
+    from graph_io.repo_context import repo_context  # noqa: PLC0415 — avoid import cycle at module load
 
     index: dict[str, tuple[str, str, str, str]] = {}
     for member in members:
         member = Path(member).resolve()
-        ctx = _derive_repo_context(member)
+        ctx = repo_context(member)
         ruri = repo_uri(ctx)
         skip_dirs = _ignore.load_skip_dirs(member)
         for pkg_dir, info in _discover_manifests(member, skip_dirs):

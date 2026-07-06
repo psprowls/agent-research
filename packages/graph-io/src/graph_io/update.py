@@ -17,7 +17,7 @@ from workspace_io.manifest import read_graph_domains, read_graph_resources
 from workspace_io.paths import graph_dir, manifest_path
 
 from graph_io import _ignore, builtins, packages, resolve, schema, store, tokens, upsert
-from graph_io.uri import RepoContext, parse_remote_url, repo_uri
+from graph_io.uri import repo_uri
 
 # The `.graph-wiki/` dir holds only local machine state (graph DB + cache,
 # subagent traces, search index); ignore it wholesale.
@@ -167,25 +167,6 @@ def _default_lock_timeout() -> int:
         return 30_000
 
 
-def _derive_repo_context(repo_root: Path) -> RepoContext:
-    """Derive `(org, repo)` from `git remote get-url origin`, falling back to local.
-
-    D-04: try `git remote get-url origin` only — no upstream/fork probing.
-    D-05: on any failure (non-zero exit, unparseable URL), fall back to
-    `RepoContext(org='local', repo=repo_root.name)` — literal `'local'`
-    sentinel, no underscore prefix.
-    """
-    try:
-        remote_url = _git(["remote", "get-url", "origin"], cwd=repo_root).strip()
-    except NotInGitRepoError:
-        return RepoContext(org="local", repo=repo_root.name)
-    parsed = parse_remote_url(remote_url)
-    if parsed is None:
-        return RepoContext(org="local", repo=repo_root.name)
-    org, repo = parsed
-    return RepoContext(org=org, repo=repo)
-
-
 def _read_schema_version_or_none(db_path: Path) -> str | None:
     """Read `metadata.schema_version` from `db_path` without touching the schema.
 
@@ -248,7 +229,11 @@ def _update_one_repo(
     per-repo `last_indexed_commit:<uri>` metadata key is written.
     """
     head = _head(repo_root)
-    ctx = _derive_repo_context(repo_root)
+    from graph_io.repo_context import (
+        repo_context,  # noqa: PLC0415 — repo_context imports _git/NotInGitRepoError from this module; deferred to avoid a cycle at module load
+    )
+
+    ctx = repo_context(repo_root)
     repo_uri_val = repo_uri(ctx)
     skip_dirs = _ignore.load_skip_dirs(repo_root)
     commit_key = f"last_indexed_commit:{repo_uri_val}"
@@ -413,7 +398,9 @@ def run_workspace(
                 # downstream tooling (and the existing test suite) reads. Multi-
                 # repo workspaces have no single HEAD, so the key is left unset.
                 if len(members) == 1:
-                    only_uri = repo_uri(_derive_repo_context(members[0]))
+                    from graph_io.repo_context import repo_context  # noqa: PLC0415 — see _update_one_repo
+
+                    only_uri = repo_uri(repo_context(members[0]))
                     only_commit = _get_metadata(conn, f"last_indexed_commit:{only_uri}")
                     if only_commit is not None:
                         _set_metadata(conn, "last_indexed_commit", only_commit)
