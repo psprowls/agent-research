@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "Focused gw Typer CLI for graph-wiki workflows"
 requires-python = ">=3.11"
 dependencies = [
-    "graph-wiki-core",
+    "graph-wiki-core[bedrock]",
     "graph-io",
     "wiki-io",
     "work-io",

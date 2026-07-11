@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Invoke Bedrock subagents live from the CLI with colored prompt/response/model output."
 requires-python = ">=3.11"
 dependencies = [
-    "graph-wiki-core",
+    "graph-wiki-core[bedrock]",
     "model-adapter",
     "subagent-runtime",
     "graph-io",

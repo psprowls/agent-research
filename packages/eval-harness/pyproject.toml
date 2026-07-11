@@ -8,7 +8,7 @@ dependencies = [
     "pytest-evals>=0.3.4",
     "python-frontmatter>=1.1.0",
     "aiobotocore>=2.13",
-    "graph-wiki-core",
+    "graph-wiki-core[bedrock]",
     "subagent-runtime",
     "model-adapter",
     "graph-io",

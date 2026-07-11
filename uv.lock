@@ -645,7 +645,7 @@ dependencies = [
     { name = "aiobotocore" },
     { name = "deepeval" },
     { name = "graph-io" },
-    { name = "graph-wiki-core" },
+    { name = "graph-wiki-core", extra = ["bedrock"] },
     { name = "model-adapter" },
     { name = "pytest-evals" },
     { name = "python-frontmatter" },
@@ -658,7 +658,7 @@ requires-dist = [
     { name = "aiobotocore", specifier = ">=2.13" },
     { name = "deepeval", specifier = ">=4.0.0" },
     { name = "graph-io", editable = "packages/graph-io" },
-    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
+    { name = "graph-wiki-core", extras = ["bedrock"], editable = "packages/graph-wiki-core" },
     { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "pytest-evals", specifier = ">=0.3.4" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
@@ -815,7 +815,7 @@ source = { editable = "packages/graph-wiki-cli" }
 dependencies = [
     { name = "click" },
     { name = "graph-io" },
-    { name = "graph-wiki-core" },
+    { name = "graph-wiki-core", extra = ["bedrock"] },
     { name = "subagent-runtime" },
     { name = "typer" },
     { name = "wiki-io" },
@@ -826,7 +826,7 @@ dependencies = [
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "graph-io", editable = "packages/graph-io" },
-    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
+    { name = "graph-wiki-core", extras = ["bedrock"], editable = "packages/graph-wiki-core" },
     { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
@@ -838,53 +838,58 @@ name = "graph-wiki-core"
 version = "0.1.1"
 source = { editable = "packages/graph-wiki-core" }
 dependencies = [
-    { name = "bm25s" },
     { name = "graph-io" },
     { name = "guidance-io" },
-    { name = "langchain-aws" },
-    { name = "langchain-core" },
-    { name = "model-adapter" },
     { name = "pydantic" },
     { name = "python-frontmatter" },
     { name = "pyyaml" },
-    { name = "subagent-runtime" },
     { name = "typer" },
     { name = "wiki-io" },
     { name = "work-io" },
     { name = "workspace-io" },
 ]
 
+[package.optional-dependencies]
+bedrock = [
+    { name = "bm25s" },
+    { name = "langchain-aws" },
+    { name = "langchain-core" },
+    { name = "model-adapter" },
+    { name = "subagent-runtime" },
+]
+
 [package.metadata]
 requires-dist = [
-    { name = "bm25s", specifier = "==0.3.8" },
+    { name = "bm25s", marker = "extra == 'bedrock'", specifier = "==0.3.8" },
     { name = "graph-io", editable = "packages/graph-io" },
     { name = "guidance-io", editable = "packages/guidance-io" },
-    { name = "langchain-aws", specifier = ">=1.4.7" },
-    { name = "langchain-core", specifier = ">=1.4.0" },
-    { name = "model-adapter", editable = "packages/model-adapter" },
+    { name = "langchain-aws", marker = "extra == 'bedrock'", specifier = ">=1.4.7" },
+    { name = "langchain-core", marker = "extra == 'bedrock'", specifier = ">=1.4.0" },
+    { name = "model-adapter", marker = "extra == 'bedrock'", editable = "packages/model-adapter" },
     { name = "pydantic", specifier = ">=2.0" },
     { name = "python-frontmatter", specifier = ">=1.1.0" },
     { name = "pyyaml", specifier = ">=6.0" },
-    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
+    { name = "subagent-runtime", marker = "extra == 'bedrock'", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
     { name = "wiki-io", editable = "packages/wiki-io" },
     { name = "work-io", editable = "packages/work-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
+provides-extras = ["bedrock"]
 
 [[package]]
 name = "graph-wiki-mcp"
 version = "0.1.1"
 source = { editable = "packages/graph-wiki-mcp" }
 dependencies = [
-    { name = "graph-wiki-core" },
+    { name = "graph-wiki-core", extra = ["bedrock"] },
     { name = "mcp" },
     { name = "pydantic" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
+    { name = "graph-wiki-core", extras = ["bedrock"], editable = "packages/graph-wiki-core" },
     { name = "mcp", specifier = ">=1.27.1" },
     { name = "pydantic", specifier = ">=2.0" },
 ]
@@ -2786,7 +2791,7 @@ source = { editable = "packages/subagent-cli" }
 dependencies = [
     { name = "click" },
     { name = "graph-io" },
-    { name = "graph-wiki-core" },
+    { name = "graph-wiki-core", extra = ["bedrock"] },
     { name = "guidance-io" },
     { name = "langchain-core" },
     { name = "model-adapter" },
@@ -2802,7 +2807,7 @@ dependencies = [
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
     { name = "graph-io", editable = "packages/graph-io" },
-    { name = "graph-wiki-core", editable = "packages/graph-wiki-core" },
+    { name = "graph-wiki-core", extras = ["bedrock"], editable = "packages/graph-wiki-core" },
     { name = "guidance-io", editable = "packages/guidance-io" },
     { name = "langchain-core" },
     { name = "model-adapter", editable = "packages/model-adapter" },
@@ -3161,19 +3166,15 @@ name = "wiki-io"
 version = "0.1.1"
 source = { editable = "packages/wiki-io" }
 dependencies = [
-    { name = "guidance-io" },
     { name = "markdown-it-py" },
     { name = "python-frontmatter" },
-    { name = "work-io" },
     { name = "workspace-io" },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "guidance-io", editable = "packages/guidance-io" },
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "python-frontmatter", specifier = ">=1.1" },
-    { name = "work-io", editable = "packages/work-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 

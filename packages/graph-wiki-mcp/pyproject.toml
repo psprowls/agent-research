@@ -4,7 +4,7 @@ version = "0.1.1"
 description = "Focused graph-wiki MCP server package"
 requires-python = ">=3.11"
 dependencies = [
-    "graph-wiki-core",
+    "graph-wiki-core[bedrock]",
     "mcp>=1.27.1",
     "pydantic>=2.0",
 ]
