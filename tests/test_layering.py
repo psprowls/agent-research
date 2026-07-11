@@ -17,6 +17,13 @@ legitimately import the bedrock stack); base-closure importability is owned by
 tests/integration/test_base_closure_import.py.
 
 A member absent from LAYER_POLICY fails: new packages must declare their layer.
+
+When this test flags a new violation, the default answer is to FIX it — move
+the code to the right layer or invert the dependency (inject the value, expose
+a public API on the lower package) — not to allowlist it. Widen LAYER_POLICY /
+EXTRA_POLICY only for a deliberate architecture change, and add to
+SANCTIONED_EXCEPTIONS only for known, tracked drift with a linked work item.
+The exception table is a ledger of debt being paid down, not an escape hatch.
 """
 
 from __future__ import annotations
@@ -56,17 +63,28 @@ EXTRA_POLICY: dict[str, dict[str, set[str]]] = {
     "graph-wiki-core": {"bedrock": {"model-adapter", "subagent-runtime"}},
 }
 
-# Surface bypasses sanctioned pending
-# 2026-07-05-thin-the-delivery-surfaces-route-graph-wiki-cli-and-subagent-cli-through-graph-wiki-core;
-# removing an entry when that item lands is a one-line diff.
+# Known, tracked drift only — removing an entry when its item lands is a one-line diff.
 SANCTIONED_EXCEPTIONS: dict[str, set[str]] = {
+    # graph-wiki-cli + subagent-cli: surface bypasses sanctioned pending
+    # 2026-07-05-thin-the-delivery-surfaces-route-graph-wiki-cli-and-subagent-cli-through-graph-wiki-core.
     "graph-wiki-cli": {"graph-io", "wiki-io", "work-io", "subagent-runtime"},
-    "graph-wiki-mcp": {"graph-io", "wiki-io"},
     "subagent-cli": {"graph-io", "wiki-io", "guidance-io", "model-adapter", "subagent-runtime"},
+    # graph-wiki-mcp: same surface-bypass shape (server.py imports graph_io.open_reader and the
+    # PRIVATE wiki_io._workspace.resolve_wiki_and_repo); no dedicated work item filed yet —
+    # file one before removing this entry.
+    "graph-wiki-mcp": {"graph-io", "wiki-io"},
+    # eval-harness: same surface-bypass shape; no dedicated work item filed yet —
+    # file one before removing this entry.
     "eval-harness": {"graph-io", "model-adapter", "subagent-runtime"},
 }
 
 _REQ_NAME = re.compile(r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)")
+
+# Shared remediation suffix so every violation message says what to do next.
+_REMEDY = (
+    " — either remove the edge, or if intentional extend LAYER_POLICY/EXTRA_POLICY"
+    " (architecture change) or SANCTIONED_EXCEPTIONS (known drift; needs a linked work item)"
+)
 
 
 def _members() -> dict[str, Path]:
@@ -88,7 +106,11 @@ def _allowed(dist: str) -> set[str]:
 
 
 def _import_to_dist() -> dict[str, str]:
-    """Derive the import-name -> dist-name mapping from packages/*/src/<import_name>."""
+    """Derive the import-name -> dist-name mapping from packages/*/src/<import_name>.
+
+    Only regular package dirs (`src/<name>/__init__.py`) are mapped; a single-file
+    `src/<name>.py` module or a namespace package would be skipped.
+    """
     mapping: dict[str, str] = {}
     for dist, pkg_dir in _members().items():
         src = pkg_dir / "src"
@@ -128,12 +150,14 @@ def test_declared_deps_respect_layer_policy() -> None:
         project = tomllib.loads((pkg_dir / "pyproject.toml").read_text(encoding="utf-8"))["project"]
         allowed = _allowed(dist)
         base = {_req_dist(r) for r in project.get("dependencies", [])} & in_repo
-        violations.extend(f"{dist}: declared dep {dep!r} violates the layer policy" for dep in sorted(base - allowed))
+        violations.extend(
+            f"{dist}: declared dep {dep!r} violates the layer policy{_REMEDY}" for dep in sorted(base - allowed)
+        )
         for extra, reqs in project.get("optional-dependencies", {}).items():
             extra_allowed = allowed | EXTRA_POLICY.get(dist, {}).get(extra, set())
             extra_deps = {_req_dist(r) for r in reqs} & in_repo
             violations.extend(
-                f"{dist}[{extra}]: declared dep {dep!r} violates the layer policy"
+                f"{dist}[{extra}]: declared dep {dep!r} violates the layer policy{_REMEDY}"
                 for dep in sorted(extra_deps - extra_allowed)
             )
     assert not violations, "\n".join(violations)
@@ -162,6 +186,7 @@ def test_src_imports_respect_layer_policy() -> None:
                     continue
                 if dep not in allowed:
                     violations.append(
-                        f"{dist}: {py.relative_to(REPO_ROOT)} imports {top!r} ({dep}) — violates the layer policy"
+                        f"{dist}: {py.relative_to(REPO_ROOT)} imports {top!r} ({dep})"
+                        f" — violates the layer policy{_REMEDY}"
                     )
     assert not violations, "\n".join(violations)
