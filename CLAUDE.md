@@ -33,17 +33,22 @@ uv run --package graph-wiki-cli pytest -m "not integration"   # skip Bedrock/sub
 ### Package dependency layers (bottom → top)
 
 ```
-source-parser      tree-sitter → span-bearing SourceTree + graph projection
+source-parser      tree-sitter → span-bearing SourceTree + graph projection (graph-io-private)
 workspace-io       resolve workspace/repo paths, manifest + config IO (no business logic)
 model-adapter      make_bedrock_llm/make_gateway_llm → _GuardedChatBedrockConverse/_GuardedChatOpenAI; role resolution lives in graph-wiki-core
-subagent-runtime   SubagentPool — asyncio.Semaphore-bounded Bedrock fan-out + trace IO
+subagent-runtime   SubagentPool — asyncio.Semaphore-bounded Bedrock fan-out + trace IO; owns the model pricing table (subagent_runtime.pricing)
 graph-io           SQLite code-graph store, scanning, classification, read-only queries
 wiki-io            vault (markdown+frontmatter) read/write primitives
 graph-wiki-core    command + prompt + orchestration logic shared by ALL delivery surfaces
-  ├── graph-wiki-cli   the `gw` Typer CLI  (project.scripts: gw)
-  ├── graph-wiki-mcp   MCP server surface  (project.scripts: graph-wiki-mcp)
-  └── eval-harness     deepeval checks, pricing, model sweep runner
+  = base           deps: graph-io / wiki-io / work-io / guidance-io / workspace-io — no Bedrock stack;
+                   the Claude plugin's script shims re-exec against this closure (scripts/_uv_reexec.py)
+  = [bedrock]      extra adds model-adapter + subagent-runtime (+ langchain-aws / langchain-core / bm25s)
+  ├── graph-wiki-cli   the `gw` Typer CLI  (project.scripts: gw) — declares graph-wiki-core[bedrock]
+  ├── graph-wiki-mcp   MCP server surface  (project.scripts: graph-wiki-mcp) — declares graph-wiki-core[bedrock]
+  └── eval-harness     deepeval checks, model sweep runner — declares graph-wiki-core[bedrock]; pricing comes from subagent-runtime
 ```
+
+Layering is enforced by `tests/test_layering.py` (declared deps + AST imports vs. the layer policy, with a sanctioned-exception allowlist) and `tests/integration/test_base_closure_import.py` (every non-gated core module must import against the base closure).
 
 `graph-wiki-core` is the hub: `commands/` (scan, ingest, query, lint, init, log, propose_domains, ack_drift, graph) hold the real logic; `graph-wiki-cli` and `graph-wiki-mcp` are thin surfaces over it. When changing behavior, change it in core.
 
