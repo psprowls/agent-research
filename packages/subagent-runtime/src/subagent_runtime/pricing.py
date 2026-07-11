@@ -153,6 +153,6 @@ def cost_for_usage(model: str, usage: dict[str, int]) -> float:
         UnknownModelError: if model is not in PRICES.
     """
     if model not in PRICES:
-        raise UnknownModelError(f"unknown model {model!r}; update eval_harness/pricing.py")
+        raise UnknownModelError(f"unknown model {model!r}; update subagent_runtime/pricing.py")
     p = PRICES[model]
     return sum(usage.get(k, 0) * p[k] / 1_000_000 for k in p)

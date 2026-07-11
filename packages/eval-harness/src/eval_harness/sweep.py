@@ -39,6 +39,7 @@ from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.query import QueryResult, run_query
 from graph_wiki_core.commands.scan import run_scan
 from langchain_aws import ChatBedrockConverse
+from subagent_runtime.pricing import UnknownModelError, cost_for_usage
 from workspace_io.paths import graph_dir, wiki_dir
 
 from eval_harness.divergence import ROLE_CHECKS, ROLE_RUBRICS
@@ -46,7 +47,6 @@ from eval_harness.divergence.check import AgentOutputProxy
 from eval_harness.divergence.metric import DivergenceMetric
 from eval_harness.isolation import EvalWorktree
 from eval_harness.preflight import HARD_CAP_USD, estimate_sweep_cost, preflight_bed01, preflight_check  # noqa: F401
-from eval_harness.pricing import UnknownModelError, cost_for_usage
 from eval_harness.structural import check_structural
 from eval_harness.two_gate import ROLES_WITH_DIVERGENCE, TwoGateOutcome, score_two_gate  # noqa: F401
 

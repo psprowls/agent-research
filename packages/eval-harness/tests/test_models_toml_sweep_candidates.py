@@ -5,7 +5,7 @@ Verifies:
 - global.anthropic.claude-haiku-4-5-20251001-v1:0 is absent from every in-scope role's list
   after the 2026-05-30 Haiku quota purge
 - Judges (judge_a, judge_b) do NOT have sweep_candidates (D-01)
-- Every candidate model_id is priced in eval_harness.pricing (key_links constraint)
+- Every candidate model_id is priced in subagent_runtime.pricing (key_links constraint)
 - make_llm() still works for all six roles after the new key is added
 - code_reader_cases.json has 5–6 vault-thin fixture cases (Phase 16 D-07 expansion from the original 3)
 
@@ -19,8 +19,8 @@ import json
 from pathlib import Path
 
 import pytest
-from eval_harness.pricing import UnknownModelError, cost_for_usage
 from graph_wiki_core.roles import load_role_config, make_llm
+from subagent_runtime.pricing import UnknownModelError, cost_for_usage
 
 # D-01: six in-scope agent roles only
 IN_SCOPE_ROLES = ("librarian", "synthesizer", "code_reader", "scanner", "linter", "ingestor")
@@ -69,7 +69,7 @@ def test_no_sweep_candidates_for_judges():
 
 
 def test_all_candidates_have_pricing():
-    """Every (role, candidate) pair must be priced in eval_harness.pricing.PRICES."""
+    """Every (role, candidate) pair must be priced in subagent_runtime.pricing.PRICES."""
     for role in IN_SCOPE_ROLES:
         candidates = load_role_config(role)["sweep_candidates"]
         for model_id in candidates:
@@ -77,7 +77,7 @@ def test_all_candidates_have_pricing():
                 # Use 1 token each — just checking the model is known, not computing real cost
                 cost_for_usage(model_id, {"input": 1, "output": 1})
             except UnknownModelError as e:
-                pytest.fail(f"[{role}] candidate {model_id!r} is not priced in eval_harness.pricing: {e}")
+                pytest.fail(f"[{role}] candidate {model_id!r} is not priced in subagent_runtime.pricing: {e}")
 
 
 def test_make_llm_still_works_for_all_roles():

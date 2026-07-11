@@ -10,9 +10,8 @@ Key invariants preserved from pool.py (TRACE-FU-01 / SC#1):
 - usage_metadata is None-guarded — ChatBedrockConverse returns None on
   throttling / content-filter responses (deepagents #1698)
 - OSError on write is caught + logged WARNING — never raises (Failure Mode #2)
-- cost_usd computed from (model_id, tokens_in, tokens_out) via lazy
-  eval_harness.pricing import; subagent-runtime does NOT hard-depend on
-  eval-harness
+- cost_usd computed from (model_id, tokens_in, tokens_out) via the
+  in-package subagent_runtime.pricing module
 """
 
 from __future__ import annotations
@@ -22,6 +21,8 @@ import logging
 import time
 from pathlib import Path
 from typing import Any
+
+from subagent_runtime.pricing import cost_for_usage
 
 logger = logging.getLogger(__name__)
 
@@ -123,21 +124,15 @@ def _compute_cost_usd(
     tokens_in: int | None,
     tokens_out: int | None,
 ) -> float | None:
-    """Compute USD cost from token counts using eval_harness.pricing.
+    """Compute USD cost from token counts using subagent_runtime.pricing.
 
-    Lazy import — subagent-runtime does not declare a hard dependency on eval-harness.
-    Returns None if tokens are unavailable, eval-harness is not installed, or the
-    model is not in the pricing table (UnknownModelError / ImportError).
+    Returns None if tokens are unavailable or the model is not in the pricing
+    table (UnknownModelError).
     """
     if tokens_in is None or tokens_out is None:
         return None
     try:
-        # UnknownModelError is a subclass of KeyError; catching KeyError covers it
-        # without referencing the lazy-imported name in the except clause (which
-        # would raise UnboundLocalError when the import itself fails — Rule 1
-        # pre-existing bug surfaced by Phase 9 OBS-04 schema_version tests).
-        from eval_harness.pricing import cost_for_usage  # noqa: PLC0415
-
+        # UnknownModelError is a subclass of KeyError; catching KeyError covers it.
         return cost_for_usage(model_id, {"input": tokens_in, "output": tokens_out})
-    except (ImportError, KeyError):
+    except KeyError:
         return None

@@ -11,8 +11,7 @@ from __future__ import annotations
 
 from graph_wiki_core.roles import make_llm
 from model_adapter.exceptions import BedrockAccessDenied
-
-from eval_harness.pricing import UnknownModelError, cost_for_usage
+from subagent_runtime.pricing import UnknownModelError, cost_for_usage
 
 HARD_CAP_USD = 25.0  # $25: 4x headroom over ~$6.19 estimated 24-cell matrix (RESEARCH.md §Tension 2)
 

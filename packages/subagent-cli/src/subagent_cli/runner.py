@@ -11,6 +11,7 @@ from typing import Any, Callable
 from graph_wiki_core.roles import load_role_config, make_llm
 from langchain_core.messages import HumanMessage, SystemMessage
 from subagent_runtime.pool import SubagentPool, TaskResult
+from subagent_runtime.pricing import cost_for_usage
 from workspace_io import paths as ws_paths
 
 from .adapters.base import Adapter, LoopAdapter, LoopOutcome, RunContext
@@ -60,10 +61,9 @@ def _cost(model_id: str, tin: int | None, tout: int | None) -> float | None:
     if tin is None or tout is None:
         return None
     try:
-        from eval_harness.pricing import cost_for_usage  # best-effort, optional
-
+        # UnknownModelError is a subclass of KeyError.
         return cost_for_usage(model_id, {"input": tin, "output": tout})
-    except Exception:
+    except KeyError:
         return None
 
 

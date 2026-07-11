@@ -1,4 +1,4 @@
-"""Unit tests for eval_harness.pricing.
+"""Unit tests for subagent_runtime.pricing.
 
 All tests are deterministic and require no Bedrock access.
 """
@@ -6,7 +6,7 @@ All tests are deterministic and require no Bedrock access.
 from __future__ import annotations
 
 import pytest
-from eval_harness.pricing import PRICES, UnknownModelError, cost_for_usage
+from subagent_runtime.pricing import PRICES, UnknownModelError, cost_for_usage
 
 
 def test_nova_pro_cost() -> None:

@@ -85,7 +85,7 @@ def test_all_keys_present(fixture_workspace_path: Path) -> None:
 def test_has_code_path_detected(fixture_workspace_path: Path) -> None:
     """has_code_path is True when answer contains a .py path reference."""
     result = QueryResult(
-        answer="See packages/eval-harness/src/eval_harness/pricing.py for details.",
+        answer="See packages/subagent-runtime/src/subagent_runtime/pricing.py for details.",
         citations=[],
         pages_drilled=1,
         search_scores={},
