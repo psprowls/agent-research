@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import sys
 
-from graph_io import SchemaMismatchError, exit_codes, update
+from graph_wiki_core.commands.graph_query import SchemaMismatchError, exit_codes, update
 
 from graph_wiki_cli.graph_cli._args import UpdateArgs
 

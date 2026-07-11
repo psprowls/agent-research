@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Optional
 
 import typer
-from graph_io import VALID_KINDS
+from graph_wiki_core.commands.graph_query import VALID_KINDS
 from workspace_io.config import resolve
 
 from graph_wiki_cli.graph_cli import (

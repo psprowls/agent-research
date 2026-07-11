@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 from typing import Protocol
 
-import graph_io
-from graph_io import SCHEMA_VERSION, GraphNotInitializedError, SchemaMismatchError, exit_codes
+from graph_wiki_core.commands import graph_query
+from graph_wiki_core.commands.graph_query import SCHEMA_VERSION, exit_codes
 
 from graph_wiki_cli.graph_cli._args import FormatArgs, RepoWorkspaceArgs
 
@@ -50,14 +50,10 @@ def run(args: StatusArgs) -> int:
     if head is None:
         print("error: not in a git repo", file=sys.stderr)
         return exit_codes.NOT_IN_GIT_REPO
-    try:
-        reader = graph_io.open_reader(args.workspace)
-    except GraphNotInitializedError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exit_codes.NOT_INITIALIZED
-    except SchemaMismatchError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exit_codes.SCHEMA_MISMATCH
+    reader, code, err = graph_query.connect_or_error(args.workspace)
+    if reader is None:
+        print(err, file=sys.stderr)
+        return code
     try:
         repo_desc = reader.describe_repository()
         info = _collect(reader)

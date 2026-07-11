@@ -63,8 +63,8 @@ _ensure_uv_workspace()
 
 # Imports below run after the uv re-exec bootstrap above, so they cannot move to
 # the top of the module.
-from graph_io import exit_codes as _gio_exit_codes  # noqa: E402
 from graph_wiki_core.commands.archive_all import run_archive_all  # noqa: E402
+from graph_wiki_core.commands.graph_query import exit_codes as _gio_exit_codes  # noqa: E402
 from graph_wiki_core.commands.ingest import (  # noqa: E402
     IngestorGraphNotInitializedError,
     run_ingest_source,

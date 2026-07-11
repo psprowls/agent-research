@@ -24,19 +24,37 @@ from graph_io import (
     SchemaMismatchError,
     exit_codes,
     open_reader,
-    render,
     run_sync_wiki,  # noqa: F401
     update,  # noqa: F401
 )
+from graph_io import render as _render_module
+from graph_io.render import render  # noqa: F401
 from wiki_io.package_pages import resolve_overview_path  # noqa: F401
+
+# Attach module attributes to the render function so both _format.render() and
+# _render.render() work. This allows the function to be called directly while
+# also being a namespace for format_* methods.
+render.render = _render_module.render
+render.format_package = _render_module.format_package
+render.format_app = _render_module.format_app
+render.format_repo = _render_module.format_repo
+render.format_domain = _render_module.format_domain
+render.format_path = _render_module.format_path
+render.format_suite = _render_module.format_suite
+render.format_entry_point = _render_module.format_entry_point
+render.format_dependency = _render_module.format_dependency
+render.format_builtin = _render_module.format_builtin
+render.format_agent_plugin = _render_module.format_agent_plugin
+render.format_symbol = _render_module.format_symbol
+render.format_matches = _render_module.format_matches
 
 # graph_io.render module attrs re-exported for graph_cli/_format.py's shim
 # (that file predates this module and re-exports these under its own name —
 # see its docstring for why it is kept rather than deleted).
-_importer_human = render._importer_human
-_importer_json = render._importer_json
-_is_importer_batch = render._is_importer_batch
-_to_dict = render._to_dict
+_importer_human = _render_module._importer_human  # noqa: F401
+_importer_json = _render_module._importer_json  # noqa: F401
+_is_importer_batch = _render_module._is_importer_batch  # noqa: F401
+_to_dict = _render_module._to_dict  # noqa: F401
 
 
 def connect_or_error(workspace: Path) -> tuple[GraphReader | None, int, str]:

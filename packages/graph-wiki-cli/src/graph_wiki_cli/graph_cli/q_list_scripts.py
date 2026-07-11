@@ -11,21 +11,17 @@ import json as _json
 import sys
 from collections import defaultdict
 
-import graph_io
-from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
+from graph_wiki_core.commands import graph_query
+from graph_wiki_core.commands.graph_query import exit_codes
 
 from graph_wiki_cli.graph_cli._args import ListScriptsArgs
 
 
 def run(args: ListScriptsArgs) -> int:
-    try:
-        reader = graph_io.open_reader(args.workspace)
-    except GraphNotInitializedError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exit_codes.NOT_INITIALIZED
-    except SchemaMismatchError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exit_codes.SCHEMA_MISMATCH
+    reader, code, err = graph_query.connect_or_error(args.workspace)
+    if reader is None:
+        print(err, file=sys.stderr)
+        return code
     try:
         records = reader.list_scripts()
         # Single annotation lookup: path -> [(pkg, callable), ...].

@@ -14,9 +14,9 @@ from __future__ import annotations
 import sys
 from typing import cast
 
-import graph_io
-from graph_io import GraphNotInitializedError, SchemaMismatchError, exit_codes
-from graph_io import render as _render
+from graph_wiki_core.commands import graph_query
+from graph_wiki_core.commands.graph_query import NodeRecord, exit_codes
+from graph_wiki_core.commands.graph_query import render as _render
 
 from graph_wiki_cli.graph_cli import (
     q_describe_agent_plugin,
@@ -76,7 +76,7 @@ _NON_DESCRIBABLE_MESSAGES = {
 }
 
 
-def _describe_one(match: graph_io.NodeRecord, args: MutableDescribeArgs) -> int:
+def _describe_one(match: NodeRecord, args: MutableDescribeArgs) -> int:
     """Dispatch a single resolved match to the right describer."""
     if match.kind in CODE_KINDS:
         args.kind = match.kind
@@ -124,14 +124,10 @@ def run(args: MutableDescribeArgs) -> int:
         return _DISPATCH["builtin"][0].run(args)
 
     # Inference across all kinds via resolve_selector.
-    try:
-        reader = graph_io.open_reader(args.workspace)
-    except GraphNotInitializedError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exit_codes.NOT_INITIALIZED
-    except SchemaMismatchError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return exit_codes.SCHEMA_MISMATCH
+    reader, code, err = graph_query.connect_or_error(args.workspace)
+    if reader is None:
+        print(err, file=sys.stderr)
+        return code
     try:
         matches = reader.resolve_selector(selector=selector, in_package=args.in_package)
         if not matches:
