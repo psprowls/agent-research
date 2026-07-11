@@ -43,7 +43,7 @@ def test_unknown_model_raises() -> None:
 
 
 def test_all_five_bedrock_models_present() -> None:
-    """PRICES must contain all 5 Bedrock model IDs required by eval harness."""
+    """PRICES must contain all 5 Bedrock model IDs required by consumers (eval-harness sweep candidates)."""
     required = {
         "us.anthropic.claude-haiku-4-5-20251001-v1:0",
         "us.anthropic.claude-sonnet-4-6",

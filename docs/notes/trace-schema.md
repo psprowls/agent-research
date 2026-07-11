@@ -65,7 +65,7 @@ cancelled. The record carries no `event` and no `kind` key.
 | `latency_ms`   | integer                    | yes      | Wall-clock duration from item dispatch to terminal state, milliseconds.                                           |
 | `tokens_in`    | integer \| null            | yes      | Input token count from Bedrock `usage_metadata`. `null` if the Bedrock response was discarded (error / cancel).   |
 | `tokens_out`   | integer \| null            | yes      | Output token count from Bedrock `usage_metadata`. `null` under the same conditions as `tokens_in`.                |
-| `cost_usd`     | number \| null             | yes      | USD cost computed at write time from `eval_harness.pricing`. `null` if tokens are unknown or model is unpriced.   |
+| `cost_usd`     | number \| null             | yes      | USD cost computed at write time from `subagent_runtime.pricing`. `null` if tokens are unknown or model is unpriced. |
 | `timestamp`    | string                     | yes      | ISO-8601 UTC timestamp in seconds precision — `YYYY-MM-DDTHH:MM:SSZ`.                                             |
 | `error`        | string                     | optional | Present only when `status == "error"`. Short error description (stringified exception).                           |
 
