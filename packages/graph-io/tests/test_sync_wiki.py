@@ -1,4 +1,9 @@
-"""Unit tests for gw graph sync-wiki logic."""
+"""Unit tests for gw graph sync-wiki logic.
+
+The wiki-layout conventions live in wiki_io.package_pages (tested there);
+these tests inject stub resolvers and pin the graph side: upserts, the drift
+report, stale cleanup, and the ambiguous-skip warning.
+"""
 
 from __future__ import annotations
 
@@ -18,11 +23,6 @@ def workspace(tmp_path: Path) -> Path:
     (ws / ".graph-wiki.yaml").write_text("registered_plugins: []\n")
     (ws / "wiki").mkdir()
     return ws
-
-
-@pytest.fixture()
-def repo_root(tmp_path: Path) -> Path:
-    return tmp_path
 
 
 @pytest.fixture()
@@ -49,68 +49,64 @@ def _make_overview(workspace: Path, rel: str) -> None:
     p.write_text(f"# {p.stem}\n")
 
 
-def test_resolves_packages_overview(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
+def _resolver(mapping: dict[str, str], ambiguous: frozenset[str] = frozenset()):
+    """Stub resolve_page: a static name->path mapping plus explicit ambiguous names."""
+
+    def resolve_page(name: str) -> tuple[str | None, bool]:
+        if name in ambiguous:
+            return None, True
+        return mapping.get(name), False
+
+    return resolve_page
+
+
+def test_links_package_via_injected_resolver(workspace: Path, conn: sqlite3.Connection) -> None:
+    # A deliberately NON-conventional path: graph-io must not care about layout.
     _seed_package(conn, "alpha", "packages/alpha")
-    _make_overview(workspace, "wiki/packages/alpha/alpha.md")
+    _make_overview(workspace, "wiki/anywhere/alpha-page.md")
 
-    report = sync_wiki.run(workspace=workspace, conn=conn)
+    report = sync_wiki.run(
+        workspace=workspace, conn=conn, resolve_page=_resolver({"alpha": "wiki/anywhere/alpha-page.md"})
+    )
 
-    assert report.newly_linked == (("alpha", "wiki/packages/alpha/alpha.md"),)
+    assert report.newly_linked == (("alpha", "wiki/anywhere/alpha-page.md"),)
     assert report.undocumented == ()
     page = conn.execute("SELECT name, path FROM nodes WHERE kind='wiki_page'").fetchone()
-    assert page == ("wiki/packages/alpha/alpha.md", "wiki/packages/alpha/alpha.md")
+    assert page == ("wiki/anywhere/alpha-page.md", "wiki/anywhere/alpha-page.md")
     edge_count = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='documents'").fetchone()[0]
     assert edge_count == 1
 
 
-def test_resolves_apps_overview(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
-    _seed_package(conn, "web", "apps/web")
-    _make_overview(workspace, "wiki/apps/web/web.md")
-
-    report = sync_wiki.run(workspace=workspace, conn=conn)
-
-    assert report.newly_linked == (("web", "wiki/apps/web/web.md"),)
-
-
-def test_resolves_domains_overview_via_glob(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
-    _seed_package(conn, "billing-core", "domains/billing/packages/billing-core")
-    _make_overview(workspace, "wiki/domains/billing/packages/billing-core/billing-core.md")
-
-    report = sync_wiki.run(workspace=workspace, conn=conn)
-
-    assert report.newly_linked == (("billing-core", "wiki/domains/billing/packages/billing-core/billing-core.md"),)
-
-
-def test_undocumented_package_is_reported(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
+def test_undocumented_package_is_reported(workspace: Path, conn: sqlite3.Connection) -> None:
     _seed_package(conn, "alpha", "packages/alpha")
 
-    report = sync_wiki.run(workspace=workspace, conn=conn)
+    report = sync_wiki.run(workspace=workspace, conn=conn, resolve_page=_resolver({}))
 
     assert report.undocumented == ("alpha",)
     assert report.newly_linked == ()
 
 
-def test_domain_glob_collision_is_ambiguous(workspace: Path, repo_root: Path, conn: sqlite3.Connection, capsys) -> None:
+def test_ambiguous_package_is_skipped_with_warning(workspace: Path, conn: sqlite3.Connection, capsys) -> None:
     _seed_package(conn, "core", "domains/a/packages/core")
-    _make_overview(workspace, "wiki/domains/a/packages/core/core.md")
-    _make_overview(workspace, "wiki/domains/b/packages/core/core.md")
 
-    report = sync_wiki.run(workspace=workspace, conn=conn)
+    report = sync_wiki.run(workspace=workspace, conn=conn, resolve_page=_resolver({}, ambiguous=frozenset({"core"})))
 
     assert report.ambiguous == ("core",)
+    assert report.undocumented == ("core",)
     assert report.newly_linked == ()
     assert "core" in capsys.readouterr().err
     edge_count = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='documents'").fetchone()[0]
     assert edge_count == 0
 
 
-def test_cleanup_removes_stale_wiki_page_and_edges(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
+def test_cleanup_removes_stale_wiki_page_and_edges(workspace: Path, conn: sqlite3.Connection) -> None:
     _seed_package(conn, "alpha", "packages/alpha")
     _make_overview(workspace, "wiki/packages/alpha/alpha.md")
-    sync_wiki.run(workspace=workspace, conn=conn)
+    resolve_page = _resolver({"alpha": "wiki/packages/alpha/alpha.md"})
+    sync_wiki.run(workspace=workspace, conn=conn, resolve_page=resolve_page)
 
     (workspace / "wiki/packages/alpha/alpha.md").unlink()
-    report = sync_wiki.run(workspace=workspace, conn=conn)
+    report = sync_wiki.run(workspace=workspace, conn=conn, resolve_page=_resolver({}))
 
     assert report.stale == ("wiki/packages/alpha/alpha.md",)
     assert report.undocumented == ("alpha",)
@@ -118,12 +114,13 @@ def test_cleanup_removes_stale_wiki_page_and_edges(workspace: Path, repo_root: P
     assert conn.execute("SELECT COUNT(*) FROM edges WHERE kind='documents'").fetchone()[0] == 0
 
 
-def test_run_is_idempotent(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
+def test_run_is_idempotent(workspace: Path, conn: sqlite3.Connection) -> None:
     _seed_package(conn, "alpha", "packages/alpha")
     _make_overview(workspace, "wiki/packages/alpha/alpha.md")
+    resolve_page = _resolver({"alpha": "wiki/packages/alpha/alpha.md"})
 
-    first = sync_wiki.run(workspace=workspace, conn=conn)
-    second = sync_wiki.run(workspace=workspace, conn=conn)
+    first = sync_wiki.run(workspace=workspace, conn=conn, resolve_page=resolve_page)
+    second = sync_wiki.run(workspace=workspace, conn=conn, resolve_page=resolve_page)
 
     assert first.newly_linked == (("alpha", "wiki/packages/alpha/alpha.md"),)
     assert second.newly_linked == ()
@@ -132,17 +129,6 @@ def test_run_is_idempotent(workspace: Path, repo_root: Path, conn: sqlite3.Conne
     edge_count = conn.execute("SELECT COUNT(*) FROM edges WHERE kind='documents'").fetchone()[0]
     assert page_count == 1
     assert edge_count == 1
-
-
-def test_no_wiki_dir_returns_all_undocumented(workspace: Path, repo_root: Path, conn: sqlite3.Connection) -> None:
-    (workspace / "wiki").rmdir()
-    _seed_package(conn, "alpha", "packages/alpha")
-    _seed_package(conn, "beta", "packages/beta")
-
-    report = sync_wiki.run(workspace=workspace, conn=conn)
-
-    assert sorted(report.undocumented) == ["alpha", "beta"]
-    assert report.newly_linked == ()
 
 
 def test_run_sync_wiki_opens_workspace(workspace: Path) -> None:
@@ -155,7 +141,7 @@ def test_run_sync_wiki_opens_workspace(workspace: Path) -> None:
     seed.close()
     _make_overview(workspace, "wiki/packages/alpha/alpha.md")
 
-    report = graph_io.run_sync_wiki(workspace)
+    report = graph_io.run_sync_wiki(workspace, _resolver({"alpha": "wiki/packages/alpha/alpha.md"}))
 
     assert isinstance(report, graph_io.DriftReport)
     assert report.newly_linked == (("alpha", "wiki/packages/alpha/alpha.md"),)
@@ -164,4 +150,4 @@ def test_run_sync_wiki_opens_workspace(workspace: Path) -> None:
 
 def test_run_sync_wiki_missing_graph_raises(tmp_path: Path) -> None:
     with pytest.raises(graph_io.GraphNotInitializedError):
-        graph_io.run_sync_wiki(tmp_path)
+        graph_io.run_sync_wiki(tmp_path, _resolver({}))

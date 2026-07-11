@@ -1,15 +1,18 @@
 """gw graph sync-wiki — link package nodes to wiki overview pages via `documents` edges.
 
-Resolves each `kind='package'` node to its wiki overview page by trying three
-filesystem conventions in order. Upserts `kind='wiki_page'` nodes and
-`kind='documents'` edges. Cleans up `wiki_page` nodes whose files no longer
-exist on disk. Returns a structured report of what changed.
+Resolves each `kind='package'` node to its overview page through an injected
+`resolve_page` callable — the caller owns the vault's layout conventions
+(see `wiki_io.package_pages.resolve_overview_path`); graph-io owns the graph
+side only. Upserts `kind='wiki_page'` nodes and `kind='documents'` edges.
+Cleans up `wiki_page` nodes whose files no longer exist on disk. Returns a
+structured report of what changed.
 """
 
 from __future__ import annotations
 
 import sqlite3
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -39,28 +42,6 @@ class DriftReport:
     undocumented: tuple[str, ...] = field(default_factory=tuple)
     stale: tuple[str, ...] = field(default_factory=tuple)
     ambiguous: tuple[str, ...] = field(default_factory=tuple)
-
-
-def _resolve_wiki_path(name: str, workspace: Path) -> tuple[str | None, bool]:
-    """Return (workspace-relative path, ambiguous?). Path is None when not found."""
-    direct_candidates = [
-        Path("wiki") / "packages" / name / f"{name}.md",
-        Path("wiki") / "apps" / name / f"{name}.md",
-    ]
-    for rel in direct_candidates:
-        if (workspace / rel).is_file():
-            return rel.as_posix(), False
-
-    domain_matches = (
-        sorted((workspace / "wiki" / "domains").glob(f"*/packages/{name}/{name}.md"))
-        if (workspace / "wiki" / "domains").is_dir()
-        else []
-    )
-    if len(domain_matches) == 1:
-        return domain_matches[0].relative_to(workspace).as_posix(), False
-    if len(domain_matches) > 1:
-        return None, True
-    return None, False
 
 
 def _existing_documents_sources(conn: sqlite3.Connection) -> set[str]:
@@ -116,9 +97,15 @@ def _cleanup_stale(conn: sqlite3.Connection, workspace: Path) -> list[str]:
     return sorted(removed)
 
 
-def run(*, workspace: Path, conn: sqlite3.Connection) -> DriftReport:
+def run(
+    *,
+    workspace: Path,
+    conn: sqlite3.Connection,
+    resolve_page: Callable[[str], tuple[str | None, bool]],
+) -> DriftReport:
     """Sync package → wiki_page links and return a drift report.
 
+    `resolve_page(name)` returns (workspace-relative wiki path | None, ambiguous?).
     All writes happen in a single transaction.
     """
     workspace = Path(workspace)
@@ -129,7 +116,7 @@ def run(*, workspace: Path, conn: sqlite3.Connection) -> DriftReport:
 
     with store.transaction(conn):
         for pkg_name, pkg_path in _packages(conn):
-            wiki_rel, is_ambiguous = _resolve_wiki_path(pkg_name, workspace)
+            wiki_rel, is_ambiguous = resolve_page(pkg_name)
             if is_ambiguous:
                 print(
                     f"warning: multiple wiki overview matches for package {pkg_name!r}; skipping",
@@ -155,16 +142,20 @@ def run(*, workspace: Path, conn: sqlite3.Connection) -> DriftReport:
     )
 
 
-def run_sync_wiki(workspace: Path) -> DriftReport:
+def run_sync_wiki(
+    workspace: Path,
+    resolve_page: Callable[[str], tuple[str | None, bool]],
+) -> DriftReport:
     """Open a writer on the workspace graph and run the wiki-sync drift pass.
 
     The high-level entry point for callers outside graph-io: resolves the
     workspace's ``code.db``, opens a read-write handle, and delegates to
     ``run`` (which manages its own transaction — no extra wrapper here).
-    ``GraphNotInitializedError`` / ``SchemaMismatchError`` propagate from the
-    opener unchanged.
+    ``resolve_page`` maps a package name to its overview page — layout
+    knowledge stays with the caller. ``GraphNotInitializedError`` /
+    ``SchemaMismatchError`` propagate from the opener unchanged.
     """
     from graph_io.handle import open_writer
 
     with open_writer(workspace) as writer:
-        return run(workspace=workspace, conn=writer._conn)
+        return run(workspace=workspace, conn=writer._conn, resolve_page=resolve_page)

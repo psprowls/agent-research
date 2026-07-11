@@ -6,6 +6,7 @@ import sys
 
 import graph_io
 from graph_io import DriftReport, exit_codes
+from wiki_io.package_pages import resolve_overview_path
 
 from graph_wiki_cli.graph_cli._args import WorkspaceArgs
 
@@ -39,7 +40,10 @@ def _format_report(report: DriftReport) -> str:
 
 def run(args: WorkspaceArgs) -> int:
     try:
-        report = graph_io.run_sync_wiki(args.workspace)
+        report = graph_io.run_sync_wiki(
+            args.workspace,
+            lambda name: resolve_overview_path(name, args.workspace),
+        )
     except graph_io.GraphNotInitializedError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exit_codes.NOT_INITIALIZED
