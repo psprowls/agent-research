@@ -85,6 +85,10 @@ BEDROCK_GATED: dict[str, str] = {
     " `from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage`"
     " + `from subagent_runtime.pool import ...` (also transitively imports commands.query's bm25s)",
     "graph_wiki_core.commands.scan": "module-scope `from langchain_core.messages import HumanMessage, SystemMessage`",
+    "graph_wiki_core.commands.subagent_fanout": "module-scope"
+    " `from subagent_runtime.pool import SubagentPool, TaskResult`"
+    " + `from subagent_runtime.pricing import cost_for_usage`"
+    " + `from subagent_runtime.trace_io import render_trace_record`",
     "graph_wiki_core.commands.trace": "module-scope `from subagent_runtime.trace_io import render_trace_record`",
     "graph_wiki_core.commands.suggest_pages": "module-scope"
     " `from langchain_core.messages import HumanMessage, SystemMessage`"
