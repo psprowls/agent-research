@@ -3,13 +3,29 @@
 Single source of truth for `_resolve_paths` — both `graph.py` and
 `propose_domains.py` import from here so they can never diverge.
 (todo 260530-iqr: DRY convergence after hxy fixed graph.py)
+
+`resolve_wiki_and_repo` is the public re-export delivery surfaces
+(graph-wiki-cli, subagent-cli, ...) must use instead of importing
+wiki_io._workspace directly.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from wiki_io._workspace import resolve_wiki_and_repo
+from wiki_io._workspace import resolve_wiki_and_repo as _wiki_resolve_wiki_and_repo
+
+
+def resolve_wiki_and_repo(
+    workspace_path: Path | None = None,
+    repo_path: Path | None = None,
+) -> tuple[Path, Path | None]:
+    """Public re-export of wiki_io._workspace.resolve_wiki_and_repo.
+
+    Delivery surfaces must call this rather than importing wiki_io._workspace
+    directly — see 2026-07-05-thin-the-delivery-surfaces-route-graph-wiki-cli-and-subagent-cli-through-graph-wiki-core.
+    """
+    return _wiki_resolve_wiki_and_repo(workspace_path, repo_path)
 
 
 def _resolve_paths(workspace_arg: str) -> tuple[Path, Path]:
