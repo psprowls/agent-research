@@ -1,8 +1,8 @@
-"""Mechanical parity guard: gw lint vs the plugin's lint_wiki.scan().
+"""Mechanical parity guard: gw lint vs the plugin's lint_mechanical.scan().
 
 Both surfaces must expose the same mechanical checks — `gw lint` via
 LintResult (+ the separate WorkLintResult in LintAllResult) and
-`/graph-wiki:lint` via wiki_io.lint_wiki.scan()'s return dict. This test
+`/graph-wiki:lint` via lint_mechanical.scan()'s return dict. This test
 fails whenever either surface gains a mechanical check the other lacks,
 which is the silent-skip drift this work item closed.
 
@@ -15,8 +15,8 @@ from dataclasses import fields
 from pathlib import Path
 
 from graph_wiki_core.commands.lint import LintResult
+from graph_wiki_core.commands.lint_mechanical import scan
 from graph_wiki_core.commands.work import WorkLintResult
-from wiki_io.lint_wiki import scan
 
 # LintResult fields that are not mechanical checks: the Bedrock semantic
 # fan-out and its plumbing. Everything else must have a scan() counterpart.
@@ -42,7 +42,7 @@ def test_mechanical_check_parity(tmp_path: Path) -> None:
     missing_from_scan = mechanical_fields - scan_keys
     assert not missing_from_scan, (
         f"gw lint has mechanical checks the plugin's scan() lacks: {sorted(missing_from_scan)} — "
-        "wire them into wiki_io.lint_wiki.scan() (see work item "
+        "wire them into graph_wiki_core.commands.lint_mechanical.scan() (see work item "
         "2026-07-04-lint-skill-drifted-from-gw-lint-...)"
     )
 

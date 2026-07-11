@@ -6,7 +6,7 @@ malformed callouts, malformed wikilinks/embeds, and unescaped table pipes.
 First module under wiki_io/lint/ to return structured LintFinding (rule_id,
 severity, slug, message) rather than list[str] — four rule types with two
 severities don't fit the "everything is WARN" plain-string convention. Mirrors
-the LintFinding shape defined in guidance_io/lint.py and work_io/lifecycle_lint.py
+the LintFinding shape shared with the guidance-io and work-io linters
 (defined locally to avoid a cross-package dependency).
 """
 

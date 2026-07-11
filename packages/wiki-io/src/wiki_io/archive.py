@@ -1,6 +1,6 @@
 """Plan archiving of terminal curated wiki pages (adrs / concepts / proposals).
 
-Pure planning, no filesystem mutation — parallel to ``work_io.archive``. The
+Pure planning, no filesystem mutation — parallel to the work-io archive planner. The
 two trivial dataclasses are duplicated rather than imported from ``work-io`` to
 avoid a ``wiki-io -> work-io`` dependency (spec decision #6).
 """

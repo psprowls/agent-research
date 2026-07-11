@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from wiki_io.backlink_index import build_entity_backlink_map
-from wiki_io.lint_wiki import scan
+from wiki_io.lint_wiki import mechanical_scan as scan
 
 
 def _page(wiki: Path, rel: str, body: str = "") -> Path:
@@ -20,7 +20,7 @@ def test_archived_adr_is_valid_target_not_orphan(tmp_path: Path) -> None:
     _page(wiki, "adrs/0009-live.md", body="See [[adrs/_archive/0003-old]].")
     _page(wiki, "adrs/_archive/0003-old.md")
 
-    # scan() returns a dict with orphans / broken_links / stale keys.
+    # mechanical_scan() returns a dict with orphans / broken_links / stale keys.
     report = scan(wiki, stale_days=90, log_gap_days=14)
 
     # Archived page is a valid target → the link is not broken.

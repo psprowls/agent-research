@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wiki_io.lint_wiki import scan
+from graph_wiki_core.commands.lint_mechanical import scan
 
 
 def _mk_wiki(tmp_path: Path) -> Path:
@@ -115,7 +115,7 @@ def test_source_path_drift_propagated(tmp_path: Path) -> None:
 def test_print_report_covers_parity_sections(tmp_path: Path, capsys) -> None:
     """print_report renders a section for every parity key (and source-path
     drift), so plugin-side runs surface the findings instead of dropping them."""
-    from wiki_io.lint_wiki import print_report
+    from graph_wiki_core.commands.lint_mechanical import print_report
 
     wiki = _mk_wiki(tmp_path)
     _write(

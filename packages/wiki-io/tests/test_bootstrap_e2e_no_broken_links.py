@@ -25,9 +25,9 @@ import pytest
 
 
 def _extract_broken_wikilinks(report: dict) -> list:
-    """Return the broken-wikilink entries from a `lint_wiki.scan()` report.
+    """Return the broken-wikilink entries from a `mechanical_scan()` report.
 
-    `lint_wiki.scan()` exposes broken wikilinks under the `broken_links` key
+    `mechanical_scan()` exposes broken wikilinks under the `broken_links` key
     as a list of `(src, target)` tuples (see `lint_wiki.py:350`). This helper
     fails loudly if the shape changes in the future so the test pins the
     assertion to a real key, not a guess.
@@ -35,8 +35,8 @@ def _extract_broken_wikilinks(report: dict) -> list:
     if "broken_links" in report:
         return list(report["broken_links"])
     raise AssertionError(
-        "lint_wiki.scan() returned a report without `broken_links` — read "
-        "scan()'s return statement and update _extract_broken_wikilinks to "
+        "mechanical_scan() returned a report without `broken_links` — read "
+        "mechanical_scan()'s return statement and update _extract_broken_wikilinks to "
         f"match. report keys: {sorted(report.keys())}"
     )
 
@@ -52,7 +52,7 @@ def test_bootstrap_then_render_overviews_zero_broken_links(tmp_path: Path, monke
     """
     from wiki_io import init_vault
     from wiki_io.init_vault import init_wiki, render_template
-    from wiki_io.lint_wiki import scan as lint_scan
+    from wiki_io.lint_wiki import mechanical_scan as lint_scan
 
     # Stub out workspace bootstrap (writes .graph-wiki.yaml, runs git init) —
     # it is not exercised by this test and requires real I/O against tmp_path
@@ -107,7 +107,7 @@ def test_bootstrap_then_render_overviews_zero_broken_links(tmp_path: Path, monke
     render_container("apps", "test-app", "APP_TITLE", "APP_SLUG", "app")
     render_container("plugins", "test-plugin", "PACKAGE_TITLE", "PACKAGE_SLUG", "plugin")
 
-    report = lint_scan(wiki, stale_days=90, log_gap_days=14, repo_path=None)
+    report = lint_scan(wiki, stale_days=90, log_gap_days=14)
 
     broken = _extract_broken_wikilinks(report)
     # Only count broken links sourced from the three overview pages we just
