@@ -318,16 +318,16 @@ async def test_run_ingest_work_item_writes_page_sidecar_index_and_log(tmp_path: 
     assert isinstance(result, IngestResult)
     assert result.page_type == "work"
     assert result.status == "ok"
-    assert result.slug == "2026-05-14-fix-auth-bug"
-    assert "2026-05-14-fix-auth-bug" in result.page_path
-    assert (wiki / "work" / "2026-05-14-fix-auth-bug.md").exists()
+    assert result.slug == "2026-05-14-bug-fix-auth-bug"
+    assert "2026-05-14-bug-fix-auth-bug" in result.page_path
+    assert (wiki / "work" / "2026-05-14-bug-fix-auth-bug.md").exists()
     # Unified side-effects: sidecar regenerated, index + log invoked.
     assert (wiki / "work-index.json").exists()
     mock_ui.assert_called_once_with(wiki)
     mock_al.assert_called_once()
     # Regression: the MCP work-item ingest path must get a work-item dir too,
     # same as `gw work file` — both call _apply_work_item_side_effects.
-    assert (wiki / "work" / "2026-05-14-fix-auth-bug").is_dir()
+    assert (wiki / "work" / "2026-05-14-bug-fix-auth-bug").is_dir()
 
 
 # ---------------------------------------------------------------------------
@@ -370,7 +370,7 @@ async def test_run_ingest_work_item_force_overwrites_existing_page(tmp_path: Pat
         result = await run_ingest_work_item(frontmatter_text, "Body two.", force=True, workspace_path=workspace)
 
     assert result.status == "ok"
-    page = wiki / "work" / "2026-05-14-some-item.md"
+    page = wiki / "work" / "2026-05-14-task-some-item.md"
     assert "Body two." in page.read_text(encoding="utf-8")
 
 
