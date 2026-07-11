@@ -1,4 +1,4 @@
-"""Unit tests for wiki_io.scan_monorepo._discover_heuristic — workspace_dir exclusion filter.
+"""Unit tests for wiki_io.scan_monorepo.discover_workspaces — workspace_dir exclusion filter.
 
 Requirements: WSRES-02.
 """
@@ -26,9 +26,9 @@ def _write(path: Path, content: str) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_discover_heuristic_v2_skips_workspace_pyproject(tmp_path: Path) -> None:
-    """_discover_heuristic with workspace_dir skips pyproject.toml under the workspace dir."""
-    from wiki_io.scan_monorepo import _discover_heuristic
+def test_discover_workspaces_v2_skips_workspace_pyproject(tmp_path: Path) -> None:
+    """discover_workspaces with workspace_dir skips pyproject.toml under the workspace dir."""
+    from wiki_io.scan_monorepo import discover_workspaces
 
     repo = tmp_path / "repo"
     # Stray manifest under workspace — must be excluded
@@ -36,7 +36,7 @@ def test_discover_heuristic_v2_skips_workspace_pyproject(tmp_path: Path) -> None
     # Real package outside workspace — must be included
     _write(repo / "packages" / "pkg-a" / "pyproject.toml", _PYPROJECT_MINIMAL.format(name="pkg-a"))
 
-    workspaces = _discover_heuristic(repo, workspace_dir=repo / "graph-wiki")
+    workspaces = discover_workspaces(repo, workspace_dir=repo / "graph-wiki")
     names = {w["name"] for w in workspaces}
 
     assert "pkg-a" in names, f"Expected 'pkg-a' in discovered workspaces, got: {names}"
@@ -49,9 +49,9 @@ def test_discover_heuristic_v2_skips_workspace_pyproject(tmp_path: Path) -> None
         )
 
 
-def test_discover_heuristic_v2_skips_workspace_plugin_manifest(tmp_path: Path) -> None:
-    """_discover_heuristic with workspace_dir skips .claude-plugin/plugin.json under workspace."""
-    from wiki_io.scan_monorepo import _discover_heuristic
+def test_discover_workspaces_v2_skips_workspace_plugin_manifest(tmp_path: Path) -> None:
+    """discover_workspaces with workspace_dir skips .claude-plugin/plugin.json under workspace."""
+    from wiki_io.scan_monorepo import discover_workspaces
 
     repo = tmp_path / "repo"
     # Stray plugin manifest under workspace — must be excluded
@@ -65,7 +65,7 @@ def test_discover_heuristic_v2_skips_workspace_plugin_manifest(tmp_path: Path) -
         _PLUGIN_MINIMAL.format(name="real-plugin"),
     )
 
-    workspaces = _discover_heuristic(repo, workspace_dir=repo / "graph-wiki")
+    workspaces = discover_workspaces(repo, workspace_dir=repo / "graph-wiki")
     names = {w["name"] for w in workspaces}
 
     assert "real-plugin" in names, f"Expected 'real-plugin' in discovered workspaces, got: {names}"
@@ -78,18 +78,18 @@ def test_discover_heuristic_v2_skips_workspace_plugin_manifest(tmp_path: Path) -
         )
 
 
-def test_discover_heuristic_v1_guard_workspace_eq_repo(tmp_path: Path) -> None:
+def test_discover_workspaces_v1_guard_workspace_eq_repo(tmp_path: Path) -> None:
     """D-11 guard: when workspace_dir == repo, no over-exclusion occurs.
 
     Passing workspace_dir=repo must return identical results to workspace_dir=None.
     """
-    from wiki_io.scan_monorepo import _discover_heuristic
+    from wiki_io.scan_monorepo import discover_workspaces
 
     repo = tmp_path / "repo"
     _write(repo / "packages" / "pkg-a" / "pyproject.toml", _PYPROJECT_MINIMAL.format(name="pkg-a"))
 
-    workspaces_v1 = _discover_heuristic(repo, workspace_dir=repo)
-    workspaces_none = _discover_heuristic(repo, workspace_dir=None)
+    workspaces_v1 = discover_workspaces(repo, workspace_dir=repo)
+    workspaces_none = discover_workspaces(repo, workspace_dir=None)
 
     names_v1 = {w["name"] for w in workspaces_v1}
     names_none = {w["name"] for w in workspaces_none}
@@ -102,12 +102,12 @@ def test_discover_heuristic_v1_guard_workspace_eq_repo(tmp_path: Path) -> None:
     assert "pkg-a" in names_v1, f"Expected 'pkg-a' in results, got: {names_v1}"
 
 
-def test_discover_heuristic_default_workspace_dir_none(tmp_path: Path) -> None:
+def test_discover_workspaces_default_workspace_dir_none(tmp_path: Path) -> None:
     """Without workspace_dir, stray manifests under graph-wiki/ ARE included.
 
     This proves the new param is additive — callers MUST opt in.
     """
-    from wiki_io.scan_monorepo import _discover_heuristic
+    from wiki_io.scan_monorepo import discover_workspaces
 
     repo = tmp_path / "repo"
     # Same v2 fixture: stray manifest under graph-wiki/
@@ -115,47 +115,47 @@ def test_discover_heuristic_default_workspace_dir_none(tmp_path: Path) -> None:
     _write(repo / "packages" / "pkg-a" / "pyproject.toml", _PYPROJECT_MINIMAL.format(name="pkg-a"))
 
     # No workspace_dir — old behavior; both manifests should be found
-    workspaces = _discover_heuristic(repo)
+    workspaces = discover_workspaces(repo)
     names = {w["name"] for w in workspaces}
 
     assert "pkg-a" in names, f"Expected 'pkg-a' in default results, got: {names}"
     assert "stray-pkg" in names, f"Without workspace_dir, 'stray-pkg' must appear (additive default). Got: {names}"
 
 
-def test_discover_heuristic_pnpm_dot_member_returns_root(tmp_path: Path) -> None:
+def test_discover_workspaces_pnpm_dot_member_returns_root(tmp_path: Path) -> None:
     """A pnpm '.' member (repo root is itself a package) is discovered, not a crash.
 
     pnpm uses '.' in pnpm-workspace.yaml to mark the repo root as a workspace
     member. pathlib's ``repo.glob('.')`` raises IndexError, so _expand_globs must
     special-case '.'/'' instead of globbing it.
     """
-    from wiki_io.scan_monorepo import _discover_heuristic
+    from wiki_io.scan_monorepo import discover_workspaces
 
     repo = tmp_path / "repo"
     _write(repo / "package.json", '{"name": "root-pkg", "version": "0.0.1"}')
     _write(repo / "pnpm-workspace.yaml", "packages:\n  - .\n")
 
-    workspaces = _discover_heuristic(repo)
+    workspaces = discover_workspaces(repo)
     names = {w["name"] for w in workspaces}
 
     assert "root-pkg" in names, f"Expected '.'-member root package in results, got: {names}"
 
 
-def test_discover_heuristic_pnpm_out_of_tree_member(tmp_path: Path) -> None:
+def test_discover_workspaces_pnpm_out_of_tree_member(tmp_path: Path) -> None:
     """An out-of-tree '../sibling' pnpm member is discovered, not a crash.
 
     pnpm legitimately allows workspace members outside the repo tree.
     _collect_node_package's ``pkg_path.relative_to(repo)`` raises ValueError for
     such paths, so it must guard relative_to and fall back to a usable path.
     """
-    from wiki_io.scan_monorepo import _discover_heuristic
+    from wiki_io.scan_monorepo import discover_workspaces
 
     repo = tmp_path / "repo"
     _write(repo / "package.json", '{"name": "root-pkg", "version": "0.0.1"}')
     _write(repo / "pnpm-workspace.yaml", "packages:\n  - ../sibling\n")
     _write(tmp_path / "sibling" / "package.json", '{"name": "sibling-pkg", "version": "0.0.1"}')
 
-    workspaces = _discover_heuristic(repo)
+    workspaces = discover_workspaces(repo)
     names = {w["name"] for w in workspaces}
 
     assert "sibling-pkg" in names, f"Expected out-of-tree sibling package in results, got: {names}"

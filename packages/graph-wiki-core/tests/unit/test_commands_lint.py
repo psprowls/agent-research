@@ -241,7 +241,7 @@ def test_module_pass_code_drift_unions_packages_across_members(tmp_path: Path) -
 
     with (
         patch(
-            "wiki_io.scan_monorepo._discover_heuristic",
+            "wiki_io.scan_monorepo.discover_workspaces",
             side_effect=lambda m, *a, **k: per_member.get(Path(m), []),
         ),
         patch(

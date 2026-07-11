@@ -6,7 +6,7 @@ This module is a library of pure functions; it has no CLI and does no
 container/layout/diff bookkeeping. Its callers (the scan command and the lint
 code-drift check) import individual helpers directly.
 
-Package discovery — ``_discover_heuristic(repo)`` walks the repo and returns a
+Package discovery — ``discover_workspaces(repo)`` walks the repo and returns a
 sorted list of package dicts, one per manifest it finds (in priority order):
   - package.json + pnpm-workspace.yaml / workspaces field  (Node/pnpm/yarn/npm)
   - pyproject.toml                                          (Python — poetry/hatch/uv)
@@ -16,7 +16,7 @@ Vendored trees (``node_modules``, ``.venv``) and test-fixture manifests
 (``tests``/``fixtures``/``samples`` segments) are skipped. Each dict is built by
 the matching ``_collect_*`` collector and carries at least ``name``, ``path``
 (relative to repo), ``type``, ``language``, ``depends_on`` (internal workspace
-deps), and ``exports``; ``_discover_heuristic`` also fills ``depended_on_by``.
+deps), and ``exports``; ``discover_workspaces`` also fills ``depended_on_by``.
 
 File maps — ``build_file_map`` (prod-only), ``build_file_maps`` (prod + test
 pair), and ``build_dir_file_map`` (whole-dir, no prod/test split) emit the
@@ -671,7 +671,7 @@ def build_dir_file_map(path: Path, max_depth: int = 4, max_entries: int = 200) -
     return _emit_file_map_block(name, files, truncated, max_depth, max_entries)
 
 
-def _discover_heuristic(repo, workspace_dir=None):
+def discover_workspaces(repo, workspace_dir=None):
     """Walk ``repo`` and return a sorted list of package dicts (one per manifest).
 
     ``workspace_dir`` is the graph-wiki workspace subtree to exclude when it is a
