@@ -301,11 +301,10 @@ def _row_to_node(row) -> NodeRecord:
     `uri` is present, it is folded back into `attrs` under the `"uri"` key so
     callers can read it uniformly from `node.attrs["uri"]` (the upsert layer
     pops `uri` out of attrs and into a dedicated column at write time —
-    projecting it back keeps the read surface symmetric for downstream code,
-    e.g. wiki_io.entity_writer). The 7-column shape additionally folds the
-    `repo` column into `attrs["repo"]` so multi-repo placement (wiki_io index
-    generation) can resolve an entity's repository from the authoritative
-    `repo` column even when its URI doesn't carry a repo segment.
+    projecting it back keeps the read surface symmetric for callers). The
+    7-column shape additionally folds the `repo` column into `attrs["repo"]`
+    so repository attribution can resolve an entity's repository from the
+    authoritative `repo` column even when its URI doesn't carry a repo segment.
     """
     repo = None
     if len(row) == 7:
@@ -1918,8 +1917,7 @@ def file_attrs(conn: sqlite3.Connection, path: str) -> dict | None:
 def files_in_node(conn: sqlite3.Connection, node_id: int) -> list[tuple]:
     """`(id, path, attrs_json)` rows for `file` nodes contained by `node_id`.
 
-    Source: wiki_io/entity_lookup.py `files_in_package` — SQL ported VERBATIM
-    (same columns, `contains` join, `f.path IS NOT NULL`, `ORDER BY f.path`).
+    Matched via `contains` edge; filters `f.path IS NOT NULL`, ordered by `f.path`.
     """
     return conn.execute(
         "SELECT f.id, f.path, f.attrs_json "
@@ -1984,27 +1982,22 @@ def node_exists(conn: sqlite3.Connection, kind: str, name: str) -> bool:
 
 
 # ============================================================================
-# wiki-io entity-lookup + index-generation raw-SQL ports. SQL lifted VERBATIM
-# from wiki_io/entity_lookup.py and wiki_io/index_generator.py (per-kind branch
-# dispatch preserved). Call sites noted per function.
+# Entity-lookup + index-generation queries: name/path→entity resolution,
+# domain membership, consumer rollups. Callers keep application concerns
+# (single-vs-multi dispatch, warnings, ordering of returned tuples).
 # ============================================================================
 
-# Entity-kind nodes worth a name-fallback match (mirrors
-# wiki_io.entity_lookup.ENTITY_KINDS). File names are intentionally excluded.
+# Entity-kind nodes worth a name-fallback match. File names are intentionally excluded.
 _ENTITY_KINDS = ("package", "class", "function", "method", "domain")
 
 
 def package_for_file(conn: sqlite3.Connection, path: str) -> tuple[str, str] | None:
     """Return `(name, uri)` of the `package` CONTAINING the file at `path`, or None.
 
-    Source: wiki_io/entity_lookup.py `lookup_entity_by_path` — SQL ported VERBATIM
-    (`f.kind='file'`, `contains` edge, `p.kind='package'`, `LIMIT 1`).
-
-    Tuple order is `(name, uri)` (the natural `SELECT p.name, p.uri` order).
-    `lookup_entity_by_path` returns `(uri, name)` to ITS callers, so a caller
-    wanting that contract must re-order: `name, uri = package_for_file(...)`.
-    Returns None when no row matches OR the matched package has a falsy uri
-    (preserving the call site's `if not uri: return None` guard).
+    Matches via `f.kind='file'` + a `contains` edge + `p.kind='package'`, LIMIT 1.
+    Tuple order is `(name, uri)` (the natural `SELECT p.name, p.uri` order) —
+    callers wanting `(uri, name)` must re-order. Returns None when no row
+    matches OR the matched package has a falsy uri.
     """
     row = conn.execute(
         "SELECT p.name, p.uri FROM nodes f "
@@ -2029,13 +2022,10 @@ def entity_by_name(
 ) -> list[tuple]:
     """Return ALL entity-kind nodes named `name` (with a non-null uri) as `(name, uri, kind)`.
 
-    Source: wiki_io/entity_lookup.py `lookup_entity_by_name` — SQL ported VERBATIM.
-    Returns the full `fetchall()` list (NOT a single row) so the caller keeps the
-    single-vs-multi-match dispatch: `lookup_entity_by_name` returns None on zero
-    rows, emits a stderr warning + returns None on >1 rows, and re-orders the lone
-    row to `(uri, name)`. That count-based branching and the stderr write are
-    application concerns and stay at the call site — this function only runs the
-    query. Empty list when nothing matches.
+    Returns the full `fetchall()` list (NOT a single row) so callers handle
+    single-vs-multi-match dispatch (including any filtering and re-ordering).
+    Count-based branching and stderr output are caller responsibilities —
+    this function only runs the query. Empty list when nothing matches.
     """
     kind_ph = ",".join("?" for _ in kinds)
     sql = f"SELECT name, uri, kind FROM nodes WHERE name = ? AND kind IN ({kind_ph}) AND uri IS NOT NULL"
@@ -2045,11 +2035,9 @@ def entity_by_name(
 def package_or_app_by_dir(conn: sqlite3.Connection, path: str) -> tuple | None:
     """Return `(uri, name, id)` of the package/app whose `path` equals `path`, or None.
 
-    Source: wiki_io/entity_lookup.py `lookup_package_by_dir` (the inner per-path
-    query) — SQL ported VERBATIM (`kind IN ('package','app')`, exact `path = ?`,
-    `uri IS NOT NULL AND uri <> ''`, `LIMIT 1`). The caller's ancestor-walk over
-    candidate directories and the `str()/int()` coercion stay at the call site;
-    this function resolves exactly one path. Returns the raw row tuple.
+    Matches via `kind IN ('package','app')`, exact `path = ?`,
+    `uri IS NOT NULL AND uri <> ''`, LIMIT 1. Caller owns ancestor-walk over
+    candidate directories and type coercion; this function resolves exactly one path.
     """
     row = conn.execute(
         "SELECT uri, name, id FROM nodes "
@@ -2062,15 +2050,14 @@ def package_or_app_by_dir(conn: sqlite3.Connection, path: str) -> tuple | None:
 def qualifying_domains(conn: sqlite3.Connection, *, kind: str, name: str, uri: str = "") -> set[str]:
     """Return the set of domain names that qualify for this entity (D-04).
 
-    Source: wiki_io/index_generator.py `_compute_qualifying_domains` — every
-    per-kind branch ported VERBATIM:
+    Per-kind logic:
       - package/app:  direct `belongs_to_domain` edges (matched by `p.kind`/name).
       - test_suite:   one-hop via `tests -> package -> belongs_to_domain`,
                       resolved by `ts.uri` (DISTINCT, ORDER BY d.name).
       - dependency:   one-hop via `used_by -> package -> belongs_to_domain`,
                       resolved by `dep.name` (DISTINCT, ORDER BY d.name).
       - agent_plugin: always empty.
-    Raises ValueError for any other kind (matching the call site).
+    Raises ValueError for any other kind.
     """
     if kind in ("package", "app"):
         rows = conn.execute(
@@ -2126,8 +2113,7 @@ def consumer_packages(
 ) -> tuple[str, ...]:
     """DOMAIN-AGNOSTIC consumer/tested package (and app) names (Phase 57 D-01).
 
-    Source: wiki_io/index_generator.py `_consumer_pkgs` — both per-kind branches
-    ported VERBATIM:
+    Per-kind logic:
       - dependency:  `used_by` consumers, `p.kind IN ('package','app')`,
                      by `dep.name` (DISTINCT, ORDER BY p.name).
       - test_suite:  `tests` packages/apps by `ts.uri` (DISTINCT, ORDER BY p.name).
@@ -2168,8 +2154,7 @@ def consumer_packages_in_domain(
 ) -> tuple[str, ...]:
     """Package names in `domain_name` that consume/are-tested-by this entity (D-06).
 
-    Source: wiki_io/index_generator.py `_consumer_pkgs_in_domain` — both per-kind
-    branches ported VERBATIM:
+    Per-kind logic:
       - dependency:  `used_by` consumers in domain, by `dep.name`
                      (DISTINCT, ORDER BY p.name).
       - test_suite:  `tests` packages in domain, by `ts.uri`
@@ -2207,11 +2192,7 @@ def consumer_packages_in_domain(
 
 
 def subdomains(conn: sqlite3.Connection, parent_name: str) -> list[str]:
-    """Return child domain names for `parent_name` (via `domain_contains_domain`).
-
-    Source: wiki_io/index_generator.py `_list_subdomains` — SQL ported VERBATIM
-    (ORDER BY child.name).
-    """
+    """Return child domain names for `parent_name` (via `domain_contains_domain`), ordered by name."""
     rows = conn.execute(
         "SELECT child.name FROM edges e "
         "JOIN nodes parent ON e.src = parent.id "
@@ -2226,10 +2207,7 @@ def subdomains(conn: sqlite3.Connection, parent_name: str) -> list[str]:
 
 
 def is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
-    """True if `name` has NO inbound `domain_contains_domain` edge.
-
-    Source: wiki_io/index_generator.py `_is_top_level_domain` — SQL ported VERBATIM.
-    """
+    """True if `name` has NO inbound `domain_contains_domain` edge."""
     row = conn.execute(
         "SELECT 1 FROM edges e "
         "JOIN nodes child ON e.dst = child.id "
