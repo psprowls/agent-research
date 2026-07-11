@@ -26,7 +26,11 @@ def _seed_wiki(tmp_path: Path) -> Path:
 
 
 def _patch_count_tokens(monkeypatch, value):
-    monkeypatch.setattr("graph_wiki_cli.util_cli.main.count_tokens", lambda text: value)
+    # util_cli/main.py's `tokens` command now delegates to
+    # graph_wiki_core.commands.tokens.run_tokens_update, which is where
+    # count_tokens/resolve_wiki_and_repo are actually bound and called —
+    # see 2026-07-05-thin-the-delivery-surfaces-route-graph-wiki-cli-and-subagent-cli-through-graph-wiki-core.
+    monkeypatch.setattr("graph_wiki_core.commands.tokens.count_tokens", lambda text: value)
 
 
 def test_tokens_command_stamps_real_count(tmp_path, monkeypatch):
@@ -34,7 +38,7 @@ def test_tokens_command_stamps_real_count(tmp_path, monkeypatch):
     wiki = _seed_wiki(tmp_path)
     page = wiki / "concepts" / "foo.md"
     _patch_count_tokens(monkeypatch, 7)
-    monkeypatch.setattr("graph_wiki_cli.util_cli.main.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
+    monkeypatch.setattr("graph_wiki_core.commands.tokens.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
 
     result = runner.invoke(app, ["util", "tokens"])
 
@@ -46,7 +50,7 @@ def test_tokens_command_json_reports_updated(tmp_path, monkeypatch):
     """`--json` emits the {updated, unchanged, skipped} buckets from update_vault."""
     wiki = _seed_wiki(tmp_path)
     _patch_count_tokens(monkeypatch, 7)
-    monkeypatch.setattr("graph_wiki_cli.util_cli.main.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
+    monkeypatch.setattr("graph_wiki_core.commands.tokens.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
 
     result = runner.invoke(app, ["util", "tokens", "--json"])
 
@@ -61,7 +65,7 @@ def test_tokens_command_dry_run_does_not_write(tmp_path, monkeypatch):
     page = wiki / "concepts" / "foo.md"
     original = page.read_text(encoding="utf-8")
     _patch_count_tokens(monkeypatch, 7)
-    monkeypatch.setattr("graph_wiki_cli.util_cli.main.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
+    monkeypatch.setattr("graph_wiki_core.commands.tokens.resolve_wiki_and_repo", lambda wp=None: (wiki, None))
 
     result = runner.invoke(app, ["util", "tokens", "--dry-run"])
 
@@ -70,10 +74,12 @@ def test_tokens_command_dry_run_does_not_write(tmp_path, monkeypatch):
 
 
 def test_util_main_uses_graph_io_count_tokens() -> None:
-    """util_cli/main.py's `count_tokens` binding is the real graph-io offline
-    tiktoken counter, not a stand-in — every test above monkeypatches it before
-    running, so import-time identity is the only thing left enforcing this."""
-    import graph_wiki_cli.util_cli.main as util_main
+    """graph_wiki_core.commands.tokens's `count_tokens` binding (used internally
+    by run_tokens_update, which util_cli/main.py's `tokens` command now calls)
+    is the real graph-io offline tiktoken counter, not a stand-in — every test
+    above monkeypatches it before running, so import-time identity is the only
+    thing left enforcing this."""
+    import graph_wiki_core.commands.tokens as core_tokens
     from graph_io.tokens import count_tokens
 
-    assert util_main.count_tokens is count_tokens
+    assert core_tokens.count_tokens is count_tokens

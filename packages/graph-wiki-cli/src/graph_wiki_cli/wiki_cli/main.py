@@ -15,13 +15,13 @@ from pathlib import Path
 from typing import Optional
 
 import typer
-from graph_io import open_reader
+from graph_wiki_core.commands._paths import resolve_wiki_and_repo
 from graph_wiki_core.commands.ack_drift import run_ack_drift
+from graph_wiki_core.commands.graph_query import open_reader
 from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
 from graph_wiki_core.commands.proposals import run_list_proposals, run_set_proposal_status
 from graph_wiki_core.commands.wiki_archive import run_wiki_archive
-from wiki_io._workspace import resolve_wiki_and_repo
 
 from graph_wiki_cli.lint_format import format_wiki_lint
 
