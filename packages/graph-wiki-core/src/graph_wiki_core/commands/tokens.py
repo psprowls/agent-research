@@ -29,7 +29,7 @@ def run_tokens_update(workspace_path: Path | None = None, dry_run: bool = False)
         {"updated": [...], "unchanged": [...], "skipped": [...]} — relative page paths per bucket.
 
     Raises:
-        RuntimeError, FileNotFoundError: if the vault cannot be resolved.
+        RuntimeError: if the vault cannot be resolved.
     """
     wiki, _ = resolve_wiki_and_repo(workspace_path)
     return update_vault(wiki, count_tokens, dry_run=dry_run)
