@@ -48,6 +48,10 @@ CORE_SRC = REPO_ROOT / "packages" / "graph-wiki-core" / "src"
 #   ... (import every packages/graph-wiki-core/src/**/*.py module, print failures)
 #   EOF
 # The two-sided test below keeps this list honest.
+#
+# Maintainer note: to ADD an entry, run the failing non-gated test and copy the
+# module + its reported bedrock import here; STALE entries are flagged by the
+# gated-side test (they import fine in the base closure — remove them).
 BEDROCK_GATED: dict[str, str] = {
     "graph_wiki_core.roles": "module-scope `from model_adapter import make_bedrock_llm, make_gateway_llm`"
     " + `from langchain_core.language_models import BaseChatModel`",
@@ -158,6 +162,7 @@ def test_non_gated_core_modules_import_in_base_closure() -> None:
 
 
 def test_gated_modules_fail_to_import_in_base_closure() -> None:
+    assert BEDROCK_GATED, "denylist is empty — rot-protection side is vacuous"
     code = (
         "import importlib, sys\n"
         f"mods = {sorted(BEDROCK_GATED)!r}\n"
@@ -166,11 +171,18 @@ def test_gated_modules_fail_to_import_in_base_closure() -> None:
         "    try:\n"
         "        importlib.import_module(m)\n"
         "    except ImportError:\n"
-        "        continue\n"
+        "        continue\n"  # expected: bedrock-stack import missing in base closure
+        "    except Exception as exc:\n"
+        "        print(f'{m}: {type(exc).__name__}: {exc}', file=sys.stderr)\n"
+        "        raise SystemExit(1)\n"
         "    rotten.append(m)\n"
         "if rotten:\n"
         "    print('unexpectedly import fine in base closure: ' + ', '.join(rotten), file=sys.stderr)\n"
         "    raise SystemExit(1)\n"
     )
     result = _run_in_base_closure(code)
-    assert result.returncode == 0, f"BEDROCK_GATED rot — remove these entries from the denylist:\n{result.stderr}"
+    assert result.returncode == 0, (
+        "BEDROCK_GATED check failed — either denylist rot (module imports fine in the "
+        "base closure; remove it from the denylist) or a gated module crashed with a "
+        f"non-ImportError — see stderr:\n{result.stderr}"
+    )
