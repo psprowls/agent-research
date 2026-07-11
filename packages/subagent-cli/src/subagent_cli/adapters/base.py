@@ -6,8 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Mapping, Protocol, runtime_checkable
 
-import graph_io
-from graph_io import GraphReader
+from graph_wiki_core.commands.graph_query import GraphReader, open_reader
 
 
 @dataclass
@@ -21,7 +20,7 @@ class RunContext:
 
     def graph_reader(self) -> GraphReader:
         if self._reader is None:
-            self._reader = graph_io.open_reader(self.workspace)
+            self._reader = open_reader(self.workspace)
         return self._reader
 
     def close(self) -> None:

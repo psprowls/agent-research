@@ -6,13 +6,13 @@ from graph_wiki_core.commands.guidance_signals import (
     Candidate,
     compute_candidates,
     load_guidance_pages,
+    load_index,
     resolve_path_contexts,
 )
 from graph_wiki_core.prompts.guidance_orchestrator import (
     build_guidance_orchestrator_prompt,
     parse_orchestrator_response,
 )
-from guidance_io.index_store import load_index
 
 from .base import Prepared, RunContext
 

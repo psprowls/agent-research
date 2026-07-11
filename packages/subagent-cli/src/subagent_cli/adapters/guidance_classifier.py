@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from graph_wiki_core.commands.guidance_signals import load_vocab
 from graph_wiki_core.prompts.guidance_classifier import (
     build_guidance_classifier_prompt,
     parse_classifier_response,
 )
-from guidance_io.vocab import load_vocab
 
 from .base import Prepared, RunContext
 

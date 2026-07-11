@@ -8,12 +8,12 @@ import frontmatter
 from graph_wiki_core.commands.package_reader import (
     PackageReaderItem,
     build_package_reader_prompt,
+    extract_file_map,
+    extract_narrative,
+    find_todo_human_sections,
     parse_package_reader_output,
 )
 from graph_wiki_core.prompts.package_reader import PACKAGE_READER_SYSTEM
-from wiki_io.drift import extract_file_map
-from wiki_io.entity_writer import extract_narrative
-from wiki_io.human_sections import find_todo_human_sections
 
 from .base import Prepared, RunContext
 
