@@ -147,6 +147,10 @@ class IngestResult:
         archived_to:        Workspace-relative raw/_archive/ destination the source
                             was moved to after a successful ingest; None for sources
                             outside raw/, work items, or when the move failed.
+        warnings:           Non-fatal composition warnings surfaced to the CLI/MCP
+                            caller (e.g. `run_work_file`'s `--slug-words` word-count
+                            warnings from work_io.filing.compose_slug). Empty for
+                            every other ingest path.
     """
 
     status: str
@@ -174,6 +178,9 @@ class IngestResult:
     # raw source was moved to (e.g. "raw/_archive/specs/x.md"). None when the
     # source was outside raw/, already archived, or the move failed.
     archived_to: str | None = None
+    # gw work file --slug-words: non-fatal word-count warnings from
+    # work_io.filing.compose_slug, surfaced to the CLI/MCP caller.
+    warnings: list[str] = field(default_factory=list)
 
 
 @dataclass

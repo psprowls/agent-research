@@ -1027,6 +1027,96 @@ def test_file_child_rejects_nonexistent_depends_on(tmp_path: Path) -> None:
         )
 
 
+def test_run_work_file_slug_words_composes_prefixed_slug(tmp_path: Path) -> None:
+    import asyncio
+    from datetime import date
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Irrelevant long title text nobody will read",
+            kind="feature",
+            summary="Do a thing",
+            affects=["packages/foo"],
+            slug_words="shorten work item slugs",
+        )
+    )
+
+    assert result.slug == f"{date.today().isoformat()}-feature-shorten-work-item-slugs"
+    assert result.warnings == []
+
+
+def test_run_work_file_slug_words_epic_child_prefix(tmp_path: Path) -> None:
+    import asyncio
+    from datetime import date
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    _write_hierarchy_item(work_dir, "2026-06-26-epic-x", kind="epic", status="accepted", phase="plan")
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Child feature",
+            kind="feature",
+            summary="Do a thing",
+            affects=["packages/foo"],
+            parent="2026-06-26-epic-x",
+            slug_words="fix flaky retry",
+        )
+    )
+
+    assert result.slug == f"{date.today().isoformat()}-epic-feature-fix-flaky-retry"
+
+
+def test_run_work_file_slug_words_warning_propagates_to_result(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Irrelevant",
+            kind="feature",
+            summary="Do a thing",
+            affects=["packages/foo"],
+            slug_words="one two three four five six seven",
+        )
+    )
+
+    assert len(result.warnings) == 1
+    assert "truncated" in result.warnings[0]
+
+
+def test_run_work_file_without_slug_words_has_no_warnings(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Test bug",
+            kind="bug",
+            summary="Something is broken",
+            affects=["packages/foo"],
+        )
+    )
+
+    assert result.warnings == []
+
+
 def test_file_child_depends_on_bare_title_slug_hints_full_slug(tmp_path: Path) -> None:
     import asyncio
 

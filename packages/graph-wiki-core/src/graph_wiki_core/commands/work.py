@@ -712,6 +712,7 @@ async def run_work_file(
     tags: list[str] | None = None,
     parent: str | None = None,
     depends_on: list[str] | None = None,
+    slug_words: str | None = None,
     body: str = "",
     force: bool = False,
 ) -> IngestResult:
@@ -722,6 +723,12 @@ async def run_work_file(
     log.md are updated best-effort — only when present — so filing still succeeds
     against an un-bootstrapped wiki (which work items predate). Returns an
     IngestResult shaped like the ingest work-item path.
+
+    When slug_words is set, the slug is composed explicitly via
+    work_io.filing.compose_slug(kind, slug_words, epic_child=bool(parent)) and
+    any word-count warnings land on the returned IngestResult.warnings. When
+    omitted, write_work_item falls through to its own default-slug composition
+    (kind prefix + first 4 words of the title).
     """
     affects = affects or []
     today = date.today().isoformat()
@@ -791,7 +798,12 @@ async def run_work_file(
         pointer = f"Designed as part of epic `{parent}` — see its spec for the seed design."
         item_body = item_body.rstrip("\n") + "\n\n" + pointer + "\n"
 
-    result = _filing.write_work_item(wiki, fm, item_body, force=force)
+    warnings: list[str] = []
+    slug: str | None = None
+    if slug_words:
+        slug, warnings = _filing.compose_slug(kind, slug_words, epic_child=bool(parent))
+
+    result = _filing.write_work_item(wiki, fm, item_body, slug=slug, force=force)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
 
     return IngestResult(
@@ -802,4 +814,5 @@ async def run_work_file(
         page_type="work",
         source_path="",
         cross_refs_updated=0,
+        warnings=warnings,
     )
