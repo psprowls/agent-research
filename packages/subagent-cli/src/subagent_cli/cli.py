@@ -7,8 +7,7 @@ import json
 from pathlib import Path
 
 import typer
-from graph_wiki_core.roles import load_role_config
-from model_adapter import BedrockAccessDenied
+from graph_wiki_core.roles import BedrockAccessDenied, load_role_config
 from workspace_io import paths as ws_paths
 from workspace_io.config import resolve
 
@@ -266,7 +265,7 @@ async def _single_with_preface(adapter, ctx, item, raw, prompt_mode, on_chunk):
 
 
 def _dispatch_all(adapter, ctx):
-    from subagent_runtime.trace_io import render_trace_record
+    from graph_wiki_core.commands.subagent_fanout import render_trace_record
 
     trace_dir = ws_paths.graph_dir(ctx.workspace) / "traces"
     fan = asyncio.run(run_all(adapter, ctx, trace_dir=trace_dir))

@@ -8,10 +8,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from graph_wiki_core.commands.subagent_fanout import SubagentPool, TaskResult, cost_for_usage
 from graph_wiki_core.roles import load_role_config, make_llm
 from langchain_core.messages import HumanMessage, SystemMessage
-from subagent_runtime.pool import SubagentPool, TaskResult
-from subagent_runtime.pricing import cost_for_usage
 from workspace_io import paths as ws_paths
 
 from .adapters.base import Adapter, LoopAdapter, LoopOutcome, RunContext
