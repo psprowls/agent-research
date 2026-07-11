@@ -615,3 +615,83 @@ async def test_run_lint_does_not_invoke_work_lint(tmp_path) -> None:
         await run_lint(workspace_path=_workspace_for(tmp_path, EDGE_CASE_VAULT))
 
     mock_work_lint.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# Test: scan()'s SystemExit is translated at the run_lint library boundary
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_lint_missing_wiki_raises_runtime_error_not_system_exit(tmp_path: Path) -> None:
+    """lint_mechanical.scan raises SystemExit when wiki/ doesn't exist (a
+    CLI-appropriate guard for the plugin script). run_lint is a library
+    boundary — MCP's wiki_lint tool awaits it with only an Exception handler,
+    so a SystemExit would kill the server process. run_lint must translate
+    it to RuntimeError."""
+    from graph_wiki_core.commands.lint import run_lint
+
+    # tmp_path has no wiki/ dir; resolve_wiki_and_repo(tmp_path) → tmp_path/wiki
+    # which doesn't exist, tripping scan()'s guard.
+    with pytest.raises(RuntimeError, match="not found"):
+        await run_lint(workspace_path=tmp_path)
+
+
+# ---------------------------------------------------------------------------
+# Test: fail-soft {"error": ...} report keys escalate into result.errors
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_run_lint_fail_soft_error_dicts_escalate_into_errors(tmp_path: Path) -> None:
+    """When scan() reports a fail-soft check as {"error": ...}, run_lint
+    escalates the message into result.errors and keeps the LintResult field
+    list-typed (empty list, not a dict)."""
+    from graph_wiki_core.commands.lint import run_lint
+    from subagent_runtime.pool import FanOutResult
+
+    wiki = tmp_path / "wiki"
+    report = {
+        "wiki": str(wiki),
+        "total_pages": 0,
+        "orphans": [],
+        "broken_links": [],
+        "stale": [],
+        "missing_frontmatter": [],
+        "missing_tokens": [],
+        "source_path_drift": [],
+        "duplicate_titles": {},
+        "log_gap": None,
+        "code_drift": {"skipped": True},
+        "file_map_drift": [],
+        "package_sync_drift": [],
+        "domain_placement": [],
+        "workflow_hints": [],
+        "concept_kind": [],
+        "dependency_layer": [],
+        "guidance_lint_findings": {"error": "boom"},
+        "obsidian_render_findings": {"error": "bang"},
+        "work_lifecycle": {"total_items": 0, "findings": []},
+        "scanner_heading_drift": {"error": "pow"},
+        "pages": {},
+        "index_pages": {},
+    }
+
+    with (
+        patch("graph_wiki_core.commands.lint.resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
+        patch("graph_wiki_core.commands.lint_mechanical.scan", return_value=report),
+        patch("graph_wiki_core.commands.lint.render_project_context", return_value=""),
+        patch("graph_wiki_core.commands.lint.list_proposals", return_value=[]),
+        patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool,
+    ):
+        mock_pool = MagicMock()
+        MockPool.return_value = mock_pool
+        mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
+        result = await run_lint(workspace_path=tmp_path)
+
+    assert "guidance_lint_findings check failed: boom" in result.errors
+    assert "obsidian_render_findings check failed: bang" in result.errors
+    assert "scanner_heading_drift check failed: pow" in result.errors
+    assert result.guidance_lint_findings == []
+    assert result.obsidian_render_findings == []
+    assert result.scanner_heading_drift == []

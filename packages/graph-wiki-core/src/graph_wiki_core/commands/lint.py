@@ -256,14 +256,20 @@ async def run_lint(
     # (the plugin gates it behind --check dependency_layer; gw lint has no such
     # flag and has always run it). work_lifecycle is intentionally ignored here:
     # gw ships the work-lifecycle pass separately via lint_all.run_work_lint.
-    report = lint_mechanical.scan(
-        wiki,
-        stale_days,
-        log_gap_days,
-        repo_path=repo,
-        optional_checks={"dependency_layer"},
-        include_pages=True,
-    )
+    try:
+        report = lint_mechanical.scan(
+            wiki,
+            stale_days,
+            log_gap_days,
+            repo_path=repo,
+            optional_checks={"dependency_layer"},
+            include_pages=True,
+        )
+    except SystemExit as e:
+        # scan()'s missing-wiki guard is CLI-appropriate (plugin script); at
+        # this library boundary translate it so MCP/CLI callers get a normal
+        # exception instead of process exit.
+        raise RuntimeError(str(e)) from e
     pages = report.pop("pages")
     report.pop("index_pages")
 
@@ -291,6 +297,8 @@ async def run_lint(
     guidance_findings = _findings_or_error("guidance_lint_findings")
     obsidian_render_findings = _findings_or_error("obsidian_render_findings")
 
+    # scanner_heading_drift can't reuse _findings_or_error: check_scanner_heading
+    # returns list[str] without severity/slug/rule_id keys.
     scanner_heading = report["scanner_heading_drift"]
     if isinstance(scanner_heading, dict):
         errors.append(f"scanner_heading_drift check failed: {scanner_heading['error']}")
