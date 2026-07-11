@@ -40,7 +40,7 @@ _SKIPPED: dict = {"skipped": True}
 OPTIONAL_GROUPS = {"dependency_layer"}
 
 
-def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
+def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None, include_pages=False):
     if not wiki.exists():
         raise SystemExit(f"[error] {wiki} not found")
     workspace = wiki.parent
@@ -225,7 +225,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
     work_lifecycle = _fail_soft(_work_lifecycle)
     scanner_heading_drift = _fail_soft(lambda: check_scanner_heading(pages))
 
-    return {
+    report = {
         "wiki": str(wiki),
         "total_pages": mech["total_pages"],
         "orphans": mech["orphans"],
@@ -248,6 +248,12 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None):
         "work_lifecycle": work_lifecycle,
         "scanner_heading_drift": scanner_heading_drift,
     }
+    if include_pages:
+        # Internal callers (run_lint) need the parsed page dicts for the
+        # semantic fan-out; the plugin's --json path must NOT serialize them.
+        report["pages"] = pages
+        report["index_pages"] = mech["index_pages"]
+    return report
 
 
 def print_report(r):

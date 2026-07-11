@@ -420,6 +420,23 @@ def test_proposals_not_orphaned(tmp_path):
     assert "proposals/adr-my-slug" not in result["missing_frontmatter"]
 
 
+def test_scan_include_pages_opt_in(tmp_path):
+    """Default report has no pages/index_pages keys (plugin --json shape);
+    include_pages=True adds both for internal callers."""
+    from graph_wiki_core.commands.lint_mechanical import scan
+
+    wiki = tmp_path / "wiki"
+    (wiki / "concepts").mkdir(parents=True)
+    (wiki / "concepts" / "a.md").write_text(
+        "---\ntitle: A\ncategory: concept\nsummary: s\ntokens: 1\n---\n\nbody\n", encoding="utf-8"
+    )
+    default = scan(wiki, stale_days=90, log_gap_days=14)
+    assert "pages" not in default and "index_pages" not in default
+    with_pages = scan(wiki, stale_days=90, log_gap_days=14, include_pages=True)
+    assert "concepts/a" in with_pages["pages"]
+    assert isinstance(with_pages["index_pages"], dict)
+
+
 def test_proposals_invalid_schema_flagged(tmp_path):
     """proposals/ pages missing required proposal fields are flagged."""
     from graph_wiki_core.commands.lint_mechanical import scan

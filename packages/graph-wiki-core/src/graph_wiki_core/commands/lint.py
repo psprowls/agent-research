@@ -9,12 +9,12 @@ Linter system prompts are constructed inline via
 where `project_context` is the rendered output of
 `render_project_context(wiki)` — see CTX-03.
 
-Mechanical checks (delegated to wiki_io.lint_wiki.mechanical_scan, the single
-canonical scanner shared with lint_wiki.scan()):
-  - orphans, broken wikilinks (placeholder-filtered), stale pages, missing frontmatter
-  - duplicate titles, log gaps, code-drift (packages vs vault)
-  - specialized drift modules: dependency, domain, file_map,
-    package_sync, workflow_hints
+Mechanical checks are delegated wholesale to
+graph_wiki_core.commands.lint_mechanical.scan — the single lint aggregator
+shared with the plugin lint script
+(plugins/graph-wiki/skills/graph-wiki/scripts/lint_wiki.py). run_lint maps
+its report dict directly into LintResult; it does not re-implement any
+aggregation of its own.
 
 Semantic checks (3 parallel linter subagents via SubagentPool):
   - page_quality: content quality, contradictions, completeness
@@ -34,18 +34,10 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.lint.common import strip_frontmatter
-from wiki_io.lint.concept_kind import check as check_concept_kind
-from wiki_io.lint.dependency import check as check_dependency_layer
-from wiki_io.lint.domain import check as check_domain_placement
-from wiki_io.lint.file_map import check as check_file_map_drift
-from wiki_io.lint.obsidian_render import check as check_obsidian_render
-from wiki_io.lint.package_sync import check as check_package_sync_drift
-from wiki_io.lint.scanner_heading import check as check_scanner_heading
-from wiki_io.lint.workflow_hints import check as check_workflow_hints
-from wiki_io.lint_wiki import mechanical_scan
 from wiki_io.proposals import list_proposals
 from workspace_io.paths import graph_dir
 
+from graph_wiki_core.commands import lint_mechanical
 from graph_wiki_core.roles import load_role_config, make_llm
 
 logger = logging.getLogger(__name__)
@@ -100,77 +92,6 @@ class LintResult:
     open_proposals: int = 0
     guidance_lint_findings: list[dict] = field(default_factory=list)
     obsidian_render_findings: list[dict] = field(default_factory=list)
-
-
-# ---------------------------------------------------------------------------
-# Private: _module_pass — call all drift-check modules
-# ---------------------------------------------------------------------------
-
-
-def _module_pass(repo: Path | None, wiki: Path, workspace: Path, pages: dict) -> dict:
-    """Call all mechanical lint modules and return their findings.
-
-    Modules that require a repo path are skipped (return _SKIPPED) when repo is None,
-    matching lint_wiki.py:scan() behavior (lines 283-311).
-    """
-    if repo is not None:
-        file_map_drift = check_file_map_drift(repo, pages)
-        package_sync_drift = check_package_sync_drift(repo, wiki)
-    else:
-        file_map_drift = []
-        package_sync_drift = []
-    domain_placement = check_domain_placement(pages)
-    workflow_hints_issues = check_workflow_hints(pages, workspace)
-    concept_kind_issues = check_concept_kind(pages, wiki)
-    # dependency_layer is optional — pass pages only, no workspaces (skip workspaces arg)
-    dependency_layer = check_dependency_layer(pages)
-    scanner_heading_drift = check_scanner_heading(pages)
-
-    # Code-drift check (packages on disk vs vault) — skipped when repo is None
-    code_drift = _SKIPPED.copy()
-    if repo is not None:
-        try:
-            from wiki_io.scan_monorepo import discover_workspaces, unscope
-            from workspace_io.config import resolve as _resolve_cfg
-
-            # Container-free discovery: heuristic walk of on-disk package dirs.
-            # In a multi-repo workspace, on-disk packages span every member root,
-            # so enumerate the UNION across all members (``members or [repo]``
-            # keeps single-repo byte-identical: iterate the one repo).
-            members = list(_resolve_cfg(repo, require_manifest=False).members) or [repo]
-            disk_names = set()
-            for member in members:
-                workspaces = discover_workspaces(member)
-                disk_names |= {unscope(w["name"]) for w in workspaces}
-            vault_pkg_pages = {
-                k: p
-                for k, p in pages.items()
-                if p["fm"].get("category") in ("package", "app") and Path(k).parent.name == Path(k).name
-            }
-            vault_names = {Path(k).name for k in vault_pkg_pages}
-            planned_names = {Path(k).name for k, p in vault_pkg_pages.items() if p["fm"].get("status") == "planned"}
-            code_drift = {
-                "packages_on_disk": len(disk_names),
-                "packages_in_vault": len(vault_names),
-                "missing_in_vault": sorted(disk_names - vault_names),
-                "orphaned_in_vault": sorted((vault_names - disk_names) - planned_names),
-                "planned_in_vault": sorted(planned_names),
-            }
-        except Exception as exc:
-            # warning (not debug): a swallowed failure here silently drops the
-            # whole code-drift pass, so surface it in normal lint output.
-            logger.warning("Code-drift check failed: %s", exc)
-
-    return {
-        "file_map_drift": file_map_drift,
-        "package_sync_drift": package_sync_drift,
-        "domain_placement": domain_placement,
-        "workflow_hints": workflow_hints_issues,
-        "concept_kind": concept_kind_issues,
-        "dependency_layer": dependency_layer,
-        "scanner_heading_drift": scanner_heading_drift,
-        "code_drift": code_drift,
-    }
 
 
 # ---------------------------------------------------------------------------
@@ -304,14 +225,14 @@ async def run_lint(
     log_gap_days: int = 14,
     model_override: str | None = None,
 ) -> LintResult:
-    """End-to-end lint: mechanical pass (wiki_io.mechanical_scan) + module checks + semantic fan-out.
+    """End-to-end lint: mechanical aggregation (lint_mechanical.scan) + semantic fan-out.
 
     Steps:
         1. Resolve wiki and repo from workspace_path.
-        2. MECHANICAL pass — wiki_io.lint_wiki.mechanical_scan (canonical scanner).
-        3. MECHANICAL module pass — call all drift-check modules.
-        4. SEMANTIC pass — 3-group linter fan-out via SubagentPool.
-        5. Return LintResult (NO write-back to vault — D-10).
+        2. MECHANICAL pass — delegate wholesale to lint_mechanical.scan (the
+           single lint aggregator shared with the plugin lint script).
+        3. SEMANTIC pass — 3-group linter fan-out via SubagentPool.
+        4. Map the report dict into LintResult (NO write-back to vault — D-10).
 
     Args:
         workspace_path: Path to the wiki workspace root (None → env var / git heuristic).
@@ -330,61 +251,70 @@ async def run_lint(
     project_ctx = render_project_context(wiki)
     if repo is None:
         repo = Path.cwd()
-    workspace = wiki.parent
 
-    # Step 2: mechanical pass — canonical scanner owned by wiki_io.lint_wiki
-    mech = mechanical_scan(wiki, stale_days, log_gap_days)
-    pages = mech["pages"]
+    # Step 2: mechanical aggregation. dependency_layer is always-on for gw lint
+    # (the plugin gates it behind --check dependency_layer; gw lint has no such
+    # flag and has always run it). work_lifecycle is intentionally ignored here:
+    # gw ships the work-lifecycle pass separately via lint_all.run_work_lint.
+    report = lint_mechanical.scan(
+        wiki,
+        stale_days,
+        log_gap_days,
+        repo_path=repo,
+        optional_checks={"dependency_layer"},
+        include_pages=True,
+    )
+    pages = report.pop("pages")
+    report.pop("index_pages")
 
-    # Step 3: module checks
-    mod = _module_pass(repo, wiki, workspace, pages)
-
-    # Step 4: semantic pass
+    # Step 3: semantic pass
     pool = SubagentPool(trace_dir=graph_dir(wiki.parent) / "traces")
     cfg = load_role_config("linter")
     semantic_findings, errors = await _semantic_pass(
         wiki, pages, pool, cfg, model_override=model_override, project_context=project_ctx
     )
 
-    # Guidance-layer mechanical lint (owned by guidance-io)
-    from guidance_io.lint import run_lint as _run_guidance_lint
+    # Step 4: map the report into LintResult. Fail-soft parity keys come back
+    # as {"error": ...} dicts when a check blew up — escalate into errors and
+    # keep the LintResult field list-typed; error-severity findings escalate
+    # exactly as the pre-delegation inline checks did.
+    def _findings_or_error(key: str) -> list[dict]:
+        findings = report[key]
+        if isinstance(findings, dict):
+            errors.append(f"{key} check failed: {findings['error']}")
+            return []
+        for f in findings:
+            if f["severity"] == "error":
+                errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
+        return findings
 
-    guidance_findings = [
-        {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
-        for f in _run_guidance_lint(workspace)
-    ]
-    for f in guidance_findings:
-        if f["severity"] == "error":
-            errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
+    guidance_findings = _findings_or_error("guidance_lint_findings")
+    obsidian_render_findings = _findings_or_error("obsidian_render_findings")
 
-    # Obsidian render-correctness lint (owned by wiki-io)
-    obsidian_render_findings = [
-        {"rule_id": f.rule_id, "severity": f.severity, "slug": f.slug, "message": f.message}
-        for f in check_obsidian_render({**pages, **mech["index_pages"]})
-    ]
-    for f in obsidian_render_findings:
-        if f["severity"] == "error":
-            errors.append(f"{f['slug']}: [{f['rule_id']}] {f['message']}")
+    scanner_heading = report["scanner_heading_drift"]
+    if isinstance(scanner_heading, dict):
+        errors.append(f"scanner_heading_drift check failed: {scanner_heading['error']}")
+        scanner_heading = []
 
     return LintResult(
-        wiki=str(wiki),
-        total_pages=mech["total_pages"],
-        orphans=mech["orphans"],
-        broken_links=mech["broken_links"],
-        stale=mech["stale"],
-        missing_frontmatter=mech["missing_frontmatter"],
-        missing_tokens=mech["missing_tokens"],
-        source_path_drift=mech["source_path_drift"],
-        duplicate_titles=mech["duplicate_titles"],
-        log_gap=mech["log_gap"],
-        code_drift=mod["code_drift"],
-        file_map_drift=mod["file_map_drift"],
-        package_sync_drift=mod["package_sync_drift"],
-        domain_placement=mod["domain_placement"],
-        workflow_hints=mod["workflow_hints"],
-        concept_kind=mod["concept_kind"],
-        dependency_layer=mod["dependency_layer"],
-        scanner_heading_drift=mod["scanner_heading_drift"],
+        wiki=report["wiki"],
+        total_pages=report["total_pages"],
+        orphans=report["orphans"],
+        broken_links=report["broken_links"],
+        stale=report["stale"],
+        missing_frontmatter=report["missing_frontmatter"],
+        missing_tokens=report["missing_tokens"],
+        source_path_drift=report["source_path_drift"],
+        duplicate_titles=report["duplicate_titles"],
+        log_gap=report["log_gap"],
+        code_drift=report["code_drift"],
+        file_map_drift=report["file_map_drift"],
+        package_sync_drift=report["package_sync_drift"],
+        domain_placement=report["domain_placement"],
+        workflow_hints=report["workflow_hints"],
+        concept_kind=report["concept_kind"],
+        dependency_layer=report["dependency_layer"],
+        scanner_heading_drift=scanner_heading,
         semantic_findings=semantic_findings,
         errors=errors,
         open_proposals=open_proposals,

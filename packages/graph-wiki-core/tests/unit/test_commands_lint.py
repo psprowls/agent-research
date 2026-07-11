@@ -198,11 +198,11 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
 
     with (
         patch("graph_wiki_core.commands.lint.resolve_wiki_and_repo", return_value=(wiki, repo)),
-        patch("graph_wiki_core.commands.lint.check_dependency_layer", mock_dependency),
-        patch("graph_wiki_core.commands.lint.check_domain_placement", mock_domain),
-        patch("graph_wiki_core.commands.lint.check_file_map_drift", mock_file_map),
-        patch("graph_wiki_core.commands.lint.check_package_sync_drift", mock_package_sync),
-        patch("graph_wiki_core.commands.lint.check_workflow_hints", mock_workflow),
+        patch("graph_wiki_core.commands.lint_mechanical.check_dependency_layer", mock_dependency),
+        patch("graph_wiki_core.commands.lint_mechanical.check_domain_placement", mock_domain),
+        patch("graph_wiki_core.commands.lint_mechanical.check_file_map_drift", mock_file_map),
+        patch("graph_wiki_core.commands.lint_mechanical.check_package_sync_drift", mock_package_sync),
+        patch("graph_wiki_core.commands.lint_mechanical.check_workflow_hints", mock_workflow),
         patch("graph_wiki_core.commands.lint.SubagentPool") as MockPool,
     ):
         mock_pool = MagicMock()
@@ -215,47 +215,6 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
     assert mock_file_map.called, "check_file_map_drift not called"
     assert mock_package_sync.called, "check_package_sync_drift not called"
     assert mock_workflow.called, "check_workflow_hints not called"
-
-
-def test_module_pass_code_drift_unions_packages_across_members(tmp_path: Path) -> None:
-    """_module_pass code-drift discovery is the UNION across every member root in
-    a multi-repo workspace. Two members each carrying one package, both in the
-    vault, must yield packages_on_disk == 2 with no false missing_in_vault drift.
-    """
-    from graph_wiki_core.commands.lint import _module_pass
-
-    wiki = tmp_path / "wiki"
-    wiki.mkdir()
-    repo = tmp_path / "repo-a"
-    member_b = tmp_path / "repo-b"
-
-    # Vault lists both packages (folder-shorthand <container>/<slug>/<slug>).
-    pages = {
-        "packages/alpha/alpha": {"fm": {"category": "package", "status": None}, "text": ""},
-        "packages/beta/beta": {"fm": {"category": "package", "status": None}, "text": ""},
-    }
-
-    per_member = {repo: [{"name": "alpha"}], member_b: [{"name": "beta"}]}
-
-    from workspace_io.config import GraphWikiConfig
-
-    with (
-        patch(
-            "wiki_io.scan_monorepo.discover_workspaces",
-            side_effect=lambda m, *a, **k: per_member.get(Path(m), []),
-        ),
-        patch(
-            "workspace_io.config.resolve",
-            return_value=GraphWikiConfig(workspace=wiki.parent, repo_root=repo, members=(repo, member_b)),
-        ),
-    ):
-        result = _module_pass(repo, wiki, wiki.parent, pages)
-
-    cd = result["code_drift"]
-    assert cd["packages_on_disk"] == 2
-    assert cd["packages_in_vault"] == 2
-    assert cd["missing_in_vault"] == []
-    assert cd["orphaned_in_vault"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -291,7 +250,7 @@ async def test_run_lint_semantic_fanout_3_groups(tmp_path: Path) -> None:
             )
 
         mock_pool.run_all = capture_run_all
-        await run_lint(workspace_path=wiki)
+        await run_lint(workspace_path=tmp_path)
 
     assert len(captured_calls) == 1, f"Expected 1 run_all call, got {len(captured_calls)}"
     assert captured_calls[0]["role"] == "linter"
@@ -328,7 +287,7 @@ async def test_run_lint_semantic_errors_surface_in_result_errors(tmp_path: Path)
                 errors=[PerItemError(item=stale_group, exception=RuntimeError("Bedrock error"))],
             )
         )
-        result = await run_lint(workspace_path=wiki)
+        result = await run_lint(workspace_path=tmp_path)
 
     assert len(result.errors) >= 1
     # Error message should contain something about the failure
@@ -376,7 +335,7 @@ async def test_run_lint_no_write_back_to_vault(tmp_path: Path) -> None:
         mock_pool = MagicMock()
         MockPool.return_value = mock_pool
         mock_pool.run_all = AsyncMock(return_value=FanOutResult(successes=[], errors=[]))
-        await run_lint(workspace_path=wiki)
+        await run_lint(workspace_path=tmp_path)
 
     after_hash = _dir_hash(wiki)
     assert before_hash == after_hash, "Vault was modified by run_lint (D-10 violation)"
