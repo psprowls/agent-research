@@ -47,19 +47,19 @@ Decide the mode purely from your dispatch brief — a doc check, no new tooling:
 
 ### Step 2a — Early stub + one quick confirm (auto-file mode only)
 
-After "Explore project context" (Checklist step 1) and before asking clarifying questions, derive a proposed **title / kind / summary** from the opening request and present them in a single confirm:
+After "Explore project context" (Checklist step 1) and before asking clarifying questions, derive a proposed **title / kind / summary / 4 slug words** from the opening request and present them in a single confirm:
 
-> "I'll track this as a work item — **title** / **kind** / **summary**. Good, or adjust? (or say 'don't file')"
+> "I'll track this as a work item — **title** / **kind** / **summary** / slug words: **w1 w2 w3 w4**. Good, or adjust? (or say 'don't file')"
 
 This one confirm does two things:
 
-- **Locks the title**, from which `gw work file` derives the **permanent slug**. Slugs never change when the title is edited later, so the title is confirmed here — where it is decided — not at finalize.
+- **Locks the title and slug words**, from which `gw work file` derives the **permanent slug** (`<kind>-<w1>-<w2>-<w3>-<w4>`, or `epic-<kind>-...` for epic children). Slugs never change when the title is edited later, so both are confirmed here — where they're decided — not at finalize.
 - **Is the opt-out.** If the user says "don't file", skip auto-file and run the legacy standalone flow (chain into `writing-plans` at the end; nothing tracked).
 
 On confirm, file the item and capture the slug from the JSON result:
 
 ```bash
-gw work file --json --title "<title>" --kind <kind> --summary "<summary>"
+gw work file --json --title "<title>" --kind <kind> --summary "<summary>" --slug-words "<w1> <w2> <w3> <w4>"
 ```
 
 Read the `slug` field from the JSON. Announce: *"Auto-filed as `<slug>`."* Then continue the normal brainstorming flow (clarifying questions → approaches → design) unchanged.

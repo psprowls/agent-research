@@ -47,11 +47,14 @@ anticipated child.
    concurrently). Capture the rationale; you write it to the plan_doc in step 5.
 
 4. **File each child**, dependency-free / earlier children first so a later
-   child can name an already-filed sibling in `--depends-on`:
+   child can name an already-filed sibling in `--depends-on`. Pick 4
+   intelligible slug words per child (the `epic-<kind>` prefix is derived
+   automatically from `--parent` — never pass it yourself):
 
    ```bash
    gw work file --json --title "<child title>" --kind <kind> \
      --summary "<one line>" --parent <epic-slug> \
+     --slug-words "<w1> <w2> <w3> <w4>" \
      [--depends-on <sibling-slug>,<sibling-slug>]
    ```
 

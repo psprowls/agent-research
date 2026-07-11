@@ -180,7 +180,7 @@ Field divergences:
 
 ### Work pages
 
-Unified namespace replacing `issues/` + `roadmap/`. `category: work`. `kind:` discriminates between bug-shaped and feature-shaped items; a single status lifecycle covers both. Slugs follow `<YYYY-MM-DD>-<short-slug>.md` for items where date-of-filing matters (most bugs and spikes); `<short-slug>.md` for evergreen feature/epic items.
+Unified namespace replacing `issues/` + `roadmap/`. `category: work`. `kind:` discriminates between bug-shaped and feature-shaped items; a single status lifecycle covers both. Slugs follow `<YYYY-MM-DD>-<kind>-<w1>-<w2>-<w3>-<w4>.md`, where the 4 words are filer-supplied via `gw work file --slug-words` (falling back to the first 4 words of the title when omitted); children filed under a parent epic get `epic-<kind>` instead of `<kind>`. No migration — pre-existing pages keep their old `<YYYY-MM-DD>-<short-slug>.md` filenames; both formats coexist since every consumer reads slugs from file stems.
 
 ```yaml
 ---
@@ -307,7 +307,7 @@ updated: 2026-04-20
 - **ADRs:** `adrs/<NNNN>-<slug>.md` — e.g. `adrs/0012-move-to-esm.md`. Zero-padded ID, monotonically increasing.
 - **Architecture syntheses:** `concepts/<topic>.md` with `kind: architecture` — e.g. `concepts/request-flow.md`
 - **Dependencies:** `entities/dep_<package-name>.md` — use the registry name (`dep_react.md`, `dep_react-native-maps.md`). For scoped npm packages, replace `/` with `__` (`dep_@tanstack__react-query.md`). Service pages use a slug derived from the service name (`dep_mongodb-atlas.md`).
-- **Work:** `work/<YYYY-MM-DD>-<slug>.md` for date-of-filing-meaningful items (most bugs, most spikes); `work/<slug>.md` for evergreen feature/epic items.
+- **Work:** `work/<YYYY-MM-DD>-<kind>-<w1>-<w2>-<w3>-<w4>.md` (`epic-<kind>` prefix for epic children) — e.g. `work/2026-07-11-feature-shorten-work-item-slugs.md`.
 
 ## Taxonomies
 

@@ -22,9 +22,10 @@ Gathers required fields conversationally, then invokes `gw work file`.
 3. Prompt for **summary** (required) — one line, <=100 chars.
 4. Prompt for **affects** (required) — comma-separated paths or package names (e.g. `packages/graph-io, packages/wiki-io`).
 5. **Estimate effort** — based on the title, kind, and summary, propose an effort value (`xtra-small|small|medium|large|xtra-large`) with a one-line rationale. Present it to the user: "I'd estimate this as **medium** — multiple files across packages, likely one PR. Does that sound right?" The user can accept or name a different size.
-6. Optionally prompt for: `blast-radius` (file|package|domain|system), `target` (YYYY-QN or YYYY-MM), `owner`, `tags`.
-7. Auto-sets `status: open` and `opened: <today>`.
-8. Invoke:
+6. **Propose slug words** — pick 4 intelligible words from the title (e.g. title "Shorten work-item slugs" → `shorten work item slugs`) and present them alongside the effort estimate: "Slug words: **shorten work item slugs** — good, or adjust?" These become the filename's word suffix; the CLI derives the `<kind>`/`epic-<kind>` prefix automatically.
+7. Optionally prompt for: `blast-radius` (file|package|domain|system), `target` (YYYY-QN or YYYY-MM), `owner`, `tags`.
+8. Auto-sets `status: open` and `opened: <today>`.
+9. Invoke:
 
 ```bash
 gw work file \
@@ -33,10 +34,11 @@ gw work file \
   --summary "..." \
   --affects "..." \
   --effort "..." \
+  --slug-words "..." \
   [--blast-radius ...] [--target ...] [--owner ...] [--tags ...]
 ```
 
-9. Report the filed page path.
+10. Report the filed page path.
 
 ## Effort scale
 
