@@ -48,7 +48,7 @@ graph-wiki-core    command + prompt + orchestration logic shared by ALL delivery
   └── eval-harness     deepeval checks, model sweep runner — declares graph-wiki-core[bedrock]; pricing comes from subagent-runtime
 ```
 
-Layering is enforced by `tests/test_layering.py` (declared deps + AST imports vs. the layer policy, with a sanctioned-exception allowlist) and `tests/integration/test_base_closure_import.py` (every non-gated core module must import against the base closure).
+The bottom→top listing is a layering order, not a single dependency chain: model-adapter/subagent-runtime and graph-io/wiki-io are independent chains that first join in graph-wiki-core — via the `[bedrock]` extra for the Bedrock chain (`= base` / `= [bedrock]` are packaging variants of core, not sub-packages). Layering is enforced by `tests/test_layering.py` (declared deps + AST imports vs. the layer policy, with a sanctioned-exception allowlist) and `tests/integration/test_base_closure_import.py` (every non-gated core module must import against the base closure).
 
 `graph-wiki-core` is the hub: `commands/` (scan, ingest, query, lint, init, log, propose_domains, ack_drift, graph) hold the real logic; `graph-wiki-cli` and `graph-wiki-mcp` are thin surfaces over it. When changing behavior, change it in core.
 
@@ -59,11 +59,11 @@ The **repo** is the source code being documented. The **workspace** is a *separa
 - `gw scan --workspace <ws>` discovers the repo from cwd.
 - `gw graph update --full --repo <repo> --mode test` — `graph build`/`update` resolve the repo *from the workspace*, so always pass `--repo` explicitly or it dies with "ambiguous argument HEAD". Graph updates are incremental; classification-logic changes need `--full`.
 
-### Bedrock-only model access — never bypass the adapter
+### Model access — never bypass the adapter
 
-- Always get models via `model_adapter.make_llm(role)`. It returns `_GuardedChatBedrockConverse`, which translates `AccessDeniedException` → `BedrockAccessDenied`. Constructing `ChatBedrockConverse` directly loses that guard.
-- **Never** add `langchain-anthropic` or `ChatBedrock` (legacy) — both route outside the Bedrock Converse path; the only langchain pieces in use are `langchain-aws` + `langchain-core` primitives (`@tool`, message types).
-- Per-role model tiers (orchestrator, librarian, code_reader, scanner, synthesizer, preflight, …) live in `model_adapter/models.toml` with `sweep_candidates` for the eval harness. Per-workspace overrides go in `<workspace>/.graph-wiki.yaml`. Tests pin a workspace via `GRAPH_WIKI_WORKSPACE`.
+- Always get models via `model_adapter.make_bedrock_llm(model_id, ...)` or `model_adapter.make_gateway_llm(model_id, ...)` — never construct `ChatBedrockConverse` or `ChatOpenAI` directly, which loses the guard. Bedrock is the **default** backend (`_GuardedChatBedrockConverse`, translating `AccessDeniedException` → `BedrockAccessDenied`). The **Vercel AI Gateway** path returns a `_GuardedChatOpenAI` (a `langchain-openai` `ChatOpenAI` subclass, translating gateway 401s → `GatewayAccessDenied`); credentials come from `AI_GATEWAY_API_KEY` / `AI_GATEWAY_BASE_URL` (env only). Role resolution (mapping a role name like `scanner` to a model id/backend via `models.toml`) lives in `graph-wiki-core`, not in model-adapter.
+- **Never** add `langchain-anthropic` or `ChatBedrock` (legacy) — both route outside the Bedrock Converse path. The langchain pieces in use are `langchain-aws` (Bedrock), `langchain-openai` (gateway, adapter-internal only), and `langchain-core` primitives (`@tool`, message types).
+- Per-role model tiers (orchestrator, librarian, code_reader, scanner, synthesizer, preflight, …) live in `graph_wiki_core/models.toml` (resolved via `graph_wiki_core/roles.py`) with `sweep_candidates` for the eval harness. Per-workspace overrides go in `<workspace>/.graph-wiki.yaml`. Tests pin a workspace via `GRAPH_WIKI_WORKSPACE`.
 
 ### Subagent fan-out
 

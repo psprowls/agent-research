@@ -48,7 +48,7 @@ graph-wiki-core    command + prompt + orchestration logic shared by ALL delivery
   └── eval-harness     deepeval checks, model sweep runner — declares graph-wiki-core[bedrock]; pricing comes from subagent-runtime
 ```
 
-Layering is enforced by `tests/test_layering.py` (declared deps + AST imports vs. the layer policy, with a sanctioned-exception allowlist) and `tests/integration/test_base_closure_import.py` (every non-gated core module must import against the base closure).
+The bottom→top listing is a layering order, not a single dependency chain: model-adapter/subagent-runtime and graph-io/wiki-io are independent chains that first join in graph-wiki-core — via the `[bedrock]` extra for the Bedrock chain (`= base` / `= [bedrock]` are packaging variants of core, not sub-packages). Layering is enforced by `tests/test_layering.py` (declared deps + AST imports vs. the layer policy, with a sanctioned-exception allowlist) and `tests/integration/test_base_closure_import.py` (every non-gated core module must import against the base closure).
 
 `graph-wiki-core` is the hub: `commands/` (scan, ingest, query, lint, init, log, propose_domains, ack_drift, graph) hold the real logic; `graph-wiki-cli` and `graph-wiki-mcp` are thin surfaces over it. When changing behavior, change it in core.
 
