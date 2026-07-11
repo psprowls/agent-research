@@ -52,8 +52,10 @@ fields the steps below read are unchanged from `gw work next`.
   then run `gw work advance <slug> --effort <value>` and re-run `gw work next`.
 - If `action.skill` is **null**, `blockers` is empty, and `on_complete` is
   **non-null** — this is a **satisfied gate** (an epic whose children are all
-  terminal). Do not dispatch a skill: run `gw work advance <slug>` directly
-  (step 5), then hand off (step 6).
+  terminal, or an epic whose finish stage is satisfied). Do not dispatch a
+  skill: run `gw work advance <slug>` directly (step 5) — its own terminal
+  check governs what happens next (Terminal handling if the advance lands on
+  `phase: done` / `status: resolved`, otherwise the step 6 hand-off).
 - If `action.skill` is **null** and a blocker says **"waiting on children"** —
   the epic's execute gate is unsatisfied. Report the blocker, then list the
   epic's open children from the `child_rollup.open_slugs` field, suggesting
