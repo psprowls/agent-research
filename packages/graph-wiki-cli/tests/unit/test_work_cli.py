@@ -113,6 +113,104 @@ def test_work_file_parent_and_depends_on(tmp_path: Path) -> None:
     assert "Designed as part of epic" in text
 
 
+def test_work_file_slug_words_flag_plumbing() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.work import IngestResult
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="work/2026-07-11-feature-shorten-slugs.md",
+        slug="2026-07-11-feature-shorten-slugs",
+        title="Shorten slugs",
+        page_type="work",
+        source_path="",
+        cross_refs_updated=0,
+        warnings=[],
+    )
+
+    with patch("graph_wiki_cli.work_cli.main.run_work_file", new=AsyncMock(return_value=mock_result)) as mock_file:
+        result = runner.invoke(
+            app,
+            [
+                "work",
+                "file",
+                "--title",
+                "Shorten slugs",
+                "--kind",
+                "feature",
+                "--summary",
+                "shorten em",
+                "--slug-words",
+                "shorten work item slugs",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert mock_file.call_args.kwargs["slug_words"] == "shorten work item slugs"
+
+
+def test_work_file_prints_warn_lines_for_slug_word_warnings() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.work import IngestResult
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="work/2026-07-11-feature-one-two-three-four-five-six.md",
+        slug="2026-07-11-feature-one-two-three-four-five-six",
+        title="Many words",
+        page_type="work",
+        source_path="",
+        cross_refs_updated=0,
+        warnings=["--slug-words: 7 words truncated to 6 (one-two-three-four-five-six)"],
+    )
+
+    with patch("graph_wiki_cli.work_cli.main.run_work_file", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(
+            app,
+            [
+                "work",
+                "file",
+                "--title",
+                "Many words",
+                "--kind",
+                "feature",
+                "--summary",
+                "x",
+                "--slug-words",
+                "one two three four five six seven",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert "[warn] --slug-words: 7 words truncated to 6" in result.output
+
+
+def test_work_file_json_output_includes_warnings() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.work import IngestResult
+
+    mock_result = IngestResult(
+        status="ok",
+        page_path="work/2026-07-11-feature-x.md",
+        slug="2026-07-11-feature-x",
+        title="X",
+        page_type="work",
+        source_path="",
+        cross_refs_updated=0,
+        warnings=["some warning"],
+    )
+
+    with patch("graph_wiki_cli.work_cli.main.run_work_file", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(
+            app,
+            ["work", "file", "--title", "X", "--kind", "feature", "--summary", "x", "--json"],
+        )
+
+    assert result.exit_code == 0, result.output
+    data = json.loads(result.output)
+    assert data["warnings"] == ["some warning"]
+
+
 def test_work_regen_index_exit_0(tmp_path: Path) -> None:
     from graph_wiki_cli.cli import app
     from graph_wiki_core.commands.work import WorkRegenResult

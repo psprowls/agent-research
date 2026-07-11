@@ -44,6 +44,7 @@ def file(
     tags: str = typer.Option("", "--tags", help="Comma-separated tags"),
     parent: str = typer.Option("", "--parent", help="Owning epic slug (this item becomes its child)"),
     depends_on: str = typer.Option("", "--depends-on", help="Comma-separated sibling slugs that must finish first"),
+    slug_words: str = typer.Option("", "--slug-words", help="1-4 words for the slug (e.g. 'shorten work item slugs')"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
     json_output: bool = typer.Option(False, "--json"),
 ) -> None:
@@ -67,6 +68,7 @@ def file(
                 tags=_split_csv(tags),
                 parent=parent or None,
                 depends_on=_split_csv(depends_on) or None,
+                slug_words=slug_words or None,
             )
         )
     except (RuntimeError, ValueError, FileExistsError) as e:
@@ -77,6 +79,8 @@ def file(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
         typer.echo(f"[ok] Filed: {result.page_path}")
+        for w in result.warnings:
+            typer.echo(f"[warn] {w}", err=True)
 
 
 @work_app.command()
