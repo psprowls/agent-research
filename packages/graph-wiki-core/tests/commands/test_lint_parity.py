@@ -118,7 +118,7 @@ async def test_lint_edge_case_vault_has_missing_frontmatter(no_semantic_pool, tm
 @pytest.mark.asyncio
 async def test_lint_entity_and_proposal_frontmatter_contracts(no_semantic_pool, tmp_path) -> None:
     """run_lint must apply the same per-kind frontmatter contracts as
-    lint_wiki.scan(): entity pages need only uri/kind (the writer never emits
+    lint_mechanical.scan(): entity pages need only uri/kind (the writer never emits
     `title`), and well-formed proposals (kind/mode/target_slug/status) are not
     flagged. Curated pages still require title/category/summary."""
     from graph_wiki_core.commands.lint import run_lint

@@ -175,7 +175,7 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
 
     We mock resolve_wiki_and_repo to return a non-None repo path so that all
     module checks are exercised (the repo-dependent checks are guarded by
-    repo is not None in _module_pass).
+    the repo defaulting to Path.cwd() before delegation to lint_mechanical.scan).
     """
     wiki = tmp_path / "wiki"
     wiki.mkdir()

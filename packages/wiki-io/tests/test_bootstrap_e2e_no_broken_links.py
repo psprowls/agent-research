@@ -48,7 +48,7 @@ def test_bootstrap_then_render_overviews_zero_broken_links(tmp_path: Path, monke
     bootstrap call. Sibling sub-page stubs (api/patterns/work/testing/context
     for package & plugin; testing for app) are written so the `[[wiki/<container>/
     <slug>/<sub>|<sub>]]` links from the overview pages resolve via
-    `lint_wiki.scan()`'s `link_targets` set.
+    `mechanical_scan()`'s `link_targets` set.
     """
     from wiki_io import init_vault
     from wiki_io.init_vault import init_wiki, render_template

@@ -65,7 +65,7 @@ from graph_wiki_core.prompts.project_context import render_project_context  # no
 class LintResult:
     """Result of a run_lint() call.
 
-    Fields map to the shape of lint_wiki.py:scan() return dict, extended with
+    Fields map to the shape of lint_mechanical.scan() return dict, extended with
     semantic_findings and errors for the semantic fan-out pass.
     """
 
