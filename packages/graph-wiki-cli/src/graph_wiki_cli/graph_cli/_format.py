@@ -24,4 +24,4 @@ from graph_wiki_core.commands.graph_query import render as _render_module
 # (q_callers/q_callees/q_imported_by/q_exported_by) call `_format.render(...)`
 # directly as a function, so bind this module's `render` name to the
 # module's own `render` function attribute (graph_io.render.render).
-render = _render_module.render  # noqa: F401
+render = _render_module.render
