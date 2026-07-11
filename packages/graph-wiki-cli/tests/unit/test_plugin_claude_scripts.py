@@ -93,11 +93,11 @@ def test_lint_wiki_script_claude_branch_validates_unknown_check(
     _install_claude_backend(monkeypatch)
     workspace = tmp_path / "workspace"
     _install_fake_wiki_io(monkeypatch, workspace)
-    module = types.ModuleType("wiki_io.lint_wiki")
+    module = types.ModuleType("graph_wiki_core.commands.lint_mechanical")
     module.OPTIONAL_GROUPS = {"dependency_layer"}  # type: ignore[attr-defined]
     module.scan = lambda *args, **kwargs: []  # type: ignore[attr-defined]
     module.print_report = lambda *args, **kwargs: None  # type: ignore[attr-defined]
-    monkeypatch.setitem(sys.modules, "wiki_io.lint_wiki", module)
+    monkeypatch.setitem(sys.modules, "graph_wiki_core.commands.lint_mechanical", module)
 
     (workspace / "wiki").mkdir(parents=True)
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))

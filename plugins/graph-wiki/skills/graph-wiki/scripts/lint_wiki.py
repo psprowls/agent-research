@@ -30,8 +30,8 @@ def main() -> None:
     if _backend_for("lint") == "bedrock":
         _run_bedrock()
 
+    from graph_wiki_core.commands.lint_mechanical import OPTIONAL_GROUPS, print_report, scan
     from wiki_io._workspace import resolve_wiki_and_repo
-    from wiki_io.lint_wiki import OPTIONAL_GROUPS, print_report, scan
 
     parser = argparse.ArgumentParser(description="Lint a Code Wiki (with code-drift detection)")
     parser.add_argument("--stale-days", type=int, default=90)
