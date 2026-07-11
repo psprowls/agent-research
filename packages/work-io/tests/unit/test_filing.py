@@ -49,6 +49,66 @@ def test_slugify_handles_unicode() -> None:
 
 
 # ---------------------------------------------------------------------------
+# compose_slug
+# ---------------------------------------------------------------------------
+
+
+def test_compose_slug_basic() -> None:
+    from work_io.filing import compose_slug
+
+    slug, warnings = compose_slug("feature", "shorten work item slugs")
+    assert slug == "feature-shorten-work-item-slugs"
+    assert warnings == []
+
+
+def test_compose_slug_epic_child_prefix() -> None:
+    from work_io.filing import compose_slug
+
+    slug, warnings = compose_slug("bug", "fix flaky retry", epic_child=True)
+    assert slug == "epic-bug-fix-flaky-retry"
+    assert warnings == []
+
+
+def test_compose_slug_warns_on_five_or_six_words() -> None:
+    from work_io.filing import compose_slug
+
+    slug, warnings = compose_slug("feature", "one two three four five")
+    assert slug == "feature-one-two-three-four-five"
+    assert len(warnings) == 1
+    assert "5 words" in warnings[0]
+
+    slug6, warnings6 = compose_slug("feature", "one two three four five six")
+    assert slug6 == "feature-one-two-three-four-five-six"
+    assert len(warnings6) == 1
+    assert "6 words" in warnings6[0]
+
+
+def test_compose_slug_truncates_seven_plus_words() -> None:
+    from work_io.filing import compose_slug
+
+    slug, warnings = compose_slug("feature", "one two three four five six seven eight")
+    assert slug == "feature-one-two-three-four-five-six"
+    assert len(warnings) == 1
+    assert "truncated" in warnings[0]
+
+
+def test_compose_slug_empty_words_degrades_to_untitled() -> None:
+    from work_io.filing import compose_slug
+
+    slug, warnings = compose_slug("feature", "   ")
+    assert slug == "feature-untitled"
+    assert warnings == []
+
+
+def test_compose_slug_non_alphanumeric_words() -> None:
+    from work_io.filing import compose_slug
+
+    slug, warnings = compose_slug("bug", "OAuth2 login!! failing @ prod")
+    assert slug == "bug-oauth2-login-failing-prod"
+    assert warnings == []
+
+
+# ---------------------------------------------------------------------------
 # parse_fields
 # ---------------------------------------------------------------------------
 
@@ -177,17 +237,50 @@ def test_write_work_item_creates_page(tmp_path: Path) -> None:
     assert result["status"] == "ok"
     page_path = Path(result["page_path"])
     assert page_path.exists()
-    assert page_path == wiki / "work" / "2026-05-14-fix-auth-bug.md"
+    assert page_path == wiki / "work" / "2026-05-14-bug-fix-auth-bug.md"
     content = page_path.read_text(encoding="utf-8")
     assert "Fix auth bug" in content
     assert "Some body text" in content
 
 
 def test_write_work_item_slug_from_title(tmp_path: Path) -> None:
+    """VALID_FM_YAML carries kind: bug, so the default slug gets the kind prefix."""
     from work_io.filing import parse_fields, write_work_item
 
     wiki = _make_wiki(tmp_path)
     fm = parse_fields(VALID_FM_YAML)
+    result = write_work_item(wiki, fm, "Body.\n")
+    assert result["slug"] == "2026-05-14-bug-fix-auth-bug"
+
+
+def test_write_work_item_default_slug_epic_child_prefix(tmp_path: Path) -> None:
+    from work_io.filing import parse_fields, write_work_item
+
+    wiki = _make_wiki(tmp_path)
+    fm = parse_fields(VALID_FM_YAML)
+    fm["kind"] = "feature"
+    fm["parent"] = "2026-01-01-epic-something"
+    result = write_work_item(wiki, fm, "Body.\n")
+    assert result["slug"] == "2026-05-14-epic-feature-fix-auth-bug"
+
+
+def test_write_work_item_default_slug_truncates_title_to_four_words(tmp_path: Path) -> None:
+    from work_io.filing import parse_fields, write_work_item
+
+    wiki = _make_wiki(tmp_path)
+    fm = parse_fields(VALID_FM_YAML)
+    fm["title"] = "Shorten work item slugs to date kind and four words"
+    fm["kind"] = "feature"
+    result = write_work_item(wiki, fm, "Body.\n")
+    assert result["slug"] == "2026-05-14-feature-shorten-work-item-slugs"
+
+
+def test_write_work_item_default_slug_falls_back_to_legacy_when_kind_missing(tmp_path: Path) -> None:
+    from work_io.filing import parse_fields, write_work_item
+
+    wiki = _make_wiki(tmp_path)
+    fm = parse_fields(VALID_FM_YAML)
+    del fm["kind"]
     result = write_work_item(wiki, fm, "Body.\n")
     assert result["slug"] == "2026-05-14-fix-auth-bug"
 

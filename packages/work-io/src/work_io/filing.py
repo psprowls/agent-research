@@ -22,11 +22,39 @@ from work_io import frontmatter
 REQUIRED_FIELDS = ("title", "category", "kind", "status", "summary", "opened", "affects")
 _ALLOWED_CATEGORY = "work"
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
+_MAX_WORDS_CLEAN = 4
+_MAX_WORDS_HARD_CAP = 6
 
 
 def slugify(title: str) -> str:
     """Lowercase, replace non-alphanumeric runs with '-', strip edges."""
     return _SLUG_RE.sub("-", title.lower()).strip("-") or "untitled"
+
+
+def compose_slug(kind: str, words: str, *, epic_child: bool = False) -> tuple[str, list[str]]:
+    """Compose a `<prefix>-<w1>-<w2>-...` slug from filer-supplied words.
+
+    `prefix` is `kind`, or `epic-<kind>` when `epic_child` is True. `words` is
+    slugified (reusing `slugify`, so the same `_SLUG_RE` rules apply) and split
+    into tokens: 1-4 tokens pass through clean, 5-6 are kept with a warning,
+    7+ are truncated to 6 with a warning. Empty/whitespace `words` degrades
+    silently to a single `untitled` token (via `slugify`'s own empty-input
+    fallback) — no warning, since there's nothing to warn about.
+
+    Returns (slug, warnings).
+    """
+    prefix = f"epic-{kind}" if epic_child else kind
+    tokens = slugify(words).split("-")
+    warnings: list[str] = []
+    if len(tokens) > _MAX_WORDS_HARD_CAP:
+        warnings.append(
+            f"--slug-words: {len(tokens)} words truncated to {_MAX_WORDS_HARD_CAP} "
+            f"({'-'.join(tokens[:_MAX_WORDS_HARD_CAP])})"
+        )
+        tokens = tokens[:_MAX_WORDS_HARD_CAP]
+    elif len(tokens) > _MAX_WORDS_CLEAN:
+        warnings.append(f"--slug-words: {len(tokens)} words kept (recommended 1-4)")
+    return f"{prefix}-{'-'.join(tokens)}", warnings
 
 
 def parse_fields(yaml_text: str) -> dict:
@@ -83,7 +111,10 @@ def write_work_item(
                yields <workspace>/wiki/work.
         fm:    frontmatter dict (must carry 'title' and 'opened'; validate first).
         body:  markdown body text.
-        slug:  page slug; derived from fm['title'] via slugify() when omitted.
+        slug:  page slug. When omitted, composed via compose_slug() from
+               fm['kind'] + the first 4 words of the slugified title
+               (epic-<kind> prefix when fm['parent'] is set); falls back to
+               the legacy slugify(title) when fm has no 'kind'.
         force: overwrite an existing page when True; else raise FileExistsError.
 
     Returns:
@@ -94,7 +125,13 @@ def write_work_item(
     """
     title = str(fm["title"])
     opened = str(fm["opened"])
-    slug = slug or slugify(title)
+    if slug is None:
+        kind = fm.get("kind")
+        if kind:
+            first_four = "-".join(slugify(title).split("-")[:4])
+            slug, _warnings = compose_slug(str(kind), first_four, epic_child=bool(fm.get("parent")))
+        else:
+            slug = slugify(title)
 
     work_root = work_dir(wiki.parent)
     work_root.mkdir(parents=True, exist_ok=True)
