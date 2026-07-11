@@ -14,12 +14,12 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path, PurePath
 
+from graph_io import extension_languages
 from graph_io.handle import GraphReader
 from guidance_io.frontmatter import normalize_language, parse
 from guidance_io.index_store import GuidanceIndex
 from guidance_io.paths import guidance_dir, list_all_pages
 from guidance_io.vocab import canonical_tag, load_vocab
-from source_parser.parsers import EXTENSIONS
 from wiki_io.entity_lookup import (
     entity_filename_for_uri,
     lookup_entity_by_path,
@@ -29,8 +29,9 @@ from wiki_io.entity_lookup import (
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")
 
-# Extension (".ext") → language name, from source_parser's canonical extension map.
-_EXT_TO_LANG: dict[str, str] = {ext: parser.name for ext, parser in EXTENSIONS.items()}
+# Extension (".ext") → language name, from graph-io's extension_languages() projection
+# (itself derived from the parsing engine's canonical extension map).
+_EXT_TO_LANG: dict[str, str] = extension_languages()
 
 # Per-signal score weights.
 _W_GLOB = 3.0

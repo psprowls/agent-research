@@ -32,6 +32,7 @@ from graph_io.queries import (
     SymbolDescription,
 )
 from graph_io.schema import SCHEMA_VERSION
+from graph_io.source_meta import extension_languages
 from graph_io.store import GraphNotInitializedError, SchemaMismatchError
 from graph_io.sync_wiki import DriftReport, run_sync_wiki
 
@@ -40,6 +41,7 @@ __all__ = [
     "open_writer",
     "run_sync_wiki",
     "DriftReport",
+    "extension_languages",
     "GraphReader",
     "GraphStore",
     "GraphNotInitializedError",
