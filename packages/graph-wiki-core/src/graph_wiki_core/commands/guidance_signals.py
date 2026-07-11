@@ -17,7 +17,7 @@ from pathlib import Path, PurePath
 from graph_io import extension_languages
 from graph_io.handle import GraphReader
 from guidance_io.frontmatter import normalize_language, parse
-from guidance_io.index_store import GuidanceIndex
+from guidance_io.index_store import GuidanceIndex, load_index
 from guidance_io.paths import guidance_dir, list_all_pages
 from guidance_io.vocab import canonical_tag, load_vocab
 from wiki_io.entity_lookup import (
@@ -25,6 +25,8 @@ from wiki_io.entity_lookup import (
     lookup_entity_by_path,
     lookup_package_by_dir,
 )
+
+__all__ = ["load_index", "load_vocab", "load_guidance_pages", "resolve_path_contexts", "compute_candidates"]
 
 _ENTITY_STEM_RE = re.compile(r"\[\[entities/([^\]|#\n]+?)(?:[|#][^\]\n]*)?\]\]")
 _TOKEN_RE = re.compile(r"[a-z0-9]+")

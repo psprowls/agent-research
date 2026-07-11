@@ -8,9 +8,19 @@ from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool, tool
-from wiki_io.human_sections import is_todo_like_body
+from wiki_io.drift import extract_file_map
+from wiki_io.entity_writer import extract_narrative
+from wiki_io.human_sections import find_todo_human_sections, is_todo_like_body
 
 from graph_wiki_core.agent_loop import run_tool_loop
+
+__all__ = [
+    "extract_file_map",
+    "extract_narrative",
+    "find_todo_human_sections",
+    "parse_package_reader_output",
+    "run_package_reader",
+]
 from graph_wiki_core.agent_tools import (
     filter_graph_tools,
     read_bounded_wiki_page,

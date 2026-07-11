@@ -21,7 +21,9 @@ import tomllib
 from importlib import resources
 
 from langchain_core.language_models import BaseChatModel
-from model_adapter import make_bedrock_llm, make_gateway_llm
+from model_adapter import BedrockAccessDenied, make_bedrock_llm, make_gateway_llm
+
+__all__ = ["BedrockAccessDenied", "make_llm", "load_role_config"]
 
 
 def _load_models_config() -> dict:
