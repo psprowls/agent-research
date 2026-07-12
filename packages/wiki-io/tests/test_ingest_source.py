@@ -230,23 +230,6 @@ def test_pick_representative_empty(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Constants present
-# ---------------------------------------------------------------------------
-
-
-def test_constants_present() -> None:
-    import wiki_io.ingest_source as m
-
-    assert hasattr(m, "PREVIEW_CHARS")
-    assert hasattr(m, "SLUG_RE")
-    assert hasattr(m, "LANGUAGE_BY_EXT")
-    assert hasattr(m, "REPRESENTATIVE_INDEX_NAMES")
-    assert hasattr(m, "LARGE_FILE_BYTES")
-    assert hasattr(m, "WARN_FILE_COUNT")
-    assert hasattr(m, "ERROR_FILE_COUNT")
-
-
-# ---------------------------------------------------------------------------
 # Source-type enum constants (source-type-consolidation design 2026-06-05)
 # ---------------------------------------------------------------------------
 
@@ -274,12 +257,6 @@ def test_source_type_enum_contents() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_skill_is_in_source_type_enum():
-    from wiki_io.ingest_source import SOURCE_TYPE_ENUM
-
-    assert "skill" in SOURCE_TYPE_ENUM
-
-
 def test_skill_is_an_authoritative_raw_folder_type():
     from wiki_io.ingest_source import RAW_FOLDER_TYPES
 
@@ -299,24 +276,6 @@ def test_guess_source_type_unaffected_for_specs():
 
     rel = Path("raw/specs/x.md")
     assert guess_source_type(rel, None) == "spec"
-
-
-# ---------------------------------------------------------------------------
-# No lattice_wiki_core or _version_check references
-# ---------------------------------------------------------------------------
-
-
-def test_no_lattice_wiki_core_imports() -> None:
-    import importlib.util
-    from pathlib import Path
-
-    spec = importlib.util.find_spec("wiki_io.ingest_source")
-    assert spec is not None
-    src_path = Path(spec.origin)
-    text = src_path.read_text(encoding="utf-8")
-    assert "lattice_wiki_core" not in text
-    assert "_version_check" not in text
-    assert "check_for_updates" not in text
 
 
 # ---------------------------------------------------------------------------

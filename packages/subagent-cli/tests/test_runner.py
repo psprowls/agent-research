@@ -1,5 +1,4 @@
 from subagent_cli.adapters.base import LoopAdapter, LoopOutcome, RunContext
-from subagent_cli.runner import LoopOutcome as RunnerLoopOutcome
 from subagent_cli.runner import run_loop, stream_and_parse
 
 
@@ -29,10 +28,6 @@ class _FakeLoopAdapter:
             trace_path=None,
             note="loop note",
         )
-
-
-def test_loop_outcome_reexported_is_same_type():
-    assert LoopOutcome is RunnerLoopOutcome
 
 
 def test_fake_adapter_satisfies_loop_protocol():

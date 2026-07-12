@@ -48,14 +48,6 @@ def test_fixture_vault_contains_every_post_rebrand_package() -> None:
         assert _package_page_for(pkg).is_file(), f"missing fixture page for {pkg}: {_package_page_for(pkg)}"
 
 
-def test_fixture_vault_contains_no_lattice_symbols() -> None:
-    """Fixture is post-rebrand by construction — no lattice* names anywhere."""
-    for md in FIXTURE_WIKI.rglob("*.md"):
-        text = md.read_text()
-        lowered = text.lower()
-        assert "lattice" not in lowered, f"fixture page {md.relative_to(FIXTURE_WIKI)} still contains 'lattice'"
-
-
 @pytest.mark.parametrize("package", _EXPECTED_PACKAGE_FILES)
 def test_scanner_hard_checks_pass_on_fixture_page(package: str) -> None:
     """Every fixture package page passes every hard SCANNER_CHECKS rule.

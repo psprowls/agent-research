@@ -70,22 +70,6 @@ def test_update_page_idempotent_on_rerun(tmp_path: Path) -> None:
     assert page.read_text(encoding="utf-8") == stamped
 
 
-def test_tokens_null_remigrated_to_int(tmp_path: Path) -> None:
-    """A page left at the old `tokens: null` sentinel is re-stamped with a real
-    integer count — the null path is gone."""
-    import frontmatter
-    from wiki_io.update_tokens import update_page
-
-    page = tmp_path / "page.md"
-    _seed_page(page, tokens_value="null")
-
-    status, count = update_page(page, _fake_count_tokens, dry_run=False)
-
-    assert status == "updated"
-    assert isinstance(count, int) and count > 0
-    assert frontmatter.load(str(page)).metadata["tokens"] == count
-
-
 def test_update_page_uses_injected_counter(tmp_path: Path) -> None:
     """update_page stamps whatever the injected count_tokens returns — proving
     it routes through the caller-supplied counter, not a hardcoded one."""

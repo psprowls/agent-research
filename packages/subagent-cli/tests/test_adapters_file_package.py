@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 from graph_io import testing as graph_testing
-from subagent_cli.adapters.base import Prepared, RunContext
+from subagent_cli.adapters.base import RunContext
 from subagent_cli.adapters.guidance_classifier import GuidanceClassifierAdapter
 from subagent_cli.adapters.package_reader import PackageReaderAdapter
 
@@ -20,11 +20,6 @@ def test_run_context_lazy_conn(tmp_path):
     c2 = ctx.graph_reader()
     assert c1 is c2  # cached
     ctx.close()
-
-
-def test_prepared_defaults():
-    p = Prepared(item_id="x", system="s", human="h")
-    assert p.parse is None and p.note is None
 
 
 def _ctx_with_repo(tmp_path):

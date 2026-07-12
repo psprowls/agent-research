@@ -61,9 +61,3 @@ def test_core_consumers_do_not_import_old_command_namespace() -> None:
                 stale_imports.append(path.relative_to(REPO_ROOT))
 
     assert stale_imports == []
-
-
-def test_query_command_imports_from_core_namespace() -> None:
-    import graph_wiki_core.commands.query as query
-
-    assert query.__name__ == "graph_wiki_core.commands.query"

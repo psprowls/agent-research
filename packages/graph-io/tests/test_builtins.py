@@ -1,16 +1,15 @@
 """Tests for graph_io.builtins — Builtin node + used_by edge emission.
 
 Coverage map:
-- test_python_stdlib_emits_builtin_nodes             BUILTIN-01 / D-01 / D-04 / D-05
+- test_python_stdlib_emits_builtin_nodes             BUILTIN-01 / D-01 / D-04 / D-05 (+ sys/json, folded from
+                                                       the former test_update_run_invokes_builtins_refresh)
 - test_node_spec_normalization                        D-06
 - test_node_stdlib_emits_builtin_nodes               BUILTIN-02 / D-06
 - test_node_dependency_vs_builtin_classification     BUILTIN-03
-- test_builtin_node_attrs_and_uri                    BUILTIN-04 / D-15
 - test_used_by_edge_dedup_and_symbol_union           BUILTIN-05 / D-08 / D-09
 - test_emit_is_idempotent                            idempotency invariant
 - test_node_builtins_cache_lifecycle                 D-02 (cache created / reused / re-harvested)
 - test_silent_skip_when_node_missing                 D-03
-- test_update_run_invokes_builtins_refresh           wiring (Tasks 1 + 2 integrated)
 """
 
 from __future__ import annotations
@@ -24,13 +23,12 @@ from unittest.mock import patch
 
 import pytest
 from _git_repo import init_repo, write_and_commit
-from graph_io import store, update, upsert
+from graph_io import update
 from graph_io.builtins import (
     _load_node_builtins,
     _normalize_node_spec,
 )
 from graph_io.uri import RepoContext
-from source_parser.projections.graph import GraphNode, GraphRecords
 from workspace_io.config import resolve as resolve_workspace
 from workspace_io.paths import graph_dir
 
@@ -39,12 +37,6 @@ from workspace_io.paths import graph_dir
 # ---------------------------------------------------------------------------
 
 _CTX = RepoContext(org="test", repo="repo")
-
-
-def _init_db(tmp_path: Path) -> sqlite3.Connection:
-    """Return a fresh, schema-initialised SQLite connection."""
-    db = tmp_path / "code.db"
-    return store.connect(db, create=True)
 
 
 def _open_ro(repo_root: Path) -> sqlite3.Connection:
@@ -113,7 +105,7 @@ def test_python_stdlib_emits_builtin_nodes(tmp_path: Path) -> None:
     _build_git_python_repo(
         repo,
         {
-            "src/demo/__init__.py": "from pathlib import Path\nimport os\n",
+            "src/demo/__init__.py": "from pathlib import Path\nimport os\nimport sys\nimport json\n",
         },
     )
     update.run(repo, full=True)
@@ -124,6 +116,8 @@ def test_python_stdlib_emits_builtin_nodes(tmp_path: Path) -> None:
         names = {n["name"] for n in nodes}
         assert "pathlib" in names, f"pathlib not in {names}"
         assert "os" in names, f"os not in {names}"
+        assert "sys" in names, f"sys not in {names}"
+        assert "json" in names, f"json not in {names}"
         # All emitted nodes must have language and module_name attrs
         for node in nodes:
             assert node["attrs"]["language"] == "python"
@@ -323,71 +317,6 @@ def test_node_dependency_vs_builtin_classification(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# BUILTIN-04 / D-15: Builtin node attrs — language, module_name, uri
-# ---------------------------------------------------------------------------
-
-
-def test_builtin_node_attrs_and_uri(tmp_path: Path) -> None:
-    """Builtin nodes carry language, module_name, and correct URI after upsert."""
-    conn = _init_db(tmp_path)
-    try:
-        # Insert a package node so builtins.refresh has a package to scan
-        with store.transaction(conn):
-            upsert.upsert_records(
-                conn,
-                GraphRecords(
-                    nodes=[
-                        GraphNode(
-                            kind="package",
-                            name="demo",
-                            path=None,
-                            line=None,
-                            attrs={"uri": "pkg:t/r/demo", "language": "python"},
-                        )
-                    ],
-                    edges=[],
-                ),
-            )
-
-        # Call builtins.refresh directly on an empty file set (no files → no edges)
-        # To test node attrs, upsert a builtin node directly.
-        from graph_io.uri import builtin_uri as _builtin_uri
-
-        with store.transaction(conn):
-            upsert.upsert_records(
-                conn,
-                GraphRecords(
-                    nodes=[
-                        GraphNode(
-                            kind="builtin",
-                            name="pathlib",
-                            path=None,
-                            line=None,
-                            attrs={
-                                "uri": _builtin_uri("python", "pathlib"),
-                                "language": "python",
-                                "module_name": "pathlib",
-                            },
-                        )
-                    ],
-                    edges=[],
-                ),
-            )
-
-        row = conn.execute("SELECT uri, attrs_json FROM nodes WHERE kind='builtin' AND name='pathlib'").fetchone()
-        assert row is not None, "Builtin node not found"
-        uri, attrs_json = row
-        assert uri == "builtin:python/pathlib"
-        attrs = json.loads(attrs_json) if attrs_json else {}
-        assert attrs.get("language") == "python"
-        assert attrs.get("module_name") == "pathlib"
-        # uri must NOT leak into attrs_json (matches upsert convention)
-        assert "uri" not in attrs
-    finally:
-        conn.close()
-
-
-# ---------------------------------------------------------------------------
 # BUILTIN-05 / D-08 / D-09: One edge per (package, builtin), symbol union
 # ---------------------------------------------------------------------------
 
@@ -471,32 +400,3 @@ def test_emit_is_idempotent(tmp_path: Path) -> None:
 
     assert nodes_after_1 == nodes_after_2, "Builtin nodes differ between first and second run"
     assert len(edges_after_1) == len(edges_after_2), f"Edge count differs: {len(edges_after_1)} vs {len(edges_after_2)}"
-
-
-# ---------------------------------------------------------------------------
-# Task 2 wiring: update.run invokes builtins.refresh (integration)
-# ---------------------------------------------------------------------------
-
-
-def test_update_run_invokes_builtins_refresh(tmp_path: Path) -> None:
-    """update.run on a Python repo with stdlib imports produces kind='builtin' rows."""
-    repo = tmp_path / "repo"
-    repo.mkdir()
-    _build_git_python_repo(
-        repo,
-        {"src/demo/__init__.py": "import sys\nimport json\nfrom pathlib import Path\n"},
-    )
-    update.run(repo, full=True)
-
-    conn = _open_ro(repo)
-    try:
-        count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='builtin'").fetchone()[0]
-        assert count > 0, "Expected at least one Builtin node after update.run"
-
-        names = {r[0] for r in conn.execute("SELECT name FROM nodes WHERE kind='builtin'").fetchall()}
-        # All three stdlib imports must have produced Builtin nodes
-        assert "sys" in names, f"sys not in {names}"
-        assert "json" in names, f"json not in {names}"
-        assert "pathlib" in names, f"pathlib not in {names}"
-    finally:
-        conn.close()

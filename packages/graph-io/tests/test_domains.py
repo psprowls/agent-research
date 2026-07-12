@@ -56,19 +56,12 @@ def _count_edges(conn: sqlite3.Connection, kind: str) -> int:
 # ---------- (a) None / empty config -> zero domains ----------
 
 
-def test_none_config_zero_domain(tmp_path: Path) -> None:
+@pytest.mark.parametrize("cfg", [None, {}])
+def test_falsy_config_zero_domain(tmp_path: Path, cfg: dict | None) -> None:
     _write_pkg(tmp_path, "mypkg")
     conn = _setup(tmp_path)
     _refresh_packages(conn, tmp_path)
-    domains.emit(conn, domains_config=None, ctx=CTX)
-    assert _count_domains(conn) == 0
-
-
-def test_empty_config_zero_domain(tmp_path: Path) -> None:
-    _write_pkg(tmp_path, "mypkg")
-    conn = _setup(tmp_path)
-    _refresh_packages(conn, tmp_path)
-    domains.emit(conn, domains_config={}, ctx=CTX)
+    domains.emit(conn, domains_config=cfg, ctx=CTX)
     assert _count_domains(conn) == 0
 
 

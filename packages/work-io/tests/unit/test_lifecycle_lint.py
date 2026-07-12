@@ -359,9 +359,3 @@ def test_epic_without_children_warns_at_execute() -> None:
     assert "epic-without-children" in _rule_ids(run_lint(items, None, None))
     items2 = [_item(slug="e2", kind="epic", phase="design")]
     assert "epic-without-children" not in _rule_ids(run_lint(items2, None, None))
-
-
-def test_valid_roles_constant():
-    from work_io.lifecycle_lint import VALID_ROLES
-
-    assert VALID_ROLES == frozenset({"implement", "review"})

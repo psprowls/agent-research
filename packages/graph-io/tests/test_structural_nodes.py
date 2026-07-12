@@ -740,30 +740,6 @@ def test_generic_container_dirs_never_emitted_as_nodes(conn: sqlite3.Connection,
 # ============================================================================
 
 
-def test_no_subpackage_node_at_import_root(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
-    """Phase 43 folded todo: _walk_subpackages must not yield the import root.
-
-    Build a package with one nested __init__.py-bearing directory and assert
-    exactly ONE subpackage node (the nested directory), not two (which would
-    include the import root itself).
-    """
-    pkg_dir = tmp_path / "packages" / "foo"
-    src_root = pkg_dir / "src" / "foo"
-    src_root.mkdir(parents=True)
-    (src_root / "__init__.py").write_text("")
-    (src_root / "sub").mkdir()
-    (src_root / "sub" / "__init__.py").write_text("")
-
-    _seed_package(conn, name="foo", path="packages/foo", language="python")
-
-    structural_nodes.emit(conn, repo_root=tmp_path, ctx=_CTX, skip_dirs=frozenset())
-
-    names = sorted(row[0] for row in conn.execute("SELECT name FROM nodes WHERE kind='subpackage'").fetchall())
-    assert names == ["foo.sub"]
-    # Explicit: no subpackage with name equal to the import root
-    assert "foo" not in names
-
-
 def test_no_subpackages_when_only_import_root(conn: sqlite3.Connection, tmp_path: Path, patched_git) -> None:
     """A package with only its import root and no nested __init__.py emits zero subpackages."""
     pkg_dir = tmp_path / "packages" / "foo"

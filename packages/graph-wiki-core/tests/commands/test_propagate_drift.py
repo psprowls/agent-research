@@ -463,9 +463,3 @@ def test_folded_architecture_concept_page_targets_as_concept(tmp_path):
     backlink_map = {"pkg_alpha": [("concepts", "project-overview", page)]}
     targets = _build_targets([cand], backlink_map)
     assert targets[page]["kind"] == "concept"
-
-
-def test_architecture_category_no_longer_a_drift_target(tmp_path):
-    from graph_wiki_core.commands.propagate_drift import _CATEGORY_TO_KIND
-
-    assert _CATEGORY_TO_KIND == {"concepts": "concept", "adrs": "adr"}

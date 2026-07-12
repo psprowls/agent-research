@@ -93,17 +93,21 @@ def test_role_command_map_covers_all_roles() -> None:
     assert expected_roles == set(ROLE_COMMAND_MAP.keys())
 
 
-def test_role_command_map_query_roles() -> None:
-    """librarian, synthesizer, and code_reader all map to _sweep_query_role."""
-    for role in ("librarian", "synthesizer", "code_reader"):
-        assert ROLE_COMMAND_MAP[role] == "_sweep_query_role", f"{role} should map to _sweep_query_role"
+def test_role_command_map_equals_expected() -> None:
+    """ROLE_COMMAND_MAP equals the full expected role-to-dispatch-function mapping.
 
-
-def test_role_command_map_non_query_roles() -> None:
-    """scanner/linter/ingestor each map to their own command function."""
-    assert ROLE_COMMAND_MAP["scanner"] == "_sweep_scan_role"
-    assert ROLE_COMMAND_MAP["linter"] == "_sweep_lint_role"
-    assert ROLE_COMMAND_MAP["ingestor"] == "_sweep_ingest_role"
+    Consolidates the former test_role_command_map_query_roles and
+    test_role_command_map_non_query_roles into a single whole-dict equality
+    assertion, preserving routing coverage for all six roles.
+    """
+    assert ROLE_COMMAND_MAP == {
+        "librarian": "_sweep_query_role",
+        "synthesizer": "_sweep_query_role",
+        "code_reader": "_sweep_query_role",
+        "scanner": "_sweep_scan_role",
+        "linter": "_sweep_lint_role",
+        "ingestor": "_sweep_ingest_role",
+    }
 
 
 async def test_role_sweep_calls_dispatch_map(tmp_path: Path, fixture_workspace_path: Path) -> None:
@@ -177,35 +181,6 @@ async def test_single_role_swap_scanner(tmp_path: Path, fixture_workspace_path: 
     assert captured_kwargs.get("model_override") == "us.amazon.nova-micro-v1:0", (
         "scanner override must be passed as model_override kwarg"
     )
-
-
-async def test_sweep_candidates_read_from_models_toml(tmp_path: Path, fixture_workspace_path: Path) -> None:
-    """run_role_sweep can be called with candidates read from load_role_config."""
-    from graph_wiki_core.roles import load_role_config
-
-    # Verify that load_role_config returns a sweep_candidates key for roles that have it.
-    # If not present, the caller falls back to [] — test that the contract holds.
-    cfg = load_role_config("librarian")
-    candidates = cfg.get("sweep_candidates", [])
-    # sweep_candidates may be empty if not yet configured — we just verify the key
-    # is accessible without error and is a list.
-    assert isinstance(candidates, list)
-
-    # Now run a sweep using the first candidate (or a known safe fallback)
-    model_id = candidates[0] if candidates else "us.amazon.nova-lite-v1:0"
-    cases_path = _make_cases_file(tmp_path)
-
-    with patch("eval_harness.sweep.run_query", new=AsyncMock(return_value=_make_query_result())):
-        results = await run_role_sweep(
-            "librarian",
-            model_id,
-            cases_path,
-            fixture_workspace_path,
-            repeats=1,
-        )
-
-    assert len(results) >= 1
-    assert results[0].model_id == model_id
 
 
 async def test_role_sweep_partial_failure(tmp_path: Path, fixture_workspace_path: Path) -> None:

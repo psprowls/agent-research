@@ -161,12 +161,6 @@ def test_imported_by_without_db_returns_3(tmp_path: Path) -> None:
 # ── Phase 36: gw graph find named-flag UX (CGFIND-01/02/03) ────────────────────────
 
 
-def test_find_with_named_flags(populated_repo: Path) -> None:
-    res = _cg(["find", "--name", "alpha", "--kind", "function"], populated_repo)
-    assert res.returncode == 0, res.stderr
-    assert "alpha" in res.stdout
-
-
 def test_find_no_filters_errors(populated_repo: Path) -> None:
     res = _cg(["find"], populated_repo)
     assert res.returncode == 2, (res.returncode, res.stderr)

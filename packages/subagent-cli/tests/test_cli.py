@@ -1,14 +1,9 @@
 import json
 
-import typer
 from subagent_cli.cli import app
 from typer.testing import CliRunner
 
 runner = CliRunner()
-
-
-def test_app_exists():
-    assert isinstance(app, typer.Typer)
 
 
 def test_list_resolves_models():

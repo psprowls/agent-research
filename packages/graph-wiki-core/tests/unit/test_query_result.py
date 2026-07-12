@@ -18,33 +18,31 @@ import pytest
 
 
 def test_query_result_is_dataclass() -> None:
-    """QueryResult is a Python dataclass with the required fields."""
+    """QueryResult is a Python dataclass with the required fields, and
+    survives an asdict()/json round-trip preserving every key and value
+    (dataclasses.asdict + json.dumps/loads; stdlib guarantees, but the key
+    set doubles as the field-name contract)."""
     from graph_wiki_core.commands.query import QueryResult
 
     qr = QueryResult(
-        answer="test answer",
-        citations=["PageA", "PageB"],
-        pages_drilled=3,
-        search_scores={"page.md": {"bm25": 0.5, "embed": 0.3, "rrf": 0.01}},
+        answer="synthesized answer [[Foo]]",
+        citations=["Foo"],
+        pages_drilled=5,
+        search_scores={"foo.md": {"bm25": 0.1, "embed": 0.2, "rrf": 0.03}},
     )
-    assert qr.answer == "test answer"
-    assert qr.citations == ["PageA", "PageB"]
-    assert qr.pages_drilled == 3
+    assert qr.answer == "synthesized answer [[Foo]]"
+    assert qr.citations == ["Foo"]
+    assert qr.pages_drilled == 5
     assert dataclasses.is_dataclass(qr)
 
-
-def test_query_result_asdict_has_required_keys() -> None:
-    """dataclasses.asdict(QueryResult(...)) contains answer, citations, pages_drilled, search_scores."""
-    from graph_wiki_core.commands.query import QueryResult
-
-    qr = QueryResult(
-        answer="x",
-        citations=[],
-        pages_drilled=0,
-        search_scores={},
-    )
     d = dataclasses.asdict(qr)
     assert set(d.keys()) == {"answer", "citations", "pages_drilled", "search_scores"}
+
+    parsed = json.loads(json.dumps(d))
+    assert parsed["answer"] == "synthesized answer [[Foo]]"
+    assert parsed["citations"] == ["Foo"]
+    assert parsed["pages_drilled"] == 5
+    assert "foo.md" in parsed["search_scores"]
 
 
 def test_search_scores_shape_per_page() -> None:
@@ -63,24 +61,6 @@ def test_search_scores_shape_per_page() -> None:
         assert isinstance(page_scores["bm25"], float)
         assert isinstance(page_scores["embed"], float)
         assert isinstance(page_scores["rrf"], float)
-
-
-def test_json_output_valid_schema() -> None:
-    """JSON round-trip: dataclasses.asdict + json.dumps/loads preserves all keys (CMD-07)."""
-    from graph_wiki_core.commands.query import QueryResult
-
-    qr = QueryResult(
-        answer="synthesized answer [[Foo]]",
-        citations=["Foo"],
-        pages_drilled=5,
-        search_scores={"foo.md": {"bm25": 0.1, "embed": 0.2, "rrf": 0.03}},
-    )
-    raw = json.dumps(dataclasses.asdict(qr))
-    parsed = json.loads(raw)
-    assert parsed["answer"] == "synthesized answer [[Foo]]"
-    assert parsed["citations"] == ["Foo"]
-    assert parsed["pages_drilled"] == 5
-    assert "foo.md" in parsed["search_scores"]
 
 
 @pytest.mark.asyncio
@@ -362,29 +342,17 @@ def test_apply_guardrails_g1_no_double_md_extension(tmp_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_librarian_system_constant_present() -> None:
-    """LIBRARIAN_SYSTEM module constant is defined."""
-    from graph_wiki_core.commands.query import LIBRARIAN_SYSTEM
-
-    assert isinstance(LIBRARIAN_SYSTEM, str)
-    assert len(LIBRARIAN_SYSTEM) > 0
-
-
-def test_synthesizer_system_constant_present() -> None:
-    """SYNTHESIZER_SYSTEM module constant is defined."""
-    from graph_wiki_core.commands.query import SYNTHESIZER_SYSTEM
-
-    assert isinstance(SYNTHESIZER_SYSTEM, str)
-    assert len(SYNTHESIZER_SYSTEM) > 0
-
-
 # ---------------------------------------------------------------------------
 # Plan 03-08: Prompt contract tests (SC-1 gap closure)
 # ---------------------------------------------------------------------------
 
 
 def test_librarian_prompt_contains_no_invention_rule() -> None:
-    """LIBRARIAN_SYSTEM must encode verbatim quoting + no-invention + NO_RELEVANT_CONTENT."""
+    """LIBRARIAN_SYSTEM must encode verbatim quoting + no-invention + NO_RELEVANT_CONTENT.
+
+    The NO_RELEVANT_CONTENT sentinel must be emitted verbatim: the filter at
+    query.py:568 depends on it.
+    """
     from graph_wiki_core.commands.query import LIBRARIAN_SYSTEM
 
     lowered = LIBRARIAN_SYSTEM.lower()
@@ -395,16 +363,6 @@ def test_librarian_prompt_contains_no_invention_rule() -> None:
     assert any(tok in lowered for tok in no_invention_tokens), (
         "Librarian prompt must contain an explicit no-invention rule"
     )
-
-
-def test_librarian_prompt_keeps_sentinel() -> None:
-    """LIBRARIAN_SYSTEM must contain the exact NO_RELEVANT_CONTENT literal.
-
-    The filter at query.py:568 depends on this sentinel being emitted verbatim.
-    """
-    from graph_wiki_core.commands.query import LIBRARIAN_SYSTEM
-
-    assert "NO_RELEVANT_CONTENT" in LIBRARIAN_SYSTEM
 
 
 def test_synthesizer_prompt_requires_full_wikilink_paths() -> None:

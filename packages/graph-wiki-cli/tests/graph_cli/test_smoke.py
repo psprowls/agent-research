@@ -6,12 +6,6 @@ import subprocess
 import sys
 
 
-def test_package_imports() -> None:
-    import graph_io
-
-    assert graph_io.__version__ == "0.1.1"
-
-
 def test_cli_help_lists_all_subcommands() -> None:
     result = subprocess.run(
         [sys.executable, "-m", "graph_wiki_cli.graph_cli.main", "--help"],

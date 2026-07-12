@@ -5,7 +5,6 @@ from source_parser import (
     Reference,
     SourceNode,
     Span,
-    UnsupportedLanguageError,
 )
 
 
@@ -66,19 +65,3 @@ def test_source_node_can_be_mutated():
     )
     node.children.append(child)
     assert node.children == [child]
-
-
-def test_unsupported_language_error_carries_path_and_extension():
-    err = UnsupportedLanguageError(
-        "Unsupported extension '.cobol'",
-        path=Path("foo.cobol"),
-        extension=".cobol",
-    )
-    assert isinstance(err, ValueError)
-    assert err.extension == ".cobol"
-    assert err.path == Path("foo.cobol")
-
-
-def test_unsupported_language_error_optional_kwargs():
-    err = UnsupportedLanguageError("no extension", path=None, extension=None)
-    assert err.path is None

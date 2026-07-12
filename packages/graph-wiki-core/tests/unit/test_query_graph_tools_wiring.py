@@ -428,12 +428,3 @@ async def test_librarian_loop_iter_cap(tmp_path: Path) -> None:
     assert librarian_llm.ainvoke.await_count == _LIBRARIAN_MAX_ITERS
     # drill_page returns NO_RELEVANT_CONTENT at the cap
     assert any(value == "NO_RELEVANT_CONTENT" for _, value in captured)
-
-
-def test_pyproject_has_graph_io_and_langchain_aws_floor() -> None:
-    """Sanity check that Plan 01's pyproject edits landed before Plan 02 ships."""
-    here = Path(__file__).resolve()
-    pyproject = here.parent.parent.parent / "pyproject.toml"  # agents/graph-wiki-core/pyproject.toml
-    text = pyproject.read_text()
-    assert '"graph-io"' in text
-    assert "langchain-aws>=1.4.7" in text

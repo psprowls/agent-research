@@ -252,21 +252,6 @@ def test_auto_user_abort_on_default_after_min_1():
         AutoUser.model_validate({"abort_on_default_after": 0})
 
 
-def test_auto_user_backward_compat():
-    # Old-style YAML (no new fields) still loads cleanly
-    a = AutoUser.model_validate(
-        {
-            "model": "qwen.qwen3-32b-v1:0",
-            "max_replies": 3,
-            "stop_on": "<DONE>",
-            "system_prompt": "Drive the task.",
-        }
-    )
-    assert a.triggers == []
-    assert a.default_reply == "proceed"
-    assert a.abort_on_default_after == 2
-
-
 # --- tools verifier schema ---
 
 

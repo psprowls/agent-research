@@ -18,7 +18,6 @@ Covers:
 
 from __future__ import annotations
 
-from pathlib import Path
 from types import SimpleNamespace
 
 import yaml
@@ -370,74 +369,21 @@ def test_load_existing_domains_reads_manifest_graph_domains(tmp_path):
 #
 # Fix: both graph.py and propose_domains.py now import the shared
 # _resolve_paths from commands/_paths.py (todo 260530-iqr DRY convergence).
-# These tests import _resolve_paths via propose_domains to guard against the
-# duplicate creeping back.
+# The repo≠workspace / repo-directory-pin scenarios themselves are exercised
+# in tests/unit/test_commands_graph.py against the identical shared function;
+# this test only guards against a duplicate _resolve_paths creeping back into
+# propose_domains.py.
 # ---------------------------------------------------------------------------
 
 
-def _make_fake_repo(path: Path) -> Path:
-    """Create a minimal fake git repo (just needs .git dir for _find_repo_root)."""
-    path.mkdir(parents=True, exist_ok=True)
-    (path / ".git").mkdir()
-    return path
-
-
-def test_propose_domains_resolves_source_repo_not_vault(tmp_path, monkeypatch):
-    """Reproduces the repo≠workspace bug from todo 260530-iqr.
-
-    Scenario: cwd is the source repo; workspace is a separate git repo.
-    Previously: _resolve_paths (via resolve_config) returned workspace as repo_root
-    → domains.proposed.yaml was written inside the vault (WRONG).
-    Fixed: _resolve_paths (shared from _paths.py) returns source_repo (cwd).
+def test_propose_domains_resolve_paths_is_the_shared_paths_helper():
+    """propose_domains._resolve_paths must be the SAME function object as
+    commands/_paths.py's _resolve_paths (todo 260530-iqr DRY convergence) —
+    not a local reimplementation. The repo≠workspace and repo-directory-pin
+    scenarios for this shared function are covered by
+    tests/unit/test_commands_graph.py.
     """
+    from graph_wiki_core.commands._paths import _resolve_paths as shared_resolve_paths
     from graph_wiki_core.commands.propose_domains import _resolve_paths
 
-    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
-
-    source_repo = tmp_path / "source-code"
-    _make_fake_repo(source_repo)
-    monkeypatch.chdir(source_repo)
-
-    workspace = tmp_path / "wiki-vault"
-    _make_fake_repo(workspace)
-    (workspace / ".graph-wiki.yaml").write_text(
-        "version: 2\ninitialized_at: 2026-05-30\nplugins: []\n",
-        encoding="utf-8",
-    )
-    (workspace / "wiki").mkdir()
-
-    repo_root, workspace_root = _resolve_paths(str(workspace))
-
-    assert repo_root == source_repo.resolve(), (
-        f"Expected repo_root={source_repo.resolve()!r}, got {repo_root!r} — "
-        "todo 260530-iqr: previously the vault was returned → domains.proposed.yaml "
-        "written into the vault"
-    )
-    assert workspace_root == workspace.resolve()
-
-
-def test_propose_domains_resolves_honors_repo_directory_pin(tmp_path, monkeypatch):
-    """When workspace manifest has repo-directory: pin, _resolve_paths uses the pin.
-
-    Proves the pin path flows through the shared helper for propose-domains.
-    """
-    from graph_wiki_core.commands.propose_domains import _resolve_paths
-
-    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
-
-    source_repo = tmp_path / "source-code"
-    _make_fake_repo(source_repo)
-    monkeypatch.chdir(source_repo)
-
-    workspace = tmp_path / "wiki-vault"
-    _make_fake_repo(workspace)
-    (workspace / ".graph-wiki.yaml").write_text(
-        f"version: 2\ninitialized_at: 2026-05-30\nplugins: []\nrepo-directory: {source_repo}\n",
-        encoding="utf-8",
-    )
-    (workspace / "wiki").mkdir()
-
-    repo_root, workspace_root = _resolve_paths(str(workspace))
-
-    assert repo_root == source_repo.resolve()
-    assert workspace_root == workspace.resolve()
+    assert _resolve_paths is shared_resolve_paths

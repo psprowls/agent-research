@@ -53,7 +53,11 @@ _REPLY = (
 )
 
 
-async def test_suggest_role_review_drops_implement_only(tmp_path: Path):
+async def test_suggest_role_wires_role_filter_through_run_guidance_suggest(tmp_path: Path):
+    """Wiring smoke test: `role=` passed to run_guidance_suggest reaches the
+    filter_by_role step and actually drops non-matching candidates. The
+    filter_by_role case matrix itself (none/agnostic/matching/invalid) is
+    covered directly against the pure function in test_next_guidance.py."""
     ws = tmp_path / "ws"
     _write_guidance(ws, "python", "review-only", _fm("python", ["backoff"], ["review"]), "## Guidance\nR.\n")
     _write_guidance(ws, "python", "impl-only", _fm("python", ["backoff"], ["implement"]), "## Guidance\nI.\n")
@@ -69,19 +73,3 @@ async def test_suggest_role_review_drops_implement_only(tmp_path: Path):
     assert "python/review-only" in slugs
     assert "python/dual" in slugs
     assert "python/impl-only" not in slugs
-
-
-async def test_suggest_role_none_keeps_all(tmp_path: Path):
-    ws = tmp_path / "ws"
-    _write_guidance(ws, "python", "review-only", _fm("python", ["backoff"], ["review"]), "## Guidance\nR.\n")
-    _write_guidance(ws, "python", "impl-only", _fm("python", ["backoff"], ["implement"]), "## Guidance\nI.\n")
-    _write_guidance(ws, "python", "dual", _fm("python", ["backoff"]), "## Guidance\nD.\n")
-
-    result = await run_guidance_suggest(
-        "add retry backoff",
-        workspace_path=ws,
-        role=None,
-        make_llm_fn=lambda *a, **k: _FakeLLM(_REPLY),
-    )
-    slugs = {r.slug for r in result.ranked}
-    assert {"python/review-only", "python/impl-only", "python/dual"} <= slugs
