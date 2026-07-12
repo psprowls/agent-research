@@ -69,7 +69,7 @@ _MANIFEST_ENTRIES: tuple[ConfigEntry, ...] = (
         "guidance.enabled",
         "bool",
         False,
-        "Attach phase-relevant guidance pages to `gw next` output. Opt-in — off unless set.",
+        "Attach phase-relevant guidance pages to gw next output (opt-in, off by default).",
     ),
     ConfigEntry(
         "roles.*.model_id",
