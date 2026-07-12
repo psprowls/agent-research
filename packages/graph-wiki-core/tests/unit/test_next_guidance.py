@@ -10,6 +10,7 @@ from graph_wiki_core.commands.next_guidance import (
     filter_by_phase,
     filter_by_role,
     guidance_eligible,
+    guidance_enabled,
     run_next_guidance,
 )
 from graph_wiki_core.commands.work import WorkNextResult
@@ -92,6 +93,32 @@ def test_guidance_eligible_rules():
     assert guidance_eligible(WorkNextResult(slug="s", status="open", phase="done")) is False
     assert guidance_eligible(WorkNextResult(slug="s", status="resolved", phase="execute")) is False
     assert guidance_eligible(WorkNextResult(slug="s", status="mitigated", phase="execute")) is False
+
+
+def _manifest(tmp_path: Path, enabled: bool | None) -> Path:
+    """Write a workspace manifest with guidance enabled / disabled / absent."""
+    body = "version: 2\ninitialized_at: 2026-07-12\nplugins: []\n"
+    if enabled is not None:
+        body += f"guidance:\n  enabled: {str(enabled).lower()}\n"
+    (tmp_path / ".graph-wiki.yaml").write_text(body, encoding="utf-8")
+    (tmp_path / "wiki").mkdir(exist_ok=True)
+    return tmp_path
+
+
+def test_guidance_enabled_defaults_off(tmp_path):
+    """No guidance block → opt-in default is off."""
+    ws = _manifest(tmp_path, None)
+    assert guidance_enabled(ws) is False
+
+
+def test_guidance_enabled_when_opted_in(tmp_path):
+    ws = _manifest(tmp_path, True)
+    assert guidance_enabled(ws) is True
+
+
+def test_guidance_enabled_explicit_false(tmp_path):
+    ws = _manifest(tmp_path, False)
+    assert guidance_enabled(ws) is False
 
 
 def _write_workitem(ws: Path, slug: str, fm: dict) -> None:
