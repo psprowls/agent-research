@@ -151,6 +151,7 @@ async def run_query_orchestrator(
     graph_tools: list[BaseTool],
     trace_dir: Path,
     role_model_overrides: Mapping[str, str] | None = None,
+    role_backend_overrides: Mapping[str, str] | None = None,
 ) -> QueryOrchestratorResult:
     """Run the bounded query-orchestration loop with safe degradation."""
 
@@ -259,6 +260,7 @@ async def run_query_orchestrator(
                 repo_root=repo_root,
                 trace_dir=trace_dir,
                 role_model_overrides=role_model_overrides,
+                role_backend_overrides=role_backend_overrides,
             )
         except Exception as exc:
             return _degraded_result(
@@ -520,6 +522,7 @@ async def run_worker_batch(
     repo_root: Path | None,
     trace_dir: Path,
     role_model_overrides: Mapping[str, str] | None = None,
+    role_backend_overrides: Mapping[str, str] | None = None,
 ) -> tuple[Mapping[str, Any], ...]:
     """Dispatch orchestrated librarian/code-reader tasks and record partial failures."""
 
@@ -529,6 +532,7 @@ async def run_worker_batch(
     pool = SubagentPool(trace_dir)
     results: list[Mapping[str, Any]] = []
     overrides = role_model_overrides or {}
+    backend_overrides = role_backend_overrides or {}
 
     for role in ALLOWED_WORKERS:
         role_tasks = [task for task in worker_tasks if task.worker == role]
@@ -536,7 +540,7 @@ async def run_worker_batch(
             continue
 
         cfg = load_role_config(role)
-        llm = make_llm(role, model_override=overrides.get(role))
+        llm = make_llm(role, model_override=overrides.get(role), backend_override=backend_overrides.get(role))
         if role == "librarian":
             task_runner = _build_librarian_task_runner(llm, query=query, wiki_root=wiki_root)
         else:

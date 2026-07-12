@@ -116,7 +116,7 @@ async def test_run_worker_batch_dispatches_each_role_with_config_and_overrides(
     def fake_load_role_config(role: str) -> dict[str, object]:
         return {"model_id": f"default-{role}", "max_concurrency": 7 if role == "librarian" else 3}
 
-    def fake_make_llm(role: str, *, model_override: str | None = None):
+    def fake_make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None):
         calls.append((role, model_override))
         return llms[role]
 
@@ -155,6 +155,71 @@ async def test_run_worker_batch_dispatches_each_role_with_config_and_overrides(
 
 
 @pytest.mark.asyncio
+async def test_run_worker_batch_dispatches_each_role_with_backend_overrides(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from graph_wiki_core.commands import query_orchestrator as mod
+    from graph_wiki_core.commands.query_orchestrator import WorkerTask, run_worker_batch
+
+    wiki = tmp_path / "wiki"
+    repo = tmp_path / "repo"
+    (wiki / "entities").mkdir(parents=True)
+    (repo / "packages").mkdir(parents=True)
+    (wiki / "entities" / "scanner.md").write_text("# Scanner\n\nScanner owns page writes.", encoding="utf-8")
+
+    calls = []
+    llms = {
+        "librarian": _FakeLLM("wiki excerpt"),
+        "code_reader": _FakeLLM("code excerpt"),
+    }
+
+    def fake_load_role_config(role: str) -> dict[str, object]:
+        return {"model_id": f"default-{role}", "max_concurrency": 7 if role == "librarian" else 3}
+
+    def fake_make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None):
+        calls.append((role, model_override, backend_override))
+        return llms[role]
+
+    monkeypatch.setattr(mod, "load_role_config", fake_load_role_config)
+    monkeypatch.setattr(mod, "make_llm", fake_make_llm)
+
+    results = await run_worker_batch(
+        (
+            WorkerTask(
+                worker="librarian",
+                task_id="lib-1",
+                page_path="entities/scanner.md",
+                query_focus="ownership",
+                expected_evidence="wiki facts",
+            ),
+            WorkerTask(
+                worker="code_reader",
+                task_id="code-1",
+                target_paths_or_hints=("packages/scanner.py",),
+                query_focus="ownership",
+                expected_evidence="code facts",
+            ),
+        ),
+        query="Who owns scanner pages?",
+        wiki_root=wiki,
+        repo_root=repo,
+        trace_dir=tmp_path / "traces",
+        role_model_overrides={"librarian": "override-lib", "code_reader": "override-code"},
+        role_backend_overrides={"librarian": "vercel"},
+    )
+
+    assert calls == [
+        ("librarian", "override-lib", "vercel"),
+        ("code_reader", "override-code", None),
+    ]
+    assert [(row["task_id"], row["worker"], row["status"], row["result"]) for row in results] == [
+        ("lib-1", "librarian", "complete", "wiki excerpt"),
+        ("code-1", "code_reader", "complete", "code excerpt"),
+    ]
+
+
+@pytest.mark.asyncio
 async def test_run_worker_batch_records_worker_failures_without_dropping_successes(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -175,7 +240,7 @@ async def test_run_worker_batch_records_worker_failures_without_dropping_success
         return result
 
     monkeypatch.setattr(mod, "load_role_config", lambda role: {"model_id": f"model-{role}", "max_concurrency": 2})
-    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: _FakeLLM("unused"))
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None, backend_override=None: _FakeLLM("unused"))
     monkeypatch.setattr(mod.SubagentPool, "run_all", fake_run_all)
 
     results = await run_worker_batch(
@@ -226,7 +291,7 @@ async def test_code_reader_tool_uses_existing_bounded_reader(
         return "def example():\n    return 1\n"
 
     monkeypatch.setattr(mod, "load_role_config", lambda role: {"model_id": f"model-{role}", "max_concurrency": 1})
-    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: llm)
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None, backend_override=None: llm)
     monkeypatch.setattr(mod, "_read_file_bounded", fake_read_file_bounded)
 
     results = await run_worker_batch(
@@ -271,7 +336,7 @@ async def test_code_reader_rejects_out_of_scope_tool_path_before_bounded_read(
         return "secret = True\n"
 
     monkeypatch.setattr(mod, "load_role_config", lambda role: {"model_id": f"model-{role}", "max_concurrency": 1})
-    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: llm)
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None, backend_override=None: llm)
     monkeypatch.setattr(mod, "_read_file_bounded", fake_read_file_bounded)
 
     await run_worker_batch(
@@ -314,7 +379,7 @@ async def test_code_reader_allows_directoryish_hint_prefix(
         return "def example():\n    return 1\n"
 
     monkeypatch.setattr(mod, "load_role_config", lambda role: {"model_id": f"model-{role}", "max_concurrency": 1})
-    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None: llm)
+    monkeypatch.setattr(mod, "make_llm", lambda role, *, model_override=None, backend_override=None: llm)
     monkeypatch.setattr(mod, "_read_file_bounded", fake_read_file_bounded)
 
     results = await run_worker_batch(
