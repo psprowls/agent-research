@@ -23,6 +23,8 @@ from wiki_io._workspace import resolve_wiki_and_repo
 from work_io import frontmatter as _frontmatter
 from work_io import paths as _paths
 from work_io.lifecycle_lint import TERMINAL_STATUSES, VALID_PHASES, VALID_ROLES
+from workspace_io.manifest import read_guidance
+from workspace_io.paths import manifest_path
 
 from graph_wiki_core.commands.guidance_recall import RankedGuidance, recall_and_rank
 from graph_wiki_core.commands.guidance_signals import (
@@ -126,6 +128,19 @@ def filter_by_role(pages: list[GuidancePage], role: str | None) -> tuple[list[Gu
         if role in rl:
             kept.append(page)
     return kept, warnings
+
+
+def guidance_enabled(workspace_path: Path | None = None) -> bool:
+    """Whether the workspace opted into `gw next` guidance (`guidance.enabled`).
+
+    Opt-in: a workspace with no `guidance` block in `.graph-wiki.yaml` gets no
+    guidance. Toggle with `gw config set guidance.enabled true|false`.
+
+    Separate from `guidance_eligible()` on purpose: this reads config off disk,
+    while that one is a pure structural predicate over the work-next result.
+    """
+    wiki, _repo = resolve_wiki_and_repo(workspace_path)
+    return read_guidance(manifest_path(wiki.parent))
 
 
 def guidance_eligible(wn: WorkNextResult) -> bool:

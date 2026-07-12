@@ -66,6 +66,12 @@ _MANIFEST_ENTRIES: tuple[ConfigEntry, ...] = (
         "Branches the state gate protects (comma-separated on set).",
     ),
     ConfigEntry(
+        "guidance.enabled",
+        "bool",
+        False,
+        "Attach phase-relevant guidance pages to gw next output (opt-in, off by default).",
+    ),
+    ConfigEntry(
         "roles.*.model_id",
         "str",
         None,

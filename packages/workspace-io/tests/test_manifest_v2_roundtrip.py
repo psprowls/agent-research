@@ -16,11 +16,12 @@ def test_v2_write_then_read(tmp_path):
     }
     write(mpath, data)
     result = read(mpath)
-    # read() fills in defaults for plugin, state_gate, graph, workflow, and roles when absent from disk.
+    # read() fills in defaults for plugin, state_gate, guidance, graph, workflow, and roles when absent from disk.
     expected = dict(
         data,
         plugin={"backend_default": "claude", "backend_overrides": {}},
         state_gate={"enabled": True, "branches": ["main"]},
+        guidance={"enabled": False},
         graph={"domains": {}, "resources": {}, "resource_matchers": []},
         workflow={"commit_strategy": "per-task", "model_routing": {}},
         roles={},

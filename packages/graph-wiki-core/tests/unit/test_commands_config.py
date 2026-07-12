@@ -12,7 +12,7 @@ from graph_wiki_core.commands.config import (
 )
 from workspace_io import manifest
 from workspace_io.projection import projection_path
-from workspace_io.registry import EnvOnlyKeyError, UnknownKeyError
+from workspace_io.registry import EnvOnlyKeyError, InvalidValueError, UnknownKeyError
 
 
 @pytest.fixture
@@ -61,3 +61,36 @@ async def test_sync_regenerates_projection(workspace):
     out = await run_config_sync()
     assert out == projection_path(workspace)
     assert json.loads(out.read_text(encoding="utf-8"))["version"] == 2
+
+
+async def test_guidance_enabled_roundtrip(workspace):
+    """The catalog entry and manifest.write() must agree — registry.set_key()
+    raises if the written key does not survive the round-trip."""
+    got = await run_config_get("guidance.enabled")
+    assert (got.value, got.origin) == (False, "default")
+
+    got = await run_config_set("guidance.enabled", "true")
+    assert (got.value, got.origin) == (True, "manifest")
+    assert manifest.read(workspace / ".graph-wiki.yaml")["guidance"] == {"enabled": True}
+
+    got = await run_config_unset("guidance.enabled")
+    assert (got.value, got.origin) == (False, "default")
+
+
+async def test_guidance_enabled_set_false_is_equivalent_to_unset(workspace):
+    """False is the entry default, so write() omits the block; the registry's
+    persistence check tolerates that (persisted is None and value == default)."""
+    got = await run_config_set("guidance.enabled", "false")
+    assert (got.value, got.origin) == (False, "manifest")
+    assert "guidance:" not in (workspace / ".graph-wiki.yaml").read_text(encoding="utf-8")
+
+
+async def test_guidance_enabled_rejects_non_bool(workspace):
+    with pytest.raises(InvalidValueError):
+        await run_config_set("guidance.enabled", "sometimes")
+
+
+async def test_guidance_enabled_lands_in_projection(workspace):
+    await run_config_set("guidance.enabled", "true")
+    payload = json.loads(projection_path(workspace).read_text(encoding="utf-8"))
+    assert payload["guidance"] == {"enabled": True}

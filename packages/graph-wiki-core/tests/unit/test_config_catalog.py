@@ -23,6 +23,7 @@ def test_manifest_keys_present():
         "plugin.backend_overrides.*",
         "state_gate.enabled",
         "state_gate.branches",
+        "guidance.enabled",
         "roles.*.model_id",
         "roles.*.backend",
         "workflow.commit_strategy",
@@ -43,6 +44,12 @@ def test_lock_timeout_default_matches_graph_io(monkeypatch):
 
     monkeypatch.delenv("GRAPH_WIKI_LOCK_TIMEOUT_MS", raising=False)
     assert entry("GRAPH_WIKI_LOCK_TIMEOUT_MS").default == _default_lock_timeout()
+
+
+def test_guidance_entry_shape():
+    e = entry("guidance.enabled")
+    assert e is not None
+    assert (e.type, e.default, e.kind) == ("bool", False, "manifest")
 
 
 def test_hook_env_defaults_match_catalog():
