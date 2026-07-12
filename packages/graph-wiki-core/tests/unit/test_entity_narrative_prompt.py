@@ -92,14 +92,6 @@ class TestHumanMessage:
         assert "Parent domain: root" in human
 
 
-def test_returns_tuple_of_two_strings():
-    result = build_entity_narrative_prompt(_node(), "package", "", {})
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert isinstance(result[0], str)
-    assert isinstance(result[1], str)
-
-
 # ---------------------------------------------------------------------------
 # Test 7 (D3): agent_plugin grounding via components_text
 # ---------------------------------------------------------------------------

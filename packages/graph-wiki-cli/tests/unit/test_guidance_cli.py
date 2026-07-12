@@ -136,24 +136,6 @@ def test_guidance_suggest_file_auto_requires_slug_and_phase() -> None:
     assert "--phase" in result.output
 
 
-def test_guidance_suggest_file_explicit_path_ignores_slug_phase(tmp_path) -> None:
-    from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
-
-    out = tmp_path / "explicit.md"
-    fake = GuidanceSuggestResult(
-        ranked=[RankedGuidance("python/review", "high", ["index"], "matches")],
-        assembled="ASSEMBLED BODY",
-        index_present=True,
-    )
-    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_suggest", return_value=fake):
-        result = runner.invoke(
-            app,
-            ["guidance", "--mode", "test", "suggest", "review diff", "--file", str(out)],
-        )
-    assert result.exit_code == 0, result.output
-    assert out.read_text(encoding="utf-8") == "ASSEMBLED BODY"
-
-
 def test_guidance_suggest_json() -> None:
     import json
 

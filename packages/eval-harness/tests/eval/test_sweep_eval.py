@@ -332,25 +332,3 @@ async def test_full_matrix_live(tmp_path, capsys, monkeypatch, fixture_workspace
             assert call["baselines_dir"] is not None, (
                 f"divergence-eligible role {call['role']!r} got None baselines_dir"
             )
-
-
-def test_eval_mark_skip() -> None:
-    """Verify that EVAL_GATE skips tests when GRAPH_WIKI_RUN_EVAL is not set.
-
-    This test is NOT marked with @pytest.mark.eval so it runs in normal CI.
-    It checks that the EVAL_GATE skipif condition evaluates True in the
-    absence of the env var (meaning eval tests would be skipped).
-    """
-    # EVAL_GATE is a pytest.mark.skipif marker
-    # Its condition is: not os.environ.get("GRAPH_WIKI_RUN_EVAL")
-    # Without GRAPH_WIKI_RUN_EVAL set, the condition is True → test would skip.
-    run_eval = os.environ.get("GRAPH_WIKI_RUN_EVAL")
-    if run_eval:
-        pytest.skip("GRAPH_WIKI_RUN_EVAL is set — EVAL_GATE would not skip")
-
-    # Verify the skipif condition directly
-    condition = not os.environ.get("GRAPH_WIKI_RUN_EVAL")
-    assert condition is True, (
-        "EVAL_GATE condition should be True when GRAPH_WIKI_RUN_EVAL is not set, "
-        "ensuring eval tests are skipped without the env var."
-    )

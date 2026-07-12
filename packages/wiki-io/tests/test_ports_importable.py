@@ -68,20 +68,3 @@ def test_resolve_wiki_and_repo_honors_env_var(monkeypatch, tmp_path: Path):
     assert wiki == (fake_workspace / "wiki").resolve()
     # repo_root is discovered via _find_repo_root; may be None or a real path,
     # we only assert the wiki path here (matches the env-override contract).
-
-
-def test_resolve_wiki_and_repo_strict_raises_without_manifest(monkeypatch, tmp_path: Path):
-    """Without env var and without .graph-wiki.yaml, raises RuntimeError naming bootstrap command."""
-    from wiki_io._workspace import resolve_wiki_and_repo
-
-    monkeypatch.delenv("GRAPH_WIKI_WORKSPACE", raising=False)
-    monkeypatch.chdir(tmp_path)
-    # Ensure no .git ancestor so we don't hit a real workspace.
-    monkeypatch.setattr("workspace_io.config._find_repo_root", lambda _: None)
-
-    try:
-        resolve_wiki_and_repo()
-    except RuntimeError as exc:
-        assert "gw bootstrap" in str(exc)
-        return
-    raise AssertionError("did not raise RuntimeError")

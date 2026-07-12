@@ -403,15 +403,6 @@ async def test_run_lint_reports_open_proposals_count(tmp_path: Path) -> None:
     assert result.open_proposals == 2
 
 
-def test_lint_result_has_open_proposals_field() -> None:
-    import dataclasses
-
-    from graph_wiki_core.commands.lint import LintResult
-
-    fields = {f.name for f in dataclasses.fields(LintResult)}
-    assert "open_proposals" in fields
-
-
 @pytest.mark.asyncio
 async def test_run_lint_wiki_rooted_links_not_broken(tmp_path) -> None:
     """[[entities/x]] / [[concepts/y]] / [[work/z]] resolve against the wiki

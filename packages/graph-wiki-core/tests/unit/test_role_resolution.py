@@ -105,6 +105,17 @@ def test_load_role_config_synthesizer_limits():
     assert cfg["max_concurrency"] == 3
 
 
+def test_load_role_config_scanner_has_sweep_candidates():
+    """Scanner's role config exposes sweep_candidates for the eval harness
+    (genuine gap flagged during test-audit consolidation — kept standalone
+    since no other test in this file asserts on the scanner role)."""
+    from graph_wiki_core.roles import load_role_config
+
+    cfg = load_role_config("scanner")
+    assert cfg["model_id"]
+    assert "sweep_candidates" in cfg
+
+
 def test_drift_propagator_role_is_configured():
     """[M4 §4] The cross-page drift judge has a cheap-tier role with candidates."""
     from graph_wiki_core.roles import load_role_config

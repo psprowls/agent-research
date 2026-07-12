@@ -907,17 +907,6 @@ async def test_description_fill_log_uses_entity_noun(tmp_workspace_with_packages
     assert "package(s)" not in fill_line, f"stale 'package(s)' noun; got: {fill_line!r}"
 
 
-def test_phase35_regression_test_path_exists():
-    """SC#3 sanity guard: Phase 35 bootstrap test file is still in the repo.
-
-    Phase 39 does not modify wiki-io, so this test's continued presence on
-    disk is the structural pre-condition for SC#3 — Task 5 actually re-runs it.
-    """
-    repo_root = Path(__file__).resolve().parents[4]
-    bootstrap_test = repo_root / "packages" / "wiki-io" / "tests" / "test_bootstrap_e2e_no_broken_links.py"
-    assert bootstrap_test.exists(), f"Phase 35 regression test missing at {bootstrap_test}; SC#3 cannot be evaluated."
-
-
 def _seed_test_suite_graph(db_path: Path) -> None:
     """Seed a minimal DB with one test_suite node owned by pkg-a.
 

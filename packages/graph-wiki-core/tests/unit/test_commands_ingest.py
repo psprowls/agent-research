@@ -169,46 +169,6 @@ async def test_run_ingest_source_extracts_and_routes(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------------------
-# test_ingest_result_guidance_pages_written_field (Task 4)
-# ---------------------------------------------------------------------------
-
-
-def test_ingest_result_has_guidance_pages_written_field():
-    import dataclasses
-    import json
-
-    from graph_wiki_core.commands.ingest import IngestResult
-
-    result = IngestResult(
-        status="ok",
-        page_path="sources/x.md",
-        slug="x",
-        title="X",
-        page_type="source",
-        source_path="/tmp/x.md",
-        cross_refs_updated=1,
-        guidance_pages_written=["wiki/guidance/t/a.md"],
-    )
-    parsed = json.loads(json.dumps(dataclasses.asdict(result)))
-    assert parsed["guidance_pages_written"] == ["wiki/guidance/t/a.md"]
-
-
-def test_ingest_result_guidance_pages_written_defaults_empty():
-    from graph_wiki_core.commands.ingest import IngestResult
-
-    result = IngestResult(
-        status="ok",
-        page_path="sources/x.md",
-        slug="x",
-        title="X",
-        page_type="source",
-        source_path="/tmp/x.md",
-        cross_refs_updated=1,
-    )
-    assert result.guidance_pages_written == []
-
-
-# ---------------------------------------------------------------------------
 # test_run_ingest_source_default_slug_from_title
 # ---------------------------------------------------------------------------
 
@@ -2614,24 +2574,6 @@ async def test_run_ingest_source_move_failure_does_not_fail_ingest(tmp_path, mon
     assert result.status == "ok"
     assert result.archived_to is None
     assert src.exists()
-
-
-def test_ingest_result_archive_to_defaults_none_and_serializes():
-    from graph_wiki_core.commands.ingest import IngestResult
-
-    result = IngestResult(
-        status="ok",
-        page_path="sources/x.md",
-        slug="x",
-        title="X",
-        page_type="source",
-        source_path="/tmp/x.md",
-        cross_refs_updated=1,
-    )
-    assert result.archived_to is None
-    result.archived_to = "raw/_archive/specs/x.md"
-    parsed = json.loads(json.dumps(dataclasses.asdict(result)))
-    assert parsed["archived_to"] == "raw/_archive/specs/x.md"
 
 
 def _patch_skill_branch_llm(monkeypatch):

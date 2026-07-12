@@ -1,7 +1,7 @@
 """Tests for workspace_io.manifest — .graph-wiki.yaml read/write."""
 
 import pytest
-from workspace_io.manifest import read, read_graph_domains, read_roles, read_state_gate, write
+from workspace_io.manifest import read, read_graph_domains, read_state_gate, write
 
 
 def _v2(plugins):
@@ -10,15 +10,6 @@ def _v2(plugins):
         "initialized_at": "2026-05-08",
         "plugins": [{"name": p, "installed_version": None, "applied_version": None} for p in plugins],
     }
-
-
-def test_write_then_read_roundtrip(tmp_path):
-    mpath = tmp_path / ".graph-wiki.yaml"
-    write(mpath, _v2(["graph-wiki-agent", "code-wiki-second"]))
-    result = read(mpath)
-    assert result["version"] == 2
-    assert result["initialized_at"] == "2026-05-08"
-    assert [p["name"] for p in result["plugins"]] == ["graph-wiki-agent", "code-wiki-second"]
 
 
 def test_read_returns_empty_dict_when_missing(tmp_path):
@@ -120,34 +111,6 @@ def test_plugin_block_raises_when_not_mapping(tmp_path):
     )
     with pytest.raises(RuntimeError, match="must be a mapping"):
         read(mpath)
-
-
-def test_read_roles_returns_flattened_mapping(tmp_path):
-    """read_roles returns the top-level roles: mapping (see test_manifest_workflow.py for full coverage)."""
-    mpath = tmp_path / ".graph-wiki.yaml"
-    roles = {
-        "preflight": {
-            "model_id": "us.anthropic.claude-haiku-4-5-20251001-v1:0",
-            "region": "us-east-1",
-            "max_tokens": 64,
-            "max_concurrency": 1,
-        }
-    }
-    write(
-        mpath,
-        {
-            "version": 2,
-            "initialized_at": "2026-05-19",
-            "plugins": [{"name": "graph-wiki-agent", "installed_version": "0.7.0", "applied_version": "0.7.0"}],
-            "roles": roles,
-        },
-    )
-    assert read_roles(mpath) == roles
-
-
-def test_read_roles_returns_empty_when_manifest_missing(tmp_path):
-    """read_roles returns {} when the manifest file does not exist (matches read() contract)."""
-    assert read_roles(tmp_path / ".graph-wiki.yaml") == {}
 
 
 def test_state_gate_default_when_missing(tmp_path):

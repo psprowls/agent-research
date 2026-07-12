@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from claude_code_evals.report import RunRecord, build_report, generate_matrix_report
+from claude_code_evals.report import build_report, generate_matrix_report
 
 
 def _write_run(run_dir: Path, scenario: str, config: str, passed: bool) -> None:
@@ -88,19 +88,6 @@ def test_build_report_pass_fail_counts(tmp_path: Path):
     _, data = build_report(runs_dir=runs_dir, runset_name="test")
     passed = sum(1 for r in data if r.get("verify_passed"))
     assert passed == 2
-
-
-def test_run_record_dataclass():
-    r = RunRecord(
-        scenario="x",
-        config="base",
-        passed=True,
-        wall_seconds=3.0,
-        input_tokens=10,
-        output_tokens=5,
-        run_dir=Path("/tmp/x"),
-    )
-    assert r.passed is True
 
 
 def test_report_generates_scenario_by_arm_matrix():

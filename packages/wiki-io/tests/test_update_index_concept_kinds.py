@@ -4,13 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wiki_io.update_index import (
-    CATEGORY_DIRS,
-    CATEGORY_INDEX_FILES,
-    CATEGORY_LABELS,
-    CATEGORY_ORDER,
-    update_index,
-)
+from wiki_io.update_index import update_index
 
 
 def _page(path: Path, title: str, kind: str | None = None) -> None:
@@ -20,13 +14,6 @@ def _page(path: Path, title: str, kind: str | None = None) -> None:
         f"---\ntitle: {title}\ncategory: concept\n{kind_line}summary: s\n---\n\nBody.\n",
         encoding="utf-8",
     )
-
-
-def test_category_maps_without_architecture():
-    assert "architecture" not in CATEGORY_ORDER
-    assert "architecture" not in CATEGORY_INDEX_FILES
-    assert "architecture" not in CATEGORY_DIRS
-    assert "architecture" not in CATEGORY_LABELS
 
 
 def test_concepts_subindex_groups_by_kind(tmp_path):

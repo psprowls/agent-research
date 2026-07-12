@@ -68,17 +68,6 @@ def _write_package_json(pkg_dir: Path, data: dict) -> None:
     (pkg_dir / "package.json").write_text(json.dumps(data))
 
 
-# ---------- Task 1: skeleton ----------
-
-
-def test_entry_points_module_exposes_emit() -> None:
-    """Plan 30-02 Task 1: public emit + private helpers exist and are callable."""
-    assert callable(entry_points.emit)
-    assert callable(entry_points._emit_pyproject_entries)
-    assert callable(entry_points._emit_packagejson_entries)
-    assert "import" in entry_points._EXPORT_CONDITION_KEYS
-
-
 # ---------- Task 2: pyproject ----------
 
 

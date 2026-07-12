@@ -75,20 +75,6 @@ def test_build_ingest_brief_emits_brief_without_bedrock(tmp_path: Path, monkeypa
     assert "state_gate" in brief
 
 
-def test_prep_module_exports_brief_builders(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The prep module exposes Bedrock-free library helpers only."""
-    monkeypatch.setitem(sys.modules, "model_adapter", None)
-    monkeypatch.setitem(sys.modules, "subagent_runtime", None)
-
-    import wiki_io.ingest_source as prep
-
-    importlib.reload(prep)
-    assert callable(prep.build_ingest_brief)
-    assert callable(prep.build_folder_ingest_brief)
-    assert callable(prep.build_skill_ingest_brief)
-    assert not hasattr(prep, "main")
-
-
 def test_build_ingest_brief_no_entity_match_has_null_fields(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     # Seed a package whose contained file is a DIFFERENT path, and whose name
     # won't match the source's title — so neither path nor name lookup hits.

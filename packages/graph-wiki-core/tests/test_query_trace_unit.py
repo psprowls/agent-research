@@ -65,6 +65,22 @@ async def test_orchestrated_query_summary_records_batch_iterations(tmp_path: Pat
     assert summary["orchestrated"] is True
     assert summary["orchestrator_batch_iterations"] == 2
     assert summary["orchestrator_status"] == "ok"
+    # Phase 9 OBS-04 D-01/D-02: schema_version is additive — every pre-existing
+    # key from before the schema_version bump must still be present.
+    pre_existing_keys = {
+        "kind",
+        "query_id",
+        "query",
+        "top_k",
+        "pages_retrieved",
+        "pages_drilled",
+        "code_fallback",
+        "started_at",
+        "ended_at",
+    }
+    assert pre_existing_keys.issubset(summary.keys()), (
+        f"query_summary record missing pre-existing keys; have {sorted(summary.keys())}"
+    )
 
 
 def _setup_query_patches(vault: Path):

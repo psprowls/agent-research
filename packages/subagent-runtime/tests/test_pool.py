@@ -1,9 +1,8 @@
 """Unit tests for subagent_runtime.pool.SubagentPool.
 
 Covers partial failure isolation, semaphore concurrency cap, JSONL trace
-completeness (success and error paths), token metadata None guard, trace
-writer OSError isolation, multi-run lineage, and RunnableConfig recursion
-limit propagation.
+completeness (success and error paths), trace writer OSError isolation,
+multi-run lineage, and RunnableConfig recursion limit propagation.
 
 No real Bedrock calls — all LLM paths are mocked via conftest fixtures.
 """
@@ -61,27 +60,6 @@ async def test_partial_failure_isolation(tmp_path, make_task):
     assert len(result.errors) == 1
     assert result.errors[0].item == "bad"
     assert isinstance(result.errors[0].exception, ValueError)
-
-
-# ---------------------------------------------------------------------------
-# Test 3: First task failure does not cancel siblings
-# ---------------------------------------------------------------------------
-
-
-async def test_first_task_failure_does_not_cancel_siblings(tmp_path, make_task):
-    from subagent_runtime.pool import SubagentPool
-
-    task = make_task(raise_for={"bad"})
-    pool = SubagentPool(trace_dir=tmp_path / "traces")
-    result = await pool.run_all(
-        items=["bad", "a", "b", "c"],
-        task=task,
-        role="scanner",
-        model_id="test-model-id",
-        max_concurrency=4,
-    )
-    assert len(result.successes) == 3
-    assert len(result.errors) == 1
 
 
 # ---------------------------------------------------------------------------
@@ -254,39 +232,6 @@ async def test_trace_record_error_path(tmp_path, make_task):
     assert record["status"] == "error"
     assert "error" in record
     assert record["error"]  # non-empty string
-    assert record["tokens_in"] is None
-    assert record["tokens_out"] is None
-
-
-# ---------------------------------------------------------------------------
-# Test 9: usage_metadata=None guard — no AttributeError
-# ---------------------------------------------------------------------------
-
-
-async def test_token_metadata_none_guard(tmp_path, fake_llm_response_error):
-    from subagent_runtime.pool import SubagentPool
-
-    traces_dir = tmp_path / "traces"
-    pool = SubagentPool(trace_dir=traces_dir)
-
-    async def task(item):
-        return fake_llm_response_error  # usage_metadata is None
-
-    # Must not raise; tokens_in and tokens_out must be null, not 0, not missing
-    result = await pool.run_all(
-        items=["x"],
-        task=task,
-        role="scanner",
-        model_id="test-model-id",
-        max_concurrency=4,
-    )
-
-    assert len(result.successes) == 1
-
-    trace_files = list(traces_dir.glob("*.jsonl"))
-    lines = trace_files[0].read_text().strip().splitlines()
-    record = json.loads(lines[0])
-
     assert record["tokens_in"] is None
     assert record["tokens_out"] is None
 

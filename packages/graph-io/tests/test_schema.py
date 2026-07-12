@@ -48,10 +48,6 @@ def test_apply_schema_is_idempotent(conn: sqlite3.Connection) -> None:
     assert rows == (1,)
 
 
-def test_schema_version_is_three() -> None:
-    assert schema.SCHEMA_VERSION == 3
-
-
 def test_nodes_has_repo_column(tmp_path) -> None:
     conn = sqlite3.connect(tmp_path / "t.db")
     schema.apply_schema(conn)

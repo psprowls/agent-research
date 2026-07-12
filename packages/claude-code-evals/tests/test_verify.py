@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from claude_code_evals.verify.base import VerifyOutcome
 from claude_code_evals.verify.golden import GoldenVerifier
 from claude_code_evals.verify.script import ScriptVerifier
 from deepeval.test_case import LLMTestCase
@@ -50,10 +49,3 @@ def test_golden_verifier_fail(tmp_path: Path):
     tc = LLMTestCase(input="q", actual_output="a")
     v.measure(tc)
     assert v.score in (0.0, 1.0)
-
-
-def test_verify_outcome_dataclass():
-    o = VerifyOutcome(passed=True, score=1.0, reason="ok")
-    assert o.passed is True
-    assert o.score == 1.0
-    assert o.reason == "ok"

@@ -14,14 +14,6 @@ import pytest
 # ---------------------------------------------------------------------------
 
 
-def test_wiki_scan_tool_registered() -> None:
-    """wiki_scan tool is importable and callable (MCP-01)."""
-    from graph_wiki_mcp.server import wiki_scan
-
-    assert callable(wiki_scan)
-    assert wiki_scan.__name__ == "wiki_scan"
-
-
 # ---------------------------------------------------------------------------
 # WikiScanInput schema validation
 # ---------------------------------------------------------------------------
@@ -122,14 +114,6 @@ async def test_wiki_scan_calls_run_scan_and_returns_output() -> None:
 # ---------------------------------------------------------------------------
 # wiki_ingest tool registration (Plan 05-05)
 # ---------------------------------------------------------------------------
-
-
-def test_wiki_ingest_tool_registered() -> None:
-    """wiki_ingest tool is importable and callable (MCP-01)."""
-    from graph_wiki_mcp.server import wiki_ingest
-
-    assert callable(wiki_ingest)
-    assert wiki_ingest.__name__ == "wiki_ingest"
 
 
 def test_wiki_ingest_input_type_discriminator() -> None:
@@ -237,14 +221,6 @@ async def test_wiki_ingest_emits_progress() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_wiki_bootstrap_tool_registered() -> None:
-    """wiki_bootstrap tool is importable and callable (CMD-02)."""
-    from graph_wiki_mcp.server import wiki_bootstrap
-
-    assert callable(wiki_bootstrap)
-    assert wiki_bootstrap.__name__ == "wiki_bootstrap"
-
-
 def test_wiki_bootstrap_input_rejects_missing_required_fields() -> None:
     """WikiBootstrapInput raises ValidationError when topic or tool are missing."""
     from graph_wiki_mcp.server import WikiBootstrapInput
@@ -292,14 +268,6 @@ async def test_wiki_bootstrap_calls_run_init() -> None:
 # ---------------------------------------------------------------------------
 # wiki_lint tool registration (Plan 05-06)
 # ---------------------------------------------------------------------------
-
-
-def test_wiki_lint_tool_registered() -> None:
-    """wiki_lint tool is importable and callable (MCP-01)."""
-    from graph_wiki_mcp.server import wiki_lint
-
-    assert callable(wiki_lint)
-    assert wiki_lint.__name__ == "wiki_lint"
 
 
 def test_wiki_lint_input_schema() -> None:

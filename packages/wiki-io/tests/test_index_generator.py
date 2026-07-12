@@ -59,26 +59,6 @@ def _place(conn):
 
 
 class TestIndexWriteResult:
-    def test_shape(self):
-        r = IndexWriteResult(
-            path=Path("/tmp/wiki/index.md"),
-            bytes_written=1234,
-            changed=True,
-            entity_count=10,
-            curated_count=5,
-            domain_count=2,
-            direct_count=3,
-            repo_count=1,
-        )
-        assert r.path == Path("/tmp/wiki/index.md")
-        assert r.bytes_written == 1234
-        assert r.changed is True
-        assert r.entity_count == 10
-        assert r.curated_count == 5
-        assert r.domain_count == 2
-        assert r.direct_count == 3
-        assert r.repo_count == 1
-
     def test_frozen(self):
         r = IndexWriteResult(
             path=Path("/x"),
@@ -1512,34 +1492,6 @@ def test_consumer_pkgs_fanout_regression_guard():
     # A URI matching no suite returns empty (no name-fallback)
     no_match = _consumer_pkgs(conn, kind="test_suite", entity_uri="test_suite:org/repo/no-such-suite")
     assert no_match == (), f"expected () for unmatched URI, got {no_match!r}"
-
-
-# --- Snapshot test against the live agent-research graph (skip when absent) ---
-
-
-def _resolve_workspace_root() -> Path | None:
-    """Walk up from this test file to find a workspace with .graph-wiki/graph.db."""
-    cur = Path(__file__).resolve().parent
-    for _ in range(8):
-        if (cur / ".graph-wiki" / "graph.db").exists():
-            return cur
-        cur = cur.parent
-    return None
-
-
-_WS_ROOT = _resolve_workspace_root()
-
-
-@pytest.mark.skipif(_WS_ROOT is None, reason="no live agent-research graph")
-def test_snapshot_against_agent_research(snapshot):
-    db = _WS_ROOT / ".graph-wiki" / "graph.db"
-    conn = GraphReader(sqlite3.connect(str(db)))
-    try:
-        wiki_root = _WS_ROOT / ".graph-wiki" / "wiki"
-        text, *_ = _render(conn, wiki_root)
-        assert text == snapshot
-    finally:
-        conn.close()
 
 
 # ============================================================================

@@ -10,15 +10,6 @@ from typer.testing import CliRunner
 runner = CliRunner()
 
 
-def test_wiki_cli_module_exposes_wiki_app_and_main() -> None:
-    """The relocated module exposes a `wiki` Typer app and a `main()` entry."""
-    from graph_wiki_cli.wiki_cli import main as wiki_main
-
-    assert isinstance(wiki_main.wiki_app, typer.Typer)
-    assert wiki_main.wiki_app.info.name == "wiki"
-    assert hasattr(wiki_main, "main")
-
-
 def test_root_app_mounts_wiki_group_with_subcommands() -> None:
     """`gw wiki` is registered and still exposes the wiki-only `lint`.
 

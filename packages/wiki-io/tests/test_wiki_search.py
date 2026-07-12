@@ -12,17 +12,6 @@ FIXTURES = Path(__file__).parent / "fixtures"
 EDGE_CASE_VAULT = FIXTURES / "edge-case-vault"
 
 
-def test_wiki_search_importable():
-    """wiki_io.wiki_search imports cleanly and exports library helpers."""
-    from wiki_io import wiki_search
-
-    assert callable(wiki_search.load_docs)
-    assert callable(wiki_search.tokenize)
-    assert callable(wiki_search.bm25_scores)
-    assert callable(wiki_search.snippet)
-    assert not hasattr(wiki_search, "main")
-
-
 def test_wiki_search_internal_helpers():
     """tokenize(), load_docs(), bm25_scores(), and snippet() are importable and callable."""
     from wiki_io.wiki_search import bm25_scores, load_docs, snippet, tokenize
