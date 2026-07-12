@@ -84,3 +84,26 @@ def changed_files_since(repo: Path, since_sha: str, sub_path: str) -> list[str] 
     if out is None or out[0] != 0:
         return None
     return [line.strip() for line in out[1].splitlines() if line.strip()]
+
+
+def is_ancestor(repo: Path, ancestor_sha: str, descendant_sha: str) -> bool:
+    """True iff ``ancestor_sha`` is a git ancestor of (or equal to)
+    ``descendant_sha``, via ``git merge-base --is-ancestor``.
+
+    Exit code 0 -> True, exit code 1 -> False (this also covers unrelated /
+    diverged history, which fails open — the caller still writes a drift
+    proposal rather than silently suppressing it). Any other outcome (bad SHA,
+    git unavailable, corrupted repo) raises RuntimeError instead of returning
+    False, unlike every other helper in this module: silently treating a real
+    git error as "not an ancestor" would risk masking a drift proposal that
+    should have fired.
+    """
+    out = _run(repo, "merge-base", "--is-ancestor", ancestor_sha, descendant_sha)
+    if out is None:
+        raise RuntimeError(f"git unavailable while checking ancestry in {repo}")
+    returncode, _stdout, stderr = out
+    if returncode == 0:
+        return True
+    if returncode == 1:
+        return False
+    raise RuntimeError(f"git merge-base --is-ancestor failed (exit {returncode}): {stderr.strip()}")

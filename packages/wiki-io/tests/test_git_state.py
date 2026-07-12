@@ -5,7 +5,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from wiki_io.git_state import head_commit, is_clean_on_branches, short_commit
+import pytest
+from wiki_io.git_state import head_commit, is_ancestor, is_clean_on_branches, short_commit
 
 
 def _git(repo: Path, *args: str) -> None:
@@ -93,3 +94,44 @@ def test_is_clean_on_branches_non_git_dir(tmp_path):
     ok, reason = is_clean_on_branches(non_repo, ["main"])
     assert ok is False
     assert reason == "not a git repo"
+
+
+def _commit_file(repo: Path, name: str, content: str) -> None:
+    (repo / name).write_text(content, encoding="utf-8")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", name)
+
+
+def test_is_ancestor_straight_line_history(tmp_path):
+    repo = tmp_path / "repo"
+    first = _init_repo(repo)
+    _commit_file(repo, "g.txt", "second\n")
+    second = head_commit(repo)
+    assert is_ancestor(repo, first, second) is True
+    assert is_ancestor(repo, second, first) is False
+
+
+def test_is_ancestor_self_is_ancestor_of_self(tmp_path):
+    repo = tmp_path / "repo"
+    sha = _init_repo(repo)
+    assert is_ancestor(repo, sha, sha) is True
+
+
+def test_is_ancestor_sibling_branches_are_not_ancestors(tmp_path):
+    repo = tmp_path / "repo"
+    base = _init_repo(repo)
+    _git(repo, "checkout", "-b", "branch-a")
+    _commit_file(repo, "a.txt", "on branch a\n")
+    branch_a = head_commit(repo)
+    _git(repo, "checkout", "-b", "branch-b", base)
+    _commit_file(repo, "b.txt", "on branch b\n")
+    branch_b = head_commit(repo)
+    assert is_ancestor(repo, branch_a, branch_b) is False
+    assert is_ancestor(repo, branch_b, branch_a) is False
+
+
+def test_is_ancestor_invalid_sha_raises(tmp_path):
+    repo = tmp_path / "repo"
+    sha = _init_repo(repo)
+    with pytest.raises(RuntimeError):
+        is_ancestor(repo, "deadbeef" * 5, sha)
