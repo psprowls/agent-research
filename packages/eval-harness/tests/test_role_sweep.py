@@ -183,6 +183,110 @@ async def test_single_role_swap_scanner(tmp_path: Path, fixture_workspace_path: 
     )
 
 
+async def test_single_role_swap_synthesizer(tmp_path: Path, fixture_workspace_path: Path) -> None:
+    """Sweeping synthesizer role passes role_model_overrides={"synthesizer": candidate}
+    to run_query; all other roles use defaults (single-role-swap D-06)."""
+    cases_path = _make_cases_file(tmp_path)
+    captured_kwargs: dict = {}
+
+    async def _mock_run_query(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return _make_query_result()
+
+    with patch("eval_harness.sweep.run_query", new=AsyncMock(side_effect=_mock_run_query)):
+        results = await run_role_sweep(
+            "synthesizer",
+            "us.amazon.nova-pro-v1:0",
+            cases_path,
+            fixture_workspace_path,
+            repeats=1,
+        )
+
+    assert len(results) == 1
+    overrides = captured_kwargs.get("role_model_overrides", {})
+    assert overrides.get("synthesizer") == "us.amazon.nova-pro-v1:0", (
+        "synthesizer override must match the candidate model_id"
+    )
+    assert "librarian" not in overrides
+    assert "code_reader" not in overrides
+
+
+async def test_single_role_swap_code_reader(tmp_path: Path, fixture_workspace_path: Path) -> None:
+    """Sweeping code_reader role passes role_model_overrides={"code_reader": candidate}
+    to run_query; all other roles use defaults (single-role-swap D-06)."""
+    cases_path = _make_cases_file(tmp_path)
+    captured_kwargs: dict = {}
+
+    async def _mock_run_query(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return _make_query_result()
+
+    with patch("eval_harness.sweep.run_query", new=AsyncMock(side_effect=_mock_run_query)):
+        results = await run_role_sweep(
+            "code_reader",
+            "us.amazon.nova-lite-v1:0",
+            cases_path,
+            fixture_workspace_path,
+            repeats=1,
+        )
+
+    assert len(results) == 1
+    overrides = captured_kwargs.get("role_model_overrides", {})
+    assert overrides.get("code_reader") == "us.amazon.nova-lite-v1:0", (
+        "code_reader override must match the candidate model_id"
+    )
+    assert "librarian" not in overrides
+    assert "synthesizer" not in overrides
+
+
+async def test_single_role_swap_linter(tmp_path: Path, fixture_workspace_path: Path) -> None:
+    """Sweeping linter role calls run_lint with model_override=candidate."""
+    cases_path = _make_cases_file(tmp_path)
+    captured_kwargs: dict = {}
+
+    async def _mock_run_lint(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return _make_lint_result()
+
+    with patch("eval_harness.sweep.run_lint", new=AsyncMock(side_effect=_mock_run_lint)):
+        results = await run_role_sweep(
+            "linter",
+            "us.amazon.nova-micro-v1:0",
+            cases_path,
+            fixture_workspace_path,
+            repeats=1,
+        )
+
+    assert len(results) == 1
+    assert captured_kwargs.get("model_override") == "us.amazon.nova-micro-v1:0", (
+        "linter override must be passed as model_override kwarg"
+    )
+
+
+async def test_single_role_swap_ingestor(tmp_path: Path, fixture_workspace_path: Path) -> None:
+    """Sweeping ingestor role calls run_ingest_source with model_override=candidate."""
+    cases_path = _make_cases_file(tmp_path)
+    captured_kwargs: dict = {}
+
+    async def _mock_run_ingest_source(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return _make_ingest_result()
+
+    with patch("eval_harness.sweep.run_ingest_source", new=AsyncMock(side_effect=_mock_run_ingest_source)):
+        results = await run_role_sweep(
+            "ingestor",
+            "us.amazon.nova-micro-v1:0",
+            cases_path,
+            fixture_workspace_path,
+            repeats=1,
+        )
+
+    assert len(results) == 1
+    assert captured_kwargs.get("model_override") == "us.amazon.nova-micro-v1:0", (
+        "ingestor override must be passed as model_override kwarg"
+    )
+
+
 async def test_role_sweep_partial_failure(tmp_path: Path, fixture_workspace_path: Path) -> None:
     """Partial-failure isolation: one cell exception produces error SweepResult, not abort."""
     cases = [

@@ -129,6 +129,42 @@ def test_guidance_suggest_file_auto_resolves_via_slug_and_phase(tmp_path, monkey
     assert expected.read_text(encoding="utf-8") == "ASSEMBLED BODY"
 
 
+def test_guidance_suggest_file_explicit_overrides_slug_and_phase(tmp_path, monkeypatch) -> None:
+    from graph_wiki_core.commands.guidance_suggest import GuidanceSuggestResult, RankedGuidance
+
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))
+    out = tmp_path / "explicit" / "bundle.md"
+    fake = GuidanceSuggestResult(
+        ranked=[RankedGuidance("python/review", "high", ["index"], "matches")],
+        assembled="ASSEMBLED BODY",
+        index_present=True,
+    )
+    with patch("graph_wiki_cli.guidance_cli.main.run_guidance_suggest", return_value=fake) as suggest:
+        result = runner.invoke(
+            app,
+            [
+                "guidance",
+                "--mode",
+                "test",
+                "suggest",
+                "review diff",
+                "--role",
+                "review",
+                "--slug",
+                "my-slug",
+                "--phase",
+                "plan",
+                "--file",
+                str(out),
+            ],
+        )
+    assert result.exit_code == 0, result.output
+    assert suggest.call_args.kwargs["assemble"] is True
+    assert out.read_text(encoding="utf-8") == "ASSEMBLED BODY"
+    auto_resolved = tmp_path / "wiki" / "work" / "my-slug" / "02-plan-guidance-review.md"
+    assert not auto_resolved.exists()
+
+
 def test_guidance_suggest_file_auto_requires_slug_and_phase() -> None:
     result = runner.invoke(app, ["guidance", "--mode", "test", "suggest", "add retry", "--file", "auto"])
     assert result.exit_code != 0
