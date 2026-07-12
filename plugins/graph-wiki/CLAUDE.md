@@ -10,7 +10,7 @@ plugins/graph-wiki/
 ├── skills/
 │   └── graph-wiki/           # maintainer skill: SKILL.md + references/ + scripts/
 ├── agents/                   # ingestor, librarian, linter, scanner
-└── commands/                 # bootstrap, scan, ingest, query, lint, log
+└── commands/                 # bootstrap, scan, ingest, query, lint, log, file, archive, regen-index, status, next, proposals, onboard, gate-check, specify-gate
 ```
 
 ## Source-of-truth split with `packages/wiki-io/` and `packages/graph-wiki-cli/`
@@ -79,7 +79,7 @@ These are load-bearing for the skill's contract — preserve them when editing s
 
 1. The code is the source of truth. If the vault contradicts the code, update the vault.
 2. The LLM never edits file contents under `<workspace>/raw/`; all LLM writes for the wiki go under `<workspace>/wiki/`. Single exception: after a successful ingest the source is *moved* to `<workspace>/raw/_archive/<same relative path>`.
-3. Every vault page has YAML frontmatter with `title`, `category`, `summary`, `updated`.
+3. Every vault page has YAML frontmatter. Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; graph-derived `entities/` pages carry `uri`, `kind`, `graph_name`, `last_scan_at` plus per-kind keys instead — `title`/`updated` are intentionally absent, the H1 carries the display name.
 4. Every ingest or scan touches ≥3 files: the changed/new page(s), `index.md`, `log.md`.
 5. Every claim on a package/domain page cites either a source page (`[[sources/xxx]]`) or a code path.
 
