@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then fills placeholders (`## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API`) via a commit-gated Claude Task-subagent fan-out. A bare / `--no-narrate` invocation runs the mechanical write only.
+Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then fills placeholders (`## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API`) via a commit-gated Claude subagent fan-out. A bare / `--no-narrate` invocation runs the mechanical write only.
 
 ## Inputs
 
@@ -21,7 +21,7 @@ The default scan runs as a three-phase pipeline:
 
 **Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`fill_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`.
 
-**Phase 2 — Fan-out**: read-only Task subagents (one per entity in `fill_tasks`/`drift_tasks`) inspect source files and return structured records — narrative, file/dir descriptions, overview, `## Purpose`/`## Public API`, drift judgements. Subagents are strictly read-only (Read/Grep/Glob only); no page writes happen here.
+**Phase 2 — Fan-out**: read-only subagents (one per entity in `fill_tasks`/`drift_tasks`) inspect source files and return structured records — narrative, file/dir descriptions, overview, `## Purpose`/`## Public API`, drift judgements. Subagents are strictly read-only (Read/Grep/Glob only); no page writes happen here.
 
 **Phase 3 — Apply** (`--apply-worklist <results.json> --short-head <sha>`): injects all structured results, runs the M2c refill-gated anchor stamp, writes M2e `drift_review` flags, regenerates indexes and backlinks, and appends to `log.md`.
 

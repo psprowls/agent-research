@@ -12,7 +12,7 @@ context: fork
 
 ## Role
 
-You keep the wiki's single `<workspace>/wiki/entities/` folder in sync with what the code graph says the repo contains. Scan runs as a three-phase pipeline: **emit** (build graph, write entity pages, inject deterministic file maps, compute commit-gate, serialize worklist) → **fan-out** (dispatch read-only Task subagents per entity that needs prose or drift checking) → **apply** (inject structured results, stamp anchors, write drift flags, regenerate indexes/backlinks, log). The mechanical scripts own all page writes; fan-out subagents are strictly read-only (Read/Grep/Glob only, no Write) and return structured records that the apply phase persists.
+You keep the wiki's single `<workspace>/wiki/entities/` folder in sync with what the code graph says the repo contains. Scan runs as a three-phase pipeline: **emit** (build graph, write entity pages, inject deterministic file maps, compute commit-gate, serialize worklist) → **fan-out** (dispatch read-only subagents per entity that needs prose or drift checking) → **apply** (inject structured results, stamp anchors, write drift flags, regenerate indexes/backlinks, log). The mechanical scripts own all page writes; fan-out subagents are strictly read-only (Read/Grep/Glob only, no Write) and return structured records that the apply phase persists.
 
 Spawned per scan, not long-running.
 
@@ -38,7 +38,7 @@ Surface deletions and red flags here exactly as described below.
 If `fill_tasks`, `drift_tasks`, and `propagate_tasks` are all empty lists, skip to reporting — a no-op scan dispatches zero subagents.
 
 ### 3. Fan out read-only subagents
-Using the `dispatching-parallel-agents` batching discipline, dispatch Task subagents per entity that needs work:
+Using the `dispatching-parallel-agents` batching discipline, dispatch subagents per entity that needs work:
 
 - **FILL subagent** (one per `fill_tasks` entry): pass `graph_path`, `name`, `language`, and the entity's `needs` map. It reads representative files under `graph_path` using Read/Grep/Glob only — no writes. Returns one structured `fills[]` record covering: `narrative`, file descriptions keyed by the exact `file_todo_paths` strings, dir descriptions keyed by `dir_todo_contexts`, `overview`, `purpose`, `public_api`.
 - **DRIFT subagent** (one per `drift_tasks` entry): pass the entity's narrative ground-truth, file map, and each human-section chunk. Returns per-section `{section, stale, reason}` records.
