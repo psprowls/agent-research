@@ -15,13 +15,10 @@ runner = CliRunner()
 
 
 @pytest.fixture(autouse=True)
-def guidance_on(request):
-    """Every test in this module except the disabled-workspace one exercises the
-    guidance path; pin the config gate open so they do not depend on the ambient
-    workspace manifest."""
-    if request.node.name == "test_next_omits_guidance_when_disabled":
-        yield
-        return
+def guidance_on():
+    """Every test in this module exercises the guidance path by default; pin the
+    config gate open so tests do not depend on the ambient workspace manifest.
+    The disabled-workspace test overrides this with its own nested patch."""
     with patch("graph_wiki_cli.cli.guidance_enabled", return_value=True):
         yield
 
