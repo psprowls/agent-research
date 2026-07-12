@@ -64,3 +64,11 @@ def test_unparseable_page_skipped(tmp_path):
     _write(work / "good.md")
     _write(work / "bad.md", "no frontmatter here\n")
     assert [it["slug"] for it in load_items(work)] == ["good"]
+
+
+def test_flat_live_dir_skips_generated_index(tmp_path):
+    work = tmp_path / "work"
+    _write(work / "2026-01-01-fix-thing.md")
+    _write(work / "index.md", "---\ntitle: Work Index\ncategory: index\n---\n")
+    items = load_items(work)
+    assert [it["slug"] for it in items] == ["2026-01-01-fix-thing"]

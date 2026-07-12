@@ -58,7 +58,7 @@ def load_items(work_dir: Path) -> list[dict]:
     if is_archive:
         pages = sorted(work_dir.glob("*/00-open-work.md")) + sorted(work_dir.glob("*.md"))
     else:
-        pages = sorted(work_dir.glob("*.md"))
+        pages = [p for p in sorted(work_dir.glob("*.md")) if p.name != "index.md"]
     for md in pages:
         try:
             fm, body = _frontmatter.parse(md.read_text(encoding="utf-8"))
