@@ -14,7 +14,7 @@ Skills use Claude Code tool names. When you encounter these in a skill, use your
 | `WebFetch` | `web_fetch` |
 | `Agent` tool (dispatch subagent) | `task` with `agent_type: "general-purpose"` or `"explore"` |
 | Multiple `Agent` calls (parallel) | Multiple `task` calls |
-| Task status/output | `read_agent`, `list_agents` |
+| Agent status/output | `read_agent`, `list_agents` |
 | `TodoWrite` (task tracking) | `sql` with built-in `todos` table |
 | `WebSearch` | No equivalent — use `web_fetch` with a search engine URL |
 | `EnterPlanMode` / `ExitPlanMode` | No equivalent — stay in the main session |
