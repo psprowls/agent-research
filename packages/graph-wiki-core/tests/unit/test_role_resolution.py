@@ -532,3 +532,42 @@ def test_make_llm_workspace_only_role_missing_model_id_raises_actionable_keyerro
 
     with pytest.raises(KeyError, match="model_id"):
         make_llm("workspace_only_role")
+
+
+# ---------------------------------------------------------------------------
+# backend_override (2026-06-24: gateway-aware model sweep)
+# ---------------------------------------------------------------------------
+
+
+def test_backend_override_vercel_wins_over_packaged_bedrock_default(monkeypatch):
+    """backend_override='vercel' routes a bedrock-default role (librarian) through
+    the gateway even though models.toml declares no backend key for it."""
+    from graph_wiki_core.roles import make_llm
+    from model_adapter.loader import _GuardedChatOpenAI
+
+    _set_gateway_env(monkeypatch)
+    llm = make_llm("librarian", model_override="openai/gpt-4o", backend_override="vercel")
+    assert isinstance(llm, _GuardedChatOpenAI)
+    actual_model = getattr(llm, "model_name", None) or getattr(llm, "model", None)
+    assert actual_model == "openai/gpt-4o"
+
+
+def test_backend_override_bedrock_wins_over_workspace_vercel(tmp_path, monkeypatch, real_workspace_role_override):
+    """backend_override='bedrock' overrides a workspace-configured vercel role back to Bedrock."""
+    from graph_wiki_core.roles import make_llm
+    from model_adapter.loader import _GuardedChatBedrockConverse
+
+    workspace = _write_vercel_workspace(tmp_path, "librarian", GATEWAY_MODEL)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    llm = make_llm("librarian", backend_override="bedrock")
+    assert isinstance(llm, _GuardedChatBedrockConverse)
+
+
+def test_backend_override_none_preserves_packaged_bedrock_default():
+    """backend_override=None (the default) preserves existing bedrock-default behavior."""
+    from graph_wiki_core.roles import make_llm
+    from model_adapter.loader import _GuardedChatBedrockConverse
+
+    llm = make_llm("preflight")
+    assert isinstance(llm, _GuardedChatBedrockConverse)
