@@ -65,14 +65,10 @@ EXTRA_POLICY: dict[str, dict[str, set[str]]] = {
 
 # Known, tracked drift only — removing an entry when its item lands is a one-line diff.
 SANCTIONED_EXCEPTIONS: dict[str, set[str]] = {
-    # subagent-cli: surface bypasses sanctioned pending
-    # 2026-07-05-thin-the-delivery-surfaces-route-graph-wiki-cli-and-subagent-cli-through-graph-wiki-core.
-    "subagent-cli": {"graph-io", "wiki-io", "guidance-io", "model-adapter", "subagent-runtime"},
-    # graph-wiki-mcp: same surface-bypass shape (server.py imports graph_io.open_reader and the
-    # PRIVATE wiki_io._workspace.resolve_wiki_and_repo); no dedicated work item filed yet —
-    # file one before removing this entry.
+    # graph-wiki-mcp: server.py imports graph_io.open_reader and PRIVATE wiki_io._workspace.resolve_wiki_and_repo;
+    # no dedicated work item filed yet — file one before removing this entry.
     "graph-wiki-mcp": {"graph-io", "wiki-io"},
-    # eval-harness: same surface-bypass shape; no dedicated work item filed yet —
+    # eval-harness: imports graph_io and bedrock packages directly; no dedicated work item filed yet —
     # file one before removing this entry.
     "eval-harness": {"graph-io", "model-adapter", "subagent-runtime"},
 }

@@ -2782,32 +2782,22 @@ version = "0.1.0"
 source = { editable = "packages/subagent-cli" }
 dependencies = [
     { name = "click" },
-    { name = "graph-io" },
     { name = "graph-wiki-core", extra = ["bedrock"] },
-    { name = "guidance-io" },
     { name = "langchain-core" },
-    { name = "model-adapter" },
     { name = "python-frontmatter" },
     { name = "rich" },
-    { name = "subagent-runtime" },
     { name = "typer" },
-    { name = "wiki-io" },
     { name = "workspace-io" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "graph-io", editable = "packages/graph-io" },
     { name = "graph-wiki-core", extras = ["bedrock"], editable = "packages/graph-wiki-core" },
-    { name = "guidance-io", editable = "packages/guidance-io" },
     { name = "langchain-core" },
-    { name = "model-adapter", editable = "packages/model-adapter" },
     { name = "python-frontmatter", specifier = ">=1.0" },
     { name = "rich", specifier = ">=13.7" },
-    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
-    { name = "wiki-io", editable = "packages/wiki-io" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 

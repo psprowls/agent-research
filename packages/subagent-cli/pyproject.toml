@@ -5,12 +5,7 @@ description = "Invoke Bedrock subagents live from the CLI with colored prompt/re
 requires-python = ">=3.11"
 dependencies = [
     "graph-wiki-core[bedrock]",
-    "model-adapter",
-    "subagent-runtime",
-    "graph-io",
-    "wiki-io",
     "workspace-io",
-    "guidance-io",
     "typer>=0.25.1",
     "click>=8.0",
     "rich>=13.7",
@@ -27,12 +22,7 @@ build-backend = "uv_build"
 
 [tool.uv.sources]
 graph-wiki-core = { workspace = true }
-model-adapter = { workspace = true }
-subagent-runtime = { workspace = true }
-graph-io = { workspace = true }
-wiki-io = { workspace = true }
 workspace-io = { workspace = true }
-guidance-io = { workspace = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
