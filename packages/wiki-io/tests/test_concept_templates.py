@@ -21,3 +21,10 @@ def test_kind_frontmatter_lines():
     assert "kind: architecture\n" in text
     assert "packages: []\n" in text  # template-specific frontmatter survives
     assert "## Thesis" in text  # body unchanged
+
+
+def test_curated_templates_declare_drift_provenance_keys():
+    for fname in ("concept.md", "concept-pattern.md", "concept-architecture.md", "adr.md"):
+        text = (TEMPLATES / fname).read_text(encoding="utf-8")
+        assert 'last_updated_commit: ""\n' in text, fname
+        assert 'content_hash: ""\n' in text, fname

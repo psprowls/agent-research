@@ -11,6 +11,8 @@ superseded_by:
 tags: []
 updated: <YYYY-MM-DD>
 tokens: 0
+last_updated_commit: ""
+content_hash: ""
 ---
 
 # ADR-<NNNN>: <Title>
