@@ -144,3 +144,17 @@ def test_merge_frontmatter_preserves_drift_keys():
     merged = merge_frontmatter(existing, scanner)
     assert merged["drift_checked_commit"] == "abc"
     assert merged["drift_review"] == existing["drift_review"]
+
+
+from wiki_io.drift import page_body_hash  # noqa: E402
+
+
+def test_page_body_hash_is_stable_and_edit_sensitive():
+    body = "# T\n\n## Definition\nA thing.\n"
+    assert page_body_hash(body) == page_body_hash(body + "\n\n")  # trailing ws ignored
+    assert page_body_hash(body) != page_body_hash("# T\n\n## Definition\nA different thing.\n")
+
+
+def test_page_body_hash_matches_section_hash_over_whole_body():
+    body = "# T\n\n## Definition\nA thing.\n"
+    assert page_body_hash(body) == section_hash(body)
