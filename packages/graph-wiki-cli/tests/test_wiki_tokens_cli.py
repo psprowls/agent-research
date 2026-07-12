@@ -73,7 +73,7 @@ def test_tokens_command_dry_run_does_not_write(tmp_path, monkeypatch):
     assert page.read_text(encoding="utf-8") == original
 
 
-def test_util_main_uses_graph_io_count_tokens() -> None:
+def test_run_tokens_update_uses_graph_io_count_tokens() -> None:
     """graph_wiki_core.commands.tokens's `count_tokens` binding (used internally
     by run_tokens_update, which util_cli/main.py's `tokens` command now calls)
     is the real graph-io offline tiktoken counter, not a stand-in — every test
