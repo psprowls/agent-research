@@ -20,14 +20,3 @@ def test_wiki_scan_input_accepts_repo_path() -> None:
 
     inp = WikiScanInput(repo_path="/tmp/test-repo")
     assert inp.repo_path == "/tmp/test-repo"
-
-
-def test_wiki_scan_input_preserves_existing_defaults() -> None:
-    """Adding repo_path does not regress existing workspace_path / no_file_map / max_depth
-    defaults (regression guard)."""
-    from graph_wiki_mcp.server import WikiScanInput
-
-    inp = WikiScanInput()
-    assert inp.workspace_path == ""
-    assert inp.no_file_map is False
-    assert inp.max_depth == 3

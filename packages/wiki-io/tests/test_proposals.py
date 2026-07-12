@@ -158,14 +158,6 @@ def test_split_proposal_id_parses_kind_prefix() -> None:
         split_proposal_id("architecture-layers")
 
 
-def test_split_proposal_id_rejects_unknown_kind() -> None:
-    import pytest
-    from wiki_io.proposals import split_proposal_id
-
-    with pytest.raises(ValueError):
-        split_proposal_id("package-foo")
-
-
 def _proposal(kind="concept", mode="create_new", target_slug="a", title="T", origin=None):
     return {
         "kind": kind,

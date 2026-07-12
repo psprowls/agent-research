@@ -8,13 +8,6 @@ from __future__ import annotations
 
 import pytest
 
-
-def test_gateway_access_denied_is_exported_exception():
-    from model_adapter import GatewayAccessDenied
-
-    assert issubclass(GatewayAccessDenied, Exception)
-
-
 GATEWAY_MODEL = "openai/gpt-4o"
 GATEWAY_URL = "https://ai-gateway.vercel.sh/v1"
 
@@ -38,13 +31,6 @@ def _auth_error():
 
     resp = httpx.Response(401, request=httpx.Request("POST", GATEWAY_URL))
     return openai.AuthenticationError(message="invalid key", response=resp, body=None)
-
-
-def test_guarded_chat_openai_subclasses_chatopenai():
-    from langchain_openai import ChatOpenAI
-    from model_adapter.loader import _GuardedChatOpenAI
-
-    assert issubclass(_GuardedChatOpenAI, ChatOpenAI)
 
 
 def test_invoke_wraps_authentication_error_naming_key_and_url(monkeypatch):

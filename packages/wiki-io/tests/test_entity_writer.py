@@ -70,7 +70,6 @@ from hypothesis import given, settings  # noqa: E402
 from hypothesis import strategies as st  # noqa: E402
 from wiki_io.entity_writer import (  # noqa: E402
     STRUCTURAL_KEYS,
-    EntityWriteResult,
     WriteLockHeldError,
     _acquire_scan_lock,
     _append_deletion,
@@ -92,20 +91,6 @@ def test_structural_keys_subset_invariant() -> None:
     assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS)
     # Phase 51 PKGFAM-03: dropped `members` (package_family carrier).
     assert len(STRUCTURAL_KEYS) == 9
-
-
-def test_write_lock_held_error_is_runtime_error() -> None:
-    assert issubclass(WriteLockHeldError, RuntimeError)
-
-
-def test_entity_write_result_defaults() -> None:
-    r = EntityWriteResult()
-    assert r.created == []
-    assert r.updated == []
-    assert r.deleted == []
-    assert r.unchanged == []
-    assert r.needs_narrative == set()
-    assert r.errors == []
 
 
 # ----------------------------------------------------------------------------

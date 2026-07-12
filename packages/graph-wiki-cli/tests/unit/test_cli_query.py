@@ -5,7 +5,6 @@ Requirements covered: CLI-01, CLI-03, CLI-04, CLI-05, CLI-06, CLI-07, CMD-08.
 
 from __future__ import annotations
 
-import inspect
 import json
 import os
 import subprocess
@@ -54,47 +53,6 @@ def test_query_help_exits_zero() -> None:
     assert "--json" in result.stdout
     assert "--no-state-gate" in result.stdout
     assert "--quiet" in result.stdout
-
-
-def test_vault_flag_in_help() -> None:
-    """--workspace flag appears in help output (CLI-05; renamed in Phase 23 WSMCP-02)."""
-    result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "query", "--help"],
-        capture_output=True,
-        text=True,
-        env=_PLAIN_HELP_ENV,
-    )
-    assert result.returncode == 0
-    assert "--workspace" in result.stdout
-
-
-# ---------------------------------------------------------------------------
-# Import / implementation tests
-# ---------------------------------------------------------------------------
-
-
-def test_shared_impl_is_imported_from_commands() -> None:
-    """CLI query delegates to commands.query.run_query, not inline logic (CLI-03)."""
-    from graph_wiki_cli.cli import query
-
-    src = inspect.getsource(query)
-    assert "run_query" in src
-    # The import should be from graph_wiki_core.commands.query
-    import graph_wiki_cli.cli as cli_module
-
-    assert hasattr(cli_module, "run_query"), "run_query must be imported at module level in cli.py"
-
-
-def test_state_gate_flag_present() -> None:
-    """--no-state-gate flag is present in help output and is a no-op for query (CMD-08)."""
-    result = subprocess.run(
-        ["uv", "run", "--package", "graph-wiki-cli", "gw", "query", "--help"],
-        capture_output=True,
-        text=True,
-        env=_PLAIN_HELP_ENV,
-    )
-    assert result.returncode == 0
-    assert "--no-state-gate" in result.stdout
 
 
 # ---------------------------------------------------------------------------

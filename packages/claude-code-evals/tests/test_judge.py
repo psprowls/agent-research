@@ -10,11 +10,6 @@ def _fake_result(text: str) -> JudgeResult:
     return JudgeResult(stdout=text, input_tokens=10, output_tokens=5)
 
 
-def test_get_model_name():
-    judge = ClaudeCodeJudge(model="claude-haiku-4-5-20251001")
-    assert judge.get_model_name() == "claude-haiku-4-5-20251001"
-
-
 def test_generate_returns_stdout():
     judge = ClaudeCodeJudge()
     with patch("claude_code_evals.judge._run_claude_judge", return_value=_fake_result("score: 4")):

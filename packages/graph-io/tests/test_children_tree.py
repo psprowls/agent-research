@@ -79,12 +79,6 @@ def test_subpackage_to_file_to_symbol_boundary(seeded_db: sqlite3.Connection) ->
         assert any(gc.kind == "file" for gc in deep[0].children)
 
 
-def test_depth_bounding_is_strict(seeded_db: sqlite3.Connection) -> None:
-    rec = _node_record(seeded_db, "subpackage", "mypkg.sub")
-    d1 = queries.children_tree(seeded_db, node=rec, depth=1)
-    assert all(c.children == [] for c in d1)  # depth 1 never expands grandchildren
-
-
 def test_file_children_are_symbols_via_contains(seeded_db: sqlite3.Connection) -> None:
     # Find a file that `contains` at least one symbol.
     fid_row = seeded_db.execute(

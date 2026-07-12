@@ -952,6 +952,15 @@ def test_js_npm_dependency_parity_full_monorepo(tmp_path: Path, conn: sqlite3.Co
     assert react_edge is not None, "used_by edge jspkg->react must exist"
     react_edge_attrs = json.loads(react_edge[0]) if react_edge[0] else {}
 
+    # exactly one used_by edge from jspkg to react (COUNT(*), not just presence)
+    react_edge_count = conn.execute(
+        "SELECT COUNT(*) FROM edges e "
+        "JOIN nodes src ON e.src = src.id "
+        "JOIN nodes dst ON e.dst = dst.id "
+        "WHERE e.kind='used_by' AND src.name='jspkg' AND dst.name='react'"
+    ).fetchone()[0]
+    assert react_edge_count == 1
+
     # vitest → dependency node + used_by edge with dev marker
     vitest_row = conn.execute("SELECT name, attrs_json FROM nodes WHERE kind='dependency' AND name='vitest'").fetchone()
     assert vitest_row is not None, "vitest dependency node should be emitted"
@@ -1023,121 +1032,6 @@ def test_js_versions_in_use_aggregates_across_consumers(tmp_path: Path, conn: sq
         "SELECT COUNT(*) FROM edges e JOIN nodes dst ON e.dst = dst.id WHERE e.kind='used_by' AND dst.name='react'"
     ).fetchone()[0]
     assert react_used_by == 2
-
-
-# ============================================================================
-# Quick 260530-k5y Task 2: JS npm dependency emission (RED — added before impl)
-# ============================================================================
-
-
-def test_js_runtime_dep_emits_npm_dependency_node(tmp_path: Path, conn: sqlite3.Connection) -> None:
-    """k5y T2: JS runtime dep → dependency node ecosystem=npm, correct URI, used_by edge."""
-    pkg_dir = tmp_path / "jspkg"
-    pkg_dir.mkdir()
-    (pkg_dir / "package.json").write_text(
-        json.dumps(
-            {
-                "name": "jspkg",
-                "version": "1.0.0",
-                "dependencies": {"react": "^18.2.0"},
-            }
-        )
-    )
-
-    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-
-    dep_row = conn.execute(
-        "SELECT name, attrs_json, uri FROM nodes WHERE kind='dependency' AND name='react'"
-    ).fetchone()
-    assert dep_row is not None, "react dependency node should be emitted"
-    dep_name, attrs_json, uri = dep_row
-    attrs = json.loads(attrs_json)
-    assert attrs["ecosystem"] == "npm"
-    assert attrs["url"] == "https://www.npmjs.com/package/react"
-    assert uri == "dependency:npm/react"
-    assert "^18.2.0" in attrs["versions_in_use"]
-
-    # used_by edge from jspkg to react
-    edge_count = conn.execute(
-        "SELECT COUNT(*) FROM edges e "
-        "JOIN nodes src ON e.src = src.id "
-        "JOIN nodes dst ON e.dst = dst.id "
-        "WHERE e.kind='used_by' AND src.name='jspkg' AND dst.name='react'"
-    ).fetchone()[0]
-    assert edge_count == 1
-
-
-def test_js_dev_dep_edge_carries_dev_marker(tmp_path: Path, conn: sqlite3.Connection) -> None:
-    """k5y T2: devDependencies-only dep → used_by edge with dev=True;
-    runtime dep → used_by edge with dev=False (or marker absent/falsy)."""
-    pkg_dir = tmp_path / "jspkg"
-    pkg_dir.mkdir()
-    (pkg_dir / "package.json").write_text(
-        json.dumps(
-            {
-                "name": "jspkg",
-                "version": "1.0.0",
-                "dependencies": {"react": "^18.2.0"},
-                "devDependencies": {"vitest": "^1.0.0"},
-            }
-        )
-    )
-
-    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-
-    def _edge_attrs(consumer: str, dep: str) -> dict:
-        row = conn.execute(
-            "SELECT e.attrs_json FROM edges e "
-            "JOIN nodes src ON e.src = src.id "
-            "JOIN nodes dst ON e.dst = dst.id "
-            "WHERE e.kind='used_by' AND src.name=? AND dst.name=?",
-            (consumer, dep),
-        ).fetchone()
-        assert row is not None, f"used_by edge {consumer}->{dep} not found"
-        return json.loads(row[0]) if row[0] else {}
-
-    vitest_attrs = _edge_attrs("jspkg", "vitest")
-    react_attrs = _edge_attrs("jspkg", "react")
-    assert vitest_attrs.get("dev") is True, "dev-only dep should carry dev=True"
-    assert not react_attrs.get("dev"), "runtime dep should not carry dev=True"
-
-
-def test_js_internal_workspace_dep_becomes_depends_on_package(tmp_path: Path, conn: sqlite3.Connection) -> None:
-    """k5y T2: JS dep naming a workspace package → depends_on_package edge, no dependency node."""
-    lib_dir = tmp_path / "jslib"
-    lib_dir.mkdir()
-    (lib_dir / "package.json").write_text(json.dumps({"name": "jslib", "version": "1.0.0"}))
-    app_dir = tmp_path / "jspkg"
-    app_dir.mkdir()
-    (app_dir / "package.json").write_text(
-        json.dumps(
-            {
-                "name": "jspkg",
-                "version": "1.0.0",
-                "dependencies": {"jslib": "workspace:*", "react": "^18.2.0"},
-            }
-        )
-    )
-
-    packages.refresh(conn, repo_root=tmp_path, ctx=_CTX)
-
-    # jslib must NOT become a dependency node
-    dep_node_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='jslib'").fetchone()[0]
-    assert dep_node_count == 0, "internal workspace package must not produce a dependency node"
-
-    # depends_on_package edge must exist
-    dop = conn.execute(
-        "SELECT src.name, dst.name FROM edges e "
-        "JOIN nodes src ON e.src = src.id "
-        "JOIN nodes dst ON e.dst = dst.id "
-        "WHERE e.kind='depends_on_package'"
-    ).fetchall()
-    assert len(dop) == 1
-    assert dop[0] == ("jspkg", "jslib")
-
-    # react still gets a dependency node (external dep regression)
-    react_count = conn.execute("SELECT COUNT(*) FROM nodes WHERE kind='dependency' AND name='react'").fetchone()[0]
-    assert react_count == 1
 
 
 # ============================================================================

@@ -44,18 +44,6 @@ def _agent_research_graph_available() -> bool:
 
 
 @pytest.mark.integration
-def test_cg_help_lists_command() -> None:
-    """CLUSTER-04: `gw graph --help` lists domain-clusters."""
-    result = subprocess.run(
-        [*_cg_cmd(), "--help"],
-        capture_output=True,
-        text=True,
-    )
-    assert result.returncode == 0
-    assert "domain-clusters" in result.stdout
-
-
-@pytest.mark.integration
 def test_subcommand_help_exit_zero() -> None:
     """CLUSTER-04: `gw graph domain-clusters --help` exits 0 and shows --hub-threshold."""
     result = subprocess.run(

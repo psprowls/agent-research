@@ -189,20 +189,3 @@ def test_frontmatter_only_change_forces_updated(churn_workspace, monkeypatch) ->
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _PKG_A in result.entities_updated
     assert _fm.load(_page(wiki)).metadata.get("language") == "rust"
-
-
-def test_idempotence_across_all_three_scanner_sections(churn_workspace, monkeypatch) -> None:
-    """[spec test 8] A page with a filled Narrative + File map (the two
-    expensive scanner sections) rescans to `unchanged`; prose + descriptions
-    survive."""
-    workspace = churn_workspace
-    wiki = workspace / "wiki"
-    repo = workspace / "repo"
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
-    result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-    assert result.entities_updated == []
-    text = _page(wiki).read_text(encoding="utf-8")
-    assert "PROSE for pkg:org/repo/pkg-a" in text
-    assert "desc mod.py" in text

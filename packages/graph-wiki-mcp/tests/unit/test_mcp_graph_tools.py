@@ -16,7 +16,6 @@ test_*` functions are auto-detected — no @pytest.mark.asyncio decorator needed
 
 from __future__ import annotations
 
-import inspect
 import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -61,32 +60,6 @@ def fake_ctx():
 # --------------------------------------------------------------------------- #
 # Tool registration
 # --------------------------------------------------------------------------- #
-
-
-def test_three_graph_tools_registered():
-    """The 3 graph_* coroutines are importable and async."""
-    assert callable(graph_build)
-    assert callable(graph_describe)
-    assert callable(graph_query)
-    assert inspect.iscoroutinefunction(graph_build)
-    assert inspect.iscoroutinefunction(graph_describe)
-    assert inspect.iscoroutinefunction(graph_query)
-
-
-def test_wiki_tools_still_registered():
-    """Regression guard: existing wiki_* tools remain wired."""
-    from graph_wiki_mcp.server import (
-        wiki_bootstrap,
-        wiki_ingest,
-        wiki_lint,
-        wiki_log,
-        wiki_ping,
-        wiki_query,
-        wiki_scan,
-    )
-
-    for tool in [wiki_ping, wiki_query, wiki_log, wiki_bootstrap, wiki_scan, wiki_ingest, wiki_lint]:
-        assert callable(tool)
 
 
 # --------------------------------------------------------------------------- #

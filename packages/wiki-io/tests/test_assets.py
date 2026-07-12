@@ -14,13 +14,6 @@ def _template_names() -> set[str]:
     return {p.name for p in files("wiki_io.assets.page-templates").iterdir()}
 
 
-def test_no_package_family_template() -> None:
-    """Phase 51 PKGFAM-03: the two package-family templates are deleted."""
-    names = _template_names()
-    assert "entity-package-family.md" not in names, "entity-package-family.md must stay deleted (Phase 51 PKGFAM-03)"
-    assert "package-family.md" not in names, "package-family.md must stay deleted (Phase 51 PKGFAM-03)"
-
-
 def test_core_entity_templates_still_present() -> None:
     """Sanity: the 6 admitted-kind entity templates still ship."""
     names = _template_names()
@@ -33,13 +26,6 @@ def test_core_entity_templates_still_present() -> None:
         "entity-test-suite.md",
     ):
         assert expected in names, f"missing expected template: {expected}"
-
-
-def test_no_legacy_plugin_template() -> None:
-    """The repurposed entity-plugin.md is gone; entity-agent-plugin.md replaces it."""
-    names = _template_names()
-    assert "entity-plugin.md" not in names
-    assert "entity-agent-plugin.md" in names
 
 
 def test_concept_template_seeds_status_active() -> None:

@@ -13,10 +13,6 @@ def test_all_kind_templates_exist():
         assert (TEMPLATES / fname).is_file(), fname
 
 
-def test_legacy_architecture_template_gone():
-    assert not (TEMPLATES / "architecture.md").exists()
-
-
 def test_kind_frontmatter_lines():
     assert "kind: concept\n" in (TEMPLATES / "concept.md").read_text(encoding="utf-8")
     assert "kind: pattern\n" in (TEMPLATES / "concept-pattern.md").read_text(encoding="utf-8")

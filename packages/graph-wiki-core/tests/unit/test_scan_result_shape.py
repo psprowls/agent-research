@@ -33,19 +33,6 @@ def test_scan_result_field_set_locked():
     assert actual == expected, f"ScanResult field set drift: {expected ^ actual}"
 
 
-def test_scan_result_field_types_locked():
-    fields_by_name = {f.name for f in dataclasses.fields(ScanResult)}
-    # All entity fields are list[str]
-    for name in (
-        "entities_created",
-        "entities_updated",
-        "entities_deleted",
-        "entities_narrated",
-        "entity_errors",
-    ):
-        assert name in fields_by_name
-
-
 def test_scan_result_populated_construction():
     r = ScanResult(
         entities_created=["pkg:foo/bar"],
@@ -55,3 +42,30 @@ def test_scan_result_populated_construction():
     assert r.entities_narrated == ["pkg:foo/bar"]
     # Defaults for unspecified
     assert r.entities_updated == []
+
+
+def test_scan_result_fully_populated_construction_round_trips_all_fields():
+    """Every field populated at once — entity reporting fields have the
+    correct types and hold the exact values passed in."""
+    r = ScanResult(
+        state_gate={"allowed": True, "reason": "clean", "head_commit": "abc123"},
+        entities_created=["pkg:a"],
+        entities_updated=["pkg:b"],
+        entities_deleted=["pkg:c"],
+        entities_narrated=["pkg:a"],
+        entity_errors=["pkg:d: some error"],
+    )
+
+    assert isinstance(r.state_gate, dict)
+    assert isinstance(r.entities_created, list)
+    assert isinstance(r.entities_updated, list)
+    assert isinstance(r.entities_deleted, list)
+    assert isinstance(r.entities_narrated, list)
+    assert isinstance(r.entity_errors, list)
+
+    assert r.entities_created == ["pkg:a"]
+    assert r.entities_updated == ["pkg:b"]
+    assert r.entities_deleted == ["pkg:c"]
+    assert r.entities_narrated == ["pkg:a"]
+    assert r.entity_errors == ["pkg:d: some error"]
+    assert r.state_gate["allowed"] is True

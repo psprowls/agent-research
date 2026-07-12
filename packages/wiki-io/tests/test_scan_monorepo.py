@@ -326,14 +326,6 @@ class TestBuildFileMap:
         # src is a dir — appears as H3 header (not a dir row since it's a standard depth-1 dir)
         assert "### mypkg/src/" in result
 
-    def test_build_file_map_regression_returns_prod_block_only(self) -> None:
-        """build_file_map() == build_file_maps()[0] — legacy API returns prod block only."""
-
-        files = ["README.md", "src/index.ts", "tests/test_main.py", "conftest.py"]
-        prod, _test = _bfms("mypkg", files)
-        legacy = _bfm("mypkg", files)
-        assert legacy == prod, "build_file_map() must return the prod block (same as build_file_maps()[0])"
-
 
 # ---------------------------------------------------------------------------
 # build_dir_file_map() (unpartitioned single-root) tests

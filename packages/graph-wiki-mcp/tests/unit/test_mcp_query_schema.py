@@ -11,14 +11,6 @@ import pytest
 from pydantic import ValidationError
 
 
-def test_wiki_query_tool_registered() -> None:
-    """wiki_query tool is importable and callable (MCP-02)."""
-    from graph_wiki_mcp.server import wiki_query
-
-    assert callable(wiki_query)
-    assert wiki_query.__name__ == "wiki_query"
-
-
 def test_wiki_query_input_default_top_k_is_5() -> None:
     """WikiQueryInput defaults to top_k=5."""
     from graph_wiki_mcp.server import WikiQueryInput

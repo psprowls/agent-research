@@ -46,9 +46,3 @@ def test_kind_group_folds_unknown_into_default():
     assert kind_group({"kind": "bogus"}) == "concept"
     assert kind_group({"kind": "architecture"}) == "architecture"
     assert kind_group({}) == "concept"
-
-
-def test_module_docstring_present():
-    import wiki_io.concept_kinds as m
-
-    assert m.__doc__  # docstring-before-future-import convention

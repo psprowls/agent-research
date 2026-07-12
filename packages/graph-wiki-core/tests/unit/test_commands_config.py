@@ -32,14 +32,6 @@ async def test_set_get_unset_roundtrip(workspace):
     assert (got.value, got.origin) == ("per-task", "default")
 
 
-async def test_get_flags_env_shadowing(workspace, monkeypatch):
-    await run_config_set("state_gate.enabled", "false")
-    # No env counterpart exists for manifest keys today, so shadowing is
-    # observable only on env-only keys; assert the field exists and is None here.
-    got = await run_config_get("state_gate.enabled")
-    assert got.shadows is None
-
-
 async def test_set_env_only_key_refused(workspace):
     with pytest.raises(EnvOnlyKeyError):
         await run_config_set("GRAPH_WIKI_ROUTING_GUARD", "0")

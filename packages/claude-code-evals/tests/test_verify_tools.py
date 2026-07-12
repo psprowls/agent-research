@@ -3,7 +3,6 @@ from __future__ import annotations
 import pytest
 from claude_code_evals.schemas import ToolAssertion
 from claude_code_evals.transcript import ToolCallEvent, Transcript
-from claude_code_evals.verify.base import VerifierBase
 from claude_code_evals.verify.tools import ToolsVerifier, _check_assertion
 from deepeval.test_case import LLMTestCase
 
@@ -196,10 +195,6 @@ def test_verifier_reason_lists_each_failure():
     assert "Skill(skill=~graph-wiki:scan)" in v.reason
     assert "graph-wiki:lint" in v.reason  # near-miss rendered
     assert "Edit" in v.reason
-
-
-def test_verifier_is_a_verifier_base():
-    assert issubclass(ToolsVerifier, VerifierBase)
 
 
 def test_verifier_empty_assertions_passes():

@@ -159,17 +159,6 @@ def test_two_gate_librarian_quality_fail(fixture_wiki_path: Path) -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_synthesizer_now_runs_gate1_after_phase16(fixture_wiki_path: Path) -> None:
-    """Phase 16 D-06: synthesizer is now in ROLES_WITH_DIVERGENCE and runs Gate 1.
-
-    Replaces the prior D-08 "skip Gate 1" assertion. The synthesizer rubric
-    + programmatic checks (SYN-001..SYN-004) were authored in 16-01.
-    """
-    # Phase 16: synthesizer IS in ROLES_WITH_DIVERGENCE
-    assert "synthesizer" in ROLES_WITH_DIVERGENCE
-    assert "code_reader" in ROLES_WITH_DIVERGENCE
-
-
 def test_no_quality_signal_is_unqualified(fixture_wiki_path: Path) -> None:
     """When neither gate has any signal (no metric + no panel), outcome is not qualified.
 

@@ -20,11 +20,3 @@ def test_legacy_vault_path_field_rejected_by_schema() -> None:
 
     with pytest.raises(ValidationError):
         WikiScanInput(**{"vault_path": "/tmp/x"})
-
-
-def test_workspace_path_field_accepted() -> None:
-    """Positive control: the new field name on WikiScanInput is accepted without error."""
-    from graph_wiki_mcp.server import WikiScanInput
-
-    inp = WikiScanInput(workspace_path="/tmp/x")
-    assert inp.workspace_path == "/tmp/x"

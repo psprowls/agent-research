@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import dataclasses
 from datetime import date, timedelta
 from pathlib import Path
 
@@ -531,20 +530,6 @@ def test_run_work_file_updates_index_and_log_when_present(tmp_path: Path) -> Non
     assert call.args[1] == "create"
     assert call.args[2] == "Bootstrapped item"
     assert "work/" in call.kwargs.get("detail", "")
-
-
-def test_work_result_dataclasses_importable() -> None:
-    from graph_wiki_core.commands.work import (
-        WorkArchiveResult,
-        WorkLintResult,
-        WorkRegenResult,
-        WorkStatusResult,
-    )
-
-    assert dataclasses.is_dataclass(WorkLintResult)
-    assert dataclasses.is_dataclass(WorkArchiveResult)
-    assert dataclasses.is_dataclass(WorkStatusResult)
-    assert dataclasses.is_dataclass(WorkRegenResult)
 
 
 # ---------------------------------------------------------------------------
