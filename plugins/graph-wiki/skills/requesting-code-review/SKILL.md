@@ -67,7 +67,7 @@ gw guidance suggest "review this diff" --role review "${path_args[@]}" --slug "$
 
 **3. Dispatch code reviewer subagent:**
 
-Use Task tool with `general-purpose` type, fill template at `code-reviewer.md`
+Use the Agent tool with subagent_type: general-purpose, fill template at `code-reviewer.md`
 
 **Placeholders:**
 - `{DESCRIPTION}` - Brief summary of what you built

@@ -14,7 +14,7 @@ Skills use Claude Code tool names. When you encounter these in a skill, use your
 | `Skill` tool (invoke a skill) | `activate_skill` |
 | `WebSearch` | `google_web_search` |
 | `WebFetch` | `web_fetch` |
-| `Task` tool (dispatch subagent) | `@agent-name` (see [Subagent support](#subagent-support)) |
+| `Agent` tool (dispatch subagent) | `@agent-name` (see [Subagent support](#subagent-support)) |
 
 ## Subagent support
 
@@ -24,11 +24,11 @@ When a skill says to dispatch a named agent type, use `@generalist` with the ful
 
 | Skill instruction | Gemini CLI equivalent |
 |-------------------|----------------------|
-| `Task tool (graph-wiki:implementer)` | `@generalist` with the filled `implementer-prompt.md` template |
-| `Task tool (graph-wiki:spec-reviewer)` | `@generalist` with the filled `spec-reviewer-prompt.md` template |
-| `Task tool (graph-wiki:code-reviewer)` | `@code-reviewer` (bundled agent) or `@generalist` with the filled review prompt |
-| `Task tool (graph-wiki:code-quality-reviewer)` | `@generalist` with the filled `code-quality-reviewer-prompt.md` template |
-| `Task tool (general-purpose)` with inline prompt | `@generalist` with your inline prompt |
+| `Agent tool (graph-wiki:implementer)` | `@generalist` with the filled `implementer-prompt.md` template |
+| `Agent tool (graph-wiki:spec-reviewer)` | `@generalist` with the filled `spec-reviewer-prompt.md` template |
+| `Agent tool (graph-wiki:code-reviewer)` | `@code-reviewer` (bundled agent) or `@generalist` with the filled review prompt |
+| `Agent tool (graph-wiki:code-quality-reviewer)` | `@generalist` with the filled `code-quality-reviewer-prompt.md` template |
+| `Agent tool (general-purpose)` with inline prompt | `@generalist` with your inline prompt |
 
 ### Prompt filling
 

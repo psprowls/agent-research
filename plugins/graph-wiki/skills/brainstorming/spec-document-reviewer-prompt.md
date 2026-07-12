@@ -7,7 +7,7 @@ Use this template when dispatching a spec document reviewer subagent.
 **Dispatch after:** Spec document is written — <workspace>/wiki/work/<slug>/01-design-spec.md in pipeline/auto-file mode, or <workspace>/raw/specs/YYYY-MM-DD-<topic>-design.md in the untracked legacy flow.
 
 ```
-Task tool (general-purpose):
+Agent tool (subagent_type: general-purpose):
   description: "Review spec document"
   prompt: |
     You are a spec document reviewer. Verify this spec is complete and ready for planning.
