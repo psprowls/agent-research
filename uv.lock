@@ -814,23 +814,15 @@ version = "0.1.1"
 source = { editable = "packages/graph-wiki-cli" }
 dependencies = [
     { name = "click" },
-    { name = "graph-io" },
     { name = "graph-wiki-core", extra = ["bedrock"] },
-    { name = "subagent-runtime" },
     { name = "typer" },
-    { name = "wiki-io" },
-    { name = "work-io" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "click", specifier = ">=8.0" },
-    { name = "graph-io", editable = "packages/graph-io" },
     { name = "graph-wiki-core", extras = ["bedrock"], editable = "packages/graph-wiki-core" },
-    { name = "subagent-runtime", editable = "packages/subagent-runtime" },
     { name = "typer", specifier = ">=0.25.1" },
-    { name = "wiki-io", editable = "packages/wiki-io" },
-    { name = "work-io", editable = "packages/work-io" },
 ]
 
 [[package]]

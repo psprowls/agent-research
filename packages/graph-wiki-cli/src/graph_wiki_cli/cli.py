@@ -16,45 +16,45 @@ def _ensure_uv_workspace() -> None:
     """Self-healing uv re-exec for `gw` bootstrap (HYGIENE-09).
 
     When the user invokes ``gw`` (e.g. via a stale shebang or a
-    bare ``python -m graph_wiki_cli.cli`` outside the uv workspace), the
-    `wiki_io` import can fail with ModuleNotFoundError. To recover automatically,
-    walk up from this file's own location (Path(__file__).resolve(), NOT
-    sys.argv[0]) looking for `<ancestor>/packages/wiki-io/pyproject.toml`, then
-    re-exec the current process under
-    ``uv run --project <ancestor>/packages/wiki-io python <sys.argv[0]> <args...>``.
+    bare ``python -m graph_wiki_cli.cli`` outside the uv workspace), required
+    dependencies like `graph_wiki_core` may fail to import with ModuleNotFoundError.
+    To recover automatically, walk up from this file's own location
+    (Path(__file__).resolve(), NOT sys.argv[0]) looking for a uv workspace root
+    (indicated by `packages/wiki-io/pyproject.toml`), then re-exec the current
+    process under ``uv run --project <workspace_root> python <sys.argv[0]> <args...>``.
 
     Loop prevention: GRAPH_WIKI_BOOTSTRAP_REEXEC=1 short-circuits the helper so
-    a second re-exec cannot fire (if wiki_io still fails to import after the
+    a second re-exec cannot fire (if dependencies still fail to import after the
     first re-exec, the original ImportError must surface naturally).
     """
     if os.environ.get("GRAPH_WIKI_BOOTSTRAP_REEXEC"):
         return
     try:
-        import wiki_io  # noqa: F401  — probe only
+        import graph_wiki_core  # noqa: F401  — probe only
 
         return
     except (ImportError, ModuleNotFoundError):
         pass
 
     here = Path(__file__).resolve().parent
-    workspace_pkg: Path | None = None
+    workspace_root: Path | None = None
     candidate = here
     while True:
         marker = candidate / "packages" / "wiki-io" / "pyproject.toml"
         if marker.is_file():
-            workspace_pkg = marker.parent
+            workspace_root = candidate
             break
         if candidate == candidate.parent:
             break
         candidate = candidate.parent
 
-    if workspace_pkg is None:
+    if workspace_root is None:
         return  # let the natural ImportError surface from the import that follows
 
     new_env = {**os.environ, "GRAPH_WIKI_BOOTSTRAP_REEXEC": "1"}
     os.execvpe(
         "uv",
-        ["uv", "run", "--project", str(workspace_pkg), "python", sys.argv[0], *sys.argv[1:]],
+        ["uv", "run", "--project", str(workspace_root), "python", sys.argv[0], *sys.argv[1:]],
         new_env,
     )
 
