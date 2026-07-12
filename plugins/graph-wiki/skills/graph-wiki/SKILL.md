@@ -199,7 +199,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 1. **The code is the source of truth.** If the vault contradicts the code, the code wins — update the vault.
 2. **The LLM never edits file contents in `raw/`.** The only permitted `raw/` write is the post-ingest move to `raw/_archive/<same relative path>`.
-3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archive/`.
+3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/wiki/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archive/`.
 4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; concept pages may also carry `kind: concept | pattern | architecture`; graph-derived `entities/` pages carry `uri`, `kind`, `graph_name`, `last_scan_at` plus per-kind edge/attr keys (the scanner owns their frontmatter) — `title`/`updated` are intentionally absent; the H1 carries the entity name and `last_scan_at` is the freshness signal.
 5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
