@@ -84,7 +84,6 @@ All entity pages live under `entities/` named `<prefix>_<name>[__<6hex>].md`. Th
 
 ```markdown
 ---
-title: <Package Name>
 uri: pkg:org/repo/<name>
 kind: package
 graph_name: <graph-name>
@@ -95,7 +94,6 @@ test_suites: []
 entry_points: []
 language: ""
 version: ""
-updated: <YYYY-MM-DD>
 ---
 
 # <name>
@@ -109,7 +107,7 @@ _(scanner will populate on next scan)_
 | `<file>` | file | — TODO |
 ```
 
-The `## Narrative` section is the only H2 the scanner rewrites (on narrate passes). The `## File map - <name>` section is pre-populated by the scanner with `— TODO` Description placeholders; see the [File map convention](#file-map-convention-apps-and-packages) section for the full table rules.
+The scanner owns three H2s on every entity page — `## Narrative`, `## File map - <name>`, and `## Referenced in wiki` — all regenerated from the graph on every scan (narrative prose fills in only on narrate passes; `## File map - <name>` is pre-populated with `— TODO` Description placeholders even on structural-only scans). `agent_plugin` pages additionally carry template-authoritative scanner-data sections (`## Commands`, `## Agents`, `## Skills`, `## Scripts`, `## Hooks`, `## MCP servers`) that are always regenerated from the graph, never sourced from the on-disk page. Any other hand-added H2 is human-owned and preserved across re-scan. See the [File map convention](#file-map-convention-apps-and-packages) section for the full table rules.
 
 ## 2. Entity page (app)
 
@@ -117,7 +115,6 @@ App entity pages follow the same shape as package pages with the addition of `ap
 
 ```markdown
 ---
-title: <App Name>
 uri: <app-uri>
 kind: app
 graph_name: <graph-name>
@@ -128,7 +125,6 @@ test_suites: []
 entry_points: []
 language: ""
 version: ""
-updated: <YYYY-MM-DD>
 ---
 
 # <name>
@@ -148,7 +144,6 @@ Domain entity pages carry domain-specific scanner-owned keys (`parent_domain`, `
 
 ```markdown
 ---
-title: <Domain Name>
 uri: <domain-uri>
 kind: domain
 graph_name: <graph-name>
@@ -156,7 +151,6 @@ last_scan_at: <YYYY-MM-DD>
 parent_domain: ""
 sub_domains: []
 packages: []
-updated: <YYYY-MM-DD>
 ---
 
 # <name>
@@ -439,7 +433,7 @@ Adopt short-lived JWTs signed by Cognito. Validation in middleware; refresh on t
 
 ## 8. Dependency page
 
-`/graph-wiki:scan` writes one graph-derived dependency page per dep the monorepo touches into `entities/dep_<name>.md`. Two shapes via `kind:` — `package`, `service`. Example below shows `kind: package`; see `wiki-schema.md` for the service variant.
+`/graph-wiki:scan` writes one graph-derived dependency page per dep the monorepo touches into `entities/dep_<name>.md`, using the scanner-owned `entity-dependency.md` template shape (`uri`, `kind: dependency`, `graph_name`, `last_scan_at`, `ecosystem`, `used_by`, `versions_in_use`). The `kind: package | service` example below is a **legacy curated-page shape** gated behind the opt-in `dependency_layer` lint group (`python scripts/lint_wiki.py --check dependency_layer`) — it is not what the scanner writes. See `wiki-schema.md` for the `kind: service` variant.
 
 ```markdown
 ---
@@ -500,9 +494,7 @@ One paragraph: what this library does, why we use it, which surfaces.
 
 Unified namespace for everything "to do, doing, or done" — bugs, tech debt, test gaps, security/perf items, features, initiatives, spikes. `kind:` discriminates; a single 7-state lifecycle covers all. The committed plan lives in a `## Plan` markdown table. Slugs are `<YYYY-MM-DD>-<kind>-<w1>-<w2>-<w3>-<w4>.md`, where the 4 words are filer-supplied via `gw work file --slug-words` (falling back to the first 4 words of the title when omitted); children filed under a parent epic get `epic-<kind>` instead of `<kind>`. No migration — pre-existing pages keep their old `<YYYY-MM-DD>-<short-slug>.md` filenames.
 
-`graph-wiki` owns the schema, template, folder, lifecycle lint, and `<workspace>/work/.work-index.json` sidecar.
-
-> **Note:** The work-layer subsystem (archive, regen-index, status commands) is not ported in graph-wiki v1.2. This note applies when/if work-layer support is added in a future version.
+`graph-wiki` owns the schema, template, folder, lifecycle lint, and `<workspace>/wiki/work-index.json` sidecar.
 
 Bug-shaped example (`kind: bug`):
 
