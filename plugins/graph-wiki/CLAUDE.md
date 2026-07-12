@@ -62,10 +62,10 @@ The shim under that path resolves the implementation from `wiki_io` via the `uv`
 
 ## Wiki layout invariants
 
-The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; the repo-side `.graph-wiki.local.yaml` `workspace-directory` pointer is dead — `GRAPH_WIKI_WORKSPACE`, normally injected via the repo's `.claude/settings.local.json` env block, is the only external-workspace pointer). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
+The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; the repo-side `.graph-wiki.local.yaml` `workspace-directory` pointer is dead — `GRAPH_WIKI_WORKSPACE`, normally injected via the repo's `.claude/settings.local.json` env block, is the only external-workspace pointer). The Obsidian vault opens at the workspace root, so `<workspace>/raw/` and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it. `<workspace>/work/` is the exception: it lives at `<workspace>/wiki/work/`, nested under `wiki/`, so `[[work/foo]]` wikilinks resolve the same way as other wiki pages.
 
 - `<workspace>/raw/` — staging inbox for sources. The LLM never edits file contents here; a successful ingest moves the source to `raw/_archive/<same relative path>`. Owned by `workspace_io`.
-- `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
+- `<workspace>/wiki/work/` — unified work tracker, nested under `wiki/` (not a workspace-root sibling). Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
 - `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. Architecture syntheses live in `concepts/` as pages with `kind: architecture`.
 - `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are written by `init_vault` and carry the wiki schema + conventions for the host tool. They are not derived from the repo's folder shape — entity discovery is purely graph-driven, so nothing about the repo's structure is pinned into them.
 
@@ -87,7 +87,7 @@ These are load-bearing for the skill's contract — preserve them when editing s
 
 Slash commands and agents are namespaced by plugin name automatically:
 
-- Commands: `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log`
+- Commands: `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log`, `/graph-wiki:file`, `/graph-wiki:archive`, `/graph-wiki:regen-index`, `/graph-wiki:status`, `/graph-wiki:next`, `/graph-wiki:proposals`, `/graph-wiki:onboard`, `/graph-wiki:gate-check`, `/graph-wiki:specify-gate`
 - Agents: `graph-wiki:ingestor`, `graph-wiki:librarian`, `graph-wiki:linter`, `graph-wiki:scanner`
 
 Don't try to encode the namespace into command or agent filenames — Claude Code adds it automatically from the plugin name in `.claude-plugin/plugin.json`.
