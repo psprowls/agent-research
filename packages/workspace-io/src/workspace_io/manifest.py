@@ -9,7 +9,6 @@ import yaml
 _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
 _KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
-_KNOWN_GUIDANCE_KEYS = {"enabled"}
 _KNOWN_GRAPH_KEYS = {"domains", "resources", "resource_matchers"}
 _KNOWN_WORKFLOW_KEYS = {"commit_strategy", "model_routing"}
 _VALID_COMMIT_STRATEGIES = {"per-task", "at-end"}
@@ -82,22 +81,6 @@ def read(path: Path) -> dict:
         if not all(isinstance(b, str) for b in branches):
             raise RuntimeError(f"{path}: state_gate.branches must contain only strings")
         raw["state_gate"] = {"enabled": enabled, "branches": branches}
-    # Validate and normalise the optional [guidance] block. Always returns
-    # {"enabled": bool}; defaults to disabled when absent — guidance is opt-in,
-    # deliberately unlike state_gate (which defaults on).
-    guidance = raw.get("guidance")
-    if guidance is None:
-        raw["guidance"] = {"enabled": False}
-    else:
-        if not isinstance(guidance, dict):
-            raise RuntimeError(f"{path}: 'guidance' must be a mapping, got {type(guidance).__name__}")
-        unknown = set(guidance.keys()) - _KNOWN_GUIDANCE_KEYS
-        if unknown:
-            raise RuntimeError(f"{path}: unknown keys in guidance block: {sorted(unknown)}")
-        enabled = guidance.get("enabled", False)
-        if not isinstance(enabled, bool):
-            raise RuntimeError(f"{path}: guidance.enabled must be a bool, got {type(enabled).__name__}")
-        raw["guidance"] = {"enabled": enabled}
     # Validate and normalise the optional [graph] block. Always returns
     # {"domains": {...}, "resources": {...}}; absent → both empty. Mirrors the
     # plugin / state_gate normalization style.
@@ -209,12 +192,6 @@ def write(path: Path, data: dict) -> None:
     if state_gate is not None:
         if state_gate.get("enabled", True) is not True or state_gate.get("branches", ["main"]) != ["main"]:
             payload["state_gate"] = state_gate
-    guidance = data.get("guidance")
-    if guidance is not None:
-        # Only `enabled: true` is worth persisting — False is the default and
-        # read() re-injects it, so writing it would be pure churn.
-        if guidance.get("enabled", False) is True:
-            payload["guidance"] = guidance
     graph = data.get("graph")
     if graph is not None:
         graph_payload = {}
@@ -266,17 +243,6 @@ def read_state_gate(manifest_path: Path) -> tuple[bool, list[str]]:
     """
     block = read(manifest_path).get("state_gate") or {"enabled": True, "branches": ["main"]}
     return block["enabled"], block["branches"]
-
-
-def read_guidance(manifest_path: Path) -> bool:
-    """Return whether `gw next` guidance is enabled for the workspace.
-
-    Opt-in: defaults to False when the manifest is missing or carries no
-    `guidance` block. Mirrors `read_state_gate()` — a thin read-only accessor
-    that does not mutate disk.
-    """
-    block = read(manifest_path).get("guidance") or {"enabled": False}
-    return block["enabled"]
 
 
 def read_graph_domains(manifest_path: Path) -> dict[str, dict]:
