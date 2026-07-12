@@ -14,6 +14,18 @@ from typer.testing import CliRunner
 runner = CliRunner()
 
 
+@pytest.fixture(autouse=True)
+def guidance_on(request):
+    """Every test in this module except the disabled-workspace one exercises the
+    guidance path; pin the config gate open so they do not depend on the ambient
+    workspace manifest."""
+    if request.node.name == "test_next_omits_guidance_when_disabled":
+        yield
+        return
+    with patch("graph_wiki_cli.cli.guidance_enabled", return_value=True):
+        yield
+
+
 def test_next_json_merges_guidance():
     wn = WorkNextResult(
         slug="wi",
@@ -152,6 +164,31 @@ def test_next_file_empty_string_skips_write():
     payload = json.loads(res.stdout)
     assert payload["guidance_file"] is None
     assert guidance.call_args.kwargs["file"] == ""
+
+
+def test_next_omits_guidance_when_disabled():
+    """Workspace has not opted in → no guidance work is done at all."""
+    wn = WorkNextResult(
+        slug="wi",
+        status="open",
+        kind="feature",
+        phase="plan",
+        action={"skill": "writing-plans", "reason": "r"},
+    )
+    with (
+        patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)),
+        patch("graph_wiki_cli.cli.guidance_enabled", return_value=False),
+        patch("graph_wiki_cli.cli.run_next_guidance", new=AsyncMock()) as guidance,
+    ):
+        res = runner.invoke(app, ["next", "wi", "--json"])
+    assert res.exit_code == 0
+    guidance.assert_not_called()
+    payload = json.loads(res.stdout)
+    assert payload["guidance"] == []
+    assert payload["guidance_warnings"] == []
+    assert payload["guidance_file"] is None
+    # The routing envelope is unaffected by the gate.
+    assert payload["action"]["skill"] == "writing-plans"
 
 
 def test_advance_passthrough():

@@ -78,7 +78,11 @@ from graph_wiki_core.commands.ingest import (  # noqa: E402
 )
 from graph_wiki_core.commands.init import run_init  # noqa: E402
 from graph_wiki_core.commands.lint_all import run_lint_all  # noqa: E402
-from graph_wiki_core.commands.next_guidance import guidance_eligible, run_next_guidance  # noqa: E402
+from graph_wiki_core.commands.next_guidance import (  # noqa: E402
+    guidance_eligible,
+    guidance_enabled,
+    run_next_guidance,
+)
 from graph_wiki_core.commands.query import run_query  # noqa: E402
 from graph_wiki_core.commands.scan import run_scan  # noqa: E402
 from graph_wiki_core.commands.work import run_work_advance, run_work_next  # noqa: E402
@@ -560,7 +564,7 @@ def next_cmd(
     guidance: list[dict] = []
     guidance_warnings: list[str] = []
     guidance_file: str | None = None
-    if guidance_eligible(wn):
+    if guidance_enabled(workspace_path) and guidance_eligible(wn):
         ng = asyncio.run(
             run_next_guidance(
                 slug,
