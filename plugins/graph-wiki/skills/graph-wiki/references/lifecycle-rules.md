@@ -3,7 +3,7 @@
 The 29 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
 plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 
-> **Note:** The work-layer subsystem (archive, regen-index, status commands) is not ported in graph-wiki v1.2. This reference doc is retained for parity with upstream; the rules apply when/if work-layer support is added in a future version.
+> **Note:** These rules are live — run by `/graph-wiki:lint` (mechanical pass) and `gw work lint`, against every `wiki/work/*.md` item plus the sidecar.
 
 ## Schema-shape (3)
 
