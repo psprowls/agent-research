@@ -20,8 +20,10 @@ def _ensure_uv_workspace() -> None:
     dependencies like `graph_wiki_core` may fail to import with ModuleNotFoundError.
     To recover automatically, walk up from this file's own location
     (Path(__file__).resolve(), NOT sys.argv[0]) looking for a uv workspace root
-    (indicated by `packages/wiki-io/pyproject.toml`), then re-exec the current
-    process under ``uv run --project <workspace_root> python <sys.argv[0]> <args...>``.
+    (indicated by `packages/wiki-io/pyproject.toml` — any `packages/*/pyproject.toml`
+    would do as an anchor; wiki-io's is used here as an arbitrary, still-valid
+    marker, unrelated to what's actually being probed for above), then re-exec the
+    current process under ``uv run --project <workspace_root> python <sys.argv[0]> <args...>``.
 
     Loop prevention: GRAPH_WIKI_BOOTSTRAP_REEXEC=1 short-circuits the helper so
     a second re-exec cannot fire (if dependencies still fail to import after the
@@ -52,6 +54,11 @@ def _ensure_uv_workspace() -> None:
         return  # let the natural ImportError surface from the import that follows
 
     new_env = {**os.environ, "GRAPH_WIKI_BOOTSTRAP_REEXEC": "1"}
+    # Not exercised by the test suite — GRAPH_WIKI_BOOTSTRAP_REEXEC unset means
+    # graph_wiki_core already imports cleanly inside any uv-synced test venv, so
+    # this call is only reachable in a genuine cold-start. Verified manually via
+    # simulated broken-env testing during 2026-07-05-thin-the-delivery-surfaces-
+    # route-graph-wiki-cli-and-subagent-cli-through-graph-wiki-core.
     os.execvpe(
         "uv",
         ["uv", "run", "--project", str(workspace_root), "python", sys.argv[0], *sys.argv[1:]],
