@@ -33,7 +33,7 @@ Code comments go stale. README files rot. Architecture diagrams drift from reali
 
 ## Architecture
 
-The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The workspace defaults to `<repo>/graph-wiki/` and is discovered automatically via `workspace_io` (override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (external-source inbox — articles, specs, PRs, tickets dropped in for ingest; ingested sources move to `raw/_archive/`) and `work/` (unified work tracker — each item's page plus a per-item `work/<slug>/` working directory collecting its spec, plan, guidance bundles, and transcripts as it moves through the pipeline) are siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
+The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The workspace defaults to `<repo>/graph-wiki/` and is discovered automatically via `workspace_io` (override by setting `GRAPH_WIKI_WORKSPACE` — normally injected via the repo's `.claude/settings.local.json` env block; there is no workspace-path key inside `.graph-wiki.yaml` itself). The Obsidian vault opens at `<workspace>/`, so `raw/` (external-source inbox — articles, specs, PRs, tickets dropped in for ingest; ingested sources move to `raw/_archive/`) is a sibling of `wiki/`, owned by `workspace_io`. `work/` (unified work tracker — each item's page plus a per-item `work/<slug>/` working directory collecting its spec, plan, guidance bundles, and transcripts as it moves through the pipeline) lives at `<workspace>/wiki/work/` — nested under `wiki/`, not a workspace-root sibling, so `[[work/foo]]` wikilinks resolve against the same vault-relative base as `[[concepts/foo]]`; schema owned by `workspace_io`, lifecycle owned by this plugin.
 
 ```
 <repo>/graph-wiki/              # workspace; Obsidian vault opens here
@@ -46,14 +46,15 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. The works
 │   ├── tickets/                # Linear / Jira / GitHub issue exports
 │   ├── transcripts/            # meeting / design-session notes
 │   └── assets/                 # images, diagrams referenced by sources
-├── work/                       # unified work tracker (owned by workspace_io)
-│   ├── <slug>.md               # the work-item page (flat)
-│   └── <slug>/                 # per-item working dir: 01-design-spec.md, 02-plan-plan.md,
-│                                # NN-<phase>-guidance.md, transcripts, result stubs
 ├── knowledge/                  # other plugin-managed knowledge stores
 └── wiki/                       # this plugin's curated knowledge base
     ├── index.md                # Content catalog (LLM updates every ingest/scan)
     ├── log.md                  # Append-only timeline
+    ├── work-index.json         # work-tracker sidecar (regenerated; never hand-edit)
+    ├── work/                   # unified work tracker (owned by workspace_io)
+    │   ├── <slug>.md           # the work-item page (flat)
+    │   └── <slug>/             # per-item working dir: 01-design-spec.md, 02-plan-plan.md,
+    │                           # NN-<phase>-guidance.md, transcripts, result stubs
     ├── entities/               # One graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, agent-plugin_*, *_tests_*)
     ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
@@ -69,7 +70,7 @@ Every workspace package, app, and domain — plus the repository, external depen
 
 ## Four core operations
 
-1. **Scan** — build the code graph and render one page per admitted entity into `entities/` (structural-only: `## Narrative` placeholder + `— TODO` file-map rows). See `references/scan-workflow.md`.
+1. **Scan** — build the code graph and render one page per admitted entity into `entities/`; the default scan then fills prose via a commit-gated **emit → fan-out → apply** pipeline (`## Narrative`, file/dir descriptions, `## Purpose`/`## Public API`). A bare `--no-narrate` invocation is the mechanical structural-only fast path (`## Narrative` placeholder + `— TODO` file-map rows). See `references/scan-workflow.md`.
 2. **Ingest** — read a source from `raw/` (article, spec, PR, transcript), discuss takeaways, write a source summary, update 5-15 relevant pages, update index, append to log. PDF/DOCX support is deferred — see `references/ingest-workflow.md` "Future formats". See `references/ingest-workflow.md`.
 3. **Query** — read `index.md`, drill into 3-10 pages, synthesize with inline `[[wikilinks]]`, offer to file the answer back. See `references/query-workflow.md`.
 4. **Lint** — health check including **code-drift detection**: packages on disk missing from the vault, vault pages referencing deleted/renamed packages, stale package summaries whose exports have changed. See `references/lint-workflow.md`.
@@ -105,8 +106,17 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 | `/graph-wiki:scan` | Build the code graph; create/update/delete one `entities/` page per admitted entity |
 | `/graph-wiki:ingest <path>` | Read a source from `raw/`, discuss, update vault, log it |
 | `/graph-wiki:query <question>` | Search vault, synthesize answer with citations, offer to file back |
-| `/graph-wiki:lint` | Health check — orphans, broken links, stale claims, **code drift** |
+| `/graph-wiki:lint` | Health check — orphans, broken links, stale claims, **code drift**, and 29 work-layer lint rules |
 | `/graph-wiki:log` | Show recent log entries (uses unix tools on `log.md`) |
+| `/graph-wiki:file` | Interactively file a new work item (`gw work file`) |
+| `/graph-wiki:archive` | Archive terminal-status work items (`gw work archive`) |
+| `/graph-wiki:regen-index` | Rebuild `wiki/work-index.json` from `wiki/work/*.md` |
+| `/graph-wiki:status` | One-screen work item rollup (`gw work status`) |
+| `/graph-wiki:next` | Drive a work item to its next pipeline stage (`gw work next`/`advance`) |
+| `/graph-wiki:proposals` | Review/accept/reject/supersede curated-page proposals |
+| `/graph-wiki:onboard` | Guided setup for optional workflow features (`gw config init`) |
+| `/graph-wiki:gate-check` | Run the user-gate "do I know HOW?" self-check and capture verification evidence |
+| `/graph-wiki:specify-gate` | Lock down verification mechanics for an ambiguous user-gate task |
 
 ## Sub-agents
 
@@ -176,8 +186,8 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 - `references/obsidian-setup.md` — Obsidian plugins, hotkeys, vault config
 - `references/cross-tool-setup.md` — per-tool setup (Codex, Cursor, Antigravity, etc.)
 - `references/monorepo-principles.md` — why this pattern works for code, how it differs from the generic LLM Wiki
-- `references/lifecycle-rules.md` — the 19 work-layer lint rules with severities and remediation (upstream reference; work-layer not ported in v1.2)
-- `references/sidecar-schema.md` — `work-index.json` schema and stability guarantees (upstream reference)
+- `references/lifecycle-rules.md` — the 29 work-layer lint rules with severities and remediation, run by `/graph-wiki:lint` and `gw work lint`
+- `references/sidecar-schema.md` — `work-index.json` schema and stability guarantees
 
 ## Templates (`assets/`)
 
@@ -189,8 +199,8 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 1. **The code is the source of truth.** If the vault contradicts the code, the code wins — update the vault.
 2. **The LLM never edits file contents in `raw/`.** The only permitted `raw/` write is the post-ingest move to `raw/_archive/<same relative path>`.
-3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archive/`.
-4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; concept pages may also carry `kind: concept | pattern | architecture`; graph-derived `entities/` pages carry `title`, `uri`, `kind`, `updated` (the scanner owns their frontmatter).
+3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/wiki/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archive/`.
+4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; concept pages may also carry `kind: concept | pattern | architecture`; graph-derived `entities/` pages carry `uri`, `kind`, `graph_name`, `last_scan_at` plus per-kind edge/attr keys (the scanner owns their frontmatter) — `title`/`updated` are intentionally absent; the H1 carries the entity name and `last_scan_at` is the freshness signal.
 5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
 6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
 7. **Good query answers get filed back** — explorations compound.

@@ -74,7 +74,7 @@ Not every query wants a markdown answer. Offer the user:
 - **Markdown page** (default) — filed back as a wiki page
 - **Dependency list / usage table** — for "who uses X" questions, derived from package frontmatter + scan data
 - **Comparison table** — for "A vs B"
-- **Marp slide deck** — via `uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/export_marp.py` on the synthesis page
+- **Marp slide deck** — not currently implemented; if asked, say so and offer a plain markdown synthesis instead
 - **Chart (matplotlib)** — for data-driven questions; save to `<workspace>/wiki/assets/charts/`
 
 ## Anti-patterns

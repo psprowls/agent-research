@@ -1,6 +1,6 @@
 ---
 name: linter
-description: Dispatched sub-agent that runs a health check on a Code Wiki. Mechanical checks via scripts (orphans, broken links, stale pages, missing frontmatter, duplicate titles, log gaps, CODE DRIFT), semantic checks (contradictions vault↔vault and vault↔code, stale claims, concept gaps, issue/ticket sync, roadmap staleness, ADR chain health, cross-reference gaps, index drift), and produces a markdown report with suggested actions. Spawn weekly, after batch ingests, after /graph-wiki:scan, or when the user says "lint the wiki" / "check the wiki".
+description: Dispatched sub-agent that runs a health check on a Code Wiki. Mechanical checks via scripts (orphans, broken links, stale pages, missing frontmatter, duplicate titles, log gaps, CODE DRIFT), semantic checks (contradictions vault↔vault and vault↔code, stale claims, concept gaps, ADR chain health, cross-reference gaps, index drift), mechanical work-lifecycle checks (29 rules over `wiki/work/*.md`), and produces a markdown report with suggested actions. Spawn weekly, after batch ingests, after /graph-wiki:scan, or when the user says "lint the wiki" / "check the wiki".
 skills: [graph-wiki]
 domain: engineering
 model: opus
@@ -55,8 +55,6 @@ Any of the last five may fail-soft as `{"error": "<msg>"}` — report the error 
 - **Contradictions (vault↔code)** — spot-check recently-touched `entities/pkg_<name>.md` / `entities/app_<name>.md` pages against current code
 - **Stale claims** — are stale-flagged pages likely outdated by recent PRs or code changes?
 - **Concept gaps** — grep for concept-shaped phrases across 3+ pages without a dedicated page
-- **Issue / ticket sync** — every open `issues/*.md` should have `related_tickets`; tickets in `sources/*-ticket.md` should appear on some issue page
-- **Roadmap staleness** — `target:` past and `status: in-progress` → flag; all milestones done but status not closed → flag
 - **ADR chain health** — `supersedes:` / `superseded_by:` pointing to existing IDs; `status: deprecated` should have a reason
 - **Cross-reference gaps** — plain-text mentions of packages/domains/deps that should be wikilinks
 - **Index drift** — `index.md` vs. actual vault contents
@@ -85,7 +83,6 @@ The report MUST be structured as:
 - <N> orphan vault pages
 - <N> broken links
 - <N> stale pages
-- <N> roadmap pages past target, still in-progress: <names>
 - <N> concept gaps (mentioned across 3+ pages)
 - <N> ADR chain issues
 
@@ -93,7 +90,7 @@ The report MUST be structured as:
 1. Run `/graph-wiki:scan` to stub <package> and <package>
 2. Re-run `/graph-wiki:scan` — it deletes the entity page for `<old-pkg>` automatically when its graph node is gone
 3. Re-run `/graph-wiki:scan` to refresh `entities/pkg_<pkg>.md` graph-derived frontmatter from current code
-4. Revise target date on `[[roadmap/<slug>]]` or close it
+4. Revise `target:` on `[[work/<slug>]]` or update its `status`
 5. Create concept pages for: <names>
 6. Fix broken link in `[[<page>]]`
 

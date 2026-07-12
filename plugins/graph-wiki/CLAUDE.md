@@ -10,7 +10,7 @@ plugins/graph-wiki/
 ├── skills/
 │   └── graph-wiki/           # maintainer skill: SKILL.md + references/ + scripts/
 ├── agents/                   # ingestor, librarian, linter, scanner
-└── commands/                 # bootstrap, scan, ingest, query, lint, log
+└── commands/                 # bootstrap, scan, ingest, query, lint, log, file, archive, regen-index, status, next, proposals, onboard, gate-check, specify-gate
 ```
 
 ## Source-of-truth split with `packages/wiki-io/` and `packages/graph-wiki-cli/`
@@ -62,10 +62,10 @@ The shim under that path resolves the implementation from `wiki_io` via the `uv`
 
 ## Wiki layout invariants
 
-The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; the repo-side `.graph-wiki.local.yaml` `workspace-directory` pointer is dead — `GRAPH_WIKI_WORKSPACE`, normally injected via the repo's `.claude/settings.local.json` env block, is the only external-workspace pointer). The Obsidian vault opens at the workspace root, so `<workspace>/raw/`, `<workspace>/work/`, and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it.
+The wiki lives at `<workspace>/wiki/`. The workspace path is resolved by `workspace_io` (defaults to `<repo>/graph-wiki/`; the repo-side `.graph-wiki.local.yaml` `workspace-directory` pointer is dead — `GRAPH_WIKI_WORKSPACE`, normally injected via the repo's `.claude/settings.local.json` env block, is the only external-workspace pointer). The Obsidian vault opens at the workspace root, so `<workspace>/raw/` and `<workspace>/knowledge/` (managed by `workspace_io` and other plugins) are siblings of `<workspace>/wiki/`, not subdirectories of it. `<workspace>/work/` is the exception: it lives at `<workspace>/wiki/work/`, nested under `wiki/`, so `[[work/foo]]` wikilinks resolve the same way as other wiki pages.
 
 - `<workspace>/raw/` — staging inbox for sources. The LLM never edits file contents here; a successful ingest moves the source to `raw/_archive/<same relative path>`. Owned by `workspace_io`.
-- `<workspace>/work/` — unified work tracker. Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
+- `<workspace>/wiki/work/` — unified work tracker, nested under `wiki/` (not a workspace-root sibling). Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
 - `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. Architecture syntheses live in `concepts/` as pages with `kind: architecture`.
 - `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are written by `init_vault` and carry the wiki schema + conventions for the host tool. They are not derived from the repo's folder shape — entity discovery is purely graph-driven, so nothing about the repo's structure is pinned into them.
 
@@ -79,7 +79,7 @@ These are load-bearing for the skill's contract — preserve them when editing s
 
 1. The code is the source of truth. If the vault contradicts the code, update the vault.
 2. The LLM never edits file contents under `<workspace>/raw/`; all LLM writes for the wiki go under `<workspace>/wiki/`. Single exception: after a successful ingest the source is *moved* to `<workspace>/raw/_archive/<same relative path>`.
-3. Every vault page has YAML frontmatter with `title`, `category`, `summary`, `updated`.
+3. Every vault page has YAML frontmatter. Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; graph-derived `entities/` pages carry `uri`, `kind`, `graph_name`, `last_scan_at` plus per-kind keys instead — `title`/`updated` are intentionally absent, the H1 carries the display name.
 4. Every ingest or scan touches ≥3 files: the changed/new page(s), `index.md`, `log.md`.
 5. Every claim on a package/domain page cites either a source page (`[[sources/xxx]]`) or a code path.
 
@@ -87,7 +87,7 @@ These are load-bearing for the skill's contract — preserve them when editing s
 
 Slash commands and agents are namespaced by plugin name automatically:
 
-- Commands: `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log`
+- Commands: `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log`, `/graph-wiki:file`, `/graph-wiki:archive`, `/graph-wiki:regen-index`, `/graph-wiki:status`, `/graph-wiki:next`, `/graph-wiki:proposals`, `/graph-wiki:onboard`, `/graph-wiki:gate-check`, `/graph-wiki:specify-gate`
 - Agents: `graph-wiki:ingestor`, `graph-wiki:librarian`, `graph-wiki:linter`, `graph-wiki:scanner`
 
 Don't try to encode the namespace into command or agent filenames — Claude Code adds it automatically from the plugin name in `.claude-plugin/plugin.json`.

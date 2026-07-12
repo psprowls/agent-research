@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then fills placeholders (`## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API`) via a commit-gated Claude Task-subagent fan-out. A bare / `--no-narrate` invocation runs the mechanical write only.
+Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then fills placeholders (`## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API`) via a commit-gated Claude subagent fan-out. A bare / `--no-narrate` invocation runs the mechanical write only.
 
 ## Inputs
 
@@ -21,7 +21,7 @@ The default scan runs as a three-phase pipeline:
 
 **Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`fill_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`.
 
-**Phase 2 — Fan-out**: read-only Task subagents (one per entity in `fill_tasks`/`drift_tasks`) inspect source files and return structured records — narrative, file/dir descriptions, overview, `## Purpose`/`## Public API`, drift judgements. Subagents are strictly read-only (Read/Grep/Glob only); no page writes happen here.
+**Phase 2 — Fan-out**: read-only subagents (one per entity in `fill_tasks`/`drift_tasks`) inspect source files and return structured records — narrative, file/dir descriptions, overview, `## Purpose`/`## Public API`, drift judgements. Subagents are strictly read-only (Read/Grep/Glob only); no page writes happen here.
 
 **Phase 3 — Apply** (`--apply-worklist <results.json> --short-head <sha>`): injects all structured results, runs the M2c refill-gated anchor stamp, writes M2e `drift_review` flags, regenerates indexes and backlinks, and appends to `log.md`.
 
@@ -45,6 +45,11 @@ Bulleted wikilinks; suggest `/graph-wiki:lint` and `/graph-wiki:ingest` to flesh
 ## Frontmatter contract
 
 Scanner-owned keys (replaced every scan): `uri`, `kind`, `graph_name`, `last_scan_at`, plus per-kind edge/attr keys (`depends_on`, `domains`, `test_suites`, `entry_points`, `language`, `version`, `app_kind`, `app_signals`, `parent_domain`, `sub_domains`, `packages`, `tested_packages`, `suite_kind`, `file_count`, `ecosystem`, `used_by`, `versions_in_use`, `package_count`). Human keys preserved verbatim: `status`, `last_reviewed`, `owner`, `notes`. `summary` is fill-when-empty.
+
+Provenance keys (scanner-stamped but deliberately NOT in `SCANNER_OWNED_KEYS` — preserved verbatim across re-scan):
+- `last_updated_commit` — HEAD at which `## Narrative` was last regenerated; gates commit-driven narrative refresh (Living Wiki M2a).
+- `drift_checked_commit` — HEAD at which the human-section drift judge last evaluated this page's curated sections; prevents re-running the judge against an unchanged page.
+- `drift_propagated_commit` — the entity's `last_updated_commit` value at which M4's drift producer last proposed against curated pages backlinking it; gates the M4 cross-page drift pass (proposal ledger) and keeps repeat runs idempotent.
 
 The state gate (`last_updated_commit` stamping on scan/ingest) is configurable per-workspace via the `state_gate:` block in `<workspace>/.graph-wiki.yaml` (`enabled` + allowed `branches`); absent config gates on a clean `main`. See the workspace-io README for the schema.
 

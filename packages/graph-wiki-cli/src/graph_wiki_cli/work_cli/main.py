@@ -34,7 +34,9 @@ def file(
     title: str = typer.Option(..., "--title", help="Work item title"),
     kind: str = typer.Option(..., "--kind", help="bug|tech-debt|test-gap|security|perf|feature|epic|spike"),
     summary: str = typer.Option(..., "--summary", help="One-line summary (<=100 chars)"),
-    status: str = typer.Option("open", "--status", help="open|accepted|in-progress|done|wont-fix|deferred"),
+    status: str = typer.Option(
+        "open", "--status", help="open|accepted|in-progress|mitigated|resolved|wontfix|superseded"
+    ),
     affects: str = typer.Option("", "--affects", help="Comma-separated paths or package names"),
     severity: str = typer.Option("", "--severity", help="bug|security|perf — blank for feature/epic/spike"),
     effort: str = typer.Option("", "--effort", help="xtra-small|small|medium|large|xtra-large"),

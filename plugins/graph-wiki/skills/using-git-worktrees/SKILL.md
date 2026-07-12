@@ -95,11 +95,11 @@ Follow this priority order. Explicit user preference always beats observed files
    ```
    If found, use it. If both exist, `.worktrees` wins.
 
-3. **Check for a resolved graph-wiki workspace.** Run the shared resolver — it
-   lives in the sibling `shared/` skill directory, so the path is relative to
-   this skill's own directory:
+3. **Check for a resolved graph-wiki workspace.** Run the shared resolver.
+   Because Bash-tool snippets execute against session cwd (not the skill file's
+   location), we must use `${CLAUDE_PLUGIN_ROOT}` for absolute path resolution:
    ```bash
-   workspace="$(bash ../shared/resolve-workspace.sh 2>/dev/null)"
+   workspace="$(bash "${CLAUDE_PLUGIN_ROOT}/skills/shared/resolve-workspace.sh" 2>/dev/null)"
    ```
    If it returns a non-empty path, use `<workspace>/worktrees/<branch>`. The
    workspace lives in a separate sibling directory (not this repo), so generated

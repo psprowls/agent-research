@@ -23,7 +23,7 @@ Default report:
 - **Orphans** — pages with zero inbound `[[wikilinks]]`
 - **Broken links** — wikilinks pointing to non-existent pages
 - **Stale pages** — pages whose `updated:` frontmatter is older than 90 days (tune via `--stale-days`)
-- **Missing frontmatter** — curated pages lacking `title`/`category`/`summary`; `entities/` pages lacking `title`/`uri`/`kind` (entity pages use the scanner-owned frontmatter contract, not `category`/`tokens`)
+- **Missing frontmatter** — curated pages lacking `title`/`category`/`summary`; `entities/` pages lacking `uri`/`kind` (entity pages use the scanner-owned frontmatter contract, not `category`/`tokens`/`title`/`updated`)
 - **Duplicate titles** — two or more pages sharing the same title
 - **Log gap** — no log entry in the last 14 days (tune via `--log-gap-days`)
 - **Code drift** (monorepo-specific) — packages/apps/agent_plugins on disk vs. `entities/` pages in the vault (matched by entity `kind` + `uri`; covers `kind: package`, `kind: app`, and `kind: agent_plugin`; legacy `packages/<slug>/` pages still recognized). Pages declaring `status: planned` in frontmatter are excluded from `orphaned_in_vault` and surfaced separately under `planned_in_vault`, so deliberately seeded pages don't drown the signal.
