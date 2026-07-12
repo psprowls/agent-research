@@ -461,5 +461,80 @@ def test_folded_architecture_concept_page_targets_as_concept(tmp_path):
         changed_files=["a.py"],
     )
     backlink_map = {"pkg_alpha": [("concepts", "project-overview", page)]}
-    targets = _build_targets([cand], backlink_map)
+    targets = _build_targets([cand], backlink_map, tmp_path)
     assert targets[page]["kind"] == "concept"
+
+
+# --- content-hash detection pass (Task 4) ----------------------------------
+
+
+def test_target_page_stamped_on_first_observation(ws, conn, monkeypatch):
+    """A curated page with no content_hash gets last_updated_commit + content_hash
+    stamped to current HEAD the first time propagate_drift sees it."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    page = _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    monkeypatch.setattr(pd, "head_commit", lambda repo: "HEADSHA")
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
+
+    import frontmatter as _fm
+
+    meta = _fm.load(page).metadata
+    assert meta["last_updated_commit"] == "HEADSHA"
+    assert meta["content_hash"]
+
+
+def test_target_page_unchanged_hash_is_not_restamped(ws, conn, monkeypatch):
+    """A page whose stored content_hash already matches its body is left alone —
+    head_commit must not even be called (no needless git subprocess)."""
+    from wiki_io.drift import page_body_hash
+    from wiki_io.entity_writer import update_frontmatter as _uf
+
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    page = _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    import frontmatter as _fm
+
+    body = _fm.load(page).content
+    _uf(page, {"last_updated_commit": "OLDSHA", "content_hash": page_body_hash(body)})
+
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+
+    def _boom(repo):
+        raise AssertionError("head_commit should not be called when content_hash is unchanged")
+
+    monkeypatch.setattr(pd, "head_commit", _boom)
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
+
+    meta = _fm.load(page).metadata
+    assert meta["last_updated_commit"] == "OLDSHA"
+    assert meta["content_hash"] == page_body_hash(body)
+
+
+def test_target_page_hash_mismatch_restamps_both_keys(ws, conn, monkeypatch):
+    """A curated page hand-edited since its last stamp (content_hash mismatch)
+    gets both keys re-stamped to current HEAD."""
+    from wiki_io.drift import page_body_hash
+    from wiki_io.entity_writer import update_frontmatter as _uf
+
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    page = _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    _uf(page, {"last_updated_commit": "STALE", "content_hash": "deadbeef"})  # won't match body
+
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    monkeypatch.setattr(pd, "head_commit", lambda repo: "NEWSHA")
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
+
+    import frontmatter as _fm
+
+    meta = _fm.load(page).metadata
+    assert meta["last_updated_commit"] == "NEWSHA"
+    assert meta["content_hash"] == page_body_hash(_fm.load(page).content)

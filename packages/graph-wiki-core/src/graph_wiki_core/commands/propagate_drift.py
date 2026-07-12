@@ -24,9 +24,9 @@ from typing import TYPE_CHECKING, Any, cast
 import frontmatter
 from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io.backlink_index import build_entity_backlink_map
-from wiki_io.drift import extract_narrative, section_hash
+from wiki_io.drift import CONTENT_HASH_KEY, extract_narrative, page_body_hash, section_hash
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
-from wiki_io.git_state import changed_files_since
+from wiki_io.git_state import changed_files_since, head_commit
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals, upsert_proposal
 from workspace_io.paths import graph_dir
 
@@ -187,19 +187,58 @@ def _page_title(page_path: Path, fallback: str) -> str:
         return fallback
 
 
-def _build_targets(candidates: list[PropagationCandidate], backlink_map: dict) -> dict[Path, dict]:
-    """page_path -> {kind, target_slug, page_path, candidates[]} for curated
-    pages backlinked by a candidate (sources/work filtered out)."""
+def _stamp_curated_page_if_changed(page_path: Path, repo: Path) -> str | None:
+    """M4 content-hash detection pass (spec §2): stamp last_updated_commit +
+    content_hash on a curated (concept/ADR) page when its body-hash differs
+    from the stored content_hash (this covers absent-hash / first observation
+    the same as a real change — both stamp). Returns the page's resulting
+    last_updated_commit (freshly stamped, or the value already on disk when
+    the hash is unchanged or HEAD can't be resolved), or None if there is
+    none yet.
+    """
+    try:
+        post = frontmatter.load(str(page_path))
+    except Exception:  # noqa: BLE001 — a malformed curated page must not abort the pass
+        return None
+    stored_hash = post.metadata.get(CONTENT_HASH_KEY)
+    current_hash = page_body_hash(post.content)
+    if stored_hash is not None and current_hash == stored_hash:
+        return cast(str | None, post.metadata.get(LAST_UPDATED_COMMIT_KEY)) or None
+    sha = head_commit(repo)
+    if sha is None:
+        return cast(str | None, post.metadata.get(LAST_UPDATED_COMMIT_KEY)) or None
+    update_frontmatter(page_path, {LAST_UPDATED_COMMIT_KEY: sha, CONTENT_HASH_KEY: current_hash})
+    return sha
+
+
+def _build_targets(candidates: list[PropagationCandidate], backlink_map: dict, repo: Path) -> dict[Path, dict]:
+    """page_path -> {kind, target_slug, page_path, candidates[], target_last_updated_commit}
+    for curated pages backlinked by a candidate (sources/work filtered out).
+
+    Each newly-seen target page runs the M4 content-hash detection pass
+    (``_stamp_curated_page_if_changed``) before being added — the suppression
+    check in ``run_propagate_drift`` reads ``target_last_updated_commit`` off
+    the resulting entry.
+    """
     targets: dict[Path, dict] = {}
     for c in candidates:
         for category, slug, page_path in backlink_map.get(c.stem, []):
             kind = _CATEGORY_TO_KIND.get(category)
             if kind is None:
                 continue  # sources / work are not drift targets
+            is_new = page_path not in targets
             entry = targets.setdefault(
                 page_path,
-                {"kind": kind, "target_slug": slug, "page_path": page_path, "candidates": []},
+                {
+                    "kind": kind,
+                    "target_slug": slug,
+                    "page_path": page_path,
+                    "candidates": [],
+                    "target_last_updated_commit": None,
+                },
             )
+            if is_new:
+                entry["target_last_updated_commit"] = _stamp_curated_page_if_changed(page_path, repo)
             entry["candidates"].append(c)
     return targets
 
@@ -287,7 +326,7 @@ async def run_propagate_drift(
         else:
             only_target = only
 
-    targets = _build_targets(candidates, build_entity_backlink_map(wiki))
+    targets = _build_targets(candidates, build_entity_backlink_map(wiki), repo)
     if only_target is not None:
         targets = {p: e for p, e in targets.items() if e["target_slug"] == only_target or p.stem == only_target}
 

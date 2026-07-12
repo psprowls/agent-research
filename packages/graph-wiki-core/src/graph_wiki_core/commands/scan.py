@@ -1017,7 +1017,7 @@ def _build_propagate_tasks(
     candidates = propagation_candidates(wiki, repo, reader, repo_paths=repo_paths)
     if not candidates:
         return [], {}, {}
-    targets = _build_targets(candidates, build_entity_backlink_map(wiki))
+    targets = _build_targets(candidates, build_entity_backlink_map(wiki), repo)
     settled = {(rec["kind"], rec["target_slug"]) for rec in list_proposals(wiki) if rec["status"] in HUMAN_DECIDED}
     tasks: list[PropagateTask] = []
     for entry in targets.values():
