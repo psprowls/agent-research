@@ -1,6 +1,6 @@
 ---
 name: lint
-description: Run a health check on the Code Wiki — mechanical (orphans, broken links, stale pages, missing frontmatter, duplicates, log gap), semantic (contradictions, cross-reference gaps, stale claims, roadmap staleness, ADR chain), code-drift (packages on disk vs. in vault, exports mismatch), and work lifecycle (29 rules for work item lifecycle state). Workspace and repo discovered automatically. Usage /graph-wiki:lint [--stale-days N]
+description: Run a health check on the Code Wiki — mechanical (orphans, broken links, stale pages, missing frontmatter, duplicates, log gap), semantic (contradictions, cross-reference gaps, stale claims, ADR chain), code-drift (packages on disk vs. in vault, exports mismatch), and work lifecycle (29 rules for work item lifecycle state). Workspace and repo discovered automatically. Usage /graph-wiki:lint [--stale-days N]
 ---
 
 # /graph-wiki:lint
@@ -34,8 +34,6 @@ Workspace and repo are discovered automatically via `workspace_io`.
 - Contradictions between vault pages and between vault and code
 - Stale claims on recently-touched packages
 - Concepts mentioned across 3+ pages without their own page
-- Issues with no current tickets / tickets with no issue page
-- Roadmap items past target with status still in-progress
 - ADR chain health (supersedes / superseded_by)
 - Cross-reference gaps
 - Index drift
