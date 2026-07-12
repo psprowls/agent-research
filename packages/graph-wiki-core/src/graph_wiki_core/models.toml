@@ -17,11 +17,11 @@ region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 5
 sweep_candidates = [
-  "qwen.qwen3-32b-v1:0",
-  "qwen.qwen3-next-80b-a3b",
-  "deepseek.v3.2",
-  "moonshotai.kimi-k2.5",
-  "zai.glm-5",
+  { model_id = "qwen.qwen3-32b-v1:0", backend = "bedrock" },
+  { model_id = "qwen.qwen3-next-80b-a3b", backend = "bedrock" },
+  { model_id = "deepseek.v3.2", backend = "bedrock" },
+  { model_id = "moonshotai.kimi-k2.5", backend = "bedrock" },
+  { model_id = "zai.glm-5", backend = "bedrock" },
 ]
 
 [roles.code_reader]
@@ -35,11 +35,11 @@ region          = "us-east-1"
 max_tokens      = 2048
 max_concurrency = 3
 sweep_candidates = [
-  "qwen.qwen3-coder-30b-a3b-v1:0",
-  "qwen.qwen3-coder-next",
-  "mistral.devstral-2-123b",
-  "openai.gpt-oss-120b-1:0",
-  "minimax.minimax-m2.5",
+  { model_id = "qwen.qwen3-coder-30b-a3b-v1:0", backend = "bedrock" },
+  { model_id = "qwen.qwen3-coder-next", backend = "bedrock" },
+  { model_id = "mistral.devstral-2-123b", backend = "bedrock" },
+  { model_id = "openai.gpt-oss-120b-1:0", backend = "bedrock" },
+  { model_id = "minimax.minimax-m2.5", backend = "bedrock" },
 ]
 
 [roles.scanner]
@@ -50,11 +50,11 @@ region          = "us-east-1"
 max_tokens      = 500
 max_concurrency = 10
 sweep_candidates = [
-  "openai.gpt-oss-20b-1:0",
-  "zai.glm-4.7-flash",
-  "mistral.ministral-3-14b-instruct",
-  "qwen.qwen3-32b-v1:0",
-  "qwen.qwen3-coder-30b-a3b-v1:0",
+  { model_id = "openai.gpt-oss-20b-1:0", backend = "bedrock" },
+  { model_id = "zai.glm-4.7-flash", backend = "bedrock" },
+  { model_id = "mistral.ministral-3-14b-instruct", backend = "bedrock" },
+  { model_id = "qwen.qwen3-32b-v1:0", backend = "bedrock" },
+  { model_id = "qwen.qwen3-coder-30b-a3b-v1:0", backend = "bedrock" },
 ]
 
 # Phase 45 D-06 — prose-only narrative generation for entity pages.
@@ -78,11 +78,11 @@ region          = "us-east-1"
 max_tokens      = 3000
 max_concurrency = 10
 sweep_candidates = [
-  "us.amazon.nova-lite-v1:0",
-  "qwen.qwen3-32b-v1:0",
-  "openai.gpt-oss-120b-1:0",
-  "minimax.minimax-m2.5",
-  "zai.glm-4.7-flash",
+  { model_id = "us.amazon.nova-lite-v1:0", backend = "bedrock" },
+  { model_id = "qwen.qwen3-32b-v1:0", backend = "bedrock" },
+  { model_id = "openai.gpt-oss-120b-1:0", backend = "bedrock" },
+  { model_id = "minimax.minimax-m2.5", backend = "bedrock" },
+  { model_id = "zai.glm-4.7-flash", backend = "bedrock" },
 ]
 
 [roles.ingestor]
@@ -91,11 +91,11 @@ region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 5
 sweep_candidates = [
-  "qwen.qwen3-32b-v1:0",
-  "openai.gpt-oss-120b-1:0",
-  "minimax.minimax-m2.5",
-  "qwen.qwen3-next-80b-a3b",
-  "moonshotai.kimi-k2.5",
+  { model_id = "qwen.qwen3-32b-v1:0", backend = "bedrock" },
+  { model_id = "openai.gpt-oss-120b-1:0", backend = "bedrock" },
+  { model_id = "minimax.minimax-m2.5", backend = "bedrock" },
+  { model_id = "qwen.qwen3-next-80b-a3b", backend = "bedrock" },
+  { model_id = "moonshotai.kimi-k2.5", backend = "bedrock" },
 ]
 
 [roles.proposal_reasoner]
@@ -194,12 +194,12 @@ region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
 sweep_candidates = [
-  "qwen.qwen3-32b-v1:0",
-  "zai.glm-5",
-  "moonshotai.kimi-k2.5",
-  "deepseek.v3.2",
-  "qwen.qwen3-next-80b-a3b",
-  "moonshot.kimi-k2-thinking",
+  { model_id = "qwen.qwen3-32b-v1:0", backend = "bedrock" },
+  { model_id = "zai.glm-5", backend = "bedrock" },
+  { model_id = "moonshotai.kimi-k2.5", backend = "bedrock" },
+  { model_id = "deepseek.v3.2", backend = "bedrock" },
+  { model_id = "qwen.qwen3-next-80b-a3b", backend = "bedrock" },
+  { model_id = "moonshot.kimi-k2-thinking", backend = "bedrock" },
 ]
 
 # Phase 48 D-19 — LLM proposal for `graph propose-domains`. Separate from

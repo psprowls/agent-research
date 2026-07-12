@@ -75,7 +75,10 @@ def test_ingest_proposal_roles_use_kimi_k25() -> None:
         assert cfg["model_id"] == "moonshotai.kimi-k2.5"
         assert cfg["region"] == "us-east-1"
         assert cfg["max_tokens"] == max_tokens
-        assert "moonshotai.kimi-k2.5" in cfg["sweep_candidates"]
+        # sweep_candidates format varies: in-scope roles use [{model_id, backend}],
+        # out-of-scope roles use [str]. Normalize to model_id list for comparison.
+        candidate_ids = [c["model_id"] if isinstance(c, dict) else c for c in cfg["sweep_candidates"]]
+        assert "moonshotai.kimi-k2.5" in candidate_ids
 
 
 def test_query_orchestrator_role_uses_kimi_k25() -> None:
