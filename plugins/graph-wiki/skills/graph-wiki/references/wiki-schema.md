@@ -4,7 +4,7 @@ The wiki sits inside a graph-wiki workspace alongside other workspace-level dire
 
 ## Layout
 
-The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_io` (defaults to `<repo>/graph-wiki/`; override with `.graph-wiki.yaml`'s workspace path key). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archive/`) and `work/` (work tracker) sit at the workspace root as siblings of `wiki/` — both owned by `workspace_io`, not by this plugin.
+The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_io` (defaults to `<repo>/graph-wiki/`; override by setting the `GRAPH_WIKI_WORKSPACE` env var — there is no workspace-path key inside `.graph-wiki.yaml` itself). The Obsidian vault opens at `<workspace>/`, so `raw/` (source inbox; ingested sources move to `raw/_archive/`) sits at the workspace root as a sibling of `wiki/`, owned by `workspace_io`. `work/` (work tracker) lives at `<workspace>/wiki/work/` — nested under `wiki/`, not a workspace-root sibling — so `[[work/foo]]` wikilinks resolve the same way as `[[concepts/foo]]`; schema owned by `workspace_io`, lifecycle owned by this plugin.
 
 ```
 <repo>/graph-wiki/               # workspace; Obsidian vault opens here
@@ -17,12 +17,12 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 │   ├── tickets/*.md             # issue exports
 │   ├── transcripts/*.md         # meeting and design-session notes
 │   └── assets/                  # images referenced by sources
-├── work/                        # unified bugs, tech debt, features, initiatives, spikes
-│   └── _archive/               # terminal-status items; consider archiving when status is terminal
 ├── knowledge/                   # other plugin-managed knowledge stores
 └── wiki/                        # this plugin's curated knowledge base
     ├── index.md                 # content catalog — updated every ingest/scan
     ├── log.md                   # append-only timeline
+    ├── work/                    # unified bugs, tech debt, features, initiatives, spikes
+    │   └── _archive/            # terminal-status items; consider archiving when status is terminal
     ├── entities/                # one page per graph-derived entity (all kinds)
     │   └── <prefix>_<name>.md   # e.g. pkg_common-aws-node-ts.md, app_web-next-ts.md
     ├── concepts/                # cross-cutting technical concepts; optional kind: concept | pattern | architecture
@@ -40,7 +40,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
 
 1. **The code is the source of truth.** If the wiki disagrees with the code, update the wiki — never the other way around.
 2. **`<workspace>/raw/` contents are read-only.** The LLM never edits, renames within, or deletes staged sources — the single permitted operation is moving a successfully-ingested source to `raw/_archive/<same relative path>`.
-3. **All wiki writes go under `<workspace>/wiki/`.** Work items go to `<workspace>/work/` (owned by `workspace_io`). No exceptions.
+3. **All wiki writes go under `<workspace>/wiki/`.** Work items go to `<workspace>/wiki/work/` (schema owned by `workspace_io`; nested under `wiki/`, not the workspace root). No exceptions.
 4. **Every scan or ingest updates ≥3 files:** the touched page(s), `index.md`, `log.md`. A typical ingest touches 5-15.
 5. **Every wiki page carries YAML frontmatter.** Without frontmatter, index maintenance and `lint_wiki.py` can't see it.
 
@@ -102,7 +102,6 @@ Minimal example (package):
 
 ```yaml
 ---
-title: common-aws-node-ts
 uri: pkg:org/repo/common-aws-node-ts
 kind: package
 graph_name: my-repo
@@ -113,9 +112,10 @@ test_suites: []
 entry_points: []
 language: typescript
 version: "1.0.0"
-updated: 2026-06-01
 ---
 ```
+
+Entity pages carry no `title` or `updated` key — the H1 carries the display name, and `last_scan_at` is the freshness signal.
 
 ### Concept pages
 
@@ -134,7 +134,7 @@ Concepts are cross-cutting technical patterns — naming conventions, middleware
 
 ### Dependency pages
 
-`/graph-wiki:scan` writes one graph-derived dependency page per dep into `entities/dep_<name>.md`. `kind:` discriminates two shapes. `load_bearing: true` is recorded explicitly so lint can flag the load-bearing deps that warrant fuller prose.
+`/graph-wiki:scan` writes one graph-derived dependency page per dep into `entities/dep_<name>.md`, using the scanner-owned shape from `entity-dependency.md` (`uri`, `kind: dependency`, `graph_name`, `last_scan_at`, `ecosystem`, `used_by`, `versions_in_use` — no `category`, `provider`, or `load_bearing`). The `category: dependency` / `kind: package|service` shape below is a **legacy curated-page shape**, hand-authored and checked only by the opt-in `dependency_layer` lint group (`lint/dependency.py`, run via `python scripts/lint_wiki.py --check dependency_layer`); it does not apply to scanner-generated `entities/dep_*.md` pages. `load_bearing: true` is recorded explicitly on these legacy pages so `dependency_layer` can flag load-bearing deps that warrant fuller prose.
 
 **`kind: package`** (e.g., `entities/dep_react.md`):
 
@@ -210,9 +210,7 @@ tags: [location, infrastructure]
 
 The committed plan does **not** live in frontmatter — it's a markdown table under `## Plan` in the body. See [Body-table conventions](#body-table-conventions) below.
 
-The lifecycle lint rules (`accepted-without-plan`, `stuck-open`, `done-when-missing`, etc.) and the `<workspace>/work/.work-index.json` sidecar generator live in **`graph-wiki`** (work_layer group). `workspace_io` creates the `work/` directory. See `references/lint-workflow.md` for what lives where.
-
-> **Note:** The work-layer subsystem is not ported in graph-wiki v1.2. This note applies when/if work-layer support is added in a future version.
+The lifecycle lint rules (`accepted-without-plan`, `stuck-open`, `done-when-missing`, etc.) and the `<workspace>/wiki/work-index.json` sidecar generator live in **`graph-wiki`** (work_layer group). `workspace_io` creates the `work/` directory (nested under `wiki/`). See `references/lint-workflow.md` for what lives where.
 
 #### The `work/_archive/` sub-namespace
 
@@ -223,7 +221,7 @@ same frontmatter, same body convention, same wiki-page semantics —
 but are excluded from:
 
 - base structural lint (`/graph-wiki:lint`)
-- the work-tracker sidecar (`<workspace>/work/.work-index.json`)
+- the work-tracker sidecar (`<workspace>/wiki/work-index.json`)
 - consumer commands that read the sidecar
 
 Items under `_archive/` must already be in a terminal status; the
