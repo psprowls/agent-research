@@ -115,7 +115,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 | `/graph-wiki:next` | Drive a work item to its next pipeline stage (`gw work next`/`advance`) |
 | `/graph-wiki:proposals` | Review/accept/reject/supersede curated-page proposals |
 | `/graph-wiki:onboard` | Guided setup for optional workflow features (`gw config init`) |
-| `/graph-wiki:checking-gates` | Run the user-gate "do I know HOW?" self-check and capture verification evidence |
+| `/graph-wiki:gate-check` | Run the user-gate "do I know HOW?" self-check and capture verification evidence |
 | `/graph-wiki:specify-gate` | Lock down verification mechanics for an ambiguous user-gate task |
 
 ## Sub-agents
