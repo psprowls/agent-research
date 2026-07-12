@@ -176,7 +176,7 @@ git branch -D <feature-branch>
 GIT_DIR=$(cd "$(git rev-parse --git-dir)" 2>/dev/null && pwd -P)
 GIT_COMMON=$(cd "$(git rev-parse --git-common-dir)" 2>/dev/null && pwd -P)
 WORKTREE_PATH=$(git rev-parse --show-toplevel)
-WORKSPACE=$(bash ../shared/resolve-workspace.sh 2>/dev/null)  # path relative to this skill's directory
+WORKSPACE=$(bash "${CLAUDE_PLUGIN_ROOT}/skills/shared/resolve-workspace.sh" 2>/dev/null)
 ```
 
 **If `GIT_DIR == GIT_COMMON`:** Normal repo, no worktree to clean up. Done.
