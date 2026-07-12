@@ -538,3 +538,25 @@ def test_target_page_hash_mismatch_restamps_both_keys(ws, conn, monkeypatch):
     meta = _fm.load(page).metadata
     assert meta["last_updated_commit"] == "NEWSHA"
     assert meta["content_hash"] == page_body_hash(_fm.load(page).content)
+
+
+def test_dry_run_does_not_persist_curated_page_stamp(ws, conn, monkeypatch):
+    """--dry-run must not mutate curated pages on disk either — the M4
+    content-hash stamp is a write like any other and has to honor dry_run
+    the same way write_propagation_findings and the entity-page anchor do."""
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="h2")
+    page = _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    on_disk_before = page.read_text(encoding="utf-8")
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    monkeypatch.setattr(pd, "head_commit", lambda repo: "HEADSHA")
+    _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
+
+    asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn, dry_run=True))
+
+    import frontmatter as _fm
+
+    meta = _fm.load(page).metadata
+    assert "content_hash" not in meta
+    assert "last_updated_commit" not in meta
+    assert page.read_text(encoding="utf-8") == on_disk_before

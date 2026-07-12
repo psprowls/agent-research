@@ -187,7 +187,7 @@ def _page_title(page_path: Path, fallback: str) -> str:
         return fallback
 
 
-def _stamp_curated_page_if_changed(page_path: Path, repo: Path) -> str | None:
+def _stamp_curated_page_if_changed(page_path: Path, repo: Path, *, dry_run: bool = False) -> str | None:
     """M4 content-hash detection pass (spec §2): stamp last_updated_commit +
     content_hash on a curated (concept/ADR) page when its body-hash differs
     from the stored content_hash (this covers absent-hash / first observation
@@ -195,6 +195,11 @@ def _stamp_curated_page_if_changed(page_path: Path, repo: Path) -> str | None:
     last_updated_commit (freshly stamped, or the value already on disk when
     the hash is unchanged or HEAD can't be resolved), or None if there is
     none yet.
+
+    ``dry_run=True`` still computes and returns the sha it WOULD stamp (so
+    callers reading ``target_last_updated_commit`` see dry-run-consistent
+    behavior), but skips the ``update_frontmatter`` write — mirrors every
+    other write in ``run_propagate_drift``, all gated on ``not dry_run``.
     """
     try:
         post = frontmatter.load(str(page_path))
@@ -207,18 +212,22 @@ def _stamp_curated_page_if_changed(page_path: Path, repo: Path) -> str | None:
     sha = head_commit(repo)
     if sha is None:
         return cast(str | None, post.metadata.get(LAST_UPDATED_COMMIT_KEY)) or None
-    update_frontmatter(page_path, {LAST_UPDATED_COMMIT_KEY: sha, CONTENT_HASH_KEY: current_hash})
+    if not dry_run:
+        update_frontmatter(page_path, {LAST_UPDATED_COMMIT_KEY: sha, CONTENT_HASH_KEY: current_hash})
     return sha
 
 
-def _build_targets(candidates: list[PropagationCandidate], backlink_map: dict, repo: Path) -> dict[Path, dict]:
+def _build_targets(
+    candidates: list[PropagationCandidate], backlink_map: dict, repo: Path, *, dry_run: bool = False
+) -> dict[Path, dict]:
     """page_path -> {kind, target_slug, page_path, candidates[], target_last_updated_commit}
     for curated pages backlinked by a candidate (sources/work filtered out).
 
     Each newly-seen target page runs the M4 content-hash detection pass
     (``_stamp_curated_page_if_changed``) before being added — the suppression
     check in ``run_propagate_drift`` reads ``target_last_updated_commit`` off
-    the resulting entry.
+    the resulting entry. ``dry_run`` is threaded straight through so a preview
+    run never persists the stamp (consistent with every other write below it).
     """
     targets: dict[Path, dict] = {}
     for c in candidates:
@@ -238,7 +247,7 @@ def _build_targets(candidates: list[PropagationCandidate], backlink_map: dict, r
                 },
             )
             if is_new:
-                entry["target_last_updated_commit"] = _stamp_curated_page_if_changed(page_path, repo)
+                entry["target_last_updated_commit"] = _stamp_curated_page_if_changed(page_path, repo, dry_run=dry_run)
             entry["candidates"].append(c)
     return targets
 
@@ -326,7 +335,7 @@ async def run_propagate_drift(
         else:
             only_target = only
 
-    targets = _build_targets(candidates, build_entity_backlink_map(wiki), repo)
+    targets = _build_targets(candidates, build_entity_backlink_map(wiki), repo, dry_run=dry_run)
     if only_target is not None:
         targets = {p: e for p, e in targets.items() if e["target_slug"] == only_target or p.stem == only_target}
 
