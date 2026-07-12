@@ -22,9 +22,10 @@ import yaml
 from workspace_io import manifest, paths
 from workspace_io.projection import write_projection
 
-#: Keys that live in <workspace>/.graph-wiki.local.yaml (the machine-local
-#: repo-link file), never the manifest.
-LINK_FILE_KEYS = frozenset({"repo-directory", "multi-repo", "repos-root", "repos", "exclude"})
+#: Hand-edited repo-link keys. Defined in workspace_io.manifest (which
+#: write() must pass through); re-exported here for registry's own
+#: writable-key guard.
+LINK_FILE_KEYS = manifest.LINK_FILE_KEYS
 
 _TRUTHY = {"true", "1", "yes", "on"}
 _FALSY = {"false", "0", "no", "off"}
@@ -208,8 +209,9 @@ def resolve_key(
 def _writable_entry(catalog: Sequence[ConfigEntry], key: str) -> ConfigEntry:
     if key in LINK_FILE_KEYS:
         raise LinkFileKeyError(
-            f"'{key}' lives in <workspace>/.graph-wiki.local.yaml — the machine-local "
-            "repo link file — not the manifest. Edit that file by hand."
+            f"'{key}' is a hand-edited repo-link key — gw config does not write it. "
+            "Edit the manifest, or its <workspace>/.graph-wiki.local.yaml machine-local "
+            "override, by hand."
         )
     if key in ("version", "initialized_at") or key == "plugins" or key.startswith("plugins."):
         raise ProvenanceKeyError(f"'{key}' is tooling-stamped provenance and is not writable via gw config.")

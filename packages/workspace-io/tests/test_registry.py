@@ -119,7 +119,7 @@ def test_refusals(workspace):
         set_key(CATALOG, "GRAPH_WIKI_LOCK_TIMEOUT_MS", "1", workspace=workspace)
     with pytest.raises(SecretKeyError, match="never stored"):
         set_key(CATALOG, "AI_GATEWAY_API_KEY", "sk-x", workspace=workspace)
-    with pytest.raises(LinkFileKeyError, match="link file"):
+    with pytest.raises(LinkFileKeyError, match="repo-link key"):
         set_key(CATALOG, "repo-directory", "/x", workspace=workspace)
     with pytest.raises(ProvenanceKeyError):
         set_key(CATALOG, "initialized_at", "2020-01-01", workspace=workspace)
@@ -127,6 +127,21 @@ def test_refusals(workspace):
         set_key(CATALOG, "plugins", "[]", workspace=workspace)
     with pytest.raises(UnknownKeyError, match="did you mean"):
         set_key(CATALOG, "workflow.commit_stragety", "at-end", workspace=workspace)
+
+
+def test_config_set_preserves_link_file_keys(workspace):
+    """set_key() of an unrelated key must not drop hand-edited link-file keys."""
+    mpath = workspace / ".graph-wiki.yaml"
+    data = manifest.read(mpath)
+    data["multi-repo"] = True
+    data["repo-directory"] = "../other-repo"
+    manifest.write(mpath, data)
+
+    set_key(CATALOG, "topic", "My Wiki", workspace=workspace)
+
+    result = manifest.read(mpath)
+    assert result["multi-repo"] is True
+    assert result["repo-directory"] == "../other-repo"
 
 
 def test_allowed_requires_str_type():

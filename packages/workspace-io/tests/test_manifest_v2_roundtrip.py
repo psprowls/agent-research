@@ -252,6 +252,30 @@ def test_v2_graph_partial_no_empty_siblings(tmp_path):
     assert "resource_matchers:" not in text
 
 
+def test_write_preserves_link_file_keys(tmp_path):
+    """A read()->write() round trip must not drop the hand-edited link-file keys."""
+    mpath = tmp_path / ".graph-wiki.yaml"
+    mpath.write_text(
+        "version: 2\n"
+        "initialized_at: '2026-05-17'\n"
+        "plugins: []\n"
+        "multi-repo: true\n"
+        "repo-directory: ../other-repo\n"
+        "repos-root: ../checkouts\n"
+        "repos: alpha,beta\n"
+        "exclude: staging\n",
+        encoding="utf-8",
+    )
+    data = read(mpath)
+    write(mpath, data)
+    raw = read(mpath)
+    assert raw["multi-repo"] is True
+    assert raw["repo-directory"] == "../other-repo"
+    assert raw["repos-root"] == "../checkouts"
+    assert raw["repos"] == "alpha,beta"
+    assert raw["exclude"] == "staging"
+
+
 def test_v2_warn_if_stale_preserves_graph_domains(tmp_path):
     """warn_if_stale version-drift write round-trip preserves graph.domains (regression)."""
     workspace = tmp_path / "graph-wiki"

@@ -16,6 +16,12 @@ _VALID_COMMIT_STRATEGIES = {"per-task", "at-end"}
 _VALID_ROUTING_TIERS = {"mechanical", "standard", "frontier"}
 _KNOWN_ROLE_FIELDS = {"model_id", "region", "max_tokens", "max_concurrency", "backend"}
 
+#: Hand-edited link-file keys (repo_directory / multi-repo member config). Not
+#: validated or normalized by read() — write() passes them through verbatim so
+#: a bootstrap re-run or `gw config set` doesn't erase hand-edited config.
+#: workspace_io.registry re-exports this for its own writable-key guard.
+LINK_FILE_KEYS = frozenset({"repo-directory", "multi-repo", "repos-root", "repos", "exclude"})
+
 
 def read(path: Path) -> dict:
     """Read `.graph-wiki.yaml`. Returns v2 dict; does NOT rewrite disk.
@@ -238,6 +244,13 @@ def write(path: Path, data: dict) -> None:
     roles = data.get("roles")
     if roles:
         payload["roles"] = roles
+    # Link-file keys are hand-edited directly into .graph-wiki.yaml (see
+    # config.py's _repo_directory_override / _multi_repo_members) and aren't
+    # read()-normalized, so pass them through verbatim rather than dropping
+    # any not in the allowlist above.
+    for key in LINK_FILE_KEYS:
+        if key in data:
+            payload[key] = data[key]
     path.write_text(
         yaml.safe_dump(payload, sort_keys=False, default_flow_style=False),
         encoding="utf-8",
