@@ -253,7 +253,7 @@ async def test_code_fallback_triggered_when_all_excerpts_empty(tmp_path: Path) -
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        def _llm_for(role: str, *, model_override=None):
+        def _llm_for(role: str, *, model_override=None, backend_override=None):
             if role == "librarian":
                 return mock_lib
             if role == "code_reader":
@@ -314,7 +314,7 @@ async def test_code_fallback_not_triggered_when_excerpts_present(tmp_path: Path)
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        def _llm_for(role: str, *, model_override=None):
+        def _llm_for(role: str, *, model_override=None, backend_override=None):
             if role == "librarian":
                 return mock_lib
             if role == "code_reader":
@@ -370,7 +370,7 @@ async def test_code_fallback_marker_prefix_on_answer(tmp_path: Path) -> None:
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        def _llm_for(role: str, *, model_override=None):
+        def _llm_for(role: str, *, model_override=None, backend_override=None):
             if role == "librarian":
                 return mock_lib
             if role == "code_reader":
@@ -425,7 +425,7 @@ async def test_code_fallback_double_empty_returns_disclaimer(tmp_path: Path) -> 
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        def _llm_for(role: str, *, model_override=None):
+        def _llm_for(role: str, *, model_override=None, backend_override=None):
             if role == "librarian":
                 return mock_lib
             if role == "code_reader":

@@ -440,7 +440,9 @@ async def _run_code_fallback(
     pool: SubagentPool,
     query_id: str,
     code_reader_override: str | None = None,
+    code_reader_backend_override: str | None = None,
     synthesizer_override: str | None = None,
+    synthesizer_backend_override: str | None = None,
 ) -> tuple[str, int | None, int | None]:
     """Vault-thin fallback: fan out to a code-reader that uses a bounded
     `read_file` tool to read source code, then synthesize an answer prefixed
@@ -455,13 +457,21 @@ async def _run_code_fallback(
         code_reader_override: Bedrock model ID to use for the code_reader role
             instead of the default from models.toml. Used by the sweep runner
             for single-role-swap evaluation (D-06).
+        code_reader_backend_override: Backend ("bedrock" or "vercel") to use for
+            the code_reader role instead of its models.toml default. Mirrors
+            code_reader_override.
         synthesizer_override: Bedrock model ID to use for the synthesizer role
             instead of the default from models.toml. Used by the sweep runner
             for single-role-swap evaluation (D-06).
+        synthesizer_backend_override: Backend ("bedrock" or "vercel") to use for
+            the synthesizer role instead of its models.toml default. Mirrors
+            synthesizer_override.
     """
     repo_root = _resolve_repo_root(wiki)
     code_cfg = load_role_config("code_reader")
-    code_llm_raw = make_llm("code_reader", model_override=code_reader_override)
+    code_llm_raw = make_llm(
+        "code_reader", model_override=code_reader_override, backend_override=code_reader_backend_override
+    )
 
     # Bound the read_file tool to the resolved repo_root and bind it to the LLM.
     @tool
@@ -561,7 +571,9 @@ async def _run_code_fallback(
     if len(code_excerpts_text) > 60000:
         code_excerpts_text = code_excerpts_text[:60000]
 
-    synth_llm = make_llm("synthesizer", model_override=synthesizer_override)
+    synth_llm = make_llm(
+        "synthesizer", model_override=synthesizer_override, backend_override=synthesizer_backend_override
+    )
     synth_cfg = load_role_config("synthesizer")
     synth_msgs = [
         SystemMessage(content=SYNTHESIZER_SYSTEM),
@@ -960,6 +972,7 @@ async def _run_legacy_query(
     top_k: int = 5,
     librarian_model_override: str | None = None,  # deprecated; prefer role_model_overrides
     role_model_overrides: dict[str, str] | None = None,
+    role_backend_overrides: dict[str, str] | None = None,
 ) -> QueryResult:
     """Legacy fixed query pipeline: hybrid search -> librarian fan-out -> synthesis/code fallback.
 
@@ -988,6 +1001,10 @@ async def _run_legacy_query(
                                   single-role-swap protocol (D-06): only the named role
                                   uses the candidate model; all other roles use their
                                   models.toml defaults. Supported keys: "librarian",
+                                  "synthesizer", "code_reader".
+        role_backend_overrides:   Dict mapping role name to backend ("bedrock" or "vercel").
+                                  Supports the same single-role-swap protocol as
+                                  role_model_overrides. Supported keys: "librarian",
                                   "synthesizer", "code_reader".
 
     Raises:
@@ -1033,8 +1050,9 @@ async def _run_legacy_query(
     # Override resolution: role_model_overrides["librarian"] takes precedence over the
     # deprecated librarian_model_override parameter (D-06 single-role-swap protocol).
     _lib_override = (role_model_overrides or {}).get("librarian") or librarian_model_override
+    _lib_backend_override = (role_backend_overrides or {}).get("librarian")
     lib_cfg = load_role_config("librarian")
-    librarian_llm = make_llm("librarian", model_override=_lib_override)
+    librarian_llm = make_llm("librarian", model_override=_lib_override, backend_override=_lib_backend_override)
 
     # ---- Phase 37: open read-only graph conn (LIBTOOLS-04, D-07/D-08) ----
     # wiki is workspace/wiki under the standard layout; .graph lives next to it.
@@ -1173,8 +1191,9 @@ async def _run_legacy_query(
                 excerpts_text = excerpts_text[:60000]
 
             synth_override = (role_model_overrides or {}).get("synthesizer")
+            synth_backend_override = (role_backend_overrides or {}).get("synthesizer")
             synth_cfg = load_role_config("synthesizer")
-            synth_llm = make_llm("synthesizer", model_override=synth_override)
+            synth_llm = make_llm("synthesizer", model_override=synth_override, backend_override=synth_backend_override)
             resolved_synth_model_id = synth_override or synth_cfg["model_id"]
             synth_msgs = [
                 SystemMessage(content=SYNTHESIZER_SYSTEM),
@@ -1227,7 +1246,9 @@ async def _run_legacy_query(
                 pool=pool,
                 query_id=query_id,
                 code_reader_override=(role_model_overrides or {}).get("code_reader"),
+                code_reader_backend_override=(role_backend_overrides or {}).get("code_reader"),
                 synthesizer_override=(role_model_overrides or {}).get("synthesizer"),
+                synthesizer_backend_override=(role_backend_overrides or {}).get("synthesizer"),
             )
 
         # Step 8: Build QueryResult with search_scores
@@ -1289,6 +1310,7 @@ async def run_query(
     top_k: int = 5,
     librarian_model_override: str | None = None,
     role_model_overrides: dict[str, str] | None = None,
+    role_backend_overrides: dict[str, str] | None = None,
     *,
     use_legacy: bool = False,
 ) -> QueryResult:
@@ -1312,6 +1334,7 @@ async def run_query(
             top_k=top_k,
             librarian_model_override=librarian_model_override,
             role_model_overrides=role_model_overrides,
+            role_backend_overrides=role_backend_overrides,
         )
     if not (3 <= top_k <= 10):
         raise RuntimeError(f"top_k must be between 3 and 10 (got {top_k})")
@@ -1326,6 +1349,7 @@ async def run_query(
     merged_overrides = dict(role_model_overrides or {})
     if librarian_model_override and "librarian" not in merged_overrides:
         merged_overrides["librarian"] = librarian_model_override
+    merged_backend_overrides = dict(role_backend_overrides or {})
     try:
         orchestrated = await run_query_orchestrator(
             query=query,
@@ -1342,6 +1366,7 @@ async def run_query(
             graph_tools=graph_tools,
             trace_dir=graph_dir(prepared.wiki.parent) / "traces",
             role_model_overrides=merged_overrides,
+            role_backend_overrides=merged_backend_overrides,
         )
     except Exception as exc:
         logger.warning("query orchestrator failed; falling back to legacy query: %s", exc)
@@ -1351,6 +1376,7 @@ async def run_query(
             top_k=top_k,
             librarian_model_override=librarian_model_override,
             role_model_overrides=role_model_overrides,
+            role_backend_overrides=role_backend_overrides,
         )
     finally:
         if graph_reader is not None:

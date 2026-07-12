@@ -467,7 +467,7 @@ async def test_run_query_unit_with_mocks(tmp_path: Path) -> None:
         mock_librarian_llm = MagicMock()
         mock_synth_llm = MagicMock()
         mock_synth_llm.ainvoke = AsyncMock(return_value=fake_synth_response)
-        mock_make_llm.side_effect = lambda role, *, model_override=None: (
+        mock_make_llm.side_effect = lambda role, *, model_override=None, backend_override=None: (
             mock_librarian_llm if role == "librarian" else mock_synth_llm
         )
 
@@ -566,7 +566,7 @@ async def test_run_query_retries_on_unresolved_wikilink(tmp_path: Path) -> None:
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        mock_make_llm.side_effect = lambda role, *, model_override=None: (
+        mock_make_llm.side_effect = lambda role, *, model_override=None, backend_override=None: (
             mock_librarian_llm if role == "librarian" else mock_synth_llm
         )
 
@@ -625,7 +625,7 @@ async def test_run_query_keeps_warning_after_failed_retry(tmp_path: Path) -> Non
         mock_embed_inst.embed_query.return_value = [0.1] * 1024
         mock_embed_cls.return_value = mock_embed_inst
 
-        mock_make_llm.side_effect = lambda role, *, model_override=None: (
+        mock_make_llm.side_effect = lambda role, *, model_override=None, backend_override=None: (
             mock_librarian_llm if role == "librarian" else mock_synth_llm
         )
 
@@ -683,7 +683,7 @@ async def test_run_query_no_retry_when_librarian_empty(tmp_path: Path) -> None:
         mock_code_llm = MagicMock()
         mock_code_llm.bind_tools = MagicMock(return_value=mock_code_llm)
 
-        def _llm_for(role: str, *, model_override=None):
+        def _llm_for(role: str, *, model_override=None, backend_override=None):
             if role == "librarian":
                 return mock_librarian_llm
             if role == "code_reader":

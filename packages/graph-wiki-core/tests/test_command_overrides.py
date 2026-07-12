@@ -44,10 +44,16 @@ def _make_vault(tmp_path: Path) -> Path:
 
 def _make_llm_factory(default_resp):
     """Return (fake_make_llm, calls) where calls records (role, model_override)
-    for every make_llm invocation, and each call yields an AsyncMock LLM."""
+    for every make_llm invocation, and each call yields an AsyncMock LLM.
+
+    backend_override is accepted (query.py now always passes it) but not
+    recorded -- existing (role, model_override) call-tuple assertions stay
+    valid unchanged. Tests that need to assert on backend_override define
+    their own local fake (see test_run_query_*_backend_override below).
+    """
     calls: list[tuple[str, str | None]] = []
 
-    def _fake_make_llm(role: str, *, model_override: str | None = None):
+    def _fake_make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None):
         calls.append((role, model_override))
         inst = AsyncMock()
         inst.ainvoke = AsyncMock(return_value=default_resp)
@@ -756,4 +762,180 @@ async def test_run_ingest_source_model_override(tmp_path: Path) -> None:
     )
     assert ("ingestor", None) not in make_llm_calls, (
         f"make_llm('ingestor') with no override should not be called when model_override is set; got: {make_llm_calls}"
+    )
+
+
+# ---------------------------------------------------------------------------
+# Task 3: role_backend_overrides (2026-06-24: gateway-aware model sweep)
+# ---------------------------------------------------------------------------
+
+
+async def test_run_query_synthesizer_backend_override(tmp_path: Path) -> None:
+    """role_backend_overrides={"synthesizer": "vercel"} routes the synthesizer LLM
+    through make_llm("synthesizer", ..., backend_override="vercel")."""
+    candidate = "openai/gpt-4o"
+    vault = _make_vault(tmp_path)
+
+    mock_resp = MagicMock()
+    mock_resp.content = "The answer [[page]]"
+
+    mock_fan = MagicMock()
+    mock_fan.successes = [("page.md", "relevant excerpt")]
+    mock_fan.errors = []
+
+    calls: list[tuple[str, str | None, str | None]] = []
+
+    def _fake_make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None):
+        calls.append((role, model_override, backend_override))
+        inst = AsyncMock()
+        inst.ainvoke = AsyncMock(return_value=mock_resp)
+        inst.bind_tools = MagicMock(return_value=inst)
+        return inst
+
+    with (
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(vault, None)),
+        patch("graph_wiki_core.commands.query.build_index"),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["page.md"], [1.0])),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings") as mock_embed_cls,
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("page.md", 0.9)]),
+        patch("graph_wiki_core.commands.query.SubagentPool") as mock_pool_cls,
+        patch("graph_wiki_core.commands.query.make_llm", side_effect=_fake_make_llm),
+        patch("graph_wiki_core.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+    ):
+        mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
+        mock_pool_cls.return_value = mock_pool_instance
+
+        from graph_wiki_core.commands.query import run_query
+
+        await run_query(
+            "test query",
+            workspace_path=vault,
+            top_k=3,
+            role_model_overrides={"synthesizer": candidate},
+            role_backend_overrides={"synthesizer": "vercel"},
+            use_legacy=True,
+        )
+
+    assert ("synthesizer", candidate, "vercel") in calls, (
+        f"Expected make_llm('synthesizer', model_override={candidate!r}, backend_override='vercel'); got: {calls}"
+    )
+    assert ("librarian", None, None) in calls, (
+        f"Expected librarian to use make_llm('librarian') with no overrides; got: {calls}"
+    )
+
+
+async def test_run_query_code_reader_backend_override(tmp_path: Path) -> None:
+    """role_backend_overrides={"code_reader": "vercel"} routes the code_reader LLM
+    through make_llm("code_reader", ..., backend_override="vercel") when the
+    vault-thin code fallback fires."""
+    candidate = "openai/gpt-4o-mini"
+    vault = _make_vault(tmp_path)
+
+    mock_fan_empty = MagicMock()
+    mock_fan_empty.successes = []
+    mock_fan_empty.errors = []
+
+    mock_code_fan = MagicMock()
+    mock_code_fan.successes = []
+    mock_code_fan.errors = []
+
+    mock_resp = MagicMock()
+    mock_resp.content = "code answer"
+
+    calls: list[tuple[str, str | None, str | None]] = []
+
+    def _fake_make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None):
+        calls.append((role, model_override, backend_override))
+        inst = AsyncMock()
+        inst.ainvoke = AsyncMock(return_value=mock_resp)
+        inst.bind_tools = MagicMock(return_value=inst)
+        return inst
+
+    with (
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(vault, None)),
+        patch("graph_wiki_core.commands.query.build_index"),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["page.md"], [1.0])),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings") as mock_embed_cls,
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("page.md", 0.9)]),
+        patch("graph_wiki_core.commands.query.SubagentPool") as mock_pool_cls,
+        patch("graph_wiki_core.commands.query.make_llm", side_effect=_fake_make_llm),
+        patch("graph_wiki_core.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+        patch("graph_wiki_core.commands.query._resolve_repo_root", return_value=tmp_path),
+    ):
+        mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.run_all = AsyncMock(side_effect=[mock_fan_empty, mock_code_fan])
+        mock_pool_cls.return_value = mock_pool_instance
+
+        from graph_wiki_core.commands.query import run_query
+
+        await run_query(
+            "How is _StdoutGuard implemented?",
+            workspace_path=vault,
+            top_k=3,
+            role_model_overrides={"code_reader": candidate},
+            role_backend_overrides={"code_reader": "vercel"},
+            use_legacy=True,
+        )
+
+    assert ("code_reader", candidate, "vercel") in calls, (
+        f"Expected make_llm('code_reader', model_override={candidate!r}, backend_override='vercel'); got: {calls}"
+    )
+
+
+async def test_run_query_librarian_backend_override(tmp_path: Path) -> None:
+    """role_backend_overrides={"librarian": "vercel"} routes the librarian LLM
+    through make_llm("librarian", ..., backend_override="vercel")."""
+    candidate = "openai/gpt-4o-mini"
+    vault = _make_vault(tmp_path)
+
+    mock_resp = MagicMock()
+    mock_resp.content = "The answer [[page]]"
+
+    mock_fan = MagicMock()
+    mock_fan.successes = [("page.md", "relevant excerpt")]
+    mock_fan.errors = []
+
+    calls: list[tuple[str, str | None, str | None]] = []
+
+    def _fake_make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None):
+        calls.append((role, model_override, backend_override))
+        inst = AsyncMock()
+        inst.ainvoke = AsyncMock(return_value=mock_resp)
+        inst.bind_tools = MagicMock(return_value=inst)
+        return inst
+
+    with (
+        patch("graph_wiki_core.commands.query.resolve_wiki_and_repo", return_value=(vault, None)),
+        patch("graph_wiki_core.commands.query.build_index"),
+        patch("graph_wiki_core.commands.query.bm25_query", return_value=(["page.md"], [1.0])),
+        patch("graph_wiki_core.commands.query.BedrockEmbeddings") as mock_embed_cls,
+        patch("graph_wiki_core.commands.query._cosine_search_sqlite", return_value=[("page.md", 0.9)]),
+        patch("graph_wiki_core.commands.query.SubagentPool") as mock_pool_cls,
+        patch("graph_wiki_core.commands.query.make_llm", side_effect=_fake_make_llm),
+        patch("graph_wiki_core.commands.query.apply_guardrails", side_effect=lambda r, *a, **kw: r),
+    ):
+        mock_embed_cls.return_value.embed_query.return_value = [0.1] * 10
+        mock_pool_instance = MagicMock()
+        mock_pool_instance.run_all = AsyncMock(return_value=mock_fan)
+        mock_pool_cls.return_value = mock_pool_instance
+
+        from graph_wiki_core.commands.query import run_query
+
+        await run_query(
+            "test query",
+            workspace_path=vault,
+            top_k=3,
+            role_model_overrides={"librarian": candidate},
+            role_backend_overrides={"librarian": "vercel"},
+            use_legacy=True,
+        )
+
+    assert ("librarian", candidate, "vercel") in calls, (
+        f"Expected make_llm('librarian', model_override={candidate!r}, backend_override='vercel'); got: {calls}"
+    )
+    assert ("synthesizer", None, None) in calls, (
+        f"Expected synthesizer to use make_llm('synthesizer') with no overrides; got: {calls}"
     )
