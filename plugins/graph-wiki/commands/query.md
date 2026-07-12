@@ -37,7 +37,7 @@ Ask the wiki a question. The librarian reads `index.md` first, picks relevant pa
 | "A vs B" | Comparison table |
 | "What's the state of X migration" | Summary of roadmap + recent log entries |
 | "Why does X fail / how do we work around Y" | Issue page content |
-| "Slide deck on X" | Markdown synthesis → `export_marp.py` |
+| "Slide deck on X" | Not implemented — synthesize markdown and note that slide-deck export isn't available yet |
 
 ## Sub-agent
 
