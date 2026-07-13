@@ -261,6 +261,46 @@ def test_test_file_re_parented_from_repository_to_suite(tmp_path: Path) -> None:
     assert parent_kinds == {"test_suite"}, f"expected only TestSuite parent, got {parent_kinds}"
 
 
+def _physically_contains_parents(conn: sqlite3.Connection, file_path: str) -> list[str]:
+    rows = conn.execute(
+        """
+        SELECT p.kind FROM edges e
+        JOIN nodes p ON e.src = p.id
+        JOIN nodes f ON e.dst = f.id
+        WHERE f.kind='file' AND f.path=? AND e.kind='physically_contains'
+        """,
+        (file_path,),
+    ).fetchall()
+    return [r[0] for r in rows]
+
+
+def test_stale_suite_edge_cleared_when_file_loses_root_assignment(tmp_path: Path) -> None:
+    """D-15 case 4 regression: a file re-parented onto a TestSuite in run N that
+    loses its root assignment in run N+1 (incremental) must end up with exactly
+    one physically_contains parent (Repository), not two."""
+    pkg_dir = tmp_path / "packages" / "foo"
+    body = '[tool.pytest.ini_options]\ntestpaths = ["spec"]\n'
+    _write_pyproject(pkg_dir, name="foo", body=body)
+    _write_python_pkg(pkg_dir, "foo")
+    (pkg_dir / "spec").mkdir()
+    test_path = "packages/foo/spec/test_x.py"
+    (tmp_path / test_path).write_text("")
+
+    conn = _setup(tmp_path)
+
+    # Run 1: testpaths config discovers spec/ as a root -> file re-parented onto its TestSuite.
+    _run_emit_pipeline(conn, tmp_path)
+    assert _physically_contains_parents(conn, test_path) == ["test_suite"]
+
+    # Run 2 (incremental): drop the testpaths config so spec/ is no longer a
+    # discovered root. The file itself is untouched.
+    _write_pyproject(pkg_dir, name="foo")
+    _run_emit_pipeline(conn, tmp_path)
+
+    parents = _physically_contains_parents(conn, test_path)
+    assert parents == ["repository"], f"expected sole Repository parent, got {parents}"
+
+
 # ---------- Task 4: kind classification, config, malformed, idempotency ----------
 
 

@@ -297,6 +297,17 @@ def emit(
                 f"(D-15 case 4)",
                 file=sys.stderr,
             )
+            # A prior run may have re-parented this file onto a TestSuite that
+            # no longer discovers it (root renamed/removed, file moved out).
+            # Clear that stale edge so the fresh Repository -> File edge
+            # written by structural_nodes.emit earlier this transaction is
+            # left as the file's sole parent. Scoped to TestSuite-sourced
+            # edges only — must not touch the correct baseline edge.
+            conn.execute(
+                "DELETE FROM edges WHERE kind='physically_contains' AND dst=? "
+                "AND src IN (SELECT id FROM nodes WHERE kind='test_suite')",
+                (_file_id,),
+            )
             continue
         root_files[r.rel_path].append(file_rel)
 
