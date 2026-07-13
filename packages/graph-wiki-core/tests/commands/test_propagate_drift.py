@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sqlite3
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,26 @@ from graph_io.handle import GraphReader
 from graph_io.store import read_only_connect
 
 # --- fixture helpers -------------------------------------------------------
+
+
+def _git(repo: Path, *args: str) -> None:
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+
+def _init_repo(repo: Path) -> str:
+    """Init a real one-commit git repo (not the bare `ws` fixture dir); return
+    its full HEAD SHA. Used by the real-git regression test below — `is_ancestor`
+    and `head_commit` must run un-mocked to exercise the actual bug."""
+    from wiki_io.git_state import head_commit as _head_commit
+
+    repo.mkdir(parents=True, exist_ok=True)
+    (repo / "f.txt").write_text("hi\n", encoding="utf-8")
+    _git(repo, "init")
+    _git(repo, "add", "-A")
+    _git(repo, "-c", "user.email=t@t", "-c", "user.name=t", "commit", "-m", "init")
+    full = _head_commit(repo)
+    assert full is not None and len(full) == 40
+    return full
 
 
 def _seed_one_package(db_path: Path, *, uri: str, node_path: str) -> None:
@@ -646,5 +667,48 @@ def test_target_not_caught_up_still_proposes(ws, conn, monkeypatch):
     )
 
     res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
+    assert res.pages_judged == 1
+    assert res.notes_written == 1
+
+
+def test_first_observation_target_does_not_self_suppress_real_git(tmp_path, monkeypatch):
+    """Regression: a curated page seen for the first time (no stored content_hash)
+    gets its last_updated_commit freshly stamped to current HEAD in the SAME call
+    that runs the suppression check. That fresh stamp must not be used as the
+    suppression anchor for this run — every entity's last_updated_commit is
+    necessarily an ancestor of (or equal to) current HEAD, which would otherwise
+    make every candidate self-suppress on first observation, permanently losing
+    the finding (drift_propagated_commit still gets stamped afterward).
+
+    Uses a REAL git repo (not the bare `ws` fixture dir) with real, un-mocked
+    `head_commit`/`is_ancestor` so the actual ancestry math is exercised."""
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    (wiki / "entities").mkdir(parents=True)
+    (wiki / ".graph-wiki").mkdir(parents=True)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+
+    entity_sha = _init_repo(repo)  # the repo's one real commit
+
+    _seed_one_package(
+        workspace / ".graph-wiki" / "code.db",
+        uri="pkg:org/repo/pkg-a",
+        node_path="packages/pkg-a",
+    )
+    conn = GraphReader(read_only_connect(workspace / ".graph-wiki" / "code.db"))
+
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit=entity_sha)
+    _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")  # no content_hash yet
+
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    _patch_judge(
+        monkeypatch,
+        lambda item: {"stale": True, "findings": [{"entity_stem": "pkg_a", "stale_claim": "x", "rationale": "r"}]},
+    )
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
+    conn.close()
+
     assert res.pages_judged == 1
     assert res.notes_written == 1

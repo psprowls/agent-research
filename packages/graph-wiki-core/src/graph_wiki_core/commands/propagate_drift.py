@@ -191,15 +191,25 @@ def _stamp_curated_page_if_changed(page_path: Path, repo: Path, *, dry_run: bool
     """M4 content-hash detection pass (spec §2): stamp last_updated_commit +
     content_hash on a curated (concept/ADR) page when its body-hash differs
     from the stored content_hash (this covers absent-hash / first observation
-    the same as a real change — both stamp). Returns the page's resulting
-    last_updated_commit (freshly stamped, or the value already on disk when
-    the hash is unchanged or HEAD can't be resolved), or None if there is
-    none yet.
+    the same as a real change — both stamp).
 
-    ``dry_run=True`` still computes and returns the sha it WOULD stamp (so
-    callers reading ``target_last_updated_commit`` see dry-run-consistent
-    behavior), but skips the ``update_frontmatter`` write — mirrors every
-    other write in ``run_propagate_drift``, all gated on ``not dry_run``.
+    Returns the anchor for THIS run's Task 5 suppression check — the value AS
+    IT STOOD BEFORE this write, never the freshly-computed one, even though the
+    fresh value is still persisted to disk (for future runs) in the same call:
+
+    - unchanged hash: no write happens; returns the existing stored anchor.
+    - first observation (no stored content_hash): persists the fresh stamp,
+      but returns ``None`` — the page has never been observed before, so
+      per spec §"Edge cases" ("target page never observed -> suppression
+      check is skipped") every backlinking candidate must still be judged
+      this run. Returning the just-computed sha here would make every
+      candidate's last_updated_commit a (trivial) ancestor of current HEAD,
+      silently self-suppressing the finding on the very first observation.
+    - hash mismatch (stored hash present but stale): persists the fresh
+      stamp, but returns the OLD stored anchor — correct, not just
+      fail-open: an entity change predating the old anchor was already
+      suppressed in a prior run, and any change since then still proposes
+      because it is not an ancestor of the (older) anchor being compared.
     """
     try:
         post = frontmatter.load(str(page_path))
@@ -207,14 +217,15 @@ def _stamp_curated_page_if_changed(page_path: Path, repo: Path, *, dry_run: bool
         return None
     stored_hash = post.metadata.get(CONTENT_HASH_KEY)
     current_hash = page_body_hash(post.content)
+    old_anchor = cast(str | None, post.metadata.get(LAST_UPDATED_COMMIT_KEY)) or None
     if stored_hash is not None and current_hash == stored_hash:
-        return cast(str | None, post.metadata.get(LAST_UPDATED_COMMIT_KEY)) or None
+        return old_anchor
     sha = head_commit(repo)
     if sha is None:
-        return cast(str | None, post.metadata.get(LAST_UPDATED_COMMIT_KEY)) or None
+        return old_anchor
     if not dry_run:
         update_frontmatter(page_path, {LAST_UPDATED_COMMIT_KEY: sha, CONTENT_HASH_KEY: current_hash})
-    return sha
+    return None if stored_hash is None else old_anchor
 
 
 def _build_targets(
