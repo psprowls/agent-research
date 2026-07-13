@@ -476,6 +476,7 @@ def test_target_page_stamped_on_first_observation(ws, conn, monkeypatch):
     page = _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
     monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
     monkeypatch.setattr(pd, "head_commit", lambda repo: "HEADSHA")
+    monkeypatch.setattr(pd, "is_ancestor", lambda repo, ancestor, descendant: False)
     _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
 
     asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
@@ -507,6 +508,7 @@ def test_target_page_unchanged_hash_is_not_restamped(ws, conn, monkeypatch):
         raise AssertionError("head_commit should not be called when content_hash is unchanged")
 
     monkeypatch.setattr(pd, "head_commit", _boom)
+    monkeypatch.setattr(pd, "is_ancestor", lambda repo, ancestor, descendant: False)
     _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
 
     asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
@@ -529,6 +531,7 @@ def test_target_page_hash_mismatch_restamps_both_keys(ws, conn, monkeypatch):
 
     monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
     monkeypatch.setattr(pd, "head_commit", lambda repo: "NEWSHA")
+    monkeypatch.setattr(pd, "is_ancestor", lambda repo, ancestor, descendant: False)
     _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
 
     asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
@@ -550,6 +553,7 @@ def test_dry_run_does_not_persist_curated_page_stamp(ws, conn, monkeypatch):
     on_disk_before = page.read_text(encoding="utf-8")
     monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
     monkeypatch.setattr(pd, "head_commit", lambda repo: "HEADSHA")
+    monkeypatch.setattr(pd, "is_ancestor", lambda repo, ancestor, descendant: False)
     _patch_judge(monkeypatch, lambda item: {"stale": False, "findings": []})
 
     asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn, dry_run=True))
@@ -560,3 +564,87 @@ def test_dry_run_does_not_persist_curated_page_stamp(ws, conn, monkeypatch):
     assert "content_hash" not in meta
     assert "last_updated_commit" not in meta
     assert page.read_text(encoding="utf-8") == on_disk_before
+
+
+# --- M4 suppression check (Task 5) ------------------------------------------
+
+
+def test_target_caught_up_suppresses_that_entity_but_not_others(ws, conn, monkeypatch):
+    """A target already caught up with pkg_a's change (is_ancestor True for that
+    pair) drops pkg_a's finding; pkg_b, not caught up, is still judged."""
+    from wiki_io.drift import page_body_hash
+    from wiki_io.entity_writer import update_frontmatter as _uf
+
+    wiki, repo = ws / "wiki", ws / "repo"
+    c2 = sqlite3.connect(ws / ".graph-wiki" / "code.db")
+    c2.execute(
+        "INSERT INTO nodes(kind,name,path,line,attrs_json,uri) VALUES "
+        "('package','pkg-b','packages/pkg-b',NULL,'{}','pkg:org/repo/pkg-b')"
+    )
+    c2.commit()
+    c2.close()
+    conn2 = GraphReader(read_only_connect(ws / ".graph-wiki" / "code.db"))
+
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="hA")
+    _write_entity_page(wiki, stem="pkg_b", uri="pkg:org/repo/pkg-b", last_updated_commit="hB")
+    page = _write_curated(wiki, "concepts", "fanout", "Both pkg_a [[entities/pkg_a]] and pkg_b [[entities/pkg_b]].")
+    import frontmatter as _fm
+
+    body = _fm.load(page).content
+    _uf(page, {"last_updated_commit": "hTarget", "content_hash": page_body_hash(body)})
+
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    monkeypatch.setattr(
+        pd,
+        "is_ancestor",
+        lambda repo, ancestor, descendant: ancestor == "hA" and descendant == "hTarget",
+    )
+    rec: dict = {"items": []}
+
+    def verdict(item):
+        _kind, _slug, _title, _body, entities, _entry = item
+        return {
+            "stale": True,
+            "findings": [
+                {"entity_stem": stem, "stale_claim": "x", "rationale": f"{stem} changed"} for stem, _n, _f in entities
+            ],
+        }
+
+    _patch_judge(monkeypatch, verdict, recorder=rec)
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn2))
+    conn2.close()
+
+    assert res.pages_judged == 1
+    (item,) = rec["items"]
+    entity_stems = {stem for stem, _n, _f in item[4]}
+    assert entity_stems == {"pkg_b"}  # pkg_a suppressed, pkg_b still judged
+
+    rec2 = read_proposal(proposal_path(wiki, "concept", "fanout"))
+    refs = {o["ref"] for o in rec2["origins"]}
+    assert refs == {"entities/pkg_b"}
+
+
+def test_target_not_caught_up_still_proposes(ws, conn, monkeypatch):
+    """is_ancestor False (target predates the entity's change) -> no suppression,
+    existing proposal behavior unchanged."""
+    from wiki_io.drift import page_body_hash
+    from wiki_io.entity_writer import update_frontmatter as _uf
+
+    wiki, repo = ws / "wiki", ws / "repo"
+    _write_entity_page(wiki, stem="pkg_a", uri="pkg:org/repo/pkg-a", last_updated_commit="hA")
+    page = _write_curated(wiki, "concepts", "fanout", "About [[entities/pkg_a]].")
+    import frontmatter as _fm
+
+    body = _fm.load(page).content
+    _uf(page, {"last_updated_commit": "hOld", "content_hash": page_body_hash(body)})
+
+    monkeypatch.setattr(pd, "changed_files_since", lambda repo, sha, sub: [])
+    monkeypatch.setattr(pd, "is_ancestor", lambda repo, ancestor, descendant: False)
+    _patch_judge(
+        monkeypatch,
+        lambda item: {"stale": True, "findings": [{"entity_stem": "pkg_a", "stale_claim": "x", "rationale": "r"}]},
+    )
+
+    res = asyncio.run(pd.run_propagate_drift(wiki=wiki, repo=repo, reader=conn))
+    assert res.pages_judged == 1
+    assert res.notes_written == 1

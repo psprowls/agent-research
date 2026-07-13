@@ -26,7 +26,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io.backlink_index import build_entity_backlink_map
 from wiki_io.drift import CONTENT_HASH_KEY, extract_narrative, page_body_hash, section_hash
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
-from wiki_io.git_state import changed_files_since, head_commit
+from wiki_io.git_state import changed_files_since, head_commit, is_ancestor
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals, upsert_proposal
 from workspace_io.paths import graph_dir
 
@@ -366,9 +366,26 @@ async def run_propagate_drift(
 
     items: list[tuple] = []
     for entry in judge_targets:
+        target_anchor = entry.get("target_last_updated_commit")
+        live_candidates = entry["candidates"]
+        if target_anchor:
+            # Suppress a candidate whose change is already reflected in the
+            # target's stamped anchor (Task 5). Multi-repo: skip (fail open —
+            # don't suppress) when the entity's owning repo differs from the
+            # primary `repo` used to stamp the target; a cross-repo SHA
+            # comparison isn't meaningful (mirrors the owning_repo pattern
+            # `propagation_candidates` already uses for `changed_files_since`).
+            live_candidates = [
+                c
+                for c in live_candidates
+                if owning_repo(c.uri, repo, repo_paths) != repo
+                or not is_ancestor(repo, c.last_updated_commit, target_anchor)
+            ]
+        if not live_candidates:
+            continue  # every backlinking entity's change is already reflected in the target page
         body = entry["page_path"].read_text(encoding="utf-8")
         title = _page_title(entry["page_path"], entry["target_slug"])
-        entity_tuples = [(c.stem, c.narrative, c.changed_files) for c in entry["candidates"]]
+        entity_tuples = [(c.stem, c.narrative, c.changed_files) for c in live_candidates]
         items.append((entry["kind"], entry["target_slug"], title, body, entity_tuples, entry))
 
     verdicts: list[tuple] = []
@@ -396,11 +413,15 @@ async def run_propagate_drift(
     notes_written = 0
     report: list[dict] = []
     for item, verdict in verdicts:
-        kind, slug, title, _body, _entity_tuples, entry = item
+        kind, slug, title, _body, entity_tuples, entry = item
         if not (isinstance(verdict, dict) and verdict.get("stale")):
             continue
         findings = verdict.get("findings") or []
-        by_stem = {c.stem: c for c in entry["candidates"]}
+        # Restrict lookups to the entities actually put in front of the judge
+        # (post-suppression) — guards against a hallucinated entity_stem
+        # resurrecting a finding for a candidate that was filtered out above.
+        judged_stems = {stem for stem, _n, _f in entity_tuples}
+        by_stem = {c.stem: c for c in entry["candidates"] if c.stem in judged_stems}
         origins_written: list[dict] = []
         finding_tuples: list[tuple[str, str, str, str]] = []
         for finding in findings:
