@@ -13,7 +13,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from eval_harness.sweep import SweepResult, run_sweep
+from eval_harness.sweep import ModelCandidate, SweepResult, run_sweep
 from graph_wiki_core.commands.query import QueryResult
 
 # ---------------------------------------------------------------------------
@@ -192,3 +192,28 @@ async def test_sweep_result_has_seed(tmp_path: Path, fixture_workspace_path: Pat
     # Field must exist and must be None (librarian is non-deterministic)
     assert hasattr(result, "seed")
     assert result.seed is None
+
+
+async def test_sweep_threads_backend_override_and_null_costs_unpriced_gateway_model(
+    tmp_path: Path, fixture_workspace_path: Path
+) -> None:
+    """A ModelCandidate(backend='vercel') threads role_backend_overrides into
+    run_query and produces cost_usd=None (gateway model ids aren't in PRICES)."""
+    cases_path = _make_cases_file(tmp_path)
+    candidate = ModelCandidate(model_id="openai/gpt-4o-mini", backend="vercel")
+
+    mock_result = _make_query_result()
+    captured_kwargs: dict = {}
+
+    async def _mock_run_query(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return mock_result
+
+    with patch("eval_harness.sweep.run_query", new=AsyncMock(side_effect=_mock_run_query)):
+        results = await run_sweep(cases_path, fixture_workspace_path, [candidate])
+
+    assert len(results) == 1
+    assert captured_kwargs.get("role_model_overrides") == {"librarian": "openai/gpt-4o-mini"}
+    assert captured_kwargs.get("role_backend_overrides") == {"librarian": "vercel"}
+    assert results[0].model_id == "openai/gpt-4o-mini"
+    assert results[0].cost_usd is None

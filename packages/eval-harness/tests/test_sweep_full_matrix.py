@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock
 
 import eval_harness.sweep as sweep_mod
 import pytest
@@ -182,3 +183,77 @@ def test_structural_writeback_sets_divergence_pass_rate(monkeypatch: pytest.Monk
 
     assert r.judge_scores is not None
     assert r.judge_scores["mean"] == 0.5
+
+
+@pytest.mark.asyncio
+async def test_run_full_matrix_accepts_model_candidate_and_threads_backend_override(
+    fixture_workspace_path: Path,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """role_candidates may carry ModelCandidate entries; run_full_matrix threads
+    candidate.backend into run_query via role_backend_overrides and produces a
+    SweepResult with cost_usd=None for the unpriced gateway model_id."""
+
+    def score_two_gate_stub(**kwargs) -> TwoGateOutcome:
+        return TwoGateOutcome(
+            qualified=False,
+            gate1_passed=None,
+            gate2_passed=None,
+            divergence_failures=None,
+            panel_mean=None,
+            threshold_used=0.95,
+            notes="stub",
+        )
+
+    monkeypatch.setattr(sweep_mod, "score_two_gate", score_two_gate_stub)
+
+    captured_kwargs: list[dict] = []
+
+    async def _mock_run_query(*args, **kwargs):
+        captured_kwargs.append(dict(kwargs))
+        return sweep_mod.QueryResult(
+            answer="an answer",
+            citations=[],
+            pages_drilled=0,
+            search_scores={},
+        )
+
+    monkeypatch.setattr(sweep_mod, "run_query", AsyncMock(side_effect=_mock_run_query))
+
+    query_cases_path = tmp_path / "query_cases.json"
+    query_cases_path.write_text(
+        json.dumps([{"query": "what is the project", "expected_answer": "a python monorepo", "case_id": "q-01"}]),
+        encoding="utf-8",
+    )
+    code_reader_cases_path = tmp_path / "code_reader_cases.json"
+    code_reader_cases_path.write_text(
+        json.dumps([{"query": "read the module", "expected_answer": "a description", "case_id": "cr-01"}]),
+        encoding="utf-8",
+    )
+    ingestor_source_path = tmp_path / "ingestor_source.md"
+    ingestor_source_path.write_text("# Source\n\nSome markdown.\n", encoding="utf-8")
+
+    candidate = sweep_mod.ModelCandidate(model_id="openai/gpt-4o-mini", backend="vercel")
+
+    results = await sweep_mod.run_full_matrix(
+        role_candidates={"librarian": [candidate]},
+        workspace_path=fixture_workspace_path,
+        query_cases_path=query_cases_path,
+        code_reader_cases_path=code_reader_cases_path,
+        ingestor_source_path=ingestor_source_path,
+        repeats=1,
+        output_dir=tmp_path / "out",
+        dry_run=False,
+        skip_bed01=True,
+        auto_confirm=True,
+    )
+
+    librarian_results = results["librarian"]
+    assert len(librarian_results) == 1
+    assert librarian_results[0].model_id == "openai/gpt-4o-mini"
+    assert librarian_results[0].cost_usd is None
+
+    lib_calls = [c for c in captured_kwargs if c.get("role_model_overrides", {}).get("librarian")]
+    assert lib_calls, "run_query was never called for the librarian candidate"
+    assert lib_calls[0]["role_backend_overrides"] == {"librarian": "vercel"}
