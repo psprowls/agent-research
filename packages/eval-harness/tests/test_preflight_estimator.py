@@ -191,3 +191,20 @@ def test_preflight_bed01_prints_confirmation_on_success(
 
     captured = capsys.readouterr()
     assert "[BED-01] Bedrock connectivity confirmed." in captured.out
+
+
+def test_estimator_unwraps_model_candidate_model_id() -> None:
+    """estimate_sweep_cost prices a ModelCandidate the same as its bare model_id
+    string -- a ModelCandidate must not silently fall through to the
+    UnknownModelError skip path (regression: role_candidates now carries
+    ModelCandidate entries after the gateway-aware sweep-candidates change)."""
+    from eval_harness.sweep import ModelCandidate
+
+    bare = {"librarian": ["us.anthropic.claude-haiku-4-5-20251001-v1:0"]}
+    wrapped = {"librarian": [ModelCandidate(model_id="us.anthropic.claude-haiku-4-5-20251001-v1:0", backend="bedrock")]}
+
+    est_bare = estimate_sweep_cost(bare, n_cases=4, repeats=3)
+    est_wrapped = estimate_sweep_cost(wrapped, n_cases=4, repeats=3)
+
+    assert est_bare > 0.0
+    assert est_wrapped == est_bare
