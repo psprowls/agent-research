@@ -50,7 +50,7 @@ def _workspace_role_override(role: str) -> dict | None:
     return read_roles(manifest_path).get(role)
 
 
-def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
+def make_llm(role: str, *, model_override: str | None = None, backend_override: str | None = None) -> BaseChatModel:
     """Return a chat model configured for the given role.
 
     Resolution order: workspace manifest override merged, field by field, onto
@@ -58,8 +58,9 @@ def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
     subset of {model_id, region, max_tokens, max_concurrency, backend} and the
     rest fall back to the packaged defaults. When the role has no packaged
     entry at all, the workspace override (if any) IS the definition. Backend
-    is driven by the resolved role's ``backend`` key (default ``"bedrock"``;
-    ``"vercel"`` selects the AI Gateway).
+    is driven by ``backend_override`` when given, else by the resolved role's
+    ``backend`` key (default ``"bedrock"``; ``"vercel"`` selects the AI
+    Gateway) -- mirrors how ``model_override`` wins over ``role_cfg["model_id"]``.
 
     Raises:
         KeyError: when `role` is absent from both sources, or resolves with no
@@ -84,7 +85,8 @@ def make_llm(role: str, *, model_override: str | None = None) -> BaseChatModel:
             "the workspace override does not set model_id either"
         )
     max_tokens = role_cfg.get("max_tokens")
-    if role_cfg.get("backend", "bedrock") == "vercel":
+    backend = backend_override if backend_override is not None else role_cfg.get("backend", "bedrock")
+    if backend == "vercel":
         return make_gateway_llm(model_id, max_tokens=max_tokens)
     return make_bedrock_llm(model_id, region=role_cfg.get("region", "us-east-1"), max_tokens=max_tokens)
 

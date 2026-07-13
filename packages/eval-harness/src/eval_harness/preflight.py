@@ -9,9 +9,14 @@ Requirements: D-13 (conservative per-tier token constants), SWEEP-02 (BED-01 pin
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from graph_wiki_core.roles import make_llm
 from model_adapter.exceptions import BedrockAccessDenied
 from subagent_runtime.pricing import UnknownModelError, cost_for_usage
+
+if TYPE_CHECKING:
+    from eval_harness.sweep import ModelCandidate
 
 HARD_CAP_USD = 25.0  # $25: 4x headroom over ~$6.19 estimated 24-cell matrix (RESEARCH.md §Tension 2)
 
@@ -33,17 +38,21 @@ _ROLE_TIER: dict[str, str] = {
 
 
 def estimate_sweep_cost(
-    role_candidates: dict[str, list[str]],
+    role_candidates: dict[str, list[str | ModelCandidate]],
     n_cases: int,
     repeats: int,
 ) -> float:
     """Pre-flight cost estimate using conservative per-tier token constants.
 
     Iterates all (role, model_id) pairs and sums cost_for_usage() results.
-    Unknown model IDs (UnknownModelError) are silently skipped.
+    Unknown model IDs (UnknownModelError) are silently skipped. Each candidate
+    may be a bare model_id string or a ModelCandidate(model_id, backend) --
+    unwrapped via duck-typing (no runtime import of eval_harness.sweep, which
+    imports this module -- see the TYPE_CHECKING guard above).
 
     Args:
-        role_candidates: mapping of role name to list of candidate model IDs.
+        role_candidates: mapping of role name to list of candidate model IDs
+                         or ModelCandidate entries.
         n_cases: number of eval cases in the sweep.
         repeats: number of repeats per (role, candidate, case) cell.
 
@@ -54,7 +63,10 @@ def estimate_sweep_cost(
     for role, candidates in role_candidates.items():
         tier = _ROLE_TIER.get(role, "mid")
         tokens_in, tokens_out = _TIER_TOKENS[tier]
-        for model_id in candidates:
+        for candidate in candidates:
+            # Unwrap ModelCandidate to extract model_id string via duck-typing
+            # (avoid runtime circular import with eval_harness.sweep via TYPE_CHECKING guard)
+            model_id: str = getattr(candidate, "model_id", candidate)  # type: ignore[assignment]
             try:
                 cell_cost = cost_for_usage(
                     model_id,
@@ -92,7 +104,7 @@ def preflight_bed01() -> None:
 
 
 def preflight_check(
-    role_candidates: dict[str, list[str]],
+    role_candidates: dict[str, list[str | ModelCandidate]],
     n_cases: int,
     repeats: int,
     *,

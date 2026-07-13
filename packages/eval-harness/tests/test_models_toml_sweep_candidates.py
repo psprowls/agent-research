@@ -35,7 +35,8 @@ CODE_READER_CASES_PATH = _WORKSPACE_ROOT / "eval" / "cases" / "code_reader_cases
 
 
 def test_sweep_candidates_present_for_all_six_roles():
-    """Each of the six in-scope roles has a non-empty sweep_candidates list.
+    """Each of the six in-scope roles has a non-empty sweep_candidates list of
+    {model_id, backend} tables.
 
     Lengths are bespoke per role (6/8/6/7/6/6 after the na9 refresh); a
     fixed-length assertion would be wrong here.
@@ -46,6 +47,12 @@ def test_sweep_candidates_present_for_all_six_roles():
         assert candidates is not None, f"[{role}] missing sweep_candidates key"
         assert isinstance(candidates, list), f"[{role}] sweep_candidates must be a list"
         assert len(candidates) >= 1, f"[{role}] sweep_candidates must not be empty; got: {candidates}"
+        for entry in candidates:
+            assert isinstance(entry, dict), f"[{role}] sweep_candidates entries must be tables; got: {entry!r}"
+            assert "model_id" in entry, f"[{role}] sweep_candidates entry missing model_id: {entry!r}"
+            assert entry.get("backend") == "bedrock", (
+                f"[{role}] sweep_candidates entry must set backend explicitly (no implicit default); got: {entry!r}"
+            )
 
 
 def test_haiku_absent_from_every_in_scope_role_after_quota_purge():
@@ -53,8 +60,9 @@ def test_haiku_absent_from_every_in_scope_role_after_quota_purge():
     2026-05-30 quota-exhaustion purge documented in models.toml."""
     for role in IN_SCOPE_ROLES:
         candidates = load_role_config(role)["sweep_candidates"]
-        assert HAIKU_GLOBAL_ARN not in candidates, (
-            f"[{role}] unexpectedly contains purged {HAIKU_GLOBAL_ARN!r}: {candidates}"
+        model_ids = [c["model_id"] for c in candidates]
+        assert HAIKU_GLOBAL_ARN not in model_ids, (
+            f"[{role}] unexpectedly contains purged {HAIKU_GLOBAL_ARN!r}: {model_ids}"
         )
 
 
@@ -69,10 +77,15 @@ def test_no_sweep_candidates_for_judges():
 
 
 def test_all_candidates_have_pricing():
-    """Every (role, candidate) pair must be priced in subagent_runtime.pricing.PRICES."""
+    """Every (role, candidate) pair must be priced in subagent_runtime.pricing.PRICES,
+    except vercel-backend candidates which are intentionally unpriced (no gateway
+    model ids exist in PRICES yet -- see models.toml sweep_candidates backend key)."""
     for role in IN_SCOPE_ROLES:
         candidates = load_role_config(role)["sweep_candidates"]
-        for model_id in candidates:
+        for candidate in candidates:
+            if candidate.get("backend") == "vercel":
+                continue
+            model_id = candidate["model_id"]
             try:
                 # Use 1 token each — just checking the model is known, not computing real cost
                 cost_for_usage(model_id, {"input": 1, "output": 1})

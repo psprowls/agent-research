@@ -111,7 +111,7 @@ async def test_run_query_binds_graph_tools_when_initialized(tmp_path: Path) -> N
 
     fan_result = FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
-    def _make_llm_side_effect(role: str, *, model_override=None):
+    def _make_llm_side_effect(role: str, *, model_override=None, backend_override=None):
         if role == "librarian":
             return librarian_llm
         return synth_llm
@@ -171,7 +171,7 @@ async def test_run_query_skips_graph_tools_when_db_empty(tmp_path: Path, capsys)
 
     FanOutResult(successes=[("page1.md", "useful excerpt content here")], errors=[])
 
-    def _make_llm_side_effect(role: str, *, model_override=None):
+    def _make_llm_side_effect(role: str, *, model_override=None, backend_override=None):
         if role == "librarian":
             return librarian_llm
         return synth_llm

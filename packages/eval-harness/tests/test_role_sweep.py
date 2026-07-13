@@ -15,7 +15,7 @@ import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from eval_harness.sweep import ROLE_COMMAND_MAP, run_role_sweep
+from eval_harness.sweep import ROLE_COMMAND_MAP, ModelCandidate, run_role_sweep
 from graph_wiki_core.commands.ingest import IngestResult
 from graph_wiki_core.commands.lint import LintResult
 from graph_wiki_core.commands.query import QueryResult
@@ -369,3 +369,33 @@ async def test_role_sweep_repeats(tmp_path: Path, fixture_workspace_path: Path) 
         )
 
     assert len(results) == 3
+
+
+async def test_single_role_swap_librarian_with_backend_override(tmp_path: Path, fixture_workspace_path: Path) -> None:
+    """A ModelCandidate(backend='vercel') passed to run_role_sweep threads
+    role_backend_overrides={"librarian": "vercel"} to run_query, and the
+    resulting SweepResult.cost_usd is None (gateway ids aren't priced)."""
+    cases_path = _make_cases_file(tmp_path)
+    candidate = ModelCandidate(model_id="openai/gpt-4o-mini", backend="vercel")
+    captured_kwargs: dict = {}
+
+    async def _mock_run_query(*args, **kwargs):
+        captured_kwargs.update(kwargs)
+        return _make_query_result()
+
+    with patch("eval_harness.sweep.run_query", new=AsyncMock(side_effect=_mock_run_query)):
+        results = await run_role_sweep(
+            "librarian",
+            candidate,
+            cases_path,
+            fixture_workspace_path,
+            repeats=1,
+        )
+
+    assert len(results) == 1
+    overrides = captured_kwargs.get("role_model_overrides", {})
+    backend_overrides = captured_kwargs.get("role_backend_overrides", {})
+    assert overrides.get("librarian") == "openai/gpt-4o-mini"
+    assert backend_overrides.get("librarian") == "vercel"
+    assert results[0].model_id == "openai/gpt-4o-mini"
+    assert results[0].cost_usd is None

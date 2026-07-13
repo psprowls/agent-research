@@ -33,6 +33,7 @@ import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 from graph_wiki_core.commands.ingest import run_ingest_source
 from graph_wiki_core.commands.lint import run_lint
@@ -87,6 +88,26 @@ async def _capturing_ainvoke(self, *args, **kwargs):
 
 
 ChatBedrockConverse.ainvoke = _capturing_ainvoke  # type: ignore[assignment]
+
+
+class ModelCandidate(NamedTuple):
+    """A sweep candidate: a model id plus the backend that serves it.
+
+    Flows through all three sweep entry points (run_sweep, run_role_sweep,
+    run_full_matrix). A bare string wherever these accept
+    ``str | ModelCandidate`` implies ``backend="bedrock"`` -- byte-for-byte
+    today's behavior (see _as_candidate).
+    """
+
+    model_id: str
+    backend: str = "bedrock"
+
+
+def _as_candidate(candidate: str | ModelCandidate) -> ModelCandidate:
+    """Normalize a str|ModelCandidate sweep candidate to a ModelCandidate."""
+    if isinstance(candidate, ModelCandidate):
+        return candidate
+    return ModelCandidate(model_id=candidate)
 
 
 def _aggregate_usage(bucket: list) -> tuple[int | None, int | None, float | None]:
@@ -239,13 +260,13 @@ def _load_and_validate_cases(cases_path: Path) -> list[dict]:
 async def run_sweep(
     cases_path: Path,
     workspace_path: Path,
-    model_ids: list[str],
+    model_ids: list[str | ModelCandidate],
 ) -> list[SweepResult]:
     """Run a model sweep: for each model_id, run all eval cases under isolation.
 
     For each (model_id, case) pair:
     - Opens an EvalWorktree (isolated wiki copy in tmpdir).
-    - Calls run_query() with librarian_model_override=model_id.
+    - Calls run_query() with role_model_overrides={"librarian": model_id}.
     - Collects tokens from trace JSONL and computes cost via pricing.
     - Runs check_structural() on the QueryResult.
     - Produces a SweepResult with status="ok" or status="error".
@@ -257,7 +278,8 @@ async def run_sweep(
         cases_path:     Path to query_cases.json; cases missing schema keys are skipped.
         workspace_path: Path to the source workspace root; the wiki is derived
                         internally via wiki_dir(workspace_path) (D-01/D-09).
-        model_ids:      List of Bedrock model IDs to sweep over.
+        model_ids:      List of model IDs (str or ModelCandidate) to sweep over.
+                        A bare string implies backend="bedrock".
 
     Returns:
         List of SweepResult (one per (model_id, case) pair that was attempted).
@@ -265,8 +287,8 @@ async def run_sweep(
     cases = _load_and_validate_cases(cases_path)
     wiki = wiki_dir(workspace_path)
 
-    async def _run_one(model_id: str, case: dict) -> SweepResult:
-        safe_model_id = _sanitize_model_id(model_id)
+    async def _run_one(candidate: ModelCandidate, case: dict) -> SweepResult:
+        safe_model_id = _sanitize_model_id(candidate.model_id)
         query = case["query"]
 
         async with EvalWorktree(wiki) as wt:
@@ -276,7 +298,8 @@ async def run_sweep(
                     query,
                     workspace_path=wt.path,
                     top_k=5,
-                    librarian_model_override=model_id,
+                    role_model_overrides={"librarian": candidate.model_id},
+                    role_backend_overrides={"librarian": candidate.backend},
                 )
                 wall_seconds = time.monotonic() - t0
                 if wt.path is None:
@@ -290,14 +313,14 @@ async def run_sweep(
                 cost_usd: float | None = None
                 if tokens_in is not None and tokens_out is not None:
                     try:
-                        cost_usd = cost_for_usage(model_id, {"input": tokens_in, "output": tokens_out})
+                        cost_usd = cost_for_usage(candidate.model_id, {"input": tokens_in, "output": tokens_out})
                     except (UnknownModelError, KeyError):
                         cost_usd = None
 
                 structural = check_structural(result, wt.path)
 
                 return SweepResult(
-                    model_id=model_id,
+                    model_id=candidate.model_id,
                     safe_model_id=safe_model_id,
                     query=query,
                     answer=result.answer,
@@ -316,12 +339,12 @@ async def run_sweep(
                 wall_seconds = time.monotonic() - t0
                 logger.warning(
                     "Sweep run failed: model=%s query=%r error=%s",
-                    model_id,
+                    candidate.model_id,
                     query,
                     exc,
                 )
                 return SweepResult(
-                    model_id=model_id,
+                    model_id=candidate.model_id,
                     safe_model_id=safe_model_id,
                     query=query,
                     answer="",
@@ -337,7 +360,7 @@ async def run_sweep(
                 )
 
     # Build coroutine list: all (model_id, case) pairs
-    coros = [_run_one(model_id, case) for model_id in model_ids for case in cases]
+    coros = [_run_one(_as_candidate(model_id), case) for model_id in model_ids for case in cases]
 
     # return_exceptions=True: one failure does NOT abort siblings
     raw = await asyncio.gather(*coros, return_exceptions=True)
@@ -375,11 +398,13 @@ async def _sweep_query_role(
     candidate_model_id: str,
     case: dict,
     workspace_path: Path,
+    candidate_backend: str = "bedrock",
 ) -> tuple[QueryResult, str]:
     """Run a query sweep cell for librarian/synthesizer/code_reader.
 
-    Passes role_model_overrides={role: candidate_model_id} to run_query so only
-    the role under test uses the candidate; all others keep their defaults (D-06).
+    Passes role_model_overrides={role: candidate_model_id} and
+    role_backend_overrides={role: candidate_backend} to run_query so only the
+    role under test uses the candidate; all others keep their defaults (D-06).
 
     Returns:
         (QueryResult, answer_text) tuple.
@@ -388,6 +413,7 @@ async def _sweep_query_role(
         case["query"],
         workspace_path=workspace_path,
         role_model_overrides={role: candidate_model_id},
+        role_backend_overrides={role: candidate_backend},
     )
     return result, result.answer
 
@@ -397,6 +423,7 @@ async def _sweep_scan_role(
     candidate_model_id: str,
     case: dict,
     workspace_path: Path,
+    candidate_backend: str = "bedrock",
 ) -> tuple[object, str]:
     """Run a scan sweep cell for the scanner role.
 
@@ -405,6 +432,8 @@ async def _sweep_scan_role(
         candidate_model_id: Bedrock model ID to pass as model_override.
         case:               Eval case dict (query key used for the answer stub).
         workspace_path:     Workspace root for the isolated worktree.
+        candidate_backend:  Accepted for dispatch-signature uniformity but unused
+                            (run_scan has no backend parameter).
 
     Returns:
         (ScanResult, summary_string) tuple.
@@ -428,6 +457,7 @@ async def _sweep_lint_role(
     candidate_model_id: str,
     case: dict,
     workspace_path: Path,
+    candidate_backend: str = "bedrock",
 ) -> tuple[object, str]:
     """Run a lint sweep cell for the linter role.
 
@@ -436,6 +466,8 @@ async def _sweep_lint_role(
         candidate_model_id: Bedrock model ID to pass as model_override.
         case:               Eval case dict (unused for lint).
         workspace_path:     Workspace root for the isolated worktree.
+        candidate_backend:  Accepted for dispatch-signature uniformity but unused
+                            (run_lint has no backend parameter).
 
     Returns:
         (LintResult, summary_string) tuple.
@@ -453,6 +485,7 @@ async def _sweep_ingest_role(
     candidate_model_id: str,
     case: dict,
     workspace_path: Path,
+    candidate_backend: str = "bedrock",
 ) -> tuple[object, str]:
     """Run an ingest sweep cell for the ingestor role.
 
@@ -466,6 +499,8 @@ async def _sweep_ingest_role(
         candidate_model_id: Bedrock model ID to pass as model_override.
         case:               Eval case dict — ``source_path`` key is optional.
         workspace_path:     Workspace root for the isolated worktree.
+        candidate_backend:  Accepted for dispatch-signature uniformity but unused
+                            (run_ingest_source has no backend parameter).
 
     Returns:
         (IngestResult, summary_string) tuple.
@@ -487,7 +522,7 @@ async def _sweep_ingest_role(
 
 async def run_role_sweep(
     role: str,
-    candidate_model_id: str,
+    candidate_model_id: str | ModelCandidate,
     cases_path: Path,
     workspace_path: Path,
     repeats: int = 3,
@@ -512,7 +547,8 @@ async def run_role_sweep(
 
     Args:
         role:               Role name (must be a key in ROLE_COMMAND_MAP).
-        candidate_model_id: Bedrock model ID for the role under test.
+        candidate_model_id: Model ID (str or ModelCandidate) for the role under test.
+                            A bare string implies backend="bedrock".
         cases_path:         Path to query_cases.json (schema validated per T-4-01).
         workspace_path:     Path to the source workspace root; the wiki is
                             derived via wiki_dir(workspace_path) (D-01/D-09)
@@ -527,14 +563,15 @@ async def run_role_sweep(
     if role not in ROLE_COMMAND_MAP:
         raise ValueError(f"Unknown role {role!r} — must be one of {sorted(ROLE_COMMAND_MAP)}")
 
+    candidate = _as_candidate(candidate_model_id)
     sem = semaphore or asyncio.Semaphore(8)
     cases = _load_and_validate_cases(cases_path)
-    safe_model_id = _sanitize_model_id(candidate_model_id)
+    safe_model_id = _sanitize_model_id(candidate.model_id)
     dispatch_name = ROLE_COMMAND_MAP[role]
     wiki = wiki_dir(workspace_path)
 
     # Map dispatch name string to actual function (module-level callables)
-    _dispatch: dict[str, Callable[[str, str, dict, Path], Awaitable[tuple[object, str]]]] = {
+    _dispatch: dict[str, Callable[[str, str, dict, Path, str], Awaitable[tuple[object, str]]]] = {
         "_sweep_query_role": _sweep_query_role,
         "_sweep_scan_role": _sweep_scan_role,
         "_sweep_lint_role": _sweep_lint_role,
@@ -552,7 +589,7 @@ async def run_role_sweep(
                 try:
                     if wt.path is None:
                         raise RuntimeError("eval worktree did not provide a workspace path")
-                    _result, _answer = await cmd_fn(role, candidate_model_id, case, wt.path)
+                    _result, _answer = await cmd_fn(role, candidate.model_id, case, wt.path, candidate.backend)
                     wall_seconds = time.monotonic() - t0
 
                     # Aggregate usage from THIS task's contextvar bucket
@@ -567,7 +604,7 @@ async def run_role_sweep(
                         sum(
                             b["tokens_in"]
                             for b in bucket
-                            if b.get("model_id") == candidate_model_id and b.get("tokens_in") is not None
+                            if b.get("model_id") == candidate.model_id and b.get("tokens_in") is not None
                         )
                         or None
                     )
@@ -575,7 +612,7 @@ async def run_role_sweep(
                         sum(
                             b["tokens_out"]
                             for b in bucket
-                            if b.get("model_id") == candidate_model_id and b.get("tokens_out") is not None
+                            if b.get("model_id") == candidate.model_id and b.get("tokens_out") is not None
                         )
                         or None
                     )
@@ -583,7 +620,7 @@ async def run_role_sweep(
                     if cand_in is not None and cand_out is not None:
                         try:
                             cost_usd = cost_for_usage(
-                                candidate_model_id,
+                                candidate.model_id,
                                 {"input": cand_in, "output": cand_out},
                             )
                         except (UnknownModelError, KeyError):
@@ -606,7 +643,7 @@ async def run_role_sweep(
                         answer = _answer
 
                     return SweepResult(
-                        model_id=candidate_model_id,
+                        model_id=candidate.model_id,
                         safe_model_id=safe_model_id,
                         query=query,
                         answer=answer,
@@ -626,13 +663,13 @@ async def run_role_sweep(
                     logger.warning(
                         "Role sweep cell failed: role=%s model=%s repeat=%d query=%r error=%s",
                         role,
-                        candidate_model_id,
+                        candidate.model_id,
                         repeat_idx,
                         query,
                         exc,
                     )
                     return SweepResult(
-                        model_id=candidate_model_id,
+                        model_id=candidate.model_id,
                         safe_model_id=safe_model_id,
                         query=query,
                         answer="",
@@ -791,7 +828,7 @@ def _writeback_structural_quality(
 
 
 async def run_full_matrix(
-    role_candidates: dict[str, list[str]],
+    role_candidates: dict[str, list[str | ModelCandidate]],
     workspace_path: Path,
     query_cases_path: Path,
     code_reader_cases_path: Path,
@@ -819,7 +856,7 @@ async def run_full_matrix(
         containing one entry with ``source_path=ingestor_source_path``
 
     Args:
-        role_candidates:          mapping role -> [candidate model_ids]
+        role_candidates:          mapping role -> [candidate model_ids or ModelCandidate(model_id, backend) entries]
         workspace_path:           source workspace root (wiki copied per cell by
                                   EvalWorktree via wiki_dir(workspace_path))
         query_cases_path:         JSON cases for query-style roles
@@ -907,6 +944,7 @@ async def run_full_matrix(
         for role, candidates in role_candidates.items():
             role_results = all_results.get(role, [])
             cases_path = cases_path_for_role.get(role, query_cases_path)
+            candidate_ids = [_as_candidate(c).model_id for c in candidates]
 
             default_model_id: str | None = None
             try:
@@ -946,22 +984,22 @@ async def run_full_matrix(
             #    quality is the divergence-rubric pass-rate (reuses divergence_metric).
             #  - Other roles: leave judge_scores=None.
             panel_means: dict[str, float | None] = {}
-            for candidate in candidates:
-                candidate_results = results_by_candidate.get(candidate, [])
+            for candidate_id in candidate_ids:
+                candidate_results = results_by_candidate.get(candidate_id, [])
                 if role in _QUALITY_ROLES:
-                    panel_means[candidate] = _score_and_writeback_judgeable(role, candidate_results, cases_path)
+                    panel_means[candidate_id] = _score_and_writeback_judgeable(role, candidate_results, cases_path)
                 else:
-                    panel_means[candidate] = None
+                    panel_means[candidate_id] = None
                     if role in ROLES_WITH_DIVERGENCE and divergence_metric is not None:
                         _writeback_structural_quality(divergence_metric, candidate_results)
 
             default_panel_mean = panel_means.get(default_model_id) if default_model_id else None
 
             two_gate_outcomes: dict[str, TwoGateOutcome] = {}
-            for candidate in candidates:
+            for candidate_id in candidate_ids:
                 outputs_by_case: list[tuple[str, object]] = [
                     (r.query, AgentOutputProxy(answer=r.answer))
-                    for r in results_by_candidate.get(candidate, [])
+                    for r in results_by_candidate.get(candidate_id, [])
                     if r.status == "ok"
                 ]
                 outcome = score_two_gate(
@@ -969,11 +1007,11 @@ async def run_full_matrix(
                     divergence_metric_or_none=divergence_metric,
                     agent_outputs_by_case=outputs_by_case,
                     baselines_dir=baselines_dir_for_role,
-                    panel_mean=panel_means.get(candidate),
+                    panel_mean=panel_means.get(candidate_id),
                     default_panel_mean=default_panel_mean,
                     threshold=threshold,
                 )
-                two_gate_outcomes[candidate] = outcome
+                two_gate_outcomes[candidate_id] = outcome
 
             role_total_cost = sum(r.cost_usd for r in role_results if r.cost_usd is not None)
             total_cost_run += role_total_cost
@@ -981,7 +1019,7 @@ async def run_full_matrix(
             doc_text = render_role_doc(
                 role=role,
                 tier=_TIER_LABEL.get(role, "mid"),
-                candidates=candidates,
+                candidates=candidate_ids,
                 sweep_results=role_results,
                 divergence_results=None,
                 run_date=run_date,
@@ -1002,7 +1040,7 @@ async def run_full_matrix(
                 role=role,
                 run_date=run_date,
                 frontier=frontier,
-                current_default=default_model_id or (candidates[0] if candidates else "unknown"),
+                current_default=default_model_id or (candidate_ids[0] if candidate_ids else "unknown"),
             )
             print(f"### Recommendation block for [roles.{role}] ###")
             print(rec_block)
