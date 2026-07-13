@@ -35,10 +35,13 @@ pythonpath = ["packages/eval-harness/tests"]
 asyncio_mode = "auto"
 # Don't recurse into src/ trees when running from the workspace root.
 # `packages/graph-io/src/graph_io/test_suites.py` is the TestSuite emitter
-# module (named per the ontology kind), not a pytest test module. Per-package
-# `[tool.pytest.ini_options] testpaths = ["tests"]` already scopes things
-# correctly when pytest runs inside a package; this guard catches workspace
-# invocations.
+# module (named per the ontology kind), not a pytest test module. There is no
+# `testpaths` override here (unlike per-package configs) — a bare invocation
+# from the root, or `uv run --package X pytest` without an explicit package
+# test path (--package only selects the uv environment, not pytest's rootdir),
+# intentionally collects every package's suite; that's the whole-suite/CI path.
+# Per-package scoping requires passing the package's own test path explicitly
+# so rootdir resolves to *its* pyproject.toml instead (see CLAUDE.md).
 norecursedirs = ["src", ".venv", ".git", ".claude", ".hypothesis", "node_modules", "dist", "build", ".worktrees"]
 markers = [
     "integration: requires real Bedrock or subprocess (skipped by default)",

@@ -16,17 +16,27 @@ uv run --package graph-wiki-cli gw --help       # the gw CLI entry point
 uv run ruff check . && uv run ruff format       # lint + format (line-length 120, py311)
 ```
 
-Tests are **per-package** (each member sets its own `testpaths`). Run scoped, not from the root:
+Tests are **per-package** (each member sets its own `testpaths`). `--package` only
+selects the uv *environment* — it does not scope pytest's collection. Invoked
+bare from the repo root, `uv run --package X pytest` resolves `rootdir` to the
+**root** `pyproject.toml` and collects the whole ~4,100-test workspace suite
+regardless of which package is named. To actually scope, pass the package's own
+test path explicitly — this shifts `rootdir` to the package's own
+`pyproject.toml`, which is why per-package `testpaths`/`asyncio_mode`/`addopts`
+are duplicated locally rather than inherited from root:
 
 ```bash
-uv run --package graph-wiki-core pytest                       # one package
-uv run --package graph-wiki-core pytest tests/unit/test_scan_narrate.py::test_name   # one test
-uv run --package graph-wiki-cli pytest -m "not integration"   # skip Bedrock/subprocess tests
+uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests                       # one package
+uv run --package graph-wiki-core pytest packages/graph-wiki-core/tests/unit/test_scan_narrate.py::test_name   # one test
+uv run --package graph-wiki-cli pytest packages/graph-wiki-cli/tests -m "not integration"     # skip Bedrock/subprocess tests
 ```
 
-- `integration`-marked tests need real Bedrock or subprocesses; **skipped by default** — pass nothing special to skip, `-m integration` to opt in.
+Verify scoping worked with `--collect-only -q` — the count should match the
+package's own suite, not the whole workspace.
+
+- `integration`-marked tests need real Bedrock or subprocesses; pass `-m "not integration"` to skip them, `-m integration` to run only them.
 - `eval`-marked tests only run with `GRAPH_WIKI_RUN_EVAL=1`.
-- Running `pytest` from the workspace root is guarded (`norecursedirs` excludes `src/`, so `graph_io/test_suites.py` — an emitter module, not a test — isn't collected). Prefer `--package`.
+- Running `pytest` from the workspace root (no explicit package test path) is guarded (`norecursedirs` excludes `src/`, so `graph_io/test_suites.py` — an emitter module, not a test — isn't collected) but still collects every package's suite; that's the intended behavior for whole-suite runs (e.g. CI), not a per-package scoping mechanism.
 
 ## Architecture
 

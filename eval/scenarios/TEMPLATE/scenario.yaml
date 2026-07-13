@@ -16,7 +16,7 @@
 #        * impossible-without-wiki: base cannot pass; knowledge only in wiki
 #    - inject: list of wiki page paths (relative to wiki/ root) to inject for injected arm
 # 3. Update prompt.md and rubric.md with your scenario specifics
-# 4. Run: `uv run --package claude-code-evals pytest` to verify scenario loads
+# 4. Run: `uv run --package claude-code-evals pytest packages/claude-code-evals/tests` to verify scenario loads
 
 name: TEMPLATE
 description: >

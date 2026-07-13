@@ -38,12 +38,14 @@ packages/
   model-adapter/    # AWS Bedrock model loader + role registry
 ```
 
-Each workspace member has its own `pyproject.toml` with per-member `testpaths`. Run scoped tests with:
+Each workspace member has its own `pyproject.toml` with per-member `testpaths`.
+`--package` only picks the uv environment, not the pytest scope — pass the
+package's own test path explicitly or it collects the whole workspace suite:
 
 ```bash
-uv run --package wiki-io pytest
-uv run --package model-adapter pytest
-uv run --package graph-wiki-cli pytest -m "not integration"
+uv run --package wiki-io pytest packages/wiki-io/tests
+uv run --package model-adapter pytest packages/model-adapter/tests
+uv run --package graph-wiki-cli pytest packages/graph-wiki-cli/tests -m "not integration"
 ```
 
 ## Requirements
