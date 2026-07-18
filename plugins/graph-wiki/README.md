@@ -66,8 +66,11 @@ setup:
   Git for Windows. Install with `choco install jq` or `scoop install jq`, and
   confirm it resolves on `PATH` from inside Git Bash (`which jq`).
 - **`python3`** — the same hook scripts call `python3` directly. Windows
-  Python installs typically only provide `python`/`py`; add a `python3` shim
-  or a `py -3` alias so it resolves inside Git Bash (`which python3`).
+  Python installs typically only provide `python`/`py`. Aliases won't work
+  here — the hooks run via non-interactive `bash -l`, which doesn't expand
+  shell aliases — so create a small wrapper script named `python3` on `PATH`
+  instead (e.g. a one-line script that execs `py -3 "$@"`), and confirm it
+  resolves inside Git Bash (`which python3`).
 - **Environment variables** — `AGENT_RESEARCH_ROOT` and `GRAPH_WIKI_WORKSPACE`
   are both set via the `env` block in `.claude/settings.local.json` (see the
   example there) — this works cross-platform, including Windows, since Claude
