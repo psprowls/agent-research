@@ -34,7 +34,7 @@ The server watches a directory for HTML files and serves the newest one to the b
 
 ```bash
 # Start server — it resolves where mockups are saved (see below)
-scripts/start-server.sh
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/start-server.sh"
 
 # Returns (graph-wiki workspace resolves):
 # {"type":"server-started","port":52341,"url":"http://localhost:52341",
@@ -64,7 +64,7 @@ location lives outside the repo and needs no gitignore entry.
 **Claude Code (macOS / Linux):**
 ```bash
 # Default mode works — the script backgrounds the server itself
-scripts/start-server.sh
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/start-server.sh"
 ```
 
 **Claude Code (Windows):**
@@ -72,7 +72,7 @@ scripts/start-server.sh
 # Windows auto-detects and uses foreground mode, which blocks the tool call.
 # Use run_in_background: true on the Bash tool call so the server survives
 # across conversation turns.
-scripts/start-server.sh
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/start-server.sh"
 ```
 When calling this via the Bash tool, set `run_in_background: true`. Then read `$STATE_DIR/server-info` on the next turn to get the URL and port.
 
@@ -80,14 +80,14 @@ When calling this via the Bash tool, set `run_in_background: true`. Then read `$
 ```bash
 # Codex reaps background processes. The script auto-detects CODEX_CI and
 # switches to foreground mode. Run it normally — no extra flags needed.
-scripts/start-server.sh
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/start-server.sh"
 ```
 
 **Gemini CLI:**
 ```bash
 # Use --foreground and set is_background: true on your shell tool call
 # so the process survives across turns
-scripts/start-server.sh --foreground
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/start-server.sh" --foreground
 ```
 
 **Other environments:** The server must keep running in the background across conversation turns. If your environment reaps detached processes, use `--foreground` and launch the command with your platform's background execution mechanism.
@@ -95,7 +95,7 @@ scripts/start-server.sh --foreground
 If the URL is unreachable from your browser (common in remote/containerized setups), bind a non-loopback host:
 
 ```bash
-scripts/start-server.sh \
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/start-server.sh" \
   --host 0.0.0.0 \
   --url-host localhost
 ```
@@ -287,7 +287,7 @@ If `$STATE_DIR/events` doesn't exist, the user didn't interact with the browser 
 ## Cleaning Up
 
 ```bash
-scripts/stop-server.sh $SESSION_DIR
+bash "${CLAUDE_PLUGIN_ROOT}/skills/brainstorming/scripts/stop-server.sh" $SESSION_DIR
 ```
 
 Sessions saved under a workspace (`<workspace>/.graph-wiki/brainstorming/`) or repo (`<repo>/.brainstorming/`) persist for later reference. Only `/tmp` sessions get deleted on stop.
