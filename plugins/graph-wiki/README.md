@@ -51,6 +51,58 @@ gw scan
 
 Workspace and repo are auto-discovered; pass `--workspace <ws>` only to override. If `gw` isn't on PATH, prefix any command with `uv run --package graph-wiki-cli`.
 
+## Windows setup
+
+The plugin's hooks run through `plugins/graph-wiki/hooks/run-hook.cmd`, a
+polyglot wrapper that dispatches to `bash.exe` on Windows. To get a working
+setup:
+
+- **Git for Windows** — required. Provides the `bash.exe` the hook wrapper
+  dispatches to (checked at `C:\Program Files\Git\bin\bash.exe`,
+  `C:\Program Files (x86)\Git\bin\bash.exe`, then `bash` on `PATH`, in that
+  order).
+- **`jq`** — required by several hook scripts (`pre-askuser-handoff-guard`,
+  `pre-taskcreate-model-tier`, `pre-agent-model-routing`); not bundled with
+  Git for Windows. Install with `choco install jq` or `scoop install jq`, and
+  confirm it resolves on `PATH` from inside Git Bash (`which jq`).
+- **`python3`** — the same hook scripts call `python3` directly. Windows
+  Python installs typically only provide `python`/`py`; add a `python3` shim
+  or a `py -3` alias so it resolves inside Git Bash (`which python3`).
+- **Environment variables** — `AGENT_RESEARCH_ROOT` and `GRAPH_WIKI_WORKSPACE`
+  are both set via the `env` block in `.claude/settings.local.json` (see the
+  example there) — this works cross-platform, including Windows, since Claude
+  Code applies it directly. If you invoke `gw` or plugin scripts outside a
+  Claude Code session on Windows, set them via PowerShell instead:
+
+  ```powershell
+  $env:AGENT_RESEARCH_ROOT = "C:\path\to\agent-research"
+  $env:GRAPH_WIKI_WORKSPACE = "C:\path\to\workspace"
+  # Or persist across sessions:
+  setx AGENT_RESEARCH_ROOT "C:\path\to\agent-research"
+  setx GRAPH_WIKI_WORKSPACE "C:\path\to\workspace"
+  ```
+
+### Manual Windows test checklist
+
+There is no Windows CI for this plugin (or its upstream reference project),
+so verification is manual. After a change to hooks or `.sh`-invoking skill
+docs, run through this checklist on a real Windows machine and report
+pass/fail per step:
+
+1. Fresh Windows + Git for Windows + documented prereqs (`jq`, `python3` shim)
+   installed; `AGENT_RESEARCH_ROOT` / `GRAPH_WIKI_WORKSPACE` set per the docs
+   above.
+2. Start a Claude Code session in this repo on Windows — confirm
+   `SessionStart` fires without error (`run-hook.cmd session-start`).
+3. Trigger a `Skill` / `Agent` / `AskUserQuestion` tool call — confirm the
+   corresponding `PreToolUse` hooks (`skill-doc-routing`,
+   `pre-taskcreate-model-tier`, `pre-agent-model-routing`,
+   `pre-askuser-handoff-guard`) fire without error.
+4. Run the brainstorming visual-companion flow and the systematic-debugging
+   root-cause-tracing flow — confirm the `.sh` scripts launch correctly via
+   the explicit `bash` prefix.
+5. Report pass/fail per step back for any fixes needed.
+
 ## [plugin] block syntax
 
 The `[plugin]` block in `.graph-wiki.yaml` controls whether each command runs on Claude (default) or routes to `gw` from `graph-wiki-cli` on Bedrock.

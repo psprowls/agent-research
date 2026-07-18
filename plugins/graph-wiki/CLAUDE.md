@@ -35,6 +35,11 @@ Each shim preserves the user's original trailing arguments after the mapped pref
 
 Distribution: shims reference `wiki_io` via the `uv` workspace (`uv run --project "$AGENT_RESEARCH_ROOT"`), so installed users need `AGENT_RESEARCH_ROOT` set and `uv` installed — no `vendor/` directory required. Bedrock users also need the `gw` console script from `graph-wiki-cli` on PATH (e.g. via `uv tool install`), so commands run as bare `gw ...`; where it isn't installed, fall back to `uv run --package graph-wiki-cli gw ...` in this workspace.
 
+**Windows:** see `README.md`'s "Windows setup" section for prerequisites (Git
+for Windows, `jq`, `python3`) and the manual verification checklist — there is
+no Windows CI, so changes touching hooks or `.sh`-invoking skill docs must be
+checked against that list.
+
 **When changing behavior:** edit `packages/wiki-io/` and write tests there for Claude-hosted behavior; edit `packages/graph-wiki-cli/` / `packages/graph-wiki-core/` and their tests for Bedrock CLI behavior. Only edit plugin-side files for skill content, command/agent markdown, hook wiring, or `_config.py`.
 
 ## Tests
