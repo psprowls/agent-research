@@ -33,6 +33,22 @@ def child_rollup(items: list[dict], epic_slug: str) -> ChildRollup:
     return ChildRollup(total=len(children), terminal=terminal, open_slugs=open_slugs)
 
 
+def children_map(items: list[dict]) -> dict[str, list[str]]:
+    """Map parent slug -> child slugs, sorted by (opened, slug).
+
+    Terminal and archived children are included — the parent/child relationship
+    is permanent. Parents with no children are omitted (the `children` key is
+    omitted-when-empty on pages). Items need 'slug' and 'parent'; 'opened' is
+    optional and defaults to "".
+    """
+    grouped: dict[str, list[tuple[str, str]]] = {}
+    for it in items:
+        parent = it.get("parent")
+        if parent:
+            grouped.setdefault(str(parent), []).append((str(it.get("opened") or ""), it["slug"]))
+    return {parent: [slug for _opened, slug in sorted(pairs)] for parent, pairs in grouped.items()}
+
+
 def dep_states(items: list[dict], depends_on: tuple[str, ...]) -> tuple[str, ...]:
     """Return the subset of `depends_on` slugs that are not yet terminal.
 

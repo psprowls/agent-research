@@ -16,6 +16,7 @@ VALID_STATUSES = frozenset({"open", "accepted", "in-progress", "mitigated", "res
 VALID_KINDS = frozenset({"bug", "tech-debt", "test-gap", "security", "perf", "feature", "epic", "spike"})
 BUG_LIKE_KINDS = frozenset({"bug", "security", "perf", "tech-debt", "test-gap"})
 TERMINAL_STATUSES = frozenset({"resolved", "wontfix", "superseded"})
+PARENT_KINDS = frozenset({"epic", "feature"})
 FEATURE_LIKE_KINDS = frozenset({"feature", "epic"})
 VALID_EFFORTS = frozenset({"xtra-small", "small", "medium", "large", "xtra-large"})
 VALID_PHASES = frozenset({"design", "plan", "execute", "finish", "done"})

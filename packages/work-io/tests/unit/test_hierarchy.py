@@ -71,3 +71,38 @@ def test_unresolved_depends_on_ambiguous_title_match_maps_to_none() -> None:
 def test_unresolved_depends_on_archived_slug_counts_as_known() -> None:
     items = [_item("2026-06-26-sib", status="resolved")]
     assert unresolved_depends_on(items, ["2026-06-26-sib"]) == {}
+
+
+def _hitem(slug: str, status: str = "open", parent: str | None = None, opened: str = "") -> dict:
+    return {"slug": slug, "status": status, "parent": parent, "opened": opened}
+
+
+def test_parent_kinds_constant() -> None:
+    from work_io.lifecycle_lint import PARENT_KINDS
+
+    assert PARENT_KINDS == frozenset({"epic", "feature"})
+
+
+def test_children_map_sorts_by_opened_then_slug() -> None:
+    from work_io.hierarchy import children_map
+
+    items = [
+        _hitem("p"),
+        _hitem("b-later", parent="p", opened="2026-07-02"),
+        _hitem("a-early", parent="p", opened="2026-07-01"),
+        _hitem("z-same-day", parent="p", opened="2026-07-01"),
+    ]
+    assert children_map(items) == {"p": ["a-early", "z-same-day", "b-later"]}
+
+
+def test_children_map_includes_terminal_children() -> None:
+    from work_io.hierarchy import children_map
+
+    items = [_hitem("p"), _hitem("c1", status="resolved", parent="p", opened="2026-07-01")]
+    assert children_map(items) == {"p": ["c1"]}
+
+
+def test_children_map_omits_childless_parents() -> None:
+    from work_io.hierarchy import children_map
+
+    assert children_map([_hitem("p"), _hitem("standalone")]) == {}
