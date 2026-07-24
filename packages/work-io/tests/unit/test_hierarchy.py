@@ -106,3 +106,131 @@ def test_children_map_omits_childless_parents() -> None:
     from work_io.hierarchy import children_map
 
     assert children_map([_hitem("p"), _hitem("standalone")]) == {}
+
+
+def _ditem(slug, kind="bug", status="open", parent=None, phase=None, depends_on=(), opened=""):
+    return {
+        "slug": slug,
+        "kind": kind,
+        "status": status,
+        "parent": parent,
+        "phase": phase,
+        "depends_on": tuple(depends_on),
+        "opened": opened,
+    }
+
+
+def test_descend_epic_to_oldest_open_child() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="execute"),
+        _ditem("c-new", parent="e", opened="2026-07-02"),
+        _ditem("c-old", parent="e", opened="2026-07-01"),
+    ]
+    r = descend(items, "e")
+    assert r.leaf == "c-old" and r.path == ("e", "c-old") and r.blocked_at is None
+
+
+def test_descend_prefers_in_progress_then_accepted() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="execute"),
+        _ditem("c-open", parent="e", opened="2026-07-01"),
+        _ditem("c-acc", status="accepted", parent="e", opened="2026-07-02"),
+        _ditem("c-wip", status="in-progress", parent="e", opened="2026-07-03"),
+    ]
+    assert descend(items, "e").leaf == "c-wip"
+    items = [it for it in items if it["slug"] != "c-wip"]
+    assert descend(items, "e").leaf == "c-acc"
+
+
+def test_descend_skips_dep_blocked_children() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="execute"),
+        _ditem("blocked", parent="e", depends_on=("free",), opened="2026-07-01"),
+        _ditem("free", parent="e", opened="2026-07-02"),
+    ]
+    assert descend(items, "e").leaf == "free"
+
+
+def test_descend_recurses_into_gated_feature_child() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="execute"),
+        _ditem("f", kind="feature", status="in-progress", parent="e", phase="execute", opened="2026-07-01"),
+        _ditem("fbug", parent="f", opened="2026-07-02"),
+    ]
+    r = descend(items, "e")
+    assert r.leaf == "fbug" and r.path == ("e", "f", "fbug")
+
+
+def test_descend_stops_at_feature_child_still_at_design() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="execute"),
+        _ditem("f", kind="feature", parent="e", phase="design", opened="2026-07-01"),
+        _ditem("fbug", parent="f", opened="2026-07-02"),
+    ]
+    assert descend(items, "e").leaf == "f"  # design-phase feature is dispatched itself
+
+
+def test_descend_no_candidate_reports_blocked_at() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="execute"),
+        _ditem("m", status="mitigated", parent="e", opened="2026-07-01"),
+    ]
+    r = descend(items, "e")
+    assert r.leaf is None and r.blocked_at == "e" and r.reason
+
+
+def test_descend_cycle_is_safe() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("a", kind="feature", status="in-progress", phase="execute", parent="b", opened="2026-07-01"),
+        _ditem("b", kind="feature", status="in-progress", phase="execute", parent="a", opened="2026-07-01"),
+    ]
+    r = descend(items, "a")
+    assert r.leaf is None and "cycle" in (r.reason or "")
+
+
+def test_descend_depth_cap_on_acyclic_chain() -> None:
+    from work_io.hierarchy import descend
+
+    items = [_ditem("e", kind="epic", phase="execute")]
+    for i in range(40):
+        items.append(
+            _ditem(
+                f"f{i}",
+                kind="feature",
+                status="in-progress",
+                parent=f"f{i - 1}" if i > 0 else "e",
+                phase="execute",
+                opened="2026-07-01",
+            )
+        )
+    items.append(_ditem("leaf", parent="f39", opened="2026-07-01"))
+    r = descend(items, "e")
+    assert r.leaf is None and "depth cap" in (r.reason or "") and "cycle" not in (r.reason or "")
+
+
+def test_descend_unknown_slug_blocks() -> None:
+    from work_io.hierarchy import descend
+
+    r = descend([], "ghost")
+    assert r.leaf is None and r.blocked_at == "ghost"
+
+
+def test_descend_non_gated_node_is_its_own_leaf() -> None:
+    from work_io.hierarchy import descend
+
+    items = [_ditem("f", kind="feature", phase="plan"), _ditem("c", parent="f")]
+    assert descend(items, "f").leaf == "f"  # plan phase never gates
