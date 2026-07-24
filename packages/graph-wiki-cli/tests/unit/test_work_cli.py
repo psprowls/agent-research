@@ -211,6 +211,35 @@ def test_work_file_json_output_includes_warnings() -> None:
     assert data["warnings"] == ["some warning"]
 
 
+def test_work_next_descend_passthrough() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.work import WorkNextResult
+
+    wn = WorkNextResult(slug="leaf", status="open", kind="bug", phase="design")
+    with patch("graph_wiki_cli.work_cli.main.run_work_next", new=AsyncMock(return_value=wn)) as next_mock:
+        res = runner.invoke(app, ["work", "next", "some-epic", "--descend", "--json"])
+    assert res.exit_code == 0
+    assert next_mock.call_args.kwargs["descend"] is True
+
+
+def test_work_next_human_output_shows_descent_path() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.work import WorkNextResult
+
+    wn = WorkNextResult(
+        slug="leaf-child",
+        status="open",
+        kind="bug",
+        phase="plan",
+        descent={"from": "big-epic", "path": ["big-epic", "mid-feat", "leaf-child"]},
+    )
+    with patch("graph_wiki_cli.work_cli.main.run_work_next", new=AsyncMock(return_value=wn)):
+        res = runner.invoke(app, ["work", "next", "big-epic", "--descend"])
+    assert res.exit_code == 0
+    assert "descent: " in res.stdout
+    assert "big-epic -> mid-feat -> leaf-child" in res.stdout
+
+
 def test_work_regen_index_exit_0(tmp_path: Path) -> None:
     from graph_wiki_cli.cli import app
     from graph_wiki_core.commands.work import WorkRegenResult

@@ -552,11 +552,14 @@ def next_cmd(
     top: int = typer.Option(5, "--top", help="How many ranked guidance pages to attach"),
     no_rank: bool = typer.Option(False, "--no-rank", help="Force deterministic recall-only ordering"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    descend: bool = typer.Option(
+        False, "--descend", help="When the item is waiting on children, switch to the next actionable child"
+    ),
 ) -> None:
     """Compute the next workflow action AND attach phase-relevant guidance (read-only)."""
     workspace_path = Path(workspace) if workspace else None
     try:
-        wn = asyncio.run(run_work_next(workspace_path=workspace_path, slug=slug))
+        wn = asyncio.run(run_work_next(workspace_path=workspace_path, slug=slug, descend=descend))
     except RuntimeError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=3)
@@ -567,7 +570,7 @@ def next_cmd(
     if guidance_enabled(workspace_path) and guidance_eligible(wn):
         ng = asyncio.run(
             run_next_guidance(
-                slug,
+                wn.slug,
                 workspace_path=workspace_path,
                 top=top,
                 assemble=bool(file),
@@ -592,6 +595,8 @@ def next_cmd(
         typer.echo(json.dumps(payload, indent=2))
     if human or not json_output:
         typer.echo(f"{wn.slug}: kind={wn.kind} status={wn.status} phase={wn.phase}")
+        if wn.descent:
+            typer.echo(f"  descent: {' -> '.join(wn.descent['path'])}")
         if wn.action:
             typer.echo(f"  dispatch: {wn.action['skill']} — {wn.action['reason']}")
         if wn.artifact:

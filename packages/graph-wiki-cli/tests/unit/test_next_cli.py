@@ -188,6 +188,47 @@ def test_next_omits_guidance_when_disabled():
     assert payload["action"]["skill"] == "writing-plans"
 
 
+def test_next_descend_passthrough_and_guidance_follows_leaf():
+    wn = WorkNextResult(
+        slug="leaf-child",
+        status="open",
+        kind="bug",
+        phase="plan",
+        action={"skill": "writing-plans", "reason": "r"},
+        descent={"from": "big-epic", "path": ["big-epic", "leaf-child"]},
+    )
+    ng = NextGuidanceResult(ranked=[], warnings=[])
+    with (
+        patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)) as next_mock,
+        patch("graph_wiki_cli.cli.run_next_guidance", new=AsyncMock(return_value=ng)) as guidance,
+    ):
+        res = runner.invoke(app, ["next", "big-epic", "--descend", "--json"])
+    assert res.exit_code == 0
+    assert next_mock.call_args.kwargs["descend"] is True
+    assert guidance.call_args.args[0] == "leaf-child"  # guidance follows the leaf
+    assert json.loads(res.stdout)["descent"] == {"from": "big-epic", "path": ["big-epic", "leaf-child"]}
+
+
+def test_next_human_output_shows_descent_path():
+    wn = WorkNextResult(
+        slug="leaf-child",
+        status="open",
+        kind="bug",
+        phase="plan",
+        action={"skill": "writing-plans", "reason": "r"},
+        descent={"from": "big-epic", "path": ["big-epic", "mid-feat", "leaf-child"]},
+    )
+    with (
+        patch("graph_wiki_cli.cli.run_work_next", new=AsyncMock(return_value=wn)),
+        patch(
+            "graph_wiki_cli.cli.run_next_guidance",
+            new=AsyncMock(return_value=NextGuidanceResult(ranked=[], warnings=[])),
+        ),
+    ):
+        res = runner.invoke(app, ["next", "big-epic", "--descend"])
+    assert "descent: big-epic -> mid-feat -> leaf-child" in res.stdout
+
+
 def test_advance_passthrough():
     wa = WorkAdvanceResult(
         slug="wi",

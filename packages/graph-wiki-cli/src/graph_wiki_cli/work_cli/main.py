@@ -202,11 +202,14 @@ def next_cmd(
     slug: str = typer.Argument(..., help="Work item slug (file stem under wiki/work/)"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),
     json_output: bool = typer.Option(False, "--json"),
+    descend: bool = typer.Option(
+        False, "--descend", help="When the item is waiting on children, switch to the next actionable child"
+    ),
 ) -> None:
     """Compute the next workflow action for a work item (read-only)."""
     workspace_path = Path(workspace) if workspace else None
     try:
-        result = asyncio.run(run_work_next(workspace_path=workspace_path, slug=slug))
+        result = asyncio.run(run_work_next(workspace_path=workspace_path, slug=slug, descend=descend))
     except RuntimeError as e:
         typer.echo(f"Error: {e}", err=True)
         raise typer.Exit(code=3)
@@ -215,6 +218,8 @@ def next_cmd(
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
         typer.echo(f"{result.slug}: kind={result.kind} status={result.status} phase={result.phase}")
+        if result.descent:
+            typer.echo(f"  descent: {' -> '.join(result.descent['path'])}")
         if result.action:
             typer.echo(f"  dispatch: {result.action['skill']} — {result.action['reason']}")
         if result.artifact:
