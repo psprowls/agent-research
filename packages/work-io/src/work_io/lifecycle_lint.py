@@ -16,6 +16,9 @@ VALID_STATUSES = frozenset({"open", "accepted", "in-progress", "mitigated", "res
 VALID_KINDS = frozenset({"bug", "tech-debt", "test-gap", "security", "perf", "feature", "epic", "spike"})
 BUG_LIKE_KINDS = frozenset({"bug", "security", "perf", "tech-debt", "test-gap"})
 TERMINAL_STATUSES = frozenset({"resolved", "wontfix", "superseded"})
+# PARENT_KINDS and FEATURE_LIKE_KINDS are identical today but semantically distinct:
+# PARENT_KINDS: kinds that may own children via the parent field (rules 25, 30, 31)
+# FEATURE_LIKE_KINDS: kinds that must have target / done-when clarity (rules 15, 16)
 PARENT_KINDS = frozenset({"epic", "feature"})
 FEATURE_LIKE_KINDS = frozenset({"feature", "epic"})
 VALID_EFFORTS = frozenset({"xtra-small", "small", "medium", "large", "xtra-large"})
@@ -84,9 +87,11 @@ def run_lint(
     workspace fallback in rule 11); when None those checks are skipped.
 
     archived_items (terminal items already moved to work/_archive/) are consulted
-    for parent/depends_on resolution only (rules 24-27) — a reference to an
-    archived item is valid and should not read back as missing. They are excluded
-    from every per-item rule and from the depends-on-cycle graph.
+    for parent/depends_on resolution (rules 24-27) and for deriving the expected
+    children list (rule 31) — a reference to an archived item is valid and should
+    not read back as missing, and archived children are included in the children_map
+    derivation. Archived items themselves are excluded from every per-item rule and
+    from the depends-on-cycle graph.
     """
     findings: list[LintFinding] = []
 
@@ -279,6 +284,7 @@ def run_lint(
     # 24-29. hierarchy rules (cross-item; resolved against the full item set)
     by_slug = {it["slug"]: it["fm"] for it in items + (archived_items or [])}
     dep_graph: dict[str, list[str]] = {}
+    parent_graph: dict[str, list[str]] = {}
     for item in items:
         slug = item["slug"]
         fm = item["fm"]
@@ -286,21 +292,23 @@ def run_lint(
         parent = fm.get("parent")
         depends_on = list(fm.get("depends_on") or [])
         dep_graph[slug] = [str(dep) for dep in depends_on]
+        parent_graph[slug] = [str(parent)] if parent else []
 
-        # 24. parent-missing / 25. parent-not-epic
+        # 24. parent-missing / 25. parent-kind-invalid
         if parent:
             parent_fm = by_slug.get(str(parent))
             if parent_fm is None:
                 findings.append(
                     LintFinding("parent-missing", "error", slug, f"parent {parent!r} has no matching work item")
                 )
-            elif str(parent_fm.get("kind", "")) != "epic":
+            elif str(parent_fm.get("kind", "")) not in PARENT_KINDS:
                 findings.append(
                     LintFinding(
-                        "parent-not-epic",
+                        "parent-kind-invalid",
                         "error",
                         slug,
-                        f"parent {parent!r} resolves but its kind is {parent_fm.get('kind')!r}, not 'epic'",
+                        f"parent {parent!r} resolves but its kind is {parent_fm.get('kind')!r}, "
+                        f"not one of {sorted(PARENT_KINDS)}",
                     )
                 )
 
@@ -334,6 +342,31 @@ def run_lint(
     # 28. depends-on-cycle
     for slug in _cycle_nodes(dep_graph):
         findings.append(LintFinding("depends-on-cycle", "error", slug, "depends_on participates in a cycle"))
+
+    # 30. parent-cycle
+    for slug in _cycle_nodes(parent_graph):
+        findings.append(LintFinding("parent-cycle", "error", slug, "parent chain participates in a cycle"))
+
+    # 31. children-stale
+    from work_io.hierarchy import children_map  # runtime import: hierarchy imports this module
+
+    view = [
+        {"slug": it["slug"], "parent": it["fm"].get("parent"), "opened": str(it["fm"].get("opened", ""))}
+        for it in items + (archived_items or [])
+    ]
+    derived = children_map(view)
+    for item in items:
+        on_disk = [str(c) for c in (item["fm"].get("children") or [])]
+        expected = derived.get(item["slug"], [])
+        if on_disk != expected:
+            findings.append(
+                LintFinding(
+                    "children-stale",
+                    "warn",
+                    item["slug"],
+                    f"children {on_disk!r} != derived {expected!r}; run `gw work regen-index`",
+                )
+            )
 
     # 18. sidecar-missing (global)
     if sidecar is None:

@@ -23,8 +23,8 @@ def _item(
     return {"slug": slug, "fm": fm, "plan": plan or PlanResult(state="missing")}
 
 
-def _rule_ids(findings: list[LintFinding]) -> set[str]:
-    return {f.rule_id for f in findings}
+def _rule_ids(findings: list[LintFinding], slug: str | None = None) -> set[str]:
+    return {f.rule_id for f in findings if slug is None or f.slug == slug}
 
 
 # --- Schema-shape rules ---
@@ -308,16 +308,16 @@ def test_resolved_without_ref_skips_epic() -> None:
     assert "resolved-without-ref" in _rule_ids(findings2)
 
 
-def test_parent_missing_and_not_epic() -> None:
+def test_parent_missing_and_kind_invalid() -> None:
     items = [_item(slug="child", kind="feature", parent="ghost-epic")]
     assert "parent-missing" in _rule_ids(run_lint(items, None, None))
 
     items2 = [
-        _item(slug="not-an-epic", kind="feature"),
+        _item(slug="not-an-epic", kind="bug"),
         _item(slug="child", kind="feature", parent="not-an-epic"),
     ]
     ids2 = _rule_ids(run_lint(items2, None, None))
-    assert "parent-not-epic" in ids2
+    assert "parent-kind-invalid" in ids2
     assert "parent-missing" not in ids2
 
 
@@ -359,3 +359,108 @@ def test_epic_without_children_warns_at_execute() -> None:
     assert "epic-without-children" in _rule_ids(run_lint(items, None, None))
     items2 = [_item(slug="e2", kind="epic", phase="design")]
     assert "epic-without-children" not in _rule_ids(run_lint(items2, None, None))
+
+
+# --- Hierarchy: kind validation, cycles, children staleness ---
+
+
+def _hier_item(slug: str, kind: str = "bug", parent: str | None = None, **fm_extra) -> dict:
+    fm = {"status": "open", "kind": kind, "opened": "2026-07-01", "updated": "2026-07-01", **fm_extra}
+    if parent:
+        fm["parent"] = parent
+    return {"slug": slug, "fm": fm, "plan": PlanResult(state="missing")}
+
+
+def test_feature_parent_is_valid() -> None:
+    items = [_hier_item("feat-p", kind="feature"), _hier_item("child-bug", parent="feat-p")]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-kind-invalid" not in _rule_ids(findings)
+    assert "parent-not-epic" not in _rule_ids(findings)
+
+
+def test_epic_parent_is_valid() -> None:
+    items = [_hier_item("epic-p", kind="epic"), _hier_item("child-bug", parent="epic-p")]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-kind-invalid" not in _rule_ids(findings, "child-bug")
+    assert "parent-not-epic" not in _rule_ids(findings)
+
+
+def test_bug_parent_is_invalid_kind() -> None:
+    items = [_hier_item("bug-p", kind="bug"), _hier_item("child", parent="bug-p")]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-kind-invalid" in _rule_ids(findings, "child")
+
+
+def test_tech_debt_parent_is_invalid_kind() -> None:
+    items = [_hier_item("td-p", kind="tech-debt"), _hier_item("child", parent="td-p")]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-kind-invalid" in _rule_ids(findings, "child")
+
+
+def test_parent_cycle_flags_all_nodes() -> None:
+    items = [
+        _hier_item("a", kind="feature", parent="b"),
+        _hier_item("b", kind="feature", parent="a"),
+    ]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-cycle" in _rule_ids(findings, "a")
+    assert "parent-cycle" in _rule_ids(findings, "b")
+
+
+def test_parent_cycle_three_nodes() -> None:
+    items = [
+        _hier_item("a", kind="feature", parent="b"),
+        _hier_item("b", kind="feature", parent="c"),
+        _hier_item("c", kind="feature", parent="a"),
+    ]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-cycle" in _rule_ids(findings, "a")
+    assert "parent-cycle" in _rule_ids(findings, "b")
+    assert "parent-cycle" in _rule_ids(findings, "c")
+
+
+def test_parent_no_cycle_with_valid_hierarchy() -> None:
+    items = [
+        _hier_item("root", kind="epic"),
+        _hier_item("a", kind="feature", parent="root"),
+        _hier_item("b", kind="feature", parent="root"),
+    ]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "parent-cycle" not in _rule_ids(findings)
+
+
+def test_children_stale_on_mismatch() -> None:
+    items = [
+        _hier_item("p", kind="feature", children=["ghost-child"]),
+        _hier_item("c", parent="p"),
+    ]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "children-stale" in _rule_ids(findings, "p")
+
+
+def test_children_fresh_lints_clean() -> None:
+    items = [_hier_item("p", kind="feature", children=["c"]), _hier_item("c", parent="p")]
+    findings = run_lint(items, None, {}, workspace_root=None)
+    assert "children-stale" not in _rule_ids(findings, "p")
+
+
+def test_children_absent_and_none_derived_is_clean() -> None:
+    findings = run_lint([_hier_item("solo", kind="feature")], None, {}, workspace_root=None)
+    assert "children-stale" not in _rule_ids(findings)
+
+
+def test_children_stale_counts_archived_children() -> None:
+    items = [_hier_item("p", kind="feature")]
+    archived = [_hier_item("old-c", parent="p")]
+    findings = run_lint(items, None, {}, workspace_root=None, archived_items=archived)
+    assert "children-stale" in _rule_ids(findings, "p")
+
+
+def test_parent_self_cycle_flagged() -> None:
+    findings = run_lint([_hier_item("a", kind="feature", parent="a")], None, {}, workspace_root=None)
+    assert "parent-cycle" in _rule_ids(findings, "a")
+
+
+def test_children_empty_list_and_none_derived_is_clean() -> None:
+    findings = run_lint([_hier_item("solo", kind="feature", children=[])], None, {}, workspace_root=None)
+    assert "children-stale" not in _rule_ids(findings)
