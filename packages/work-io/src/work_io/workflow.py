@@ -218,6 +218,18 @@ def _epic_execute_gate(state: WorkItemState) -> RouteResult:
     )
 
 
+def _feature_children_requires(state: WorkItemState) -> tuple[str, ...]:
+    """The feature gate: open children block execute->finish and finish->done.
+
+    Rides Transition.requires (unlike the epic gate, which blocks dispatch)
+    because features have work of their own to dispatch.
+    """
+    rollup = state.child_rollup
+    if state.kind == "feature" and rollup is not None and rollup.open_slugs:
+        return ("children-terminal",)
+    return ()
+
+
 def _execute(state: WorkItemState) -> RouteResult:
     if state.kind == "epic":
         return _epic_execute_gate(state)
@@ -232,7 +244,7 @@ def _execute(state: WorkItemState) -> RouteResult:
         skill=skill,
         reason=reason,
         on_dispatch=on_dispatch,
-        on_complete=Transition(phase="finish"),
+        on_complete=Transition(phase="finish", requires=_feature_children_requires(state)),
     )
 
 
@@ -247,5 +259,7 @@ def _finish(state: WorkItemState) -> RouteResult:
     return RouteResult(
         skill="finishing-a-development-branch",
         reason=f"{state.kind} at finish stage",
-        on_complete=Transition(phase="done", status="resolved", requires=("resolved_in",)),
+        on_complete=Transition(
+            phase="done", status="resolved", requires=("resolved_in",) + _feature_children_requires(state)
+        ),
     )

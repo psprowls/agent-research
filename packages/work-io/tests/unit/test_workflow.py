@@ -238,3 +238,63 @@ def test_epic_finish_satisfied_gate_to_done() -> None:
     assert r.skill is None and r.blockers == ()
     assert r.on_complete == Transition(phase="done", status="resolved")
     assert r.on_complete.requires == ()
+
+
+# --- Feature children gate (execute/finish completion only) ---
+
+
+def _feature_state(phase: str, open_children: bool, **kw):
+    from work_io.hierarchy import ChildRollup
+    from work_io.workflow import WorkItemState
+
+    rollup = ChildRollup(total=1, terminal=0 if open_children else 1, open_slugs=("c1",) if open_children else ())
+    return WorkItemState(kind="feature", status="in-progress", phase=phase, child_rollup=rollup, **kw)
+
+
+def test_feature_execute_open_children_gates_completion() -> None:
+    from work_io.workflow import route
+
+    r = route(_feature_state("execute", True, has_plan_doc=True))
+    assert r.skill == "subagent-driven-development"  # dispatch is NOT blocked
+    assert "children-terminal" in r.on_complete.requires
+
+
+def test_feature_finish_open_children_gates_completion() -> None:
+    from work_io.workflow import route
+
+    r = route(_feature_state("finish", True))
+    assert set(r.on_complete.requires) == {"resolved_in", "children-terminal"}
+
+
+def test_feature_terminal_children_do_not_gate() -> None:
+    from work_io.workflow import route
+
+    assert "children-terminal" not in route(_feature_state("execute", False, has_plan_doc=True)).on_complete.requires
+    assert "children-terminal" not in route(_feature_state("finish", False)).on_complete.requires
+
+
+def test_feature_plan_never_gates() -> None:
+    from work_io.hierarchy import ChildRollup
+    from work_io.workflow import WorkItemState, route
+
+    state = WorkItemState(
+        kind="feature",
+        status="open",
+        phase="plan",
+        child_rollup=ChildRollup(total=1, terminal=0, open_slugs=("c1",)),
+    )
+    assert "children-terminal" not in route(state).on_complete.requires
+
+
+def test_epic_gate_unchanged_by_feature_gate() -> None:
+    from work_io.hierarchy import ChildRollup
+    from work_io.workflow import WorkItemState, route
+
+    state = WorkItemState(
+        kind="epic",
+        status="accepted",
+        phase="execute",
+        child_rollup=ChildRollup(total=2, terminal=1, open_slugs=("c1",)),
+    )
+    r = route(state)
+    assert r.skill is None and any("waiting on children" in b for b in r.blockers)

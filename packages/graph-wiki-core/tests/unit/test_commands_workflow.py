@@ -629,3 +629,105 @@ def test_advance_stamps_phase_started_commit_entering_execute(tmp_path: Path) ->
     assert fm["phase"] == "execute"
     assert fm["phase_started_commit"] == head_sha
     assert result.stamped["phase_started_commit"] == head_sha
+
+
+# --- feature children gate ---
+
+
+def test_advance_feature_execute_refuses_on_open_children(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work",
+        "gated-feat",
+        kind="feature",
+        status="in-progress",
+        phase="execute",
+        owner="pat",
+        plan_doc="raw/plans/x.md",
+    )
+    _write_item(wiki / "work", "open-child", kind="bug", parent=slug)
+
+    with pytest.raises(ValueError, match="waiting on children: .*open-child.*detach"):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+
+def test_advance_feature_finish_refuses_on_open_children(tmp_path: Path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work",
+        "gated-feat-finish",
+        kind="feature",
+        status="in-progress",
+        phase="finish",
+        owner="pat",
+        plan_doc="raw/plans/x.md",
+        resolved_in="pr#0",
+    )
+    _write_item(wiki / "work", "open-child-finish", kind="bug", parent=slug)
+
+    with pytest.raises(ValueError, match="waiting on children: .*open-child-finish.*detach"):
+        asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+
+
+def test_advance_feature_execute_proceeds_when_children_terminal(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_advance
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work",
+        "free-feat",
+        kind="feature",
+        status="in-progress",
+        phase="execute",
+        owner="pat",
+        plan_doc="raw/plans/x.md",
+    )
+    _write_item(wiki / "work", "done-child", kind="bug", status="resolved", parent=slug, resolved_in="pr#1")
+
+    result = asyncio.run(run_work_advance(workspace_path=workspace, slug=slug))
+    assert result.phase == "finish"
+
+
+def test_next_feature_with_children_carries_rollup(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(
+        wiki / "work",
+        "roll-feat",
+        kind="feature",
+        status="in-progress",
+        phase="execute",
+        owner="pat",
+        plan_doc="raw/plans/x.md",
+    )
+    _write_item(wiki / "work", "kid", kind="bug", parent=slug)
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=slug))
+    assert result.child_rollup is not None and result.child_rollup["open_slugs"]
+    assert "children-terminal" in result.on_complete["requires"]
+
+
+def test_next_childless_feature_rollup_stays_null(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    slug = _write_item(wiki / "work", "solo-feat", kind="feature")
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=slug))
+    assert result.child_rollup is None

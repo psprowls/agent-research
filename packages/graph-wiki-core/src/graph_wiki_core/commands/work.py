@@ -112,7 +112,7 @@ class WorkNextResult:
     on_dispatch: dict | None = None  # {"phase", "status", "requires"}
     on_complete: dict | None = None
     blockers: list[str] = field(default_factory=list)
-    child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics
+    child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics and features-with-children
 
 
 @dataclass
@@ -125,7 +125,7 @@ class WorkAdvanceResult:
     applied: dict = field(default_factory=dict)  # {"phase": [before, after], "status": [before, after]}
     stamped: dict = field(default_factory=dict)  # frontmatter keys written (effort/owner/resolved_in/spec_doc/plan_doc)
     findings: list[dict] = field(default_factory=list)  # lint findings for this slug after the write
-    child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics
+    child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics and features-with-children
 
 
 # ---------------------------------------------------------------------------
@@ -286,8 +286,14 @@ def _state_from_fm(
         view = _hierarchy_view(items)
         if depends_on:
             unmet_deps = _hierarchy.dep_states(view, depends_on)
-        if str(fm.get("kind", "")) == "epic" and slug:
+        kind = str(fm.get("kind", ""))
+        if kind in _lint.PARENT_KINDS and slug:
             rollup = _hierarchy.child_rollup(view, slug)
+            if kind == "feature" and rollup.total == 0:
+                # Childless features stay rollup-free: no gate, child_rollup
+                # stays null in the JSON (epics keep the 0-children rollup —
+                # their no-children blocker needs it).
+                rollup = None
     return _workflow.WorkItemState(
         kind=str(fm.get("kind", "")),
         status=str(fm.get("status", "")),
@@ -625,6 +631,14 @@ async def run_work_advance(
         raise ValueError(f"nothing to advance: {r.reason}")
     if "effort" in t.requires:
         raise ValueError("effort required to advance: pass --effort xtra-small|small|medium|large|xtra-large")
+    if "children-terminal" in t.requires:
+        # state.child_rollup is always set here: the gate string is only ever emitted
+        # by _feature_children_requires when rollup is non-None (see workflow.py) —
+        # the `else ""` is defensive only, not a reachable branch.
+        open_slugs = ", ".join(state.child_rollup.open_slugs) if state.child_rollup else ""
+        raise ValueError(
+            f"waiting on children: {open_slugs}; finish them (try --descend) or detach (delete the child's parent key)"
+        )
     if "owner" in t.requires and not (owner or fm.get("owner")):
         raise ValueError("owner required to advance: pass --owner <handle>")
     if "resolved_in" in t.requires and not (resolved_in or fm.get("resolved_in")):
