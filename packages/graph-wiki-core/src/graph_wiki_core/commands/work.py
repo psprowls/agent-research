@@ -767,6 +767,35 @@ async def run_work_advance(
 # ---------------------------------------------------------------------------
 
 
+def _resolve_parent_epic_child(wiki: Path, parent: str, *, label: str = "--parent") -> bool:
+    """Validate that `parent` names an existing PARENT_KINDS work item; return whether it's an epic.
+
+    Shared by run_work_file (the CLI/MCP structured-file surface) and
+    run_ingest_work_item in commands/ingest.py (the raw-frontmatter ingest
+    surface, which imports this locally to avoid a cycle — see that module's
+    Step 4) so both surfaces enforce identical parent-kind gating: the parent
+    page must exist at wiki/work/<parent>.md and its kind must be one of
+    _lint.PARENT_KINDS (epic, feature). `label` customizes the error-message
+    prefix — "--parent" for the CLI-flag context, "parent" for the
+    frontmatter-field context.
+
+    Raises:
+        ValueError: parent page missing, or its kind is not in PARENT_KINDS.
+    """
+    parent_path = wiki / "work" / f"{parent}.md"
+    if not parent_path.exists():
+        raise ValueError(f"{label} {parent!r}: no work item at {parent_path}")
+    parent_fm, _parent_body = _frontmatter.parse(parent_path.read_text(encoding="utf-8"))
+    parent_kind = str(parent_fm.get("kind", ""))
+    allowed = sorted(_lint.PARENT_KINDS)
+    if parent_kind not in allowed:
+        raise ValueError(
+            f"{label} {parent!r}: kind is {parent_kind!r}, not one of "
+            f"{allowed}; children attach to an {' or '.join(allowed)}"
+        )
+    return parent_kind == "epic"
+
+
 async def run_work_file(
     workspace_path: Path | None = None,
     *,
@@ -796,8 +825,8 @@ async def run_work_file(
     IngestResult shaped like the ingest work-item path.
 
     When slug_words is set, the slug is composed explicitly via
-    work_io.filing.compose_slug(kind, slug_words, epic_child=bool(parent)) and
-    any word-count warnings land on the returned IngestResult.warnings. When
+    work_io.filing.compose_slug(kind, slug_words, epic_child=<parent kind == "epic">)
+    and any word-count warnings land on the returned IngestResult.warnings. When
     omitted, write_work_item falls through to its own default-slug composition
     (kind prefix + first 4 words of the title).
     """
@@ -806,19 +835,12 @@ async def run_work_file(
 
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
 
-    # Validate the parent epic before writing anything: --parent must point at an
-    # existing work item whose kind is "epic" (the integrity guard the lint rules
-    # also enforce). `parent` is the epic's full file stem by construction.
+    # Validate the parent before writing anything: --parent must point at an
+    # existing work item whose kind allows children (PARENT_KINDS: epic or
+    # feature). `parent` is the parent's full file stem by construction.
+    parent_is_epic = False
     if parent:
-        parent_path = wiki / "work" / f"{parent}.md"
-        if not parent_path.exists():
-            raise ValueError(f"--parent {parent!r}: no work item at {parent_path}")
-        parent_fm, _parent_body = _frontmatter.parse(parent_path.read_text(encoding="utf-8"))
-        if str(parent_fm.get("kind", "")) != "epic":
-            raise ValueError(
-                f"--parent {parent!r}: kind is {parent_fm.get('kind')!r}, "
-                "not 'epic'; children may only attach to an epic"
-            )
+        parent_is_epic = _resolve_parent_epic_child(wiki, parent)
 
     # Validate --depends-on before writing anything: every value must exact-match
     # a known slug (active or archived), same fail-safe exact-match convention as
@@ -866,15 +888,18 @@ async def run_work_file(
 
     item_body = body or _body.render_default_work_body(summary, kind)
     if parent:
-        pointer = f"Designed as part of epic `{parent}` — see its spec for the seed design."
+        if parent_is_epic:
+            pointer = f"Designed as part of epic `{parent}` — see its spec for the seed design."
+        else:
+            pointer = f"Filed as a child of `{parent}` — see its spec for the seed design."
         item_body = item_body.rstrip("\n") + "\n\n" + pointer + "\n"
 
     warnings: list[str] = []
     slug: str | None = None
     if slug_words:
-        slug, warnings = _filing.compose_slug(kind, slug_words, epic_child=bool(parent))
+        slug, warnings = _filing.compose_slug(kind, slug_words, epic_child=parent_is_epic)
 
-    result = _filing.write_work_item(wiki, fm, item_body, slug=slug, force=force)
+    result = _filing.write_work_item(wiki, fm, item_body, slug=slug, epic_child=parent_is_epic, force=force)
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
 
     return IngestResult(

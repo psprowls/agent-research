@@ -1206,7 +1206,8 @@ def test_file_child_depends_on_archived_sibling_files_successfully(tmp_path: Pat
     assert "2026-06-26-sib" in page.read_text(encoding="utf-8")
 
 
-def test_file_child_rejects_non_epic_parent(tmp_path: Path) -> None:
+def test_run_work_file_bug_parent_rejected(tmp_path: Path) -> None:
+    """A parent whose kind is not in PARENT_KINDS (epic, feature) is rejected."""
     import asyncio
 
     import pytest
@@ -1214,18 +1215,46 @@ def test_file_child_rejects_non_epic_parent(tmp_path: Path) -> None:
 
     workspace, wiki = _make_workspace(tmp_path)
     work_dir = wiki / "work"
-    _write_hierarchy_item(work_dir, "2026-06-26-not-epic", kind="feature", status="open")
+    _write_hierarchy_item(work_dir, "2026-06-26-not-parent", kind="bug", status="open")
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="epic.*feature|feature.*epic"):
         asyncio.run(
             run_work_file(
                 workspace_path=workspace,
                 title="Child",
                 kind="feature",
                 summary="x",
-                parent="2026-06-26-not-epic",
+                parent="2026-06-26-not-parent",
             )
         )
+
+
+def test_run_work_file_feature_parent_accepted_plain_slug(tmp_path: Path) -> None:
+    """A feature parent is accepted, but does NOT get the epic-<kind> slug prefix."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_file
+
+    workspace, wiki = _make_workspace(tmp_path)
+    work_dir = wiki / "work"
+    feature_slug = "2026-06-26-feature-parent"
+    _write_hierarchy_item(work_dir, feature_slug, kind="feature", status="open")
+
+    result = asyncio.run(
+        run_work_file(
+            workspace_path=workspace,
+            title="Late bug",
+            kind="bug",
+            summary="s",
+            parent=feature_slug,
+        )
+    )
+
+    assert "epic-bug" not in result.slug
+    assert "-bug-" in result.slug
+    text = (wiki / "work" / f"{result.slug}.md").read_text(encoding="utf-8")
+    assert f"parent: {feature_slug}" in text
+    assert "Filed as a child of" in text
 
 
 def test_file_child_rejects_missing_parent(tmp_path: Path) -> None:

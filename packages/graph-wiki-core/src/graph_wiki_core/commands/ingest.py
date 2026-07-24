@@ -1391,10 +1391,16 @@ async def run_ingest_work_item(
         1. Resolve wiki path.
         2. Parse frontmatter YAML via work_io.filing.parse_fields.
         3. Validate required fields via work_io.filing.validate — raise ValueError on failure.
-        4. Write the page via work_io.filing.write_work_item (no side-effects in the primitive).
-        5. Run shared side-effects: sidecar regen + best-effort index.md/log.md via
+        4. When frontmatter carries a truthy 'parent', resolve it via
+           commands.work._resolve_parent_epic_child (same PARENT_KINDS gating
+           run_work_file applies to --parent) to get epic_child. Local import:
+           commands.work imports IngestResult from this module, so importing it
+           at module scope would create a cycle (mirrors the local-import
+           pattern used for _apply_work_item_side_effects below).
+        5. Write the page via work_io.filing.write_work_item (no side-effects in the primitive).
+        6. Run shared side-effects: sidecar regen + best-effort index.md/log.md via
            _apply_work_item_side_effects.
-        6. Return IngestResult.
+        7. Return IngestResult.
 
     Note: update_index and append_log are invoked by _apply_work_item_side_effects when
     index.md/log.md are present. Cross-ref update is index-only (same scope as run_ingest_source).
@@ -1424,10 +1430,18 @@ async def run_ingest_work_item(
     if issues:
         raise ValueError("schema validation failed: " + "; ".join(issues))
 
-    # Step 4: write the page (no side-effects in the primitive)
-    result = filing.write_work_item(wiki, fm, body, slug=slug, force=force)
+    # Step 4: resolve parent (if any) to the epic_child flag write_work_item needs.
+    # Local import to avoid the commands.work <-> commands.ingest cycle (see docstring).
+    from graph_wiki_core.commands.work import _resolve_parent_epic_child
 
-    # Step 5: shared side-effects (sidecar + index.md + log.md). Local import:
+    epic_child = False
+    if fm.get("parent"):
+        epic_child = _resolve_parent_epic_child(wiki, str(fm["parent"]), label="parent")
+
+    # Step 5: write the page (no side-effects in the primitive)
+    result = filing.write_work_item(wiki, fm, body, slug=slug, epic_child=epic_child, force=force)
+
+    # Step 6: shared side-effects (sidecar + index.md + log.md). Local import:
     # commands.work imports IngestResult from this module, so importing it at
     # module scope would create a cycle (mirrors the local-import pattern at
     # _synthesize_guidance_pages -> guidance_io.writer).
@@ -1435,7 +1449,7 @@ async def run_ingest_work_item(
 
     await _apply_work_item_side_effects(wiki, result, workspace_path=workspace_path)
 
-    # Step 6: return IngestResult
+    # Step 7: return IngestResult
     return IngestResult(
         status="ok",
         page_path=result["page_path"],

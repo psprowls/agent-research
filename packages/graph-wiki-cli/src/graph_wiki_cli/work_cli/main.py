@@ -44,7 +44,7 @@ def file(
     target: str = typer.Option("", "--target", help="YYYY-QN or YYYY-MM"),
     owner: str = typer.Option("", "--owner", help="Owner handle"),
     tags: str = typer.Option("", "--tags", help="Comma-separated tags"),
-    parent: str = typer.Option("", "--parent", help="Owning epic slug (this item becomes its child)"),
+    parent: str = typer.Option("", "--parent", help="Parent slug (epic or feature); this item becomes its child"),
     depends_on: str = typer.Option("", "--depends-on", help="Comma-separated sibling slugs that must finish first"),
     slug_words: str = typer.Option("", "--slug-words", help="1-4 words for the slug (e.g. 'shorten work item slugs')"),
     workspace: str = typer.Option("", "--workspace", help="Workspace path"),

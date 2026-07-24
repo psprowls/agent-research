@@ -98,6 +98,7 @@ def write_work_item(
     body: str,
     *,
     slug: str | None = None,
+    epic_child: bool = False,
     force: bool = False,
 ) -> dict:
     """Write a work-item page to <workspace>/wiki/work/<opened>-<slug>.md.
@@ -113,8 +114,12 @@ def write_work_item(
         body:  markdown body text.
         slug:  page slug. When omitted, composed via compose_slug() from
                fm['kind'] + the first 4 words of the slugified title
-               (epic-<kind> prefix when fm['parent'] is set); falls back to
-               the legacy slugify(title) when fm has no 'kind'.
+               (epic-<kind> prefix when epic_child is True — the caller
+               resolves the parent's kind; this function no longer infers it
+               from fm['parent']); falls back to the legacy slugify(title)
+               when fm has no 'kind'.
+        epic_child: whether the composed default slug gets the epic-<kind>
+               prefix. Ignored when slug is given explicitly.
         force: overwrite an existing page when True; else raise FileExistsError.
 
     Returns:
@@ -129,7 +134,7 @@ def write_work_item(
         kind = fm.get("kind")
         if kind:
             first_four = "-".join(slugify(title).split("-")[:4])
-            slug, _warnings = compose_slug(str(kind), first_four, epic_child=bool(fm.get("parent")))
+            slug, _warnings = compose_slug(str(kind), first_four, epic_child=epic_child)
         else:
             slug = slugify(title)
 

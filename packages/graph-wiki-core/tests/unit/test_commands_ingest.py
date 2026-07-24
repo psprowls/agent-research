@@ -335,6 +335,122 @@ async def test_run_ingest_work_item_force_overwrites_existing_page(tmp_path: Pat
 
 
 # ---------------------------------------------------------------------------
+# run_ingest_work_item: frontmatter 'parent' resolves epic_child (Task 8 regression)
+# ---------------------------------------------------------------------------
+
+
+def _write_parent_page(work_dir: Path, slug: str, *, kind: str) -> None:
+    """Write a minimal wiki/work/<slug>.md whose only load-bearing field is 'kind'."""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    (work_dir / f"{slug}.md").write_text(
+        f"---\ntitle: {slug}\nkind: {kind}\nstatus: open\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_work_item_epic_parent_gets_epic_slug_prefix(tmp_path: Path) -> None:
+    """frontmatter 'parent: <epic-slug>' with no explicit slug -> epic-<kind> prefix."""
+    from graph_wiki_core.commands.ingest import run_ingest_work_item
+
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    work_dir = wiki / "work"
+    work_dir.mkdir(parents=True)
+    _write_parent_page(work_dir, "2026-05-01-epic-x", kind="epic")
+
+    frontmatter_text = (
+        "title: Fix Auth Bug\n"
+        "category: work\n"
+        "kind: bug\n"
+        "status: open\n"
+        "summary: Fix the auth bug\n"
+        "opened: 2026-05-14\n"
+        "affects:\n"
+        "  - auth-service\n"
+        "parent: 2026-05-01-epic-x\n"
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.work.resolve_wiki_and_repo") as mock_resolve_work,
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        mock_resolve_work.return_value = (wiki, tmp_path)
+        result = await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=workspace)
+
+    assert "epic-bug-" in result.slug
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_work_item_feature_parent_gets_plain_slug(tmp_path: Path) -> None:
+    """frontmatter 'parent: <feature-slug>' with no explicit slug -> plain <kind> prefix."""
+    from graph_wiki_core.commands.ingest import run_ingest_work_item
+
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    work_dir = wiki / "work"
+    work_dir.mkdir(parents=True)
+    _write_parent_page(work_dir, "2026-05-01-feature-parent", kind="feature")
+
+    frontmatter_text = (
+        "title: Fix Auth Bug\n"
+        "category: work\n"
+        "kind: bug\n"
+        "status: open\n"
+        "summary: Fix the auth bug\n"
+        "opened: 2026-05-14\n"
+        "affects:\n"
+        "  - auth-service\n"
+        "parent: 2026-05-01-feature-parent\n"
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.work.resolve_wiki_and_repo") as mock_resolve_work,
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        mock_resolve_work.return_value = (wiki, tmp_path)
+        result = await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=workspace)
+
+    assert "epic-bug" not in result.slug
+    assert "-bug-" in result.slug
+
+
+@pytest.mark.asyncio
+async def test_run_ingest_work_item_bug_parent_rejected(tmp_path: Path) -> None:
+    """frontmatter 'parent: <bug-slug>' (kind not in PARENT_KINDS) raises ValueError."""
+    from graph_wiki_core.commands.ingest import run_ingest_work_item
+
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    work_dir = wiki / "work"
+    work_dir.mkdir(parents=True)
+    _write_parent_page(work_dir, "2026-05-01-not-a-parent", kind="bug")
+
+    frontmatter_text = (
+        "title: Fix Auth Bug\n"
+        "category: work\n"
+        "kind: bug\n"
+        "status: open\n"
+        "summary: Fix the auth bug\n"
+        "opened: 2026-05-14\n"
+        "affects:\n"
+        "  - auth-service\n"
+        "parent: 2026-05-01-not-a-parent\n"
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.work.resolve_wiki_and_repo") as mock_resolve_work,
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        mock_resolve_work.return_value = (wiki, tmp_path)
+        with pytest.raises(ValueError, match="epic.*feature|feature.*epic"):
+            await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=workspace)
+
+
+# ---------------------------------------------------------------------------
 # test_ingest_result_round_trips_to_json
 # ---------------------------------------------------------------------------
 

@@ -254,14 +254,42 @@ def test_write_work_item_slug_from_title(tmp_path: Path) -> None:
 
 
 def test_write_work_item_default_slug_epic_child_prefix(tmp_path: Path) -> None:
+    """epic_child is caller-supplied, not inferred from fm['parent']."""
     from work_io.filing import parse_fields, write_work_item
 
     wiki = _make_wiki(tmp_path)
     fm = parse_fields(VALID_FM_YAML)
     fm["kind"] = "feature"
     fm["parent"] = "2026-01-01-epic-something"
-    result = write_work_item(wiki, fm, "Body.\n")
+    result = write_work_item(wiki, fm, "Body.\n", epic_child=True)
     assert result["slug"] == "2026-05-14-epic-feature-fix-auth-bug"
+
+
+def test_write_work_item_parent_without_epic_child_keeps_plain_prefix(tmp_path: Path) -> None:
+    """A feature parent (or any non-epic parent) must NOT be inferred as epic_child."""
+    from work_io.filing import write_work_item
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    fm = {
+        "title": "Fix flaky retry logic",
+        "kind": "bug",
+        "opened": "2026-07-24",
+        "parent": "2026-07-01-feature-parent",
+    }
+    result = write_work_item(wiki, fm, "body\n", epic_child=False)
+    assert "epic-bug" not in result["slug"]
+    assert "-bug-" in result["slug"]
+
+
+def test_write_work_item_explicit_epic_child_prefix(tmp_path: Path) -> None:
+    from work_io.filing import write_work_item
+
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    fm = {"title": "Fix flaky retry logic", "kind": "bug", "opened": "2026-07-24", "parent": "2026-07-01-epic-x"}
+    result = write_work_item(wiki, fm, "body\n", epic_child=True)
+    assert "epic-bug-" in result["slug"]
 
 
 def test_write_work_item_default_slug_truncates_title_to_four_words(tmp_path: Path) -> None:
