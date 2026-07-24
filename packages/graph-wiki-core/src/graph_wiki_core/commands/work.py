@@ -34,6 +34,7 @@ from wiki_io.append_log import append_log
 from wiki_io.update_index import update_index
 from work_io import archive as _archive
 from work_io import body as _body
+from work_io import children as _children
 from work_io import doc_pointers as _doc_pointers
 from work_io import filing as _filing
 from work_io import frontmatter as _frontmatter
@@ -347,9 +348,17 @@ async def _apply_work_item_side_effects(
 
 
 async def run_work_regen_index(workspace_path: Path | None = None) -> WorkRegenResult:
-    """Rebuild wiki/work-index.json from the on-disk work items."""
+    """Rebuild wiki/work-index.json from the on-disk work items.
+
+    Also refreshes parent pages' derived `children` frontmatter in place
+    (work_io.children.refresh_children) before building the sidecar, so the
+    list self-heals on every call — and this is the single choke point already
+    invoked by file/advance/archive.
+    """
     wiki, _repo = resolve_wiki_and_repo(workspace_path)
     work_dir = wiki / "work"
+
+    _children.refresh_children(work_dir)
 
     sidecar = _sidecar.build_sidecar(work_dir, _git_head(wiki))
     _sidecar.write_sidecar(wiki, sidecar)

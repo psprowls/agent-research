@@ -64,6 +64,39 @@ def test_run_work_regen_index_idempotent(tmp_path: Path) -> None:
     assert result.item_count == 1
 
 
+def test_regen_index_refreshes_children_round_trip(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_regen_index
+    from work_io.frontmatter import parse
+
+    workspace = tmp_path / "ws"
+    work = workspace / "wiki" / "work"
+    work.mkdir(parents=True)
+    parent_page = work / "2026-07-01-feature-parent.md"
+    parent_page.write_text(
+        "---\ntitle: parent\ncategory: work\nkind: feature\nsummary: s\nstatus: open\n"
+        "affects: []\nowner: pat\nopened: '2026-07-01'\nupdated: '2026-07-01'\ntags: []\n---\n\n"
+        "## Summary\nhand-written body\n",
+        encoding="utf-8",
+    )
+    (work / "2026-07-02-bug-child.md").write_text(
+        "---\ntitle: child\ncategory: work\nkind: bug\nsummary: s\nstatus: open\naffects: []\n"
+        "parent: 2026-07-01-feature-parent\nopened: '2026-07-02'\nupdated: '2026-07-02'\ntags: []\n---\n\n"
+        "## Summary\nc\n",
+        encoding="utf-8",
+    )
+
+    asyncio.run(run_work_regen_index(workspace_path=workspace))
+
+    fm, body = parse(parent_page.read_text(encoding="utf-8"))
+    assert fm["children"] == ["2026-07-02-bug-child"]
+    assert fm["owner"] == "pat"  # human key preserved
+    keys = list(fm)
+    assert keys.index("children") == keys.index("affects") + 1
+    assert "hand-written body" in body
+
+
 def test_run_work_lint_returns_findings(tmp_path: Path) -> None:
     import asyncio
 
