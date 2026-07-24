@@ -234,3 +234,13 @@ def test_descend_non_gated_node_is_its_own_leaf() -> None:
 
     items = [_ditem("f", kind="feature", phase="plan"), _ditem("c", parent="f")]
     assert descend(items, "f").leaf == "f"  # plan phase never gates
+
+
+def test_descend_epic_at_plan_with_open_child_is_its_own_leaf() -> None:
+    from work_io.hierarchy import descend
+
+    items = [
+        _ditem("e", kind="epic", phase="plan"),
+        _ditem("c", parent="e", opened="2026-07-01"),
+    ]
+    assert descend(items, "e").leaf == "e"  # not yet at execute: the epic is its own actionable item

@@ -86,12 +86,15 @@ class DescendResult:
 
 
 def _child_gated_node(item: dict, children: list[dict]) -> bool:
-    """Descend-into rule: epic with open children, or feature at execute/finish
-    with open children. Anything else is its own actionable leaf."""
+    """Descend-into rule: epic at execute with open children, or feature at
+    execute/finish with open children. Anything else — including an epic still
+    at plan/design — is its own actionable leaf (an epic at plan is dispatched
+    to planning-epics; the "waiting on children" gate only applies once it has
+    reached execute, mirroring work_io.workflow._epic_execute_gate)."""
     if not any(c.get("status") not in TERMINAL_STATUSES for c in children):
         return False
     if item.get("kind") == "epic":
-        return True
+        return item.get("phase") == "execute"
     return item.get("kind") == "feature" and item.get("phase") in ("execute", "finish")
 
 

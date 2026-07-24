@@ -8,7 +8,7 @@ Public API:
     run_work_status(workspace_path)       -> WorkStatusResult
     run_work_archive(workspace_path, ...) -> WorkArchiveResult
     run_work_file(workspace_path, ...)    -> IngestResult
-    run_work_next(workspace_path, slug)   -> WorkNextResult
+    run_work_next(workspace_path, slug, descend=False) -> WorkNextResult
     run_work_advance(workspace_path, ...) -> WorkAdvanceResult
 
 These are thin async orchestrators: they resolve the wiki/work directory from
@@ -113,6 +113,7 @@ class WorkNextResult:
     on_complete: dict | None = None
     blockers: list[str] = field(default_factory=list)
     child_rollup: dict | None = None  # {"total", "terminal", "open_slugs"} for epics and features-with-children
+    descent: dict | None = None  # {"from": requested slug, "path": [...]} when --descend switched items
 
 
 @dataclass
@@ -254,10 +255,19 @@ def _load_items_for_deps(work_dir: Path) -> list[dict]:
 
 
 def _hierarchy_view(items: list[dict]) -> list[dict]:
-    """Project loaded items ({slug, fm, plan}) to the {slug, status, parent} shape
-    the work_io.hierarchy helpers consume."""
+    """Project loaded items ({slug, fm, plan}) to the extended hierarchy view
+    the work_io.hierarchy helpers consume (rollup/deps read a subset; descend
+    reads all of it)."""
     return [
-        {"slug": it["slug"], "status": str(it["fm"].get("status", "")), "parent": it["fm"].get("parent")}
+        {
+            "slug": it["slug"],
+            "status": str(it["fm"].get("status", "")),
+            "parent": it["fm"].get("parent"),
+            "kind": str(it["fm"].get("kind", "")),
+            "phase": str(it["fm"]["phase"]) if it["fm"].get("phase") else None,
+            "depends_on": tuple(str(d) for d in (it["fm"].get("depends_on") or [])),
+            "opened": str(it["fm"].get("opened", "")),
+        }
         for it in items
     ]
 
@@ -561,17 +571,15 @@ async def run_work_archive(
 _ARTIFACT_KIND = {"specs": "spec", "plans": "plan"}
 
 
-async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> WorkNextResult:
-    """Compute the workflow routing decision for one work item. Read-only."""
-    wiki, _repo = resolve_wiki_and_repo(workspace_path)
-    workspace = wiki.parent
-
+def _next_for_slug(wiki: Path, workspace: Path, slug: str, items: list[dict]) -> WorkNextResult:
+    """Compute the routing decision for one work item, given preloaded items
+    (active + archived, for depends_on/child_rollup resolution)."""
     try:
         _path, fm, _body = _load_item(wiki, slug)
     except (FileNotFoundError, ValueError) as e:
         return WorkNextResult(slug=slug, blockers=[str(e)])
 
-    state = _state_from_fm(fm, items=_load_items_for_deps(wiki / "work"), slug=slug)
+    state = _state_from_fm(fm, items=items, slug=slug)
     r = _workflow.route(state)
     phase = state.phase or (r.on_dispatch.phase if r.on_dispatch else None)
     artifact = None
@@ -593,6 +601,46 @@ async def run_work_next(workspace_path: Path | None = None, *, slug: str) -> Wor
         blockers=list(r.blockers),
         child_rollup=_rollup_dict(state.child_rollup),
     )
+
+
+def _child_gated_result(result: WorkNextResult) -> bool:
+    """Whether --descend applies: the routed item is waiting on open children.
+
+    Mirrors work_io.hierarchy._child_gated_node's gating rule exactly (epic at
+    execute with open children, or feature at execute/finish with open
+    children), but operates on the already-computed WorkNextResult (rollup
+    already reduced to dict form) rather than re-deriving it from raw items.
+    """
+    rollup = result.child_rollup or {}
+    if not rollup.get("open_slugs"):
+        return False
+    if result.kind == "epic":
+        return result.phase == "execute"
+    return result.kind == "feature" and result.phase in ("execute", "finish")
+
+
+async def run_work_next(workspace_path: Path | None = None, *, slug: str, descend: bool = False) -> WorkNextResult:
+    """Compute the workflow routing decision for one work item. Read-only.
+
+    With descend=True, a child-gated item (epic waiting on children, or
+    feature gated at execute/finish) resolves recursively to the next
+    actionable leaf; the returned result is the leaf's, plus `descent`.
+    """
+    wiki, _repo = resolve_wiki_and_repo(workspace_path)
+    workspace = wiki.parent
+
+    items = _load_items_for_deps(wiki / "work")
+    result = _next_for_slug(wiki, workspace, slug, items)
+    if not descend or not _child_gated_result(result):
+        return result
+
+    d = _hierarchy.descend(_hierarchy_view(items), slug)
+    if d.leaf is None or d.leaf == slug:
+        result.blockers.append(f"--descend: blocked at {d.blocked_at}: {d.reason}")
+        return result
+    leaf_result = _next_for_slug(wiki, workspace, d.leaf, items)
+    leaf_result.descent = {"from": slug, "path": list(d.path)}
+    return leaf_result
 
 
 # ---------------------------------------------------------------------------

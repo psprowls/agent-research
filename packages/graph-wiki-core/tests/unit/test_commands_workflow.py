@@ -731,3 +731,120 @@ def test_next_childless_feature_rollup_stays_null(tmp_path: Path) -> None:
     slug = _write_item(wiki / "work", "solo-feat", kind="feature")
     result = asyncio.run(run_work_next(workspace_path=workspace, slug=slug))
     assert result.child_rollup is None
+
+
+# --- run_work_next --descend ---
+
+
+def test_next_descend_epic_routes_leaf(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    epic = _write_item(wiki / "work", "big-epic", kind="epic", status="accepted", phase="execute")
+    child = _write_item(wiki / "work", "epic-bug-child", kind="bug", parent=epic)
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=epic, descend=True))
+
+    assert result.slug == child
+    assert result.action == {"skill": "systematic-debugging", "reason": "bug entering the pipeline at design"}
+    assert result.descent == {"from": epic, "path": [epic, child]}
+    assert result.blockers == []
+
+
+def test_next_descend_feature_gate_routes_child(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    feat = _write_item(
+        wiki / "work",
+        "gated-feat",
+        kind="feature",
+        status="in-progress",
+        phase="execute",
+        owner="pat",
+        plan_doc="raw/plans/x.md",
+    )
+    child = _write_item(wiki / "work", "late-bug", kind="bug", parent=feat)
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=feat, descend=True))
+    assert result.slug == child
+    assert result.descent == {"from": feat, "path": [feat, child]}
+
+
+def test_next_descend_blocked_appends_blocker(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    epic = _write_item(wiki / "work", "stuck-epic", kind="epic", status="accepted", phase="execute")
+    _write_item(wiki / "work", "mitigated-child", kind="bug", status="mitigated", parent=epic, mitigation="m")
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=epic, descend=True))
+    assert result.slug == epic
+    assert any(b.startswith("--descend") for b in result.blockers)
+
+
+def test_next_without_descend_is_unchanged(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    epic = _write_item(wiki / "work", "plain-epic", kind="epic", status="accepted", phase="execute")
+    _write_item(wiki / "work", "some-child", kind="bug", parent=epic)
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=epic))
+    assert result.slug == epic and result.descent is None
+    assert any("waiting on children" in b for b in result.blockers)
+
+
+def test_next_descend_three_levels_epic_feature_bug(tmp_path: Path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    epic = _write_item(wiki / "work", "deep-epic", kind="epic", status="accepted", phase="execute")
+    feat = _write_item(
+        wiki / "work",
+        "deep-feat",
+        kind="feature",
+        status="in-progress",
+        phase="execute",
+        owner="pat",
+        plan_doc="raw/plans/x.md",
+        parent=epic,
+    )
+    bug = _write_item(wiki / "work", "deep-bug", kind="bug", parent=feat)
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=epic, descend=True))
+
+    assert result.slug == bug
+    assert result.descent == {"from": epic, "path": [epic, feat, bug]}
+
+
+def test_next_descend_blocked_leaf_keeps_its_own_blockers(tmp_path: Path) -> None:
+    """descend is structural: it lands on the next actionable leaf and reports
+    that leaf's own routing verbatim — it does not shop around for a sibling
+    that would dispatch cleanly."""
+    import asyncio
+
+    from graph_wiki_core.commands.work import run_work_next
+
+    workspace, wiki = _make_workspace(tmp_path)
+    epic = _write_item(wiki / "work", "leaf-epic", kind="epic", status="accepted", phase="execute")
+    # accepted with no phase: work_io.workflow._entry blocks ("invalid entry")
+    # rather than dispatching — a leaf that is itself blocked.
+    child = _write_item(wiki / "work", "leaf-child", kind="bug", status="accepted", parent=epic)
+
+    result = asyncio.run(run_work_next(workspace_path=workspace, slug=epic, descend=True))
+
+    assert result.slug == child
+    assert result.descent == {"from": epic, "path": [epic, child]}
+    assert result.action is None
+    assert result.blockers
