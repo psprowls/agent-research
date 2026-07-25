@@ -57,9 +57,15 @@ fields the steps below read are unchanged from `gw work next`.
   check governs what happens next (Terminal handling if the advance lands on
   `phase: done` / `status: resolved`, otherwise the step 6 hand-off).
 - If `action.skill` is **null** and a blocker says **"waiting on children"** —
-  the epic's execute gate is unsatisfied. Report the blocker, then list the
-  epic's open children from the `child_rollup.open_slugs` field, suggesting
-  `/graph-wiki:next <child>` for each. **Stop** (nothing to advance).
+  the epic's execute gate is unsatisfied. If the invocation carried `--descend`
+  (or the user asks to auto-continue), re-run `gw next <slug> --json --descend`:
+  the JSON now describes the next actionable *leaf* (its top-level `slug`), with
+  the chain in `descent.path`. Announce the descent path, then drive the leaf
+  through the normal steps — dispatch transition, stage skill, advance — all
+  against the leaf slug. If the descend itself reports a `--descend:` blocker,
+  or no `--descend` was requested, report the blocker, list the open children
+  from `child_rollup.open_slugs` suggesting `/graph-wiki:next <child>` for
+  each, and **stop** (nothing to advance).
 - Otherwise announce the dispatch: item title, kind, phase, and the stage skill
   from `action.skill`.
 
@@ -164,3 +170,18 @@ context window).
 2. **Offer to archive (any terminal status).** Ask the user "Archive `<slug>`
    now?" If yes, run `/graph-wiki:archive <slug>`. If no, report that the item
    stays in `work/` and can be archived later with `/graph-wiki:archive`.
+
+### Detaching a child
+
+When `gw work advance <slug>` refuses with *"waiting on children"* (a feature
+or epic gated on open children), the options are finishing the children
+(`gw next <slug> --descend`) or detaching the child:
+
+1. Edit the child's page (`wiki/work/<child>.md`) with the Edit tool and
+   delete its `parent:` line — the child's `parent` key is the single source
+   of truth; the parent's `children` list is derived.
+2. Run `gw work regen-index` — the parent's `children` list refreshes.
+3. If siblings `depends_on` the detached child, rule `depends-on-not-sibling`
+   flags them on the next lint; clean those references up as needed.
+
+Offer this whenever the children gate blocks an advance.

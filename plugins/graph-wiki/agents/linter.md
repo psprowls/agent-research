@@ -1,6 +1,6 @@
 ---
 name: linter
-description: Dispatched sub-agent that runs a health check on a Code Wiki. Mechanical checks via scripts (orphans, broken links, stale pages, missing frontmatter, duplicate titles, log gaps, CODE DRIFT), semantic checks (contradictions vault↔vault and vault↔code, stale claims, concept gaps, ADR chain health, cross-reference gaps, index drift), mechanical work-lifecycle checks (29 rules over `wiki/work/*.md`), and produces a markdown report with suggested actions. Spawn weekly, after batch ingests, after /graph-wiki:scan, or when the user says "lint the wiki" / "check the wiki".
+description: Dispatched sub-agent that runs a health check on a Code Wiki. Mechanical checks via scripts (orphans, broken links, stale pages, missing frontmatter, duplicate titles, log gaps, CODE DRIFT), semantic checks (contradictions vault↔vault and vault↔code, stale claims, concept gaps, ADR chain health, cross-reference gaps, index drift), mechanical work-lifecycle checks (31 rules over `wiki/work/*.md`), and produces a markdown report with suggested actions. Spawn weekly, after batch ingests, after /graph-wiki:scan, or when the user says "lint the wiki" / "check the wiki".
 skills: [graph-wiki]
 domain: engineering
 model: opus
@@ -35,7 +35,7 @@ Parse the JSON. Capture:
 - Orphans, broken links, stale, missing frontmatter, duplicate titles, log gap
 - Connected components, hubs, sinks
 - **Code drift**: `missing_in_vault`, `orphaned_in_vault`, `exports_drift`
-- **Work lifecycle**: `work_lifecycle` — `{total_items, findings}`, all 29 lifecycle rules (same set as `gw work lint`)
+- **Work lifecycle**: `work_lifecycle` — `{total_items, findings}`, all 31 lifecycle rules (same set as `gw work lint`)
 - **Obsidian render**: `obsidian_render_findings` — markdown that breaks Obsidian's renderer
 - **Guidance lint**: `guidance_lint_findings` — frontmatter/tag/placement findings for `wiki/guidance/` pages
 - **Scanner heading drift**: `scanner_heading_drift` — entity pages missing a scanner-owned section

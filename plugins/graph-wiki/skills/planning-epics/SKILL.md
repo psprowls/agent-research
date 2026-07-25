@@ -59,8 +59,8 @@ anticipated child.
    ```
 
    Read the `slug` field from each JSON result and record it before filing the
-   next child. `--parent` is validated against an existing `epic`-kind item, so
-   `<epic-slug>` must be the epic's file stem. If a child can only name a sibling
+   next child. `--parent` is validated against an existing `epic`- or `feature`-kind item (PARENT_KINDS), so
+   `<epic-slug>` must be the epic/feature's file stem. If a child can only name a sibling
    filed after it (a genuine cycle of ordering, not of dependency — rare), file
    all children first, then a second pass edits the late child's `depends_on` in
    `<workspace>/wiki/work/<child-slug>.md` directly. Prefer ordering over the

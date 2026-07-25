@@ -12,7 +12,7 @@ consumer that needs structured access to the work queue.
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 3,
   "generated_at": "ISO-8601 UTC, Z suffix",
   "vault_commit": "git HEAD of the vault repo, or null",
   "counts": { ... },
@@ -63,6 +63,18 @@ input produces the same JSON.
 | `pr` | string \| null | when frontmatter `pr:` empty |
 | `branch` | string \| null | when frontmatter `branch:` empty |
 | `tags` | array of strings | always array, possibly empty |
+| `children` | object \| null | when kind is `epic` (always), or `feature` with children; `{"total", "by_status", "terminal", "blocking"}` |
+
+**`children` shape** (present for epics and features with children; derived from ACTIVE items only):
+
+```json
+{
+  "total": integer,                    // count of all active children
+  "by_status": {"open": N, "accepted": N, ...},
+  "terminal": integer,                 // count of children with terminal status
+  "blocking": integer                  // count of open children (not yet terminal)
+}
+```
 
 ## Freshness contract
 

@@ -1,6 +1,6 @@
 # Lifecycle rules — work_layer
 
-The 29 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
+The 31 rules `/graph-wiki:lint` runs against `<vault>/work/*.md`
 plus the sidecar. Each entry: rule ID, severity, trigger, rationale, remedy.
 
 > **Note:** These rules are live — run by `/graph-wiki:lint` (mechanical pass) and `gw work lint`, against every `wiki/work/*.md` item plus the sidecar.
@@ -137,7 +137,7 @@ outside the workflow lint clean.
 **Rationale:** fresh-context workflow sessions locate prior output through these pointers; a dangling pointer strands the next stage.
 **Remedy:** restore the file under `<workspace>/raw/`, or clear the key.
 
-## Hierarchy (6)
+## Hierarchy (8)
 
 These cross-item rules resolve `parent:` and `depends_on:` references against the
 full set of work items in `<vault>/work/`. They fire only when those keys are
@@ -148,10 +148,10 @@ present — flat items filed without a parent or dependencies lint clean.
 **Rationale:** a child pointing at a non-existent epic is orphaned — rollups and the children-terminal resolve gate can't find it.
 **Remedy:** fix the slug (check for renames first), file the missing epic, or clear `parent:` if the item is standalone.
 
-### `parent-not-epic` — error
-**Trigger:** `parent:` resolves to a work item whose `kind` is not `epic`.
-**Rationale:** the hierarchy is exactly one level — only epics own children. A non-epic parent breaks the decomposition contract.
-**Remedy:** repoint `parent:` at the owning epic, or promote the referenced item to `kind: epic` if it is in fact the umbrella.
+### `parent-kind-invalid` — error
+**Trigger:** `parent:` resolves to a work item whose `kind` is not `epic` or `feature`.
+**Rationale:** only epics and features own children (`PARENT_KINDS`). A bug parenting a bug breaks the decomposition contract.
+**Remedy:** repoint `parent:` at the owning epic/feature, or promote the referenced item if it is in fact the umbrella.
 
 ### `depends-on-missing` — error
 **Trigger:** a `depends_on:` slug has no matching work item.
@@ -172,3 +172,13 @@ present — flat items filed without a parent or dependencies lint clean.
 **Trigger:** `kind: epic` at `phase: execute | finish | done` with no work item naming it as `parent:`.
 **Rationale:** an epic that has advanced past planning but owns no children is either undecomposed or had its children deleted — its rollup is empty.
 **Remedy:** decompose the epic into child items, or close it if the work is no longer planned.
+
+### `parent-cycle` — error
+**Trigger:** the `parent:` chain contains a cycle (e.g. A's parent is B and B's parent is A). Every node in the cycle is flagged.
+**Rationale:** a cyclic hierarchy has no root; rollups and `--descend` cannot resolve it (descend independently reports it as a blocker).
+**Remedy:** break the cycle by removing the `parent:` edge that shouldn't exist.
+
+### `children-stale` — warn
+**Trigger:** an item's on-disk `children:` list differs from the list derived from the children's `parent:` keys (archived children included).
+**Rationale:** `children` is a derived projection; divergence means a hand-edit or a mutation made outside the gw commands.
+**Remedy:** run `gw work regen-index` — never hand-edit `children:`; to detach, delete the child's `parent:` key.

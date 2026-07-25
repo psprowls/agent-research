@@ -194,6 +194,9 @@ effort: small                   # xtra-small | small | medium | large | xtra-lar
 blast_radius: package           # file | package | domain | system
 affects:
   - packages/location-aws-node-ts
+parent: 2026-07-01-epic-big-thing   # child side: owning epic/feature slug (source of truth)
+depends_on: []                      # sibling slugs that must be terminal first
+children: []                        # DERIVED — tool-refreshed from children's parent keys; do not hand-edit
 target: 2026-Q2                 # feature | epic — optional otherwise
 owner: pat                      # populate when in-progress
 opened: 2026-04-21
@@ -207,6 +210,8 @@ rationale: ""                   # required when wontfix
 tags: [location, infrastructure]
 ---
 ```
+
+`children` is a derived, tool-refreshed projection maintained by `gw work regen-index` (which every filing/advance/archive runs): it lists this item's children — active *and* archived, sorted by `(opened, slug)` — and is omitted when empty. Hand-edits are overwritten; to detach a child, delete the *child's* `parent:` key and regen. Parents may be epics or features; feature children keep plain `<kind>-…` slugs (the `epic-<kind>-` prefix stays epic-only).
 
 The committed plan does **not** live in frontmatter — it's a markdown table under `## Plan` in the body. See [Body-table conventions](#body-table-conventions) below.
 
