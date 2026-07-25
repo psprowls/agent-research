@@ -9,8 +9,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from work_io.hierarchy import child_rollup
+from work_io.lifecycle_lint import PARENT_KINDS
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 
 def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
@@ -49,15 +50,20 @@ def build_sidecar(work_dir: Path, vault_commit: str | None) -> dict:
     items.sort(key=lambda x: (-_date_int(x["opened"]), x["slug"]))
 
     for it in items:
-        if it["kind"] == "epic":
-            roll = child_rollup(items, it["slug"])
-            child_statuses = Counter(c["status"] for c in items if c.get("parent") == it["slug"] and c["status"])
-            it["children"] = {
-                "total": roll.total,
-                "by_status": dict(child_statuses),
-                "terminal": roll.terminal,
-                "blocking": roll.total - roll.terminal,
-            }
+        if it["kind"] not in PARENT_KINDS:
+            continue
+        roll = child_rollup(items, it["slug"])
+        if it["kind"] != "epic" and roll.total == 0:
+            # Feature parents get a rollup only once they have children;
+            # epics keep the zero-count entry (status displays rely on it).
+            continue
+        child_statuses = Counter(c["status"] for c in items if c.get("parent") == it["slug"] and c["status"])
+        it["children"] = {
+            "total": roll.total,
+            "by_status": dict(child_statuses),
+            "terminal": roll.terminal,
+            "blocking": roll.total - roll.terminal,
+        }
 
     by_status = Counter(i["status"] for i in items if i["status"])
     by_kind = Counter(i["kind"] for i in items if i["kind"])

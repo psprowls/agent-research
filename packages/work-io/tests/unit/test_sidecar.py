@@ -179,7 +179,7 @@ def test_sidecar_epic_children_rollup(tmp_path) -> None:
     )
 
     sc = build_sidecar(work, vault_commit=None)
-    assert sc["schema_version"] == SCHEMA_VERSION == 2
+    assert sc["schema_version"] == SCHEMA_VERSION == 3
 
     by_slug = {it["slug"]: it for it in sc["items"]}
     epic = by_slug["2026-01-01-epic"]
@@ -191,3 +191,61 @@ def test_sidecar_epic_children_rollup(tmp_path) -> None:
     child = by_slug["2026-01-02-child-a"]
     assert child["parent"] == "2026-01-01-epic"
     assert "children" not in child
+
+
+def test_sidecar_schema_version_3(tmp_path) -> None:
+    from work_io.sidecar import SCHEMA_VERSION, build_sidecar
+
+    assert SCHEMA_VERSION == 3
+    (tmp_path / "work").mkdir()
+    assert build_sidecar(tmp_path / "work", None)["schema_version"] == 3
+
+
+def test_sidecar_feature_with_children_gets_rollup(tmp_path) -> None:
+    from work_io.sidecar import build_sidecar
+
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "2026-01-01-feature.md").write_text(
+        "---\ntitle: F\nkind: feature\nstatus: accepted\nopened: 2026-01-01\nupdated: 2026-01-01\n---\nbody\n",
+        encoding="utf-8",
+    )
+    (work / "2026-01-02-child.md").write_text(
+        "---\ntitle: C\nkind: bug\nstatus: open\nparent: 2026-01-01-feature\n"
+        "opened: 2026-01-02\nupdated: 2026-01-02\n---\nbody\n",
+        encoding="utf-8",
+    )
+
+    sc = build_sidecar(work, vault_commit=None)
+    feature = next(i for i in sc["items"] if i["kind"] == "feature")
+    assert feature["children"] == {"total": 1, "by_status": {"open": 1}, "terminal": 0, "blocking": 1}
+
+
+def test_sidecar_childless_feature_has_no_children_key(tmp_path) -> None:
+    from work_io.sidecar import build_sidecar
+
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "2026-01-01-feature.md").write_text(
+        "---\ntitle: F\nkind: feature\nstatus: open\nopened: 2026-01-01\nupdated: 2026-01-01\n---\nbody\n",
+        encoding="utf-8",
+    )
+
+    sc = build_sidecar(work, vault_commit=None)
+    feature = next(i for i in sc["items"] if i["kind"] == "feature")
+    assert "children" not in feature
+
+
+def test_sidecar_childless_epic_keeps_zero_rollup(tmp_path) -> None:
+    from work_io.sidecar import build_sidecar
+
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "2026-01-01-epic.md").write_text(
+        "---\ntitle: E\nkind: epic\nstatus: accepted\nopened: 2026-01-01\nupdated: 2026-01-01\n---\nbody\n",
+        encoding="utf-8",
+    )
+
+    sc = build_sidecar(work, vault_commit=None)
+    epic = next(i for i in sc["items"] if i["kind"] == "epic")
+    assert epic["children"]["total"] == 0
