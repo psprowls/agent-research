@@ -450,6 +450,39 @@ async def test_run_ingest_work_item_bug_parent_rejected(tmp_path: Path) -> None:
             await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=workspace)
 
 
+@pytest.mark.asyncio
+async def test_run_ingest_work_item_dangling_parent_rejected(tmp_path: Path) -> None:
+    """frontmatter 'parent: <slug>' with no such work item on disk raises ValueError."""
+    from graph_wiki_core.commands.ingest import run_ingest_work_item
+
+    workspace = tmp_path / "ws"
+    wiki = workspace / "wiki"
+    work_dir = wiki / "work"
+    work_dir.mkdir(parents=True)
+    # Deliberately no _write_parent_page call: "2026-01-01-epic-ghost" does not exist.
+
+    frontmatter_text = (
+        "title: Fix Auth Bug\n"
+        "category: work\n"
+        "kind: bug\n"
+        "status: open\n"
+        "summary: Fix the auth bug\n"
+        "opened: 2026-05-14\n"
+        "affects:\n"
+        "  - auth-service\n"
+        "parent: 2026-01-01-epic-ghost\n"
+    )
+
+    with (
+        patch("graph_wiki_core.commands.ingest.resolve_wiki_and_repo") as mock_resolve,
+        patch("graph_wiki_core.commands.work.resolve_wiki_and_repo") as mock_resolve_work,
+    ):
+        mock_resolve.return_value = (wiki, tmp_path)
+        mock_resolve_work.return_value = (wiki, tmp_path)
+        with pytest.raises(ValueError, match="no work item"):
+            await run_ingest_work_item(frontmatter_text, "Some body.", workspace_path=workspace)
+
+
 # ---------------------------------------------------------------------------
 # test_ingest_result_round_trips_to_json
 # ---------------------------------------------------------------------------

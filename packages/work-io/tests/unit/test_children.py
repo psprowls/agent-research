@@ -136,3 +136,32 @@ def test_refresh_preserves_formatting_of_other_keys(tmp_path: Path) -> None:
         "children:\n- c1\ntags: [alpha, beta]",
     )
     assert parent_page.read_text(encoding="utf-8") == expected
+
+
+def test_refresh_splices_crlf_page(tmp_path: Path) -> None:
+    """A CRLF-saved parent page still gets its children spliced (not silently skipped).
+
+    _frontmatter_span requires an exact "---\\n" fence; a page saved with "\\r\\n"
+    line endings never matches it unless refresh_children first normalizes the
+    text, so this pins that normalization happens before spanning/splicing.
+    """
+    work = tmp_path / "work"
+    work.mkdir(parents=True)
+    parent_page = work / "p.md"
+    original_lf = (
+        "---\n"
+        "title: p\n"
+        "kind: feature\n"
+        "status: open\n"
+        "affects: []\n"
+        "opened: '2026-07-01'\n"
+        "updated: '2026-07-01'\n"
+        "---\n\n"
+        "## Summary\nbody text\n"
+    )
+    parent_page.write_bytes(original_lf.replace("\n", "\r\n").encode("utf-8"))
+    _write(work, "c1", kind="bug", parent="p")
+
+    assert refresh_children(work) == ["p"]
+    fm, _ = parse(parent_page.read_text(encoding="utf-8"))
+    assert fm["children"] == ["c1"]
