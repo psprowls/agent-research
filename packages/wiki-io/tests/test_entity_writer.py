@@ -542,6 +542,37 @@ def test_write_entities_second_run_all_unchanged(
     assert len(r2.unchanged) == len(r1.created)
 
 
+def test_noop_rescan_after_prose_and_user_edits_byte_identical(
+    tmp_path,
+    mock_graph_conn,
+    monkeypatch,
+):
+    """Epic regression properties (a) + (d) at write_entities level: after
+    narrative injection and a user-added H2, a no-op rescan renders every
+    page byte-identical and buckets them all `unchanged`."""
+    from graph_io import queries as q
+    from wiki_io.entity_writer import inject_narrative
+
+    _wire_mock_queries(monkeypatch, q)
+    wiki_root = tmp_path / "wiki"
+    r1 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    entities = wiki_root / "entities"
+    page = entities / "pkg_graph-io.md"
+    inject_narrative(page, "Real narrated prose about graph-io.")
+    page.write_text(
+        page.read_text(encoding="utf-8") + "\n## Field Notes\nhand-written note\n",
+        encoding="utf-8",
+    )
+    before = {p.name: p.read_bytes() for p in entities.glob("*.md")}
+    r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
+    after = {p.name: p.read_bytes() for p in entities.glob("*.md")}
+    assert r2.created == []
+    assert r2.updated == []
+    assert r2.deleted == []
+    assert sorted(r2.unchanged) == sorted(r1.created)
+    assert before == after
+
+
 def test_write_entities_deletes_pages_for_disappeared_nodes(
     tmp_path,
     mock_graph_conn,
@@ -950,7 +981,7 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
 
 
 def test_merge_frontmatter_preserves_last_updated_commit() -> None:
-    """last_updated_commit is NOT scanner-owned: merge_frontmatter must keep an
+    """last_updated_commit is NOT a data key: merge_frontmatter must keep an
     existing value (regression guard — adding it to DATA_KEYS would
     silently break the M2a commit-gate)."""
     from wiki_io.entity_writer import (
