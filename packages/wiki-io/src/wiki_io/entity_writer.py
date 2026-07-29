@@ -522,31 +522,19 @@ def _render_page_text(frontmatter_dict: dict, body: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Living Wiki M1: heading-aware section preservation (Approach A).
-# Scanner-owned H2 sections are regenerated from the template every scan;
-# every other H2 section is preserved from the existing page on re-scan.
+# Two-class section model: deterministic vs prose.
+# If the graph can compute a section, it is deterministic; if a model (or
+# human) wrote it, it is prose and carried from the existing page verbatim.
 # ---------------------------------------------------------------------------
 
-
-def _is_scanner_owned_heading(heading: str) -> bool:
-    """True for the three H2 sections the scanner regenerates each scan:
-    `## Narrative`, `## File map[ - <name>]`, `## Referenced in wiki`.
-
-    Everything else (e.g. `## Purpose`, `## Public API`, any hand-added H2)
-    is human-owned and preserved across re-scan.
-    """
-    h = heading.strip()
-    return h == "## Narrative" or h.startswith("## File map") or h == "## Referenced in wiki"
-
-
-# Living Wiki agent-plugin parity (D1): scanner-DATA sections — deterministic
-# graph projections rendered into the template every scan. Unlike scanner-prose
-# / scanner-filemap (preserved then overwritten by an inject post-pass), these
-# are template-authoritative: the merge keeps the freshly-rendered template body
-# and never sources them from disk, so they can never freeze. These headings
-# appear only on the agent_plugin template.
-SCANNER_DATA_HEADINGS: frozenset[str] = frozenset(
+# Deterministic (pure graph projection) H2 headings. Downstream contract:
+# refresh passes exclude these sections from model prompts (Child 2); lint's
+# scanner_heading rule retargets to this constant (Child 5). `## File map` is
+# also deterministic but carries a `- <name>` heading suffix, so it is matched
+# by `_is_file_map_heading`, not by membership here.
+DETERMINISTIC_SECTIONS: frozenset[str] = frozenset(
     {
+        "## Referenced in wiki",
         "## Commands",
         "## Agents",
         "## Skills",
@@ -555,6 +543,24 @@ SCANNER_DATA_HEADINGS: frozenset[str] = frozenset(
         "## MCP servers",
     }
 )
+
+# The agent_plugin data tables: deterministic sections whose fresh data is
+# substituted into the template at render time (_agent_plugin_table_variables),
+# so for them "fresh render" IS the template chunk — never sourced from disk
+# at merge. `## Referenced in wiki` and `## File map` are deterministic but
+# inject-refreshed by always-run post-passes (regenerate_referenced_in_wiki /
+# inject_file_map), so the merge carries their on-disk copy instead.
+_TEMPLATE_AUTHORITATIVE: frozenset[str] = DETERMINISTIC_SECTIONS - {"## Referenced in wiki"}
+
+
+def _is_file_map_heading(heading: str) -> bool:
+    """True for `## File map[ - <name>]` headings.
+
+    The `- <name>` suffix differs between the template render (slug) and the
+    injected deterministic block (basename), so File map is matched by prefix —
+    the only heading that ever needed suffix normalization.
+    """
+    return heading.strip().startswith("## File map")
 
 
 def _split_h2_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
@@ -579,58 +585,38 @@ def _split_h2_sections(text: str) -> tuple[str, list[tuple[str, str]]]:
     return preamble, sections
 
 
-def _scanner_section_token(heading: str) -> str:
-    """Collapse a scanner-owned H2 heading to a constant per-type token.
-
-    The `## File map - <name>` heading carries a name suffix that differs
-    between the template render (`{{PACKAGE_SLUG}}` → the slug) and the injected
-    deterministic block (the directory basename), so the suffix — like the body —
-    must be normalized away. The token distinguishes the three scanner sections
-    so an added/removed section still registers as a difference.
-    """
-    h = heading.strip()
-    if h == "## Narrative":
-        return "\x00scanner:narrative\x00"
-    if h.startswith("## File map"):
-        return "\x00scanner:filemap\x00"
-    # `_is_scanner_owned_heading` guarantees the only remaining case.
-    return "\x00scanner:referenced\x00"
-
-
 def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
-    """Merge an existing page's content into ``template_body`` (PTO).
+    """Merge an existing page's content into ``template_body`` (two-class model).
 
-    Preserve-then-overwrite: each scanner-owned section
-    (``_is_scanner_owned_heading``) takes its body from the existing page when
-    the page already has a section of that **type** (matched via
-    ``_scanner_section_token`` — this is what dodges the `## File map - <slug>`
-    vs `- <basename>` heading-suffix mismatch); otherwise it falls back to the
-    template placeholder (newly-created page, or a scanner section newly added
-    to the template). The scan pipeline overwrites a scanner section's body
-    only when it actually regenerates it this scan.
-
-    Human/user sections are unchanged from the M1 merge: a human heading that
-    appears in ``existing_body`` replaces the template's version; sections
-    present only in ``existing_body`` (user-added) are appended in their
-    original order. The preamble (H1 + intro) always comes from the template.
-
-    Scanner-data sections (``SCANNER_DATA_HEADINGS``) are template-authoritative:
-    never sourced from ``existing_body``, always taken from the freshly-rendered
-    ``template_body``, and excluded from the user-trailing pass.
+    - Preamble (H1 + intro) always from the template.
+    - Template-authoritative sections (``_TEMPLATE_AUTHORITATIVE`` — the six
+      agent_plugin data tables) always take the freshly-rendered template
+      chunk; never sourced from disk.
+    - The File map section (``_is_file_map_heading`` prefix match, so the
+      `- <slug>` vs `- <basename>` suffix mismatch cannot orphan it) carries
+      the on-disk chunk when the page has one (first occurrence), else the
+      template chunk (new page). Freshness is enforced at pipeline level by
+      the always-run ``inject_file_map`` post-pass.
+    - Every other template section is prose: the on-disk chunk by exact
+      heading match when present, else the template chunk (placeholder).
+    - On-disk sections the template does not define are appended in original
+      order — except deterministic/File-map headings, which are
+      template-driven and never linger. Prose is never silently dropped.
 
     Idempotent: ``_merge_preserved_sections(t, t) == t`` because the split is
-    lossless and each section round-trips (scanner by type, human by heading).
+    lossless and each section round-trips.
     """
     pre_t, secs_t = _split_h2_sections(template_body)
     _pre_e, secs_e = _split_h2_sections(existing_body)
 
     existing_by_heading: dict[str, str] = {}
-    existing_scanner_by_token: dict[str, str] = {}
+    existing_file_map: str | None = None
     for heading, chunk in secs_e:
-        if _is_scanner_owned_heading(heading):
-            existing_scanner_by_token.setdefault(_scanner_section_token(heading), chunk)  # first occurrence wins
-        elif heading in SCANNER_DATA_HEADINGS:
-            continue  # template-authoritative; never sourced from the on-disk page
+        if heading in _TEMPLATE_AUTHORITATIVE:
+            continue  # never sourced from the on-disk page
+        if _is_file_map_heading(heading):
+            if existing_file_map is None:
+                existing_file_map = chunk  # first occurrence wins
         else:
             existing_by_heading.setdefault(heading, chunk)  # first occurrence wins
 
@@ -639,25 +625,24 @@ def _merge_preserved_sections(template_body: str, existing_body: str) -> str:
     consumed: set[str] = set()
     for heading, chunk in secs_t:
         template_headings.add(heading)
-        if _is_scanner_owned_heading(heading):
-            # PTO: preserve the existing same-type scanner body; else placeholder.
-            token = _scanner_section_token(heading)
-            out.append(existing_scanner_by_token.get(token, chunk))
-        elif heading in SCANNER_DATA_HEADINGS:
+        if heading in _TEMPLATE_AUTHORITATIVE:
             out.append(chunk)  # always the fresh graph render
+        elif _is_file_map_heading(heading):
+            out.append(existing_file_map if existing_file_map is not None else chunk)
         elif heading in existing_by_heading:
             out.append(existing_by_heading[heading])
             consumed.add(heading)
         else:
             out.append(chunk)
 
-    # Preserve user-added sections the template does not define.
+    # Append on-disk sections the template does not define (prose only —
+    # deterministic sections never linger).
     for heading, chunk in secs_e:
         if (
             heading in template_headings
             or heading in consumed
-            or _is_scanner_owned_heading(heading)
-            or heading in SCANNER_DATA_HEADINGS
+            or heading in DETERMINISTIC_SECTIONS
+            or _is_file_map_heading(heading)
         ):
             continue
         consumed.add(heading)
