@@ -812,7 +812,7 @@ def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
             # AppDescription mirrors PackageDescription field-for-field with
             # two additions: `app_kind` (one of `_VALID_APP_KINDS`) and
             # `app_signals` (sorted list of classification signals) — both
-            # surfaced as scanner-owned keys (D-06).
+            # surfaced as data keys (D-06).
             fm["language"] = d.language
             fm["version"] = d.version
             fm["domains"] = list(d.domains)

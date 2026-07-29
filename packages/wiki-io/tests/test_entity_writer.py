@@ -50,7 +50,7 @@ def test_admitted_kinds_shape() -> None:
     assert "plugin" not in ADMITTED_KINDS
 
 
-def test_scanner_owned_keys_disjoint_from_human() -> None:
+def test_data_keys_disjoint_from_human() -> None:
     """DATA_KEYS does not include any of the documented human keys (D-09)."""
     human_only = {"status", "last_reviewed", "owner", "notes"}
     assert DATA_KEYS.isdisjoint(human_only)
@@ -173,14 +173,14 @@ def test_merge_preserves_human_key_order() -> None:
 # Hypothesis property tests
 
 
-def _scanner_owned_minus_uri_kind() -> list[str]:
+def _data_keys_minus_uri_kind() -> list[str]:
     from wiki_io.entity_writer import DATA_KEYS
 
     return sorted(DATA_KEYS - {"uri", "kind"})
 
 
 _HUMAN_KEY_NAMES = st.sampled_from(["status", "owner", "notes", "last_reviewed", "tags", "custom_x"])
-_SCANNER_KEY_NAMES = st.sampled_from(_scanner_owned_minus_uri_kind())
+_DATA_KEY_NAMES = st.sampled_from(_data_keys_minus_uri_kind())
 _VALUES = st.one_of(
     st.text(min_size=0, max_size=20),
     st.lists(st.text(min_size=1, max_size=10), min_size=0, max_size=5),
@@ -193,7 +193,7 @@ def existing_dict(draw):
     d = {"uri": "pkg:org/repo/p", "kind": "package"}
     for k in draw(st.lists(_HUMAN_KEY_NAMES, max_size=5, unique=True)):
         d[k] = draw(_VALUES)
-    for k in draw(st.lists(_SCANNER_KEY_NAMES, max_size=5, unique=True)):
+    for k in draw(st.lists(_DATA_KEY_NAMES, max_size=5, unique=True)):
         d[k] = draw(_VALUES)
     return d
 
@@ -201,7 +201,7 @@ def existing_dict(draw):
 @st.composite
 def scanner_dict(draw):
     d = {"uri": "pkg:org/repo/p", "kind": "package"}
-    for k in draw(st.lists(_SCANNER_KEY_NAMES, max_size=5, unique=True)):
+    for k in draw(st.lists(_DATA_KEY_NAMES, max_size=5, unique=True)):
         d[k] = draw(_VALUES)
     return d
 
@@ -467,7 +467,7 @@ def test_merge_summary_todo_marker_when_description_empty() -> None:
     assert out["summary"] == todo
 
 
-def test_summary_not_in_scanner_owned_keys() -> None:
+def test_summary_not_in_data_keys() -> None:
     """D-07: summary must NOT be a data key (else it clobbers human edits)."""
     from wiki_io.entity_writer import DATA_KEYS
 
