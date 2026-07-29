@@ -119,14 +119,14 @@ def test_clear_resolved_flags_keeps_all_when_unchanged():
     assert clear_resolved_flags(entries, _BODY) == entries
 
 
-def test_drift_keys_are_not_scanner_owned():
+def test_drift_keys_are_not_data_keys():
     """Guards §5.7: drift_checked_commit / drift_review must be PRESERVED across
-    re-scan, so they must never be added to SCANNER_OWNED_KEYS (which merge wipes
-    to template values)."""
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    re-scan (until Child 3 deletes the machinery), so they must never be added
+    to DATA_KEYS (which merge wipes to scanner values)."""
+    from wiki_io.entity_writer import DATA_KEYS
 
-    assert "drift_checked_commit" not in SCANNER_OWNED_KEYS
-    assert "drift_review" not in SCANNER_OWNED_KEYS
+    assert "drift_checked_commit" not in DATA_KEYS
+    assert "drift_review" not in DATA_KEYS
 
 
 def test_merge_frontmatter_preserves_drift_keys():

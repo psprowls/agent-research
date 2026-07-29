@@ -15,20 +15,30 @@ This module owns THREE contracts every downstream entity-writing phase
    in Phase 53 — reverse lookups go through
    `frontmatter.load(entity_path).metadata["uri"]`.
 
-2. **Scanner-owned frontmatter whitelist (D-06..D-09).**
-   `SCANNER_OWNED_KEYS` is a flat frozenset enumerating every frontmatter
-   key the scanner is allowed to overwrite on the next scan. Everything
-   outside this set is human-territory and preserved as-is when the
-   scanner re-renders an entity page (Phase 43 `merge_frontmatter`).
+2. **Data frontmatter whitelist.**
+   `DATA_KEYS` is a flat frozenset enumerating every frontmatter key the
+   scan regenerates from the graph on every run (full replacement; empty
+   values omitted). Everything outside this set is preserved as-is when the
+   scanner re-renders an entity page (`merge_frontmatter`); `summary` is a
+   fill-when-empty special case.
 
-   Human-only keys are NOT enumerated as a constant (D-09); the explicit
-   examples documented for readers are: `status`, `last_reviewed`, `owner`,
-   `notes`. A unit test asserts disjointness from these four.
+   Human-only keys are NOT enumerated as a constant; the explicit examples
+   documented for readers are: `status`, `last_reviewed`, `owner`, `notes`.
+   A unit test asserts disjointness from these four. Provenance keys —
+   `last_updated_commit` (the HEAD at which `## Narrative` was last
+   regenerated) and `drift_propagated_commit` (the M4 drift-producer
+   watermark), plus `content_hash` on curated pages — are scanner-stamped
+   but NOT in `DATA_KEYS`: they must survive re-render.
 
-3. **Narrative region marker (D-16).**
-   Per-kind templates carry a `## Narrative` H2 section that the LLM
-   scanner targets and overwrites; everything outside that H2 (including
-   other human-authored H2 sections) is preserved. The H2 string is a hard
+3. **Two-class section model.**
+   If the graph can compute a section, it is deterministic; if a model (or
+   human) wrote it, it is prose. `DETERMINISTIC_SECTIONS` enumerates the
+   deterministic H2 headings (`## File map` is matched by prefix via
+   `_is_file_map_heading`). At merge time the six agent_plugin data tables
+   (`_TEMPLATE_AUTHORITATIVE`) always take the fresh template render;
+   `## Referenced in wiki` and `## File map` are carried from disk and
+   refreshed by the always-run inject post-passes; every other H2 is prose,
+   carried from disk verbatim. The `## Narrative` H2 string remains a hard
    convention — humans must not rename the heading.
 """
 
@@ -92,16 +102,16 @@ _URI_PREFIX_BY_KIND: dict[str, str] = {
     "test_suite": "test_suite",
 }
 
-# Frontmatter keys the scanner owns and may overwrite on every scan.
-# Anything outside this set is human-authored and MUST be preserved by
-# `merge_frontmatter` in Phase 43.
+# Frontmatter keys regenerated from the graph on every scan — full
+# replacement from the scanner update; empty values omitted (see
+# merge_frontmatter). Anything outside this set is preserved as-is when the
+# scanner re-renders an entity page.
 #
 # Documented human-only keys (NOT in this whitelist; do not add):
-#   - status          (e.g. `deprecated`, `active`, `experimental`)
-#   - last_reviewed   (ISO date, human-recorded review checkpoint)
-#   - owner           (free-form owner annotation)
-#   - notes           (free-form human notes)
-SCANNER_OWNED_KEYS: frozenset[str] = frozenset(
+#   - status, last_reviewed, owner, notes
+# Preserved provenance keys (scanner-stamped, NOT in this whitelist):
+#   - last_updated_commit, drift_propagated_commit
+DATA_KEYS: frozenset[str] = frozenset(
     {
         # Universal
         "uri",
@@ -281,7 +291,7 @@ def _load_frontmatter(path: Path) -> frontmatter.Post:
 from wiki_io._graph_protocol import GraphReaderLike  # noqa: E402
 from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table  # noqa: E402
 
-# Subset of SCANNER_OWNED_KEYS that triggers needs_narrative when changed (D-10).
+# Subset of DATA_KEYS that triggers needs_narrative when changed (D-10).
 # Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
 # retired family-grouping kind).
 STRUCTURAL_KEYS: frozenset[str] = frozenset(
@@ -298,8 +308,8 @@ STRUCTURAL_KEYS: frozenset[str] = frozenset(
     }
 )
 
-# Defence-in-depth: enforce the STRUCTURAL_KEYS ⊂ SCANNER_OWNED_KEYS invariant at import.
-assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS), "STRUCTURAL_KEYS must be a subset of SCANNER_OWNED_KEYS (D-10)"
+# Defence-in-depth: enforce the STRUCTURAL_KEYS ⊂ DATA_KEYS invariant at import.
+assert STRUCTURAL_KEYS.issubset(DATA_KEYS), "STRUCTURAL_KEYS must be a subset of DATA_KEYS (D-10)"
 
 
 class WriteLockHeldError(RuntimeError):
@@ -359,14 +369,14 @@ def _is_empty(value: Any) -> bool:
 def merge_frontmatter(existing: dict, scanner_update: dict) -> dict:
     """Merge scanner-computed frontmatter into an existing page's frontmatter.
 
-    Semantics per CONTEXT.md D-12..D-14:
-    - Scanner-owned keys (SCANNER_OWNED_KEYS) = full replacement from
-      `scanner_update`. Empty values omitted (kept compact).
-    - Non-scanner keys (human-authored) preserved verbatim, in original
-      encountered order.
-    - Key order on output: uri, kind, then scanner keys alphabetical
-      (non-empty only), then human keys in original encountered order.
-    - Collection values inside scanner-owned keys are sorted + deduped.
+    Semantics:
+    - Data keys (DATA_KEYS) = full replacement from `scanner_update`.
+      Empty values omitted (kept compact).
+    - Non-data keys (human-authored or preserved provenance) kept verbatim,
+      in original encountered order.
+    - Key order on output: uri, kind, then data keys alphabetical
+      (non-empty only), then remaining keys in original encountered order.
+    - Collection values inside data keys are sorted + deduped.
     """
     out: dict = {}
     # 1. uri (always present; may come from existing if scanner_update omits it)
@@ -379,26 +389,25 @@ def merge_frontmatter(existing: dict, scanner_update: dict) -> dict:
         out["kind"] = scanner_update["kind"]
     elif "kind" in existing:
         out["kind"] = existing["kind"]
-    # 2b. summary — Phase 56 D-07 THIRD category: fill-when-empty. `summary` is
-    # deliberately NOT in SCANNER_OWNED_KEYS (adding it there would clobber a
-    # human-edited summary on every re-scan). Instead: a non-empty existing
-    # summary is preserved verbatim (human edit survives); an absent/empty one
-    # is filled from the scanner-derived value. Placed here for a stable slot
-    # right after `kind`.
+    # 2b. summary — fill-when-empty special case. `summary` is deliberately
+    # NOT in DATA_KEYS (adding it there would clobber a human-edited summary
+    # on every re-scan). Instead: a non-empty existing summary is preserved
+    # verbatim (human edit survives); an absent/empty one is filled from the
+    # scanner-derived value. Placed here for a stable slot right after `kind`.
     existing_summary = existing.get("summary")
     if not _is_empty(existing_summary):
         out["summary"] = existing_summary
     elif not _is_empty(scanner_update.get("summary")):
         out["summary"] = scanner_update["summary"]
-    # 3. Scanner-owned keys, alphabetical, non-empty only
-    for key in sorted(SCANNER_OWNED_KEYS - {"uri", "kind"}):
+    # 3. Data keys, alphabetical, non-empty only
+    for key in sorted(DATA_KEYS - {"uri", "kind"}):
         if key in scanner_update:
             val = scanner_update[key]
             if not _is_empty(val):
                 out[key] = _sort_dedupe(val) if isinstance(val, list) else val
-    # 4. Human keys preserved in original encountered order from `existing`
+    # 4. Remaining keys preserved in original encountered order from `existing`
     for key, val in existing.items():
-        if key not in SCANNER_OWNED_KEYS and key not in out:
+        if key not in DATA_KEYS and key not in out:
             out[key] = val
     return out
 
@@ -498,7 +507,7 @@ _RESIDUAL_TOKEN_RE = re.compile(r"\{\{[^}]+\}\}")
 
 
 # Living Wiki M2a: per-entity provenance key. Holds the full HEAD SHA at which
-# this entity's `## Narrative` was last regenerated. NOT in SCANNER_OWNED_KEYS —
+# this entity's `## Narrative` was last regenerated. NOT in DATA_KEYS —
 # merge_frontmatter preserves it; only the scan pipeline stamps it (on narration).
 LAST_UPDATED_COMMIT_KEY = "last_updated_commit"
 
@@ -716,12 +725,11 @@ def update_frontmatter(
     """Apply frontmatter `updates` and key `delete`s in one atomic read-modify-write.
 
     Structured sibling of `set_frontmatter_value` (which is scalar-string only):
-    `updates` values may be any YAML-serializable object (e.g. the `drift_review`
-    list-of-dicts); `delete` removes keys (e.g. dropping `drift_review` when its
-    last flag clears). Body bytes and the canonical dump convention are preserved
-    via `_render_page_text`, so a subsequent `write_entities` re-render is
-    byte-identical. New keys append last (matching `merge_frontmatter`'s placement
-    of non-scanner keys). Writes atomically via temp file + `os.replace`.
+    `updates` values may be any YAML-serializable object; `delete` removes keys.
+    Body bytes and the canonical dump convention are preserved via
+    `_render_page_text`, so a subsequent `write_entities` re-render is
+    byte-identical. New keys append last (matching `merge_frontmatter`'s
+    placement of non-data keys). Writes atomically via temp file + `os.replace`.
 
     Raises:
         FileNotFoundError: when `page_path` does not exist.
@@ -783,7 +791,7 @@ def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
     # that lands. D-03/D-12: an empty/absent description yields a visible TODO
     # marker, never an empty string — so every page ends with a non-empty
     # summary. NOTE: `summary` is intentionally a fill-when-empty key, NOT a
-    # SCANNER_OWNED_KEYS member — see the special-case in merge_frontmatter (D-07).
+    # DATA_KEYS member — see the special-case in merge_frontmatter (D-07).
     description = node.attrs.get("description") if isinstance(node.attrs, dict) else None
     fm["summary"] = description or f"TODO add a one-line summary for {node.name}"
     if kind == "repository":
@@ -1175,9 +1183,8 @@ def extract_narrative(text: str) -> str | None:
     """Return the stripped body of the `## Narrative` section, or None when the
     section is missing, empty, or still the template placeholder.
 
-    Used by the scan pipeline to snapshot narrated prose before `write_entities`
-    re-renders the page (which resets this scanner-owned section), and to guard
-    the restore step from overwriting freshly-injected prose.
+    Used by the scan pipeline to snapshot narrated prose before re-render and
+    to guard the restore step from overwriting freshly-injected prose.
     """
     match = _NARRATIVE_HEADING_RE.search(text)
     if match is None:

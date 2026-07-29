@@ -30,8 +30,8 @@ __all__ = [
 ]
 
 # Living Wiki M4 extension: frontmatter key for the content-hash detection
-# baseline on curated (concept/ADR) pages. NOT in SCANNER_OWNED_KEYS (that
-# frozenset only governs entity-page re-render) — stamped by
+# baseline on curated (concept/ADR) pages. NOT in DATA_KEYS (that frozenset
+# only governs entity-page re-render) — stamped by
 # propagate_drift._stamp_curated_page_if_changed, preserved otherwise.
 CONTENT_HASH_KEY = "content_hash"
 

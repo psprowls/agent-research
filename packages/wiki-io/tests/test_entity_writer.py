@@ -4,7 +4,7 @@ Validates the surviving Phase 42 contracts (D-10):
 
 1. ADMITTED_KINDS is the 7 underscore-form kinds (D-02; `package_family`
    retired in Phase 51 PKGFAM-03; `app` admitted in Phase 52 D-06).
-2. SCANNER_OWNED_KEYS is disjoint from the human-only keys (D-09).
+2. DATA_KEYS is disjoint from the human-only keys (D-09).
 
 The bidirectional-slug machinery was removed in Phase 53 D-04..D-06;
 its property tests are gone. The Phase 52 short_filename contract is
@@ -16,7 +16,7 @@ from __future__ import annotations
 import pytest
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
-    SCANNER_OWNED_KEYS,
+    DATA_KEYS,
 )
 
 # ----------------------------------------------------------------------------
@@ -51,12 +51,12 @@ def test_admitted_kinds_shape() -> None:
 
 
 def test_scanner_owned_keys_disjoint_from_human() -> None:
-    """SCANNER_OWNED_KEYS does not include any of the documented human keys (D-09)."""
+    """DATA_KEYS does not include any of the documented human keys (D-09)."""
     human_only = {"status", "last_reviewed", "owner", "notes"}
-    assert SCANNER_OWNED_KEYS.isdisjoint(human_only)
+    assert DATA_KEYS.isdisjoint(human_only)
     # Spot-check a baseline of D-07 keys ARE present.
     for key in ("uri", "kind", "domains", "depends_on", "ecosystem"):
-        assert key in SCANNER_OWNED_KEYS, f"missing baseline key: {key!r}"
+        assert key in DATA_KEYS, f"missing baseline key: {key!r}"
 
 
 # ============================================================================
@@ -86,9 +86,9 @@ from wiki_io.entity_writer import (  # noqa: E402
 
 
 def test_structural_keys_subset_invariant() -> None:
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    from wiki_io.entity_writer import DATA_KEYS
 
-    assert STRUCTURAL_KEYS.issubset(SCANNER_OWNED_KEYS)
+    assert STRUCTURAL_KEYS.issubset(DATA_KEYS)
     # Phase 51 PKGFAM-03: dropped `members` (package_family carrier).
     assert len(STRUCTURAL_KEYS) == 9
 
@@ -124,7 +124,7 @@ def test_merge_key_order_uri_kind_first() -> None:
 
 
 def test_merge_scanner_keys_alphabetical() -> None:
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    from wiki_io.entity_writer import DATA_KEYS
 
     existing = {"uri": "x", "kind": "package"}
     scanner_update = {
@@ -135,7 +135,7 @@ def test_merge_scanner_keys_alphabetical() -> None:
         "domains": ["x"],
     }
     out = merge_frontmatter(existing, scanner_update)
-    scanner_keys_emitted = [k for k in out.keys() if k in SCANNER_OWNED_KEYS - {"uri", "kind"}]
+    scanner_keys_emitted = [k for k in out.keys() if k in DATA_KEYS - {"uri", "kind"}]
     assert scanner_keys_emitted == sorted(scanner_keys_emitted)
 
 
@@ -155,7 +155,7 @@ def test_merge_sorts_and_dedupes_collection_values() -> None:
 
 
 def test_merge_preserves_human_key_order() -> None:
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    from wiki_io.entity_writer import DATA_KEYS
 
     existing = {
         "uri": "x",
@@ -166,7 +166,7 @@ def test_merge_preserves_human_key_order() -> None:
     }
     scanner_update = {"uri": "x", "kind": "package"}
     out = merge_frontmatter(existing, scanner_update)
-    human_keys = [k for k in out.keys() if k not in SCANNER_OWNED_KEYS]
+    human_keys = [k for k in out.keys() if k not in DATA_KEYS]
     assert human_keys == ["owner", "status", "notes"]
 
 
@@ -174,9 +174,9 @@ def test_merge_preserves_human_key_order() -> None:
 
 
 def _scanner_owned_minus_uri_kind() -> list[str]:
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    from wiki_io.entity_writer import DATA_KEYS
 
-    return sorted(SCANNER_OWNED_KEYS - {"uri", "kind"})
+    return sorted(DATA_KEYS - {"uri", "kind"})
 
 
 _HUMAN_KEY_NAMES = st.sampled_from(["status", "owner", "notes", "last_reviewed", "tags", "custom_x"])
@@ -209,11 +209,11 @@ def scanner_dict(draw):
 @given(existing=existing_dict(), scanner=scanner_dict())
 @settings(max_examples=500, deadline=None)
 def test_merge_property_non_whitelist_preserved(existing, scanner):
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    from wiki_io.entity_writer import DATA_KEYS
 
     out = merge_frontmatter(existing, scanner)
     for k, v in existing.items():
-        if k not in SCANNER_OWNED_KEYS:
+        if k not in DATA_KEYS:
             assert k in out
             assert out[k] == v
 
@@ -221,10 +221,10 @@ def test_merge_property_non_whitelist_preserved(existing, scanner):
 @given(existing=existing_dict(), scanner=scanner_dict())
 @settings(max_examples=500, deadline=None)
 def test_merge_property_scanner_keys_taken_from_scanner(existing, scanner):
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    from wiki_io.entity_writer import DATA_KEYS
 
     out = merge_frontmatter(existing, scanner)
-    for k in SCANNER_OWNED_KEYS - {"uri", "kind"}:
+    for k in DATA_KEYS - {"uri", "kind"}:
         if k in scanner:
             val = scanner[k]
             if val is None or val == "" or val == [] or val == {}:
@@ -468,10 +468,10 @@ def test_merge_summary_todo_marker_when_description_empty() -> None:
 
 
 def test_summary_not_in_scanner_owned_keys() -> None:
-    """D-07: summary must NOT be a scanner-owned key (else it clobbers human edits)."""
-    from wiki_io.entity_writer import SCANNER_OWNED_KEYS
+    """D-07: summary must NOT be a data key (else it clobbers human edits)."""
+    from wiki_io.entity_writer import DATA_KEYS
 
-    assert "summary" not in SCANNER_OWNED_KEYS
+    assert "summary" not in DATA_KEYS
 
 
 # ----------------------------------------------------------------------------
@@ -951,15 +951,15 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
 
 def test_merge_frontmatter_preserves_last_updated_commit() -> None:
     """last_updated_commit is NOT scanner-owned: merge_frontmatter must keep an
-    existing value (regression guard — adding it to SCANNER_OWNED_KEYS would
+    existing value (regression guard — adding it to DATA_KEYS would
     silently break the M2a commit-gate)."""
     from wiki_io.entity_writer import (
+        DATA_KEYS,
         LAST_UPDATED_COMMIT_KEY,
-        SCANNER_OWNED_KEYS,
         merge_frontmatter,
     )
 
-    assert LAST_UPDATED_COMMIT_KEY not in SCANNER_OWNED_KEYS
+    assert LAST_UPDATED_COMMIT_KEY not in DATA_KEYS
     existing = {"uri": "pkg:a", "kind": "package", LAST_UPDATED_COMMIT_KEY: "sha1"}
     scanner = {"uri": "pkg:a", "kind": "package"}
     merged = merge_frontmatter(existing, scanner)
