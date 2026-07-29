@@ -13,7 +13,8 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
-from wiki_io.entity_writer import SCANNER_DATA_HEADINGS, _is_scanner_owned_heading, _split_h2_sections
+from wiki_io.drift import SCANNER_DATA_HEADINGS, _is_scanner_owned_heading
+from wiki_io.entity_writer import _split_h2_sections
 
 _TODO_HEAD_RE = re.compile(r"^(?:>\s*)?(?:[-*]\s*)?(?:TODO\b|[-\u2014]\s*TODO\b)", re.IGNORECASE)
 _FRONTMATTER_KIND_RE = re.compile(r"^kind:\s*(.+?)\s*$")
