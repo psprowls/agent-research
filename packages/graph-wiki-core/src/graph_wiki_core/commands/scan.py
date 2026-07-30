@@ -1916,7 +1916,6 @@ async def _run_scan_structural_only(
         # that `write_entities` just produced.
         # Structural-only never narrates; these stay empty for the final result.
         entities_narrated: list[str] = []
-        narrator_errors: list[str] = []
 
         # Step 10b: deterministic File-map injection (faithful port of the
         # plugin scanner-agent step). For every `package`/`app` entity page that
@@ -1929,7 +1928,6 @@ async def _run_scan_structural_only(
         # is True (guard on the `if refreshed and any(fm_list_fns)` branch).
         entities_file_mapped: list[str] = []
         file_map_errors: list[str] = []
-        describer_errors: list[str] = []
         # (uri, node, page_path) for each package/app whose File map was injected
         # this scan.
         file_mapped_pages: list[tuple[str, Any, Path]] = []
@@ -2033,8 +2031,6 @@ async def _run_scan_structural_only(
         # in the narrated path's _bedrock_provider + apply_scan_results and never
         # ran here. Structural-only keeps the deterministic file maps + the free
         # drift clear pass + indexes.
-        dir_describer_errors: list[str] = []
-        package_reader_errors: list[str] = []
 
         # Free clear pass — runs every scan (even --no-narrate): a human edit to a
         # flagged section clears its flag promptly without an LLM call.
@@ -2106,14 +2102,7 @@ async def _run_scan_structural_only(
             entities_updated=sorted(entity_write_result.updated) if entity_write_result else [],
             entities_deleted=sorted(entity_write_result.deleted) if entity_write_result else [],
             entities_narrated=sorted(entities_narrated),
-            entity_errors=(
-                entity_write_errors
-                + narrator_errors
-                + file_map_errors
-                + describer_errors
-                + package_reader_errors
-                + dir_describer_errors
-            ),
+            entity_errors=(entity_write_errors + file_map_errors),
         )
     finally:
         if reader is not None:

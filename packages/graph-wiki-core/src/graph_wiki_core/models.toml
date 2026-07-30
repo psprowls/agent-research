@@ -57,17 +57,6 @@ sweep_candidates = [
   { model_id = "qwen.qwen3-coder-30b-a3b-v1:0", backend = "bedrock" },
 ]
 
-# Phase 45 D-06 — prose-only narrative generation for entity pages.
-# Initial config matches `scanner` for v1.8; eval-driven refinement deferred
-# to v1.9. `max_tokens` is lower than scanner because narrator emits prose
-# only (no frontmatter, no headings — just the body between `## Narrative`
-# and the next H2 on an entity page).
-[roles.narrator]
-model_id        = "moonshotai.kimi-k2.5"
-region          = "us-east-1"
-max_tokens      = 600
-max_concurrency = 10
-
 [roles.linter]
 # Candidate set refreshed 2026-05-30 (post-Haiku-purge, /gsd-explore session);
 # Haiku removed for quota exhaustion; per-role defaults chosen in that session.
@@ -106,24 +95,6 @@ region          = "us-east-1"
 max_tokens      = 4096
 max_concurrency = 3
 sweep_candidates = [
-  "moonshotai.kimi-k2.5",
-]
-
-[roles.package_reader]
-# Narrated scan pass that initializes TODO-like human-owned entity-page sections.
-# Separate from code_reader because it writes multi-section markdown and uses a
-# page-initialization JSON contract rather than one-line file-map descriptions.
-# Switched from kimi-k2.5 (2026-06-07): extended thinking consumed the 4096-token
-# budget on large packages (graph-wiki-core), leaving only whitespace in the text
-# block and causing "invalid JSON: Expecting value" on the downstream JSON parse.
-model_id        = "moonshotai.kimi-k2.5"
-region          = "us-east-1"
-max_tokens      = 4096
-max_concurrency = 3
-sweep_candidates = [
-  "openai.gpt-oss-120b-1:0",
-  "qwen.qwen3-32b-v1:0",
-  "minimax.minimax-m2.5",
   "moonshotai.kimi-k2.5",
 ]
 

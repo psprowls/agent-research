@@ -1,7 +1,7 @@
 """Unit-test guards for graph-wiki-core.
 
 Token stamping/counting reaches Bedrock through `graph_io.tokens.count_tokens`
-(direct boto3, not the model_adapter the narrator fan-out stubs), imported
+(direct boto3, not the model_adapter the prose-refresh fan-out stubs), imported
 directly (module-level `from graph_io.tokens import count_tokens`) into both
 `commands/scan.py` (passed into `update_tokens.update_vault`) and
 `commands/query.py`. The narrated scan path stamps tokens and query counts

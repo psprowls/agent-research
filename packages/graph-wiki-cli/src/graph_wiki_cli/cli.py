@@ -297,7 +297,7 @@ def scan(
     no_file_map: bool = typer.Option(False, "--no-file-map", help="Skip per-package file-map generation"),
     max_depth: int = typer.Option(3, "--max-depth", help="Max directory depth for file map headers"),
     no_narrate: bool = typer.Option(
-        False, "--no-narrate", help="Skip narrator/file-describer fan-out (structural-only, no Bedrock)"
+        False, "--no-narrate", help="Skip prose-refresh fan-out (structural-only, no Bedrock)"
     ),
     propagate_drift: bool = typer.Option(
         False, "--propagate-drift", help="After narration, propose curated-page updates for changed entities (M4)"

@@ -465,18 +465,18 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     _graph_dir(vault.parent).mkdir(parents=True, exist_ok=True)
     (_graph_dir(vault.parent) / "code.db").write_bytes(b"")
 
-    narrator_resp = MagicMock()
-    narrator_resp.content = "prose body"
-    narrator_resp.usage_metadata = None
+    prose_refresher_resp = MagicMock()
+    prose_refresher_resp.content = "prose body"
+    prose_refresher_resp.usage_metadata = None
 
-    narrator_instance = AsyncMock()
-    narrator_instance.ainvoke = AsyncMock(return_value=narrator_resp)
+    prose_refresher_instance = AsyncMock()
+    prose_refresher_instance.ainvoke = AsyncMock(return_value=prose_refresher_resp)
 
     make_llm_calls: list[tuple[str, str | None]] = []
 
     def _fake_make_llm(role: str, *, model_override: str | None = None):
         make_llm_calls.append((role, model_override))
-        return narrator_instance
+        return prose_refresher_instance
 
     # write_entities returns one URI needing a first fill so the prose_refresher
     # fan-out fires.

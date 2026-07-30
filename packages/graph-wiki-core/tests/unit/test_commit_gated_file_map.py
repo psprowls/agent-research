@@ -421,7 +421,7 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(m2b_workspace, mon
     """[spec test 9] A commit-dirty page that re-narrates with GOOD prose AND
     drops a row whose describer then returns nothing must NOT advance its anchor
     — the page stays commit-dirty so the next scan retries. Fails on current
-    `main` (the narrator loop stamps on good prose regardless of TODO rows)."""
+    `main` (the prose-refresh loop stamps on good prose regardless of TODO rows)."""
     workspace = m2b_workspace
     wiki = workspace / "wiki"
     repo = workspace / "repo"

@@ -101,9 +101,6 @@ BEDROCK_GATED: dict[str, str] = {
     "graph_wiki_core.commands.lint_all": "transitively imports commands.lint and commands.work (both gated)",
     "graph_wiki_core.commands.next_guidance": "transitively imports commands.guidance_recall"
     " (langchain_core.messages) and commands.work (gated via commands.ingest)",
-    "graph_wiki_core.commands.package_reader": "module-scope"
-    " `from langchain_core.messages import HumanMessage, SystemMessage`"
-    " + `from langchain_core.tools import BaseTool, tool` (via agent_loop/agent_tools)",
     "graph_wiki_core.commands.prose_refresh": "module-scope"
     " `from langchain_core.messages import HumanMessage, SystemMessage`"
     " + `from langchain_core.tools import BaseTool, tool` (via agent_loop/agent_tools)",

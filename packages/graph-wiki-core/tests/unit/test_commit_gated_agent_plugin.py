@@ -180,7 +180,7 @@ def test_command_added_refreshes_table_and_renarrates(plugin_workspace, monkeypa
 def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     """[Test 9] Scan 1 (head1) creates + narrates + stamps.
     Scan 2 with same HEAD, no file change, unchanged graph → byte-identical
-    page; narrator NOT called for the plugin; anchor still 'head1'.
+    page; prose_refresher NOT called for the plugin; anchor still 'head1'.
     """
     workspace = plugin_workspace
     wiki = workspace / "wiki"
@@ -195,7 +195,7 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     from ._spies import refresh_all_spy
 
     recorder: dict = {}
-    narrator_calls = recorder.setdefault("prose_tasks", [])
+    prose_refresher_calls = recorder.setdefault("prose_tasks", [])
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
@@ -205,11 +205,11 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     # --- Scan 1 ---
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
-    calls_after_scan1 = len(narrator_calls)
+    calls_after_scan1 = len(prose_refresher_calls)
     assert calls_after_scan1 >= 1  # plugin was refreshed in scan 1
 
     # Reset calls tracking for scan 2
-    narrator_calls.clear()
+    prose_refresher_calls.clear()
 
     # --- Scan 2: same HEAD, no file changes ---
     patch_repo_state(monkeypatch, scan_mod, [])
@@ -224,9 +224,9 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     assert _page(wiki).read_bytes() == page_bytes_after_scan2
 
     # The refresher must NOT have been dispatched for the plugin URI in scans 2/3
-    plugin_uris_narrated_scan2 = [t.uri for t in narrator_calls if _PLUGIN_URI in t.uri]
-    assert plugin_uris_narrated_scan2 == [], (
-        f"prose_refresher should not re-task {_PLUGIN_URI} on a no-op scan; got: {plugin_uris_narrated_scan2}"
+    plugin_uris_refreshed_scan2 = [t.uri for t in prose_refresher_calls if _PLUGIN_URI in t.uri]
+    assert plugin_uris_refreshed_scan2 == [], (
+        f"prose_refresher should not re-task {_PLUGIN_URI} on a no-op scan; got: {plugin_uris_refreshed_scan2}"
     )
     # The anchor never advanced past head1.
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
@@ -281,7 +281,7 @@ def test_no_narrate_refreshes_tables_not_narrative(plugin_workspace, monkeypatch
     # Tables refresh from write_entities regardless of narrate
     assert "gamma" in text2, "gamma command should appear in ## Commands (table refresh)"
 
-    # Narrative unchanged (no narrator call)
+    # Narrative unchanged (no prose_refresher call)
     assert f"PROSE {_PLUGIN_URI} @ head1" in text2
     assert f"PROSE {_PLUGIN_URI} @ head2" not in text2
 

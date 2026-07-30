@@ -126,6 +126,61 @@ def test_build_prose_refresh_tools_rejects_reads_outside_entity_root(tmp_path: P
     assert tools["list_repo_tree"].invoke({"path": "."}).startswith("pyproject.toml")
 
 
+def test_build_prose_refresh_tools_rejects_symlinked_entity_root_outside_repo(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    packages = repo / "packages"
+    packages.mkdir(parents=True)
+    external_root = tmp_path / "external-pkg"
+    external_root.mkdir()
+    (external_root / "secret.txt").write_text("external secret", encoding="utf-8")
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    symlink_root = packages / "demo"
+    try:
+        symlink_root.symlink_to(external_root, target_is_directory=True)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are unsupported: {exc}")
+
+    tools = {
+        agent_tool.name: agent_tool
+        for agent_tool in build_prose_refresh_tools(repo=repo, entity_root="packages/demo", wiki=wiki, graph_tools=[])
+    }
+
+    assert tools["read_repo_file"].invoke({"path": "secret.txt"}).startswith("ERROR: entity root is outside repo")
+    assert tools["list_repo_tree"].invoke({"path": "."}).startswith("ERROR: entity root is outside repo")
+
+
+def test_build_prose_refresh_tools_rejects_internal_symlink_escape(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    root = repo / "packages" / "demo"
+    root.mkdir(parents=True)
+    (repo / "secret.txt").write_text("repo secret", encoding="utf-8")
+    external_dir = repo / "external-dir"
+    external_dir.mkdir()
+    (external_dir / "hidden.txt").write_text("hidden", encoding="utf-8")
+    wiki = tmp_path / "wiki"
+    wiki.mkdir()
+    file_link = root / "link.txt"
+    dir_link = root / "external_dir_symlink"
+    try:
+        file_link.symlink_to(repo / "secret.txt")
+        dir_link.symlink_to(external_dir, target_is_directory=True)
+    except (NotImplementedError, OSError) as exc:
+        pytest.skip(f"symlinks are unsupported: {exc}")
+
+    tools = {
+        agent_tool.name: agent_tool
+        for agent_tool in build_prose_refresh_tools(repo=repo, entity_root="packages/demo", wiki=wiki, graph_tools=[])
+    }
+
+    assert tools["read_repo_file"].invoke({"path": "link.txt"}).startswith("ERROR: path is outside entity root")
+    assert (
+        tools["list_repo_tree"]
+        .invoke({"path": "external_dir_symlink"})
+        .startswith("ERROR: path is outside entity root")
+    )
+
+
 def test_build_prose_refresh_tools_names_and_ordering_with_filtered_graph_tools(tmp_path: Path) -> None:
     repo = tmp_path / "repo"
     (repo / "packages" / "demo").mkdir(parents=True)

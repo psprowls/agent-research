@@ -163,7 +163,7 @@ def parse_prose_refresher_output(raw: str, *, allowed_headings: list[str]) -> Pr
 
     Structural failures return an empty result with ``error`` set. Per-section
     filtering (deterministic/unknown headings, TODO-like or empty bodies) drops
-    silently — mirrors the package_reader parser.
+    silently.
     """
     try:
         payload = json.loads(_strip_json_fence(raw))

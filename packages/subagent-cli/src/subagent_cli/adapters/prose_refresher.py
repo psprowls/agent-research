@@ -7,10 +7,9 @@ from graph_wiki_core.commands.prose_refresh import (
     build_prose_refresh_prompt,
     parse_prose_refresher_output,
 )
+from graph_wiki_core.commands.scan import extract_file_map, prose_section_bodies
 from graph_wiki_core.commands.scan_contract import ProseRefreshTask
 from graph_wiki_core.prompts.prose_refresher import PROSE_REFRESHER_SYSTEM
-from wiki_io.drift import extract_file_map
-from wiki_io.entity_writer import prose_section_bodies
 
 from .base import Prepared, RunContext
 
