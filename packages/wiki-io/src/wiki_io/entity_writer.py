@@ -1291,6 +1291,10 @@ def replace_prose_sections(page_path: Path, replacements: dict[str, str]) -> lis
         if replacement is None or heading in changed:
             rebuilt.append(chunk)
             continue
+        current_body = _h2_chunk_body(chunk).strip()
+        if current_body == replacement:
+            rebuilt.append(chunk)
+            continue
         suffix_len = len(chunk) - len(chunk.rstrip("\n"))
         suffix = chunk[-suffix_len:] if suffix_len else ""
         heading_line = chunk.split("\n", 1)[0]

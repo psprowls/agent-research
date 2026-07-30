@@ -66,3 +66,9 @@ def test_replace_prose_sections_never_creates_headings(tmp_path):
     page = _write(tmp_path)
     replace_prose_sections(page, {"## Brand new": "body"})
     assert "## Brand new" not in page.read_text(encoding="utf-8")
+
+
+def test_replace_prose_sections_identical_replacement_not_reported(tmp_path):
+    page = _write(tmp_path)
+    changed = replace_prose_sections(page, {"## Narrative": "New prose.", "## Purpose": "TODO"})
+    assert changed == ["## Narrative"]
