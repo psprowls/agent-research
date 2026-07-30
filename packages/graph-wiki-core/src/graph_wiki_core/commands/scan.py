@@ -2,11 +2,14 @@
 
 Public API:
     ScanResult                          — dataclass with state_gate + entity result fields
-    build_stub_prompt(pkg)              — human message used by build_entity_narrative_prompt
-                                          callers and downstream eval harnesses
-    build_entity_narrative_prompt(...)  — (system, human) for the narrator LLM (Phase 45 D-05)
-    run_scan(workspace_path, ...)       — end-to-end scan pipeline (Step 9a write_entities +
-                                          Step 9b narrator fan-out + Step 12 dual-writer indexes)
+    build_stub_prompt(pkg)              — human message for the scanner LLM (eval harnesses)
+    build_scan_worklist(...)            — mechanical front-half; emits the schema-v2
+                                          ScanWorklist (diff-gated ProseRefreshTasks)
+    apply_scan_results(...)             — deterministic back-half; injects prose results
+                                          and stamps `last_updated_commit`
+    run_scan(workspace_path, ...)       — end-to-end scan pipeline (write_entities +
+                                          the unified prose-refresh fan-out
+                                          (role="prose_refresher") + dual-writer indexes)
 """
 
 from __future__ import annotations
@@ -24,8 +27,9 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 # Bedrock fan-out stack — imported only for the narrated path (narrate=True).
 # Guarded so the plugin's Claude branch (narrate=False) runs without these
-# workspace members installed. When absent, the narrator/file-describer blocks
-# are unreachable (gated on `narrate`), so the None bindings are never called.
+# workspace members installed. When absent, the prose-refresh/drift fan-out
+# blocks are unreachable (gated on `narrate`), so the None bindings are never
+# called.
 try:
     from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
 
@@ -55,23 +59,23 @@ from wiki_io.entity_writer import (
     _extract_file_map_descriptions,
     _kind_list_fns,
     dir_section_todo_contexts,
-    extract_file_map_descriptions,
     extract_narrative,
     file_map_todo_paths,
     fill_dir_section_descriptions,
     fill_file_map_descriptions,
     fill_file_map_overview,
     inject_file_map,
-    inject_narrative,
     is_overview_unfilled,
+    prose_section_bodies,
+    replace_prose_sections,
     scanner_frontmatter_for_node,
     set_frontmatter_value,
     short_filename,
     update_frontmatter,
     write_entities,
 )
-from wiki_io.git_state import changed_files_since, short_commit
-from wiki_io.human_sections import find_todo_human_sections, replace_todo_human_sections
+from wiki_io.git_state import changed_files_since, changed_names_since, diff_since, short_commit, truncate_diff
+from wiki_io.human_sections import find_todo_human_sections
 from wiki_io.index_generator import generate_index
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals
@@ -88,7 +92,6 @@ from workspace_io.paths import graph_dir, manifest_path
 from graph_wiki_core.commands._reindex import regen_indexes_and_backlinks
 from graph_wiki_core.commands._repo_gates import build_repo_paths, compute_state_gates, owning_repo
 from graph_wiki_core.commands.graph import run_build as _cg_run_build
-from graph_wiki_core.commands.package_reader import PackageReaderItem, run_package_reader
 from graph_wiki_core.commands.propagate_drift import (
     DRIFT_PROPAGATED_COMMIT_KEY,
     _build_targets,
@@ -96,24 +99,22 @@ from graph_wiki_core.commands.propagate_drift import (
     propagation_candidates,
     write_propagation_findings,
 )
+from graph_wiki_core.commands.prose_refresh import run_prose_refresh
 from graph_wiki_core.commands.scan_contract import (
     ApplyResult,
     DriftResultItem,
     DriftSectionInput,
     DriftTask,
     DriftVerdict,
-    FillNeeds,
-    FillResult,
-    FillTask,
     PropagateEntity,
     PropagateFinding,
     PropagateResultItem,
     PropagateTask,
+    ProseRefreshTask,
     ScanResults,
     ScanWorklist,
 )
 from graph_wiki_core.graph_tools import build_graph_tools
-from graph_wiki_core.prompts.dir_describer import build_dir_describer_prompt, parse_dir_describer_output
 from graph_wiki_core.prompts.drift_judge import (
     build_drift_judge_prompt,
     parse_drift_verdict,
@@ -122,7 +123,6 @@ from graph_wiki_core.prompts.drift_propagator import (
     build_drift_propagator_prompt,
     parse_drift_propagator_verdict,
 )
-from graph_wiki_core.prompts.file_describer import FILE_DESCRIBER_SYSTEM
 
 logger = logging.getLogger(__name__)
 
@@ -173,8 +173,6 @@ _INIT_FAILURE_STDERR_PATTERNS = (
     "Errno 30",
 )
 
-PACKAGE_READER_TARGET_KINDS = frozenset({"package", "app", "agent_plugin", "test_suite"})
-
 
 def _is_init_failure_stderr(stderr: str) -> bool:
     """Return True if `stderr` matches a known init-failure pattern (D-08)."""
@@ -203,117 +201,91 @@ def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
     return _extract_file_map_descriptions(section.group(2), pkg_name)
 
 
-@dataclass(frozen=True)
-class _PackageReaderCandidate:
-    page_path: Path
-    graph_path: str | None = None
-    kind: str | None = None
-    name: str | None = None
-    language: str | None = None
+# ---------------------------------------------------------------------------
+# Unified prose-refresh gating (spec decision 5): diff-gated kinds refresh when
+# their scoped diff is non-empty; repository/domain are first-fill-only;
+# dependency diffs a derived manifest/lock scope.
+# ---------------------------------------------------------------------------
+
+PROSE_DIFF_GATED_KINDS: frozenset[str] = frozenset({"package", "app", "test_suite", "agent_plugin"})
+PROSE_FIRST_FILL_ONLY_KINDS: frozenset[str] = frozenset({"repository", "domain"})
+
+_MANIFEST_FILES_BY_ECOSYSTEM: dict[str, tuple[str, ...]] = {
+    "pypi": ("pyproject.toml", "setup.py", "setup.cfg"),
+    "npm": ("package.json",),
+    "cargo": ("Cargo.toml",),
+}
+_WORKSPACE_LOCK_FILES: tuple[str, ...] = (
+    "uv.lock",
+    "package-lock.json",
+    "pnpm-lock.yaml",
+    "yarn.lock",
+    "Cargo.lock",
+    "poetry.lock",
+)
 
 
-async def _run_package_reader_pass(
-    *,
-    wiki: Path,
-    repo: Path,
-    reader: Any | None,
-    model_override: str | None,
-    candidate_pages: dict[str, _PackageReaderCandidate],
-) -> tuple[set[str], list[str]]:
-    stack = _bedrock_stack()
-    if stack is None:
-        return set(), []
-    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-
-    graph_tools = build_graph_tools(reader) if reader is not None else []
-    errors: list[str] = []
-    items: list[tuple[str, Path, PackageReaderItem]] = []
-    for uri, candidate in sorted(candidate_pages.items()):
-        page_path = candidate.page_path
-        try:
-            post = frontmatter.load(str(page_path))
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{uri}: package_reader page load failed: {exc!r}")
+def _dependency_diff_scope(reader: Any, node: Any) -> list[str]:
+    """Repo-relative diff scope for a dependency page: each used_by package's
+    ecosystem manifest file(s) plus the workspace-level lock files."""
+    attrs = node.attrs if isinstance(node.attrs, dict) else {}
+    ecosystem = str(attrs.get("ecosystem") or "pypi")
+    try:
+        d = reader.describe_dependency(ecosystem=ecosystem, name=node.name)
+    except Exception:  # noqa: BLE001 — scope derivation must not abort emit
+        d = None
+    used_by = list(d.used_by) if d is not None else []
+    manifests = _MANIFEST_FILES_BY_ECOSYSTEM.get(ecosystem, ("pyproject.toml",))
+    list_fns = _kind_list_fns()
+    pkg_paths: dict[str, str] = {}
+    for fn_key in ("package", "app"):
+        fn = list_fns.get(fn_key)
+        if fn is None:
             continue
-        kind = str(candidate.kind or post.metadata.get("kind") or "")
-        if kind not in PACKAGE_READER_TARGET_KINDS:
-            continue
-        try:
-            page_text = page_path.read_text(encoding="utf-8", errors="replace")
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{uri}: package_reader page read failed: {exc!r}")
-            continue
-        todo_sections = find_todo_human_sections(page_text, entity_kind=kind)
-        if not todo_sections:
-            continue
-        if candidate.graph_path is None:
-            errors.append(f"{uri}: package_reader missing graph path")
-            continue
-        graph_path = candidate.graph_path
-        item = PackageReaderItem(
-            uri=uri,
-            kind=kind,
-            name=str(candidate.name or post.metadata.get("graph_name") or post.metadata.get("title") or page_path.stem),
-            graph_path=graph_path,
-            language=str(candidate.language or post.metadata.get("language") or "unknown"),
-            frontmatter=cast(Any, dict(post.metadata)),
-            page_content=page_text,
-            requested_sections={section.heading: section.body for section in todo_sections},
-            narrative=extract_narrative(page_text) or "",
-            file_map=extract_file_map(page_text) or "",
-            graph_context="",
-            entity_root=graph_path,
-        )
-        items.append((uri, page_path, item))
-
-    if not items:
-        return set(), errors
-
-    cfg = load_role_config_fn("package_reader")
-    llm = make_llm_fn("package_reader", model_override=model_override)
-    pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-    async def fill_sections(item_tuple: tuple[str, Path, PackageReaderItem]) -> Any:
-        _uri, _page_path, reader_item = item_tuple
-        result = await run_package_reader(llm=llm, item=reader_item, repo=repo, wiki=wiki, graph_tools=graph_tools)
-        return task_result_type(value=result, response=result)
-
-    fanout = await pool.run_all(
-        items=items,
-        task=fill_sections,
-        role="package_reader",
-        model_id=cfg["model_id"],
-        max_concurrency=cfg["max_concurrency"],
-    )
-    filled: set[str] = set()
-    for item_tuple, result in fanout.successes:
-        uri, page_path, _reader_item = item_tuple
-        if result.error:
-            errors.append(f"{uri}: {result.error}")
-        if not result.replacements:
-            continue
-        try:
-            changed = replace_todo_human_sections(page_path, result.replacements)
-        except Exception as exc:  # noqa: BLE001
-            errors.append(f"{uri}: replace_todo_human_sections failed: {exc!r}")
-            continue
-        if changed:
-            filled.add(uri)
-    for err in fanout.errors:
-        uri = err.item[0]
-        errors.append(f"{uri}: {err.exception!r}")
-    return filled, errors
+        for pkg_node in fn(reader):
+            if pkg_node.path:
+                pkg_paths[pkg_node.name] = pkg_node.path
+    scope: list[str] = []
+    for pkg_name in used_by:
+        base = pkg_paths.get(pkg_name)
+        if base:
+            scope.extend(str(Path(base) / m) for m in manifests)
+    scope.extend(_WORKSPACE_LOCK_FILES)
+    return scope
 
 
-def _record_package_reader_candidate(
-    candidates: dict[str, _PackageReaderCandidate],
-    *,
-    uri: str,
-    candidate: _PackageReaderCandidate,
-) -> None:
-    existing = candidates.get(uri)
-    if existing is None or (existing.graph_path is None and candidate.graph_path is not None):
-        candidates[uri] = candidate
+def _build_graph_context(reader: Any, kind: str, node: Any) -> str:
+    """Relations (+ agent_plugin component tables) rendered as prompt text.
+
+    Subsumes the old narrator prompt's relation/inventory rendering —
+    _NARRATIVE_RELATION_LABELS and _AGENT_PLUGIN_INVENTORY_SECTIONS now feed
+    the ProseRefreshTask instead of a prompt builder.
+    """
+    relations = scanner_frontmatter_for_node(reader, kind, node)
+    lines: list[str] = []
+    for key, label in _NARRATIVE_RELATION_LABELS.items():
+        val = relations.get(key)
+        if val is None or val == [] or val == "":
+            continue
+        rendered = ", ".join(str(v) for v in val) if isinstance(val, list) else str(val)
+        lines.append(f"{label}: {rendered}")
+    if kind == "agent_plugin":
+        tv = _agent_plugin_table_variables(reader, node)
+        lines.append("")
+        lines.append("\n\n".join(f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS))
+    return "\n".join(lines)
+
+
+def _first_fill_needed(page_path: Path, page_text: str, kind: str, anchor: str | None) -> bool:
+    """Spec §1 first-fill check — the FillNeeds collapse. Placeholders always
+    re-trigger (fixes the sticky-placeholder gotcha)."""
+    if extract_narrative(page_text) is None:
+        return True
+    if find_todo_human_sections(page_text, entity_kind=kind):
+        return True
+    if file_map_todo_paths(page_path) or dir_section_todo_contexts(page_path) or is_overview_unfilled(page_path):
+        return True
+    return kind not in PROSE_FIRST_FILL_ONLY_KINDS and not anchor
 
 
 # ---------------------------------------------------------------------------
@@ -383,8 +355,9 @@ class ScanResult:
         entities_created:  URIs of entity pages newly written this scan (Phase 45 D-15).
         entities_updated:  URIs of entity pages whose frontmatter changed this scan.
         entities_deleted:  URIs of entity pages hard-deleted by `write_entities` (vanished from graph).
-        entities_narrated: URIs that received a successful narrator body injection.
-        entity_errors:     repr() of EntityWriteError + narrator failure messages,
+        entities_narrated: URIs whose `## Narrative` was refreshed by a successful
+                           prose-refresh result.
+        entity_errors:     repr() of EntityWriteError + prose-refresh failure messages,
                            accumulated for partial-success reporting.
     """
 
@@ -460,12 +433,13 @@ def build_stub_prompt(pkg: dict, no_file_map: bool = False, repo_root: Path | No
 
 
 # ---------------------------------------------------------------------------
-# Phase 45: build_entity_narrative_prompt — prose-only generator for entity pages
+# Graph-context rendering inputs (consumed by _build_graph_context)
 # ---------------------------------------------------------------------------
 
 
 # Ordered (heading, dict-key) pairs for the agent_plugin component inventory
-# injected into the narrator prompt (D3 — grounding the narrator in components).
+# rendered into ProseRefreshTask.graph_context (grounding the refresher in
+# components).
 _AGENT_PLUGIN_INVENTORY_SECTIONS: tuple[tuple[str, str], ...] = (
     ("## Commands", "commands_table"),
     ("## Agents", "agents_table"),
@@ -475,8 +449,8 @@ _AGENT_PLUGIN_INVENTORY_SECTIONS: tuple[tuple[str, str], ...] = (
     ("## MCP servers", "mcp_servers_table"),
 )
 
-# Human-readable labels for each scanner-owned relation key. Used by the
-# narrator prompt to render relations as natural prose hints instead of YAML.
+# Human-readable labels for each scanner-owned relation key. Rendered by
+# _build_graph_context as natural prose hints instead of YAML.
 _NARRATIVE_RELATION_LABELS: dict[str, str] = {
     "depends_on": "Depends on",
     "test_suites": "Test suites",
@@ -496,176 +470,6 @@ _NARRATIVE_RELATION_LABELS: dict[str, str] = {
     "package_count": "Package count",
     "versions_in_use": "Versions in use",
 }
-
-
-def build_entity_narrative_prompt(
-    node,
-    kind: str,
-    file_map_text: str,
-    relations: dict,
-    components_text: str = "",
-) -> tuple[str, str]:
-    """Return (system_message, human_message) for the narrator LLM (Phase 45 D-05).
-
-    The narrator generates ONLY the prose body that lives between the
-    `## Narrative` heading and the next H2 on an entity page. Frontmatter,
-    headings, and all other page structure are scanner-owned and MUST NOT
-    appear in the model's output.
-
-    Args:
-        node:            graph_io.queries.NodeRecord (has `.name`, `.attrs["uri"]`).
-        kind:            One of ADMITTED_KINDS.
-        file_map_text:   Optional file listing (non-empty only for `package` kinds).
-        relations:       Per-kind relation dict from `scanner_frontmatter_for_node`,
-                         with `uri` and `kind` already stripped or harmlessly ignored.
-        components_text: Optional component inventory (non-empty only for `agent_plugin`
-                         kinds); rendered tables joined under their H2 headings.
-
-    Returns:
-        A `(system, human)` string pair ready to wrap in SystemMessage + HumanMessage.
-    """
-    system = (
-        "You write the narrative body of a graph-derived wiki entity page. "
-        "Output ONLY prose: no YAML frontmatter, no H1, no H2 headings, no fenced "
-        "code blocks unless the prose specifically describes code. Your output "
-        "will be injected between the page's `## Narrative` heading and the next "
-        "H2 — write only what belongs there.\n\n"
-        "Tone: factual, concise, technical. Length: 2-4 short paragraphs. Cite "
-        "the entity's relations naturally (e.g. 'It depends on `pkg:foo`...'); "
-        "do not enumerate them in a list."
-    )
-
-    uri = node.attrs.get("uri", "") if isinstance(node.attrs, dict) else ""
-    lines: list[str] = [
-        f"Entity URI: {uri}",
-        f"Kind: {kind}",
-        f"Name: {node.name}",
-    ]
-
-    for key, label in _NARRATIVE_RELATION_LABELS.items():
-        if key not in relations:
-            continue
-        val = relations[key]
-        if val is None or val == [] or val == "":
-            continue
-        if isinstance(val, list):
-            rendered = ", ".join(str(v) for v in val)
-        else:
-            rendered = str(val)
-        lines.append(f"{label}: {rendered}")
-
-    if kind == "package" and file_map_text:
-        lines.append("")
-        lines.append("File listing (for reference; do NOT include this in your output):")
-        lines.append(file_map_text[:1500])
-
-    if kind == "agent_plugin" and components_text:
-        lines.append("")
-        lines.append("Component inventory (for reference; do NOT reproduce verbatim in your output):")
-        lines.append(components_text[:2000])  # wider cap than file_map: the six component tables are denser
-
-    lines.append("")
-    lines.append("Write the narrative body for this page (prose only).")
-
-    return system, "\n".join(lines)
-
-
-# ---------------------------------------------------------------------------
-# Phase: file-map description fan-out (code-reader role) — prompt + parser
-# ---------------------------------------------------------------------------
-
-
-def build_file_describer_prompt(pkg: dict, todo_paths: list[str], repo_root: Path | None = None) -> tuple[str, str]:
-    """Return (system, human) for the file-map description LLM (code_reader role).
-
-    The human message carries package metadata, the list of paths still needing
-    a description (the model must key its JSON to these verbatim), and up to 3
-    representative source snippets (capped per file) for grounding — mirroring
-    `build_stub_prompt`'s snippet sampling.
-
-    Args:
-        pkg:       Package metadata dict (built from the graph node in Step 10c).
-        todo_paths: Package-root paths whose Description cell is still `— TODO`.
-        repo_root: Absolute repo root; `pkg['path']` is resolved against it so
-                   snippet reads work regardless of cwd.
-    """
-    system = FILE_DESCRIBER_SYSTEM
-    lines: list[str] = [
-        f"Package name: {pkg.get('name', 'unknown')}",
-        f"Path in repo: {pkg.get('path', 'unknown')}",
-        f"Type: {pkg.get('type', 'unknown')}",
-        f"Language: {pkg.get('language', 'unknown')}",
-        "",
-        "Paths needing a description (use these exact strings as JSON keys):",
-    ]
-    for p in todo_paths:
-        lines.append(f"- {p}")
-    lines.append("")
-
-    pkg_path_str = pkg.get("path")
-    if pkg_path_str:
-        try:
-            if repo_root is not None:
-                pkg_abs = (repo_root / pkg_path_str).resolve()
-            else:
-                pkg_abs = Path(pkg_path_str).resolve()
-            representatives = pick_representative(pkg_abs)
-            if representatives:
-                lines.append("Representative file snippets (for context):")
-                for file_path in representatives[:3]:
-                    try:
-                        snippet = file_path.read_text(encoding="utf-8", errors="replace")
-                        if len(snippet) > 800:
-                            snippet = snippet[:800] + "\n[TRUNCATED]"
-                        lines.append(f"--- {file_path.name} ---")
-                        lines.append(snippet)
-                        lines.append("")
-                    except OSError:
-                        pass
-        except Exception:
-            pass  # snippet sampling is best-effort; metadata + paths suffice
-
-    lines.append("Return the JSON object mapping each describable path to its one-line description.")
-    return system, "\n".join(lines)
-
-
-def parse_file_describer_output(text: str) -> dict[str, str]:
-    """Parse the describer LLM's response into a ``{path: description}`` dict.
-
-    Tolerates a leading/trailing ```` ```json ```` fence and surrounding prose
-    by extracting the first balanced ``{...}`` JSON object. Returns ``{}`` on
-    any parse failure or non-object payload. Non-string keys/values are dropped;
-    descriptions are stripped and collapsed to a single line.
-    """
-    if not text:
-        return {}
-    candidate = text.strip()
-    # Strip a fenced code block if present.
-    if candidate.startswith("```"):
-        candidate = candidate.split("\n", 1)[-1]
-        if candidate.rstrip().endswith("```"):
-            candidate = candidate.rsplit("```", 1)[0]
-    # Extract the first {...} object span.
-    start = candidate.find("{")
-    end = candidate.rfind("}")
-    if start == -1 or end == -1 or end <= start:
-        return {}
-    import json
-
-    try:
-        obj = json.loads(candidate[start : end + 1])
-    except (ValueError, TypeError):
-        return {}
-    if not isinstance(obj, dict):
-        return {}
-    out: dict[str, str] = {}
-    for key, val in obj.items():
-        if not isinstance(key, str) or not isinstance(val, str):
-            continue
-        desc = " ".join(val.split()).strip()
-        if key.strip() and desc:
-            out[key.strip()] = desc
-    return out
 
 
 # ---------------------------------------------------------------------------
@@ -1332,78 +1136,87 @@ async def _build_scan_worklist_body(
                 raise_exception=True,
             )
 
-    # --- Build the worklist from the in-memory sets ---
-    needs_narr_set: set[str] = set(entity_write_result.needs_narrative) if entity_write_result else set()
-
-    fill_tasks: list[FillTask] = []
+    # --- Build the worklist: one diff-gated ProseRefreshTask per stale entity ---
+    prose_tasks: list[ProseRefreshTask] = []
     if reader is not None and entity_write_result is not None:
         list_fns = _kind_list_fns()
-        page_path_by_uri: dict[str, Path] = {uri: pp for uri, _node, pp in file_mapped_pages}
-        node_by_uri: dict[str, Any] = {uri: node for uri, node, _pp in file_mapped_pages}
-        # Resolve any narrative-needing entity not already in file_mapped_pages
-        # (e.g. agent_plugin / domain — narrative-only, no deterministic file map).
-        if needs_narr_set - page_path_by_uri.keys():
-            collision = _compute_collision_set(reader, ADMITTED_KINDS, list_fns)
-            for kind in sorted(ADMITTED_KINDS):
-                fn = list_fns.get(kind)
-                if fn is None:
+        collision = _compute_collision_set(reader, ADMITTED_KINDS, list_fns)
+        for kind in sorted(ADMITTED_KINDS):
+            fn = list_fns.get(kind)
+            if fn is None:
+                continue
+            for node in fn(reader):
+                if not isinstance(node.attrs, dict):
                     continue
-                for node in fn(reader):
-                    if not isinstance(node.attrs, dict):
-                        continue
-                    uri = node.attrs.get("uri")
-                    if uri and uri in needs_narr_set and uri not in page_path_by_uri:
-                        page_path_by_uri[uri] = _entity_page_path(wiki, kind, node, uri, collision)
-                        node_by_uri[uri] = node
+                uri = node.attrs.get("uri")
+                if not uri:
+                    continue
+                page_path = _entity_page_path(wiki, kind, node, uri, collision)
+                if not page_path.exists():
+                    continue
+                try:
+                    post = frontmatter.load(str(page_path))
+                except Exception:  # noqa: BLE001 — malformed page must not abort scan
+                    continue
+                page_text = page_path.read_text(encoding="utf-8", errors="replace")
+                anchor = post.metadata.get(LAST_UPDATED_COMMIT_KEY)
+                anchor = str(anchor) if anchor else None
+                owning_repo_path = owning_repo(uri, repo, repo_paths)
 
-        candidate_uris = set(page_path_by_uri.keys()) | needs_narr_set
-        for uri in sorted(candidate_uris):
-            page_path = page_path_by_uri.get(uri)
-            if page_path is None or not page_path.exists():
-                continue
-            node = node_by_uri.get(uri)
-            kind = getattr(node, "kind", "") or ""
-            name = getattr(node, "name", "") or page_path.stem
-            graph_path = getattr(node, "path", "") or ""
-            attrs = node.attrs if (node is not None and isinstance(node.attrs, dict)) else {}
-            language = str(attrs.get("language") or "unknown")
-            page_text = page_path.read_text(encoding="utf-8", errors="replace")
-            todo_sections = find_todo_human_sections(page_text, entity_kind=kind) if kind else []
-            # find_todo_human_sections returns BARE headings (the "## " prefix is
-            # stripped — human_sections.py:52), matching how run_scan's package
-            # reader keys requested_sections on section.heading.
-            todo_headings = {s.heading for s in todo_sections}
-            needs = FillNeeds(
-                # decision A: placeholder OR commit-dirty (uri in needs_narr_set).
-                narrative=(extract_narrative(page_text) is None) or (uri in needs_narr_set),
-                file_todo_paths=file_map_todo_paths(page_path),
-                dir_todo_contexts=dir_section_todo_contexts(page_path),
-                overview=is_overview_unfilled(page_path),
-                purpose="Purpose" in todo_headings,
-                public_api="Public API" in todo_headings,
-            )
-            if not needs.any:
-                continue
-            # Owning member-repo short HEAD for the apply-phase anchor stamp.
-            # Multi-repo: the entity's member HEAD (per its repo path); single-
-            # repo (empty maps): None -> apply falls back to worklist short_head.
-            owning_short_head: str | None = None
-            if repo_paths:
-                owning_head = _head_for_uri(uri, gates, head)
-                if owning_head:
-                    owning_short_head = short_commit(owning_repo(uri, repo, repo_paths), owning_head)
-            fill_tasks.append(
-                FillTask(
-                    uri=uri,
-                    kind=kind,
-                    name=name,
-                    page_path=str(page_path),
-                    graph_path=graph_path,
-                    language=language,
-                    needs=needs,
-                    owning_short_head=owning_short_head,
+                trigger: str | None = None
+                diff_text: str | None = None
+                changed_files: list[str] = []
+                if _first_fill_needed(page_path, page_text, kind, anchor):
+                    trigger = "first_fill"
+                elif kind in PROSE_FIRST_FILL_ONLY_KINDS:
+                    pass  # never refreshed after birth
+                elif kind in PROSE_DIFF_GATED_KINDS and node.path:
+                    raw = diff_since(owning_repo_path, cast(str, anchor), [node.path])
+                    if raw is None:
+                        trigger, diff_text = "diff", None  # history rewritten
+                    elif raw.strip():
+                        trigger = "diff"
+                        diff_text = truncate_diff(raw)
+                        changed_files = changed_names_since(owning_repo_path, cast(str, anchor), [node.path]) or []
+                elif kind == "dependency":
+                    scope = _dependency_diff_scope(reader, node)
+                    raw = diff_since(repo, cast(str, anchor), scope)
+                    if raw is None:
+                        trigger, diff_text = "diff", None
+                    elif raw.strip():
+                        trigger = "diff"
+                        diff_text = truncate_diff(raw)
+                        changed_files = changed_names_since(repo, cast(str, anchor), scope) or []
+                if trigger is None:
+                    continue
+
+                # Owning member-repo short HEAD for the apply-phase anchor stamp.
+                # Multi-repo: the entity's member HEAD (per its repo path); single-
+                # repo (empty maps): None -> apply falls back to worklist short_head.
+                owning_short_head: str | None = None
+                if repo_paths:
+                    owning_head = _head_for_uri(uri, gates, head)
+                    if owning_head:
+                        owning_short_head = short_commit(owning_repo_path, owning_head)
+                prose_tasks.append(
+                    ProseRefreshTask(
+                        uri=uri,
+                        kind=kind,
+                        name=getattr(node, "name", "") or page_path.stem,
+                        page_path=str(page_path),
+                        graph_path=node.path or "",
+                        language=str(node.attrs.get("language") or "unknown"),
+                        entity_root=node.path or "",
+                        trigger=trigger,
+                        diff=diff_text,
+                        changed_files=changed_files,
+                        page_content=page_text,
+                        file_map_rows=extract_file_map(post.content) or "",
+                        prose_sections=prose_section_bodies(post.content),
+                        graph_context=_build_graph_context(reader, kind, node),
+                        owning_short_head=owning_short_head,
+                    )
                 )
-            )
 
     drift_tasks = _build_drift_tasks(wiki)
     propagate_tasks, propagate_anchors, propagate_pages = (
@@ -1415,7 +1228,7 @@ async def _build_scan_worklist_body(
     worklist = ScanWorklist(
         head_commit=head,
         short_head=short_head,
-        fill_tasks=fill_tasks,
+        prose_tasks=prose_tasks,
         drift_tasks=drift_tasks,
         propagate_tasks=propagate_tasks,
         propagate_anchors=propagate_anchors,
@@ -1448,33 +1261,20 @@ async def _bedrock_provider(
 ) -> ScanResults:
     """Turn a ScanWorklist into ScanResults via the in-process Bedrock fan-outs.
 
-    Lifts run_scan's narrator / code_reader / synthesizer / package_reader /
-    drift_judge blocks, but each fan-out writes into a FillResult / DriftResultItem
-    keyed by uri instead of injecting into the page. The prompts, parsers, and
-    run_all role/item shapes are byte-identical to the old in-line blocks (the
-    test spies that intercept SubagentPool.run_all observe the same tuples).
-
-    package_reader is the one exception: it still writes human sections to disk
-    via _run_package_reader_pass (its replacements are not threaded through
-    FillResult for the in-process surface — apply's stamp gate reads the result
-    off disk). Its errors are surfaced via `results.provider_errors`, which
-    run_scan merges into the ScanResult so partial-success reporting is unchanged.
+    ONE unified prose fan-out (role="prose_refresher") runs a bounded tool-loop
+    agent per stale entity and collects each parsed ProseRefreshResult keyed by
+    uri; the drift_judge / drift_propagator fan-outs are unchanged. Nothing is
+    injected here — the apply half routes results into the pages. Per-item
+    failures are surfaced via `results.provider_errors`, which run_scan merges
+    into the ScanResult so partial-success reporting is unchanged.
     """
     results = ScanResults()
     provider_errors: list[str] = []
-    fills_by_uri: dict[str, FillResult] = {}
-
-    def _fill(uri: str) -> FillResult:
-        f = fills_by_uri.get(uri)
-        if f is None:
-            f = FillResult(uri=uri)
-            fills_by_uri[uri] = f
-        return f
 
     stack = _bedrock_stack()
 
-    # Open a read-only reader for narrator relations / agent_plugin tables and the
-    # package_reader graph-tools. Closed in finally. The open mirrors run_scan's
+    # Open a read-only reader for the prose_refresher's graph tools. Closed in
+    # finally. The open mirrors run_scan's
     # `if reader is not None` gating: on a NOT_INITIALIZED fallback the graph DB
     # was never written, so open_reader raises GraphNotInitializedError and we
     # proceed reader-less.
@@ -1485,189 +1285,31 @@ async def _bedrock_provider(
         except GraphNotInitializedError:
             reader = None
 
-        narrative_uris = {t.uri for t in worklist.fill_tasks if t.needs.narrative}
-
-        # --- Narrator fan-out (role="narrator") ---
-        if stack is not None and reader is not None and narrative_uris:
+        # --- Unified prose-refresh fan-out (role="prose_refresher") ---
+        if stack is not None and worklist.prose_tasks:
             load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-            narrator_items: list[tuple[str, str, Any]] = []
-            list_fns = _kind_list_fns()
-            for kind in sorted(ADMITTED_KINDS):
-                list_fn = list_fns.get(kind)
-                if list_fn is None:
-                    continue
-                for node in list_fn(reader):
-                    if not isinstance(node.attrs, dict):
-                        continue
-                    node_uri = node.attrs.get("uri")
-                    if node_uri and node_uri in narrative_uris:
-                        narrator_items.append((node_uri, kind, node))
+            graph_tools = build_graph_tools(reader) if reader is not None else []
+            cfg = load_role_config_fn("prose_refresher")
+            llm = make_llm_fn("prose_refresher", model_override=model_override)
+            pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
 
-            if narrator_items:
-                narrator_cfg = load_role_config_fn("narrator")
-                narrator_llm = make_llm_fn("narrator", model_override=model_override)
-                narrator_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
+            async def refresh(task: ProseRefreshTask) -> TaskResultType:
+                result = await run_prose_refresh(llm=llm, task=task, repo=repo, wiki=wiki, graph_tools=graph_tools)
+                return task_result_type(value=result, response=result)
 
-                async def generate_narrative(item: tuple[str, str, Any]) -> TaskResultType:
-                    uri_inner, kind_inner, node_inner = item
-                    relations = scanner_frontmatter_for_node(reader, kind_inner, node_inner)
-                    relations_for_prompt = {k: v for k, v in relations.items() if k not in ("uri", "kind")}
-                    file_map = ""
-                    components_text = ""
-                    if kind_inner == "agent_plugin":
-                        tv = _agent_plugin_table_variables(reader, node_inner)
-                        components_text = "\n\n".join(
-                            f"{heading}\n{tv[key]}" for heading, key in _AGENT_PLUGIN_INVENTORY_SECTIONS
-                        )
-                    system_msg, human_msg = build_entity_narrative_prompt(
-                        node_inner,
-                        kind_inner,
-                        file_map,
-                        relations_for_prompt,
-                        components_text=components_text,
-                    )
-                    msgs = [SystemMessage(content=system_msg), HumanMessage(content=human_msg)]
-                    resp = await narrator_llm.ainvoke(msgs)
-                    return task_result_type(value=resp.content, response=resp)
-
-                narrator_result = await narrator_pool.run_all(
-                    items=narrator_items,
-                    task=generate_narrative,
-                    role="narrator",
-                    model_id=narrator_cfg["model_id"],
-                    max_concurrency=narrator_cfg["max_concurrency"],
-                )
-                for item, prose in narrator_result.successes:
-                    uri_inner, _kind_inner, _node_inner = item
-                    _fill(uri_inner).narrative = prose
-                for err in narrator_result.errors:
-                    uri_inner = err.item[0]
-                    provider_errors.append(f"{uri_inner}: {err.exception!r}")
-
-        # --- code_reader fan-out (role="code_reader") — file-map descriptions ---
-        describer_items: list[tuple[str, dict, Path, list[str]]] = []
-        for task in worklist.fill_tasks:
-            todo_paths = list(task.needs.file_todo_paths)
-            if not todo_paths:
-                continue
-            ws_dict = {
-                "name": task.name,
-                "path": task.graph_path,
-                "type": task.kind,
-                "language": task.language,
-            }
-            describer_items.append((task.uri, ws_dict, Path(task.page_path), todo_paths))
-
-        if stack is not None and describer_items:
-            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-            describer_cfg = load_role_config_fn("code_reader")
-            describer_llm = make_llm_fn("code_reader")
-            describer_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-            async def describe_files(item: tuple[str, dict, Path, list[str]]) -> TaskResultType:
-                _uri, ws_dict_inner, _page, todo_inner = item
-                system_msg, human_msg = build_file_describer_prompt(ws_dict_inner, todo_inner, repo_root=repo)
-                resp = await describer_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-                return task_result_type(value=resp.content, response=resp)
-
-            describer_result = await describer_pool.run_all(
-                items=describer_items,
-                task=describe_files,
-                role="code_reader",
-                model_id=describer_cfg["model_id"],
-                max_concurrency=describer_cfg["max_concurrency"],
+            fan = await pool.run_all(
+                items=list(worklist.prose_tasks),
+                task=refresh,
+                role="prose_refresher",
+                model_id=cfg["model_id"],
+                max_concurrency=cfg["max_concurrency"],
             )
-            described_entities = 0
-            describer_errors = 0
-            for item, value in describer_result.successes:
-                uri_inner = item[0]
-                descriptions = parse_file_describer_output(value)
-                if descriptions:
-                    _fill(uri_inner).file_descriptions.update(descriptions)
-                    described_entities += 1
-            for err in describer_result.errors:
-                uri_inner = err.item[0]
-                provider_errors.append(f"{uri_inner}: {err.exception!r}")
-                describer_errors += 1
-            if described_entities or describer_errors:
-                append_log(
-                    wiki,
-                    "scan",
-                    f"file descriptions filled: {described_entities} entity(s) (errors: {describer_errors})",
-                    detail=None,
-                    silent=True,
-                    raise_exception=True,
-                )
-
-        # --- synthesizer fan-out (role="synthesizer") — dir sections + overview ---
-        dir_items: list[tuple[str, str, Path, list[str], bool]] = []
-        for task in worklist.fill_tasks:
-            todo_ctxs = list(task.needs.dir_todo_contexts)
-            needs_ov = task.needs.overview
-            if not todo_ctxs and not needs_ov:
-                continue
-            dir_items.append((task.uri, task.name, Path(task.page_path), todo_ctxs, needs_ov))
-
-        if stack is not None and dir_items:
-            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-            dir_cfg = load_role_config_fn("synthesizer")
-            dir_llm = make_llm_fn("synthesizer")
-            dir_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-            async def describe_dirs(item: tuple[str, str, Path, list[str], bool]) -> TaskResultType:
-                _uri, pkg_name_inner, page_inner, todo_ctxs_inner, needs_ov_inner = item
-                file_descs = extract_file_map_descriptions(page_inner)
-                pkg = {"name": pkg_name_inner}
-                system_msg, human_msg = build_dir_describer_prompt(pkg, todo_ctxs_inner, file_descs, needs_ov_inner)
-                resp = await dir_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-                return task_result_type(value=resp.content, response=resp)
-
-            dir_result = await dir_pool.run_all(
-                items=dir_items,
-                task=describe_dirs,
-                role="synthesizer",
-                model_id=dir_cfg["model_id"],
-                max_concurrency=dir_cfg["max_concurrency"],
-            )
-            for item, value in dir_result.successes:
-                uri_inner = item[0]
-                descriptions = parse_dir_describer_output(value)
-                if not descriptions:
-                    continue
-                overview = descriptions.pop("_overview", None)
-                fill = _fill(uri_inner)
-                if descriptions:
-                    fill.dir_descriptions.update(descriptions)
-                if overview:
-                    fill.overview = overview
-            for err in dir_result.errors:
-                uri_inner = err.item[0]
-                provider_errors.append(f"{uri_inner}: {err.exception!r}")
-
-        # --- package_reader pass (role="package_reader") — writes human sections to disk ---
-        if stack is not None:
-            package_reader_candidates: dict[str, _PackageReaderCandidate] = {}
-            for task in worklist.fill_tasks:
-                _record_package_reader_candidate(
-                    package_reader_candidates,
-                    uri=task.uri,
-                    candidate=_PackageReaderCandidate(
-                        page_path=Path(task.page_path),
-                        graph_path=task.graph_path,
-                        kind=task.kind,
-                        name=task.name,
-                        language=task.language,
-                    ),
-                )
-            if package_reader_candidates:
-                _pr_filled, _pr_errors = await _run_package_reader_pass(
-                    wiki=wiki,
-                    repo=repo,
-                    reader=reader,
-                    model_override=model_override,
-                    candidate_pages=package_reader_candidates,
-                )
-                provider_errors.extend(_pr_errors)
+            for task_item, result in fan.successes:
+                if result.error:
+                    provider_errors.append(f"{task_item.uri}: {result.error}")
+                results.prose.append(result)
+            for err in fan.errors:
+                provider_errors.append(f"{err.item.uri}: {err.exception!r}")
 
         # --- drift_judge fan-out (role="drift_judge") — emit-time ground truth ---
         if stack is not None and worklist.drift_tasks:
@@ -1774,7 +1416,6 @@ async def _bedrock_provider(
             except Exception:  # noqa: BLE001
                 pass
 
-    results.fills = list(fills_by_uri.values())
     results.provider_errors = provider_errors
     return results
 
@@ -1848,61 +1489,60 @@ async def apply_scan_results(
     isolated (mirrors Bedrock per-item try/except).
     """
     out = ApplyResult()
-    fills_by_uri = {f.uri: f for f in results.fills}
+    prose_by_uri = {r.uri: r for r in results.prose}
     drift_by_uri = {d.uri: d for d in results.drift}
-    task_by_uri = {t.uri: t for t in worklist.fill_tasks}
+    task_by_uri = {t.uri: t for t in worklist.prose_tasks}
     short_head = worklist.short_head
     head = worklist.head_commit
 
-    # --- Inject fills ---
-    for uri, fill in fills_by_uri.items():
+    # --- Inject prose results ---
+    for uri, result in prose_by_uri.items():
         task = task_by_uri.get(uri)
         if task is None:
             continue  # result references an entity not in this worklist — skip
         page_path = Path(task.page_path)
         try:
-            if fill.narrative and fill.narrative.strip():
-                inject_narrative(page_path, fill.narrative)
-                out.narrated += 1
-            if fill.file_descriptions:
-                n = fill_file_map_descriptions(page_path, fill.file_descriptions)
-                out.described += n
-            if fill.dir_descriptions:
-                n = fill_dir_section_descriptions(page_path, fill.dir_descriptions)
-                out.dir_filled += n
-            if fill.overview and fill.overview.strip():
-                if fill_file_map_overview(page_path, fill.overview):
+            if result.sections:
+                changed = replace_prose_sections(page_path, result.sections)
+                if "## Narrative" in changed:
+                    out.narrated += 1
+                out.sections_filled += sum(1 for h in changed if h != "## Narrative")
+            if result.file_map_descriptions:
+                out.described += fill_file_map_descriptions(page_path, result.file_map_descriptions)
+            if result.dir_descriptions:
+                out.dir_filled += fill_dir_section_descriptions(page_path, result.dir_descriptions)
+            if result.overview and result.overview.strip():
+                if fill_file_map_overview(page_path, result.overview):
                     out.dir_filled += 1
-            replacements: dict[str, str] = {}
-            if fill.purpose and fill.purpose.strip():
-                replacements["Purpose"] = fill.purpose
-            if fill.public_api and fill.public_api.strip():
-                replacements["Public API"] = fill.public_api
-            if replacements:
-                changed = replace_todo_human_sections(page_path, replacements)
-                out.sections_filled += len(changed)
         except Exception as exc:  # noqa: BLE001 — partial-success isolation
-            out.entity_errors.append(f"{uri}: apply fill failed: {exc!r}")
+            out.entity_errors.append(f"{uri}: apply prose failed: {exc!r}")
 
-    # --- M2c refill-gated anchor stamp (decision A: also require non-placeholder narrative) ---
+    # --- Refill-gated anchor stamp (spec §4): healthy page AND successful result.
+    # A failed or absent result leaves the anchor untouched so the next scan
+    # retries. repository/domain/dependency pages join the stamp.
     if head:
         for uri, task in task_by_uri.items():
+            result = prose_by_uri.get(uri)
+            if result is None or result.error:
+                continue
             page_path = Path(task.page_path)
             try:
                 if not page_path.exists():
                     continue
                 page_text = page_path.read_text(encoding="utf-8", errors="replace")
-                if task.needs.narrative and extract_narrative(page_text) is None:
-                    continue  # narrative still placeholder — failed narration, do not stamp
+                if extract_narrative(page_text) is None:
+                    continue
+                if find_todo_human_sections(page_text, entity_kind=task.kind):
+                    continue
                 if (
                     file_map_todo_paths(page_path)
                     or dir_section_todo_contexts(page_path)
                     or is_overview_unfilled(page_path)
                 ):
                     continue
-                # Task 6: stamp the OWNING member-repo short HEAD when present
-                # (multi-repo, computed at emit time); single-repo falls back to
-                # the worklist-wide short_head (byte-identical to pre-Task-6).
+                # Stamp the OWNING member-repo short HEAD when present (multi-
+                # repo, computed at emit time); single-repo falls back to the
+                # worklist-wide short_head.
                 stamp_head = task.owning_short_head or short_head
                 set_frontmatter_value(page_path, LAST_UPDATED_COMMIT_KEY, cast(str, stamp_head))
                 out.stamped += 1
@@ -1968,14 +1608,15 @@ async def run_scan(
     narrate: bool = True,
     propagate_drift: bool = False,
 ) -> ScanResult:
-    """End-to-end scan: graph build → entity writes → narrator fan-out → indexes.
+    """End-to-end scan: graph build → entity writes → prose-refresh fan-out → indexes.
 
     Steps:
         1. Resolve wiki and repo from workspace_path; run `cg update`, open reader.
         8. compute_state_gate(repo, workspace=wiki.parent) → {allowed, reason, head_commit}.
         9a. write_entities — graph-driven entity pages.
-        9b. narrator fan-out gated on needs_narrative.
-        10. inject narrator prose + deterministic file maps + code-reader fan-out.
+        9b. emit diff-gated ProseRefreshTasks (build_scan_worklist).
+        10. one prose_refresher fan-out + deterministic file maps; apply injects
+            results and stamps `last_updated_commit`.
         12. generate_index + update_index + backlink regeneration.
         13. Final append_log summary.
         14. Return ScanResult.
@@ -1993,13 +1634,14 @@ async def run_scan(
         model_override: Bedrock model ID to use for the scanner role instead of
                         the default from models.toml. Used by the sweep runner
                         for single-role-swap evaluation (D-06).
-        narrate:        When True (default), run the narrator and file-describer
-                        Bedrock fan-outs that fill `## Narrative` bodies and
-                        `— TODO` file-map descriptions. When False, skip both
-                        fan-outs entirely (structural-only scan) — entity pages
-                        keep their `## Narrative` placeholder and `— TODO` rows.
-                        The plugin's Claude branch calls with narrate=False so the
-                        scan needs neither model_adapter nor subagent_runtime.
+        narrate:        When True (default), run the unified prose_refresher
+                        Bedrock fan-out that fills `## Narrative` bodies, human
+                        TODO sections, and `— TODO` file-map descriptions. When
+                        False, skip it entirely (structural-only scan) — entity
+                        pages keep their `## Narrative` placeholder and `— TODO`
+                        rows. The plugin's Claude branch calls with narrate=False
+                        so the scan needs neither model_adapter nor
+                        subagent_runtime.
         propagate_drift: When True (and narrate=True), after the drift passes run
                         the M4 cross-page drift producer (gw wiki propagate-drift)
                         over the just-written entity pages, proposing curated-page
@@ -2037,7 +1679,9 @@ async def run_scan(
         # (_bedrock_provider) → _apply_propagate_results (apply). No direct call.
         applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate_drift)
 
-        scan_result.entities_narrated = sorted(f.uri for f in results.fills if f.narrative and f.narrative.strip())
+        scan_result.entities_narrated = sorted(
+            r.uri for r in results.prose if r.sections.get("## Narrative", "").strip()
+        )
         scan_result.entity_errors = (
             list(scan_result.entity_errors) + list(results.provider_errors) + list(applied.entity_errors)
         )
@@ -2086,10 +1730,10 @@ async def _run_scan_structural_only(
     minus the now-dead narrate-gated fan-out blocks).
 
     cg update → write_entities → deterministic file-map injection → free drift
-    clear pass → indexes/backlinks. No narrator / code_reader / synthesizer /
-    package_reader / drift_judge fan-outs and no anchor stamping (those live in
-    the narrated path's _bedrock_provider + apply_scan_results). Runs without
-    model_adapter / subagent_runtime installed.
+    clear pass → indexes/backlinks. No prose_refresher / drift_judge fan-outs
+    and no anchor stamping (those live in the narrated path's _bedrock_provider
+    + apply_scan_results). Runs without model_adapter / subagent_runtime
+    installed.
     """
     # Step 1: resolve wiki and repo
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
@@ -2196,8 +1840,8 @@ async def _run_scan_structural_only(
         state_gate = compute_state_gate(repo, workspace=wiki.parent)
         head = state_gate.get("head_commit")
 
-        # Step 9a: entity write only. The narrator fan-out (former Step 9b) lives
-        # in the narrated path's _bedrock_provider — structural-only never narrates.
+        # Step 9a: entity write only. The prose-refresh fan-out lives in the
+        # narrated path's _bedrock_provider — structural-only never narrates.
         entity_write_result = None
         # M2b: per-URI changed-file lists for commit-dirty package/app pages
         # (keys = dirty URIs; value = repo-relative changed paths, or None when
@@ -2245,7 +1889,7 @@ async def _run_scan_structural_only(
                     raise_exception=True,
                 )
 
-        # Phase 45 D-07/D-08: Step 10 — inject narrator prose into entity pages.
+        # Phase 45 D-07/D-08: Step 10 — (narrated path only) prose injection.
         # The legacy `wiki/packages/<name>/<name>.md` write block is REMOVED (D-08
         # hard cutover — only entity pages are written from Phase 45 onward).
         # Phase 53 D-05: derive entity filenames via `short_filename` (mirroring
@@ -2365,11 +2009,11 @@ async def _run_scan_structural_only(
                     raise_exception=True,
                 )
 
-        # Steps 10c/10d (code_reader / synthesizer fan-outs), the package_reader
-        # pass, the M2c refill-gated anchor stamp, the M2e drift judge, and the M4
-        # producer are all narrate-only — they live in the narrated path's
-        # _bedrock_provider + apply_scan_results and never ran here. Structural-only
-        # keeps the deterministic file maps + the free drift clear pass + indexes.
+        # The unified prose-refresh fan-out, the refill-gated anchor stamp, the
+        # M2e drift judge, and the M4 producer are all narrate-only — they live
+        # in the narrated path's _bedrock_provider + apply_scan_results and never
+        # ran here. Structural-only keeps the deterministic file maps + the free
+        # drift clear pass + indexes.
         dir_describer_errors: list[str] = []
         package_reader_errors: list[str] = []
 

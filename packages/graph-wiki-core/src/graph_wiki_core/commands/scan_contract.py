@@ -1,10 +1,13 @@
-"""Worklist/results contract for the split scan pipeline (schema v1).
+"""Worklist/results contract for the split scan pipeline (schema v2).
 
 Plugin-internal JSON written under ``<workspace>/.graph-wiki/``. The emit phase
 serializes a ``ScanWorklist``; a provider (Bedrock in-process or Claude
 out-of-process) returns a ``ScanResults``; the apply phase consumes it. Every
 results field is optional — a missing value is simply not injected, mirroring
-the Bedrock loops that skip empty narration / empty parse.
+the Bedrock loops that skip empty parses. Schema v2 replaces the v1
+``fill_tasks``/``fills`` (FillNeeds/FillTask/FillResult) surface with the
+unified diff-driven ``prose_tasks``/``prose``
+(ProseRefreshTask/ProseRefreshResult) pair.
 """
 
 from __future__ import annotations
@@ -12,89 +15,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass, field
 
-SCHEMA_VERSION = 1
-
-
-@dataclass
-class FillNeeds:
-    narrative: bool = False
-    file_todo_paths: list[str] = field(default_factory=list)
-    dir_todo_contexts: list[str] = field(default_factory=list)
-    overview: bool = False
-    purpose: bool = False
-    public_api: bool = False
-
-    @property
-    def any(self) -> bool:
-        return bool(
-            self.narrative
-            or self.file_todo_paths
-            or self.dir_todo_contexts
-            or self.overview
-            or self.purpose
-            or self.public_api
-        )
-
-    def to_dict(self) -> dict:
-        return {
-            "narrative": self.narrative,
-            "file_todo_paths": list(self.file_todo_paths),
-            "dir_todo_contexts": list(self.dir_todo_contexts),
-            "overview": self.overview,
-            "purpose": self.purpose,
-            "public_api": self.public_api,
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> FillNeeds:
-        return cls(
-            narrative=bool(d.get("narrative", False)),
-            file_todo_paths=list(d.get("file_todo_paths") or []),
-            dir_todo_contexts=list(d.get("dir_todo_contexts") or []),
-            overview=bool(d.get("overview", False)),
-            purpose=bool(d.get("purpose", False)),
-            public_api=bool(d.get("public_api", False)),
-        )
-
-
-@dataclass
-class FillTask:
-    uri: str
-    kind: str
-    name: str
-    page_path: str
-    graph_path: str
-    language: str
-    needs: FillNeeds
-    # Task 6: owning member-repo short HEAD stamped on `last_updated_commit` when
-    # the apply phase refills this page. None for single-repo (apply falls back
-    # to the worklist-wide `short_head`, byte-identical to pre-Task-6).
-    owning_short_head: str | None = None
-
-    def to_dict(self) -> dict:
-        return {
-            "uri": self.uri,
-            "kind": self.kind,
-            "name": self.name,
-            "page_path": self.page_path,
-            "graph_path": self.graph_path,
-            "language": self.language,
-            "needs": self.needs.to_dict(),
-            "owning_short_head": self.owning_short_head,
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> FillTask:
-        return cls(
-            uri=d["uri"],
-            kind=d["kind"],
-            name=d["name"],
-            page_path=d["page_path"],
-            graph_path=d["graph_path"],
-            language=d.get("language", "unknown"),
-            needs=FillNeeds.from_dict(d.get("needs") or {}),
-            owning_short_head=d.get("owning_short_head"),
-        )
+SCHEMA_VERSION = 2
 
 
 @dataclass
@@ -191,7 +112,7 @@ class PropagateTask:
 class ScanWorklist:
     head_commit: str | None
     short_head: str | None
-    fill_tasks: list[FillTask] = field(default_factory=list)
+    prose_tasks: list[ProseRefreshTask] = field(default_factory=list)
     drift_tasks: list[DriftTask] = field(default_factory=list)
     propagate_tasks: list[PropagateTask] = field(default_factory=list)
     schema: int = SCHEMA_VERSION
@@ -204,14 +125,14 @@ class ScanWorklist:
 
     @property
     def is_empty(self) -> bool:
-        return not (self.fill_tasks or self.drift_tasks or self.propagate_tasks)
+        return not (self.prose_tasks or self.drift_tasks or self.propagate_tasks)
 
     def to_dict(self) -> dict:
         return {
             "schema": self.schema,
             "head_commit": self.head_commit,
             "short_head": self.short_head,
-            "fill_tasks": [t.to_dict() for t in self.fill_tasks],
+            "prose_tasks": [t.to_dict() for t in self.prose_tasks],
             "drift_tasks": [t.to_dict() for t in self.drift_tasks],
             "propagate_tasks": [t.to_dict() for t in self.propagate_tasks],
             "propagate_anchors": dict(self.propagate_anchors),
@@ -229,7 +150,7 @@ class ScanWorklist:
         return cls(
             head_commit=d.get("head_commit"),
             short_head=d.get("short_head"),
-            fill_tasks=[FillTask.from_dict(t) for t in (d.get("fill_tasks") or [])],
+            prose_tasks=[ProseRefreshTask.from_dict(t) for t in (d.get("prose_tasks") or [])],
             drift_tasks=[DriftTask.from_dict(t) for t in (d.get("drift_tasks") or [])],
             propagate_tasks=[PropagateTask.from_dict(t) for t in (d.get("propagate_tasks") or [])],
             schema=schema,
@@ -240,40 +161,6 @@ class ScanWorklist:
     @classmethod
     def from_json(cls, raw: str) -> ScanWorklist:
         return cls.from_dict(json.loads(raw))
-
-
-@dataclass
-class FillResult:
-    uri: str
-    narrative: str | None = None
-    file_descriptions: dict[str, str] = field(default_factory=dict)
-    dir_descriptions: dict[str, str] = field(default_factory=dict)
-    overview: str | None = None
-    purpose: str | None = None
-    public_api: str | None = None
-
-    def to_dict(self) -> dict:
-        return {
-            "uri": self.uri,
-            "narrative": self.narrative,
-            "file_descriptions": dict(self.file_descriptions),
-            "dir_descriptions": dict(self.dir_descriptions),
-            "overview": self.overview,
-            "purpose": self.purpose,
-            "public_api": self.public_api,
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> FillResult:
-        return cls(
-            uri=d["uri"],
-            narrative=d.get("narrative"),
-            file_descriptions=dict(d.get("file_descriptions") or {}),
-            dir_descriptions=dict(d.get("dir_descriptions") or {}),
-            overview=d.get("overview"),
-            purpose=d.get("purpose"),
-            public_api=d.get("public_api"),
-        )
 
 
 @dataclass
@@ -445,11 +332,11 @@ class PropagateResultItem:
 
 @dataclass
 class ScanResults:
-    fills: list[FillResult] = field(default_factory=list)
+    prose: list[ProseRefreshResult] = field(default_factory=list)
     drift: list[DriftResultItem] = field(default_factory=list)
     propagate: list[PropagateResultItem] = field(default_factory=list)
     schema: int = SCHEMA_VERSION
-    # Runtime-only (NOT serialized): provider-side errors (e.g. package_reader
+    # Runtime-only (NOT serialized): provider-side errors (e.g. prose_refresher
     # failures on the in-process Bedrock surface) that run_scan merges into its
     # ScanResult for partial-success reporting. Out-of-process surfaces leave this
     # empty; the JSON results carry no error channel.
@@ -458,7 +345,7 @@ class ScanResults:
     def to_dict(self) -> dict:
         return {
             "schema": self.schema,
-            "fills": [f.to_dict() for f in self.fills],
+            "prose": [p.to_dict() for p in self.prose],
             "drift": [d.to_dict() for d in self.drift],
             "propagate": [p.to_dict() for p in self.propagate],
         }
@@ -472,7 +359,7 @@ class ScanResults:
         if schema != SCHEMA_VERSION:
             raise ValueError(f"unsupported results schema: {schema!r}")
         return cls(
-            fills=[FillResult.from_dict(f) for f in (d.get("fills") or [])],
+            prose=[ProseRefreshResult.from_dict(p) for p in (d.get("prose") or [])],
             drift=[DriftResultItem.from_dict(x) for x in (d.get("drift") or [])],
             propagate=[PropagateResultItem.from_dict(p) for p in (d.get("propagate") or [])],
             schema=schema,

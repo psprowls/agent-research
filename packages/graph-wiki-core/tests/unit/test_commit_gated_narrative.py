@@ -171,31 +171,15 @@ def m2a_workspace(tmp_path, monkeypatch):
 
 
 def _narrate_all_spy(prose_fn):
-    """Return an async SubagentPool.run_all that narrates every item via prose_fn.
+    """Return an async SubagentPool.run_all that answers the unified
+    prose_refresher fan-out with a healthy ProseRefreshResult per task —
+    ``prose_fn(task)`` fills `## Narrative` (and TODO-like human sections);
+    File-map TODO rows are auto-filled from the on-disk page so the refill gate
+    (stamp iff no `— TODO` remains) is satisfied and the anchor-stamping
+    assertions hold."""
+    from ._spies import refresh_all_spy
 
-    For the code_reader role it returns JSON descriptions filling every TODO
-    file-map row, so the M2c Part-3 refill gate (stamp iff no `— TODO` remains)
-    is satisfied and the anchor-stamping assertions hold. The narrative-specific
-    assertions in these tests are unaffected.
-    """
-
-    async def _run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
-
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, prose_fn(it)) for it in items]
-        elif role == "code_reader":  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
-            import json as _json
-
-            result.successes = [(it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        else:
-            result.successes = []
-        return result
-
-    return _run_all
+    return refresh_all_spy(prose_fn)
 
 
 _PKG_A = "pkg:org/repo/pkg-a"
@@ -255,7 +239,7 @@ def test_narrative_survives_no_op_rescan(m2a_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+        _narrate_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
 
     # Scan 1: new page → narrated.
@@ -264,8 +248,10 @@ def test_narrative_survives_no_op_rescan(m2a_workspace, monkeypatch) -> None:
     assert "PROSE for pkg:org/repo/pkg-a" in text1
     assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head1"
 
-    # Scan 2: no code change (files clean), so NOT re-narrated. Prose must persist.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    # Scan 2: no code change (files clean), so NOT re-tasked. Prose must persist.
+    from ._spies import patch_repo_state
+
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     text2 = _page_for(wiki).read_text(encoding="utf-8")
     assert "PROSE for pkg:org/repo/pkg-a" in text2  # <-- the fix
@@ -288,7 +274,7 @@ def test_narrative_survives_no_narrate_rescan(m2a_workspace, monkeypatch) -> Non
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+        _narrate_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert "PROSE for" in _page_for(wiki).read_text(encoding="utf-8")
@@ -317,7 +303,7 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"{prose_tag['v']} prose for {it[0]}"),
+        _narrate_all_spy(lambda t: f"{prose_tag['v']} prose for {t.uri}"),
     )
 
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -327,11 +313,9 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     # Scan 2: HEAD moved and the package's files changed since head1.
     heads["v"] = "head2"
     prose_tag["v"] = "SECOND"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
-    )
+    from ._spies import patch_repo_state
+
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     final = _page_for(wiki).read_text(encoding="utf-8")
     assert "SECOND prose for pkg:org/repo/pkg-a" in final  # refreshed, not restored
@@ -355,7 +339,7 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(m2a_workspace_two, mon
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"{prose_tag['v']} prose for {it[0]}"),
+        _narrate_all_spy(lambda t: f"{prose_tag['v']} prose for {t.uri}"),
     )
 
     # Scan 1 at head1: both packages narrated and anchored to head1.
@@ -368,10 +352,12 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(m2a_workspace_two, mon
     # Scan 2 at head2: only pkg-a's subpath changed since head1; pkg-b is clean.
     heads["v"] = "head2"
     prose_tag["v"] = "SECOND"
-    monkeypatch.setattr(
+    from ._spies import patch_repo_state
+
+    patch_repo_state(
+        monkeypatch,
         scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/x.py"] if str(sub).endswith("pkg-a") else [],
+        lambda subs: ["packages/pkg-a/x.py"] if any(str(s).endswith("pkg-a") for s in subs) else [],
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
@@ -494,7 +480,7 @@ def test_stamped_commit_is_short_form(m2a_workspace_gitrepo, monkeypatch) -> Non
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+        _narrate_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
 
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))

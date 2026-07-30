@@ -4,7 +4,6 @@ scanner content on disk (PTO closes the placeholder crash-window)."""
 from __future__ import annotations
 
 import asyncio
-import json
 import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -13,6 +12,8 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+
+from ._spies import patch_repo_state
 
 _PKG_A = "pkg:org/repo/pkg-a"
 
@@ -45,21 +46,9 @@ def _seed_one_package(db_path: Path) -> None:
 
 
 def _fanout_spy():
-    async def _run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
+    from ._spies import refresh_all_spy
 
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, f"PROSE for {it[0]}") for it in items]
-        elif role == "code_reader":
-            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        else:
-            result.successes = []
-        return result
-
-    return _run_all
+    return refresh_all_spy(lambda t: f"PROSE for {t.uri}")
 
 
 @pytest.fixture
@@ -113,12 +102,12 @@ def test_mid_pipeline_inject_failure_leaves_real_content(crash_workspace, monkey
 
     # Scan 2: force the page commit-dirty (so the inject steps run) and make
     # BOTH inject steps raise mid-pipeline.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: ["packages/pkg-a/mod.py"])
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
 
     def _boom(*a, **k):
         raise RuntimeError("simulated mid-pipeline failure")
 
-    monkeypatch.setattr(scan_mod, "inject_narrative", _boom)
+    monkeypatch.setattr(scan_mod, "replace_prose_sections", _boom)
     monkeypatch.setattr(scan_mod, "inject_file_map", _boom)
 
     # The scan completes (per-page failures are isolated, not fatal).
@@ -128,3 +117,38 @@ def test_mid_pipeline_inject_failure_leaves_real_content(crash_workspace, monkey
     assert "PROSE for pkg:org/repo/pkg-a" in text2  # prose survived
     assert "desc mod.py" in text2  # description survived
     assert "_(scanner will populate on next scan)_" not in text2  # no placeholder exposed
+
+
+def test_crash_before_stamp_retasks_via_first_fill(crash_workspace, monkeypatch):
+    """[Task 6 stamp gate] A scan-1 apply crash between inject and stamp leaves
+    the page with its placeholder narrative and NO anchor; the NEXT scan
+    re-tasks the entity as first_fill (missing anchor / placeholder page)."""
+    workspace = crash_workspace
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+
+    # Scan 1: the prose injection raises for every page -> no prose lands, and
+    # the stamp gate must not mint an anchor for the unhealthy page.
+    boom = {"on": True}
+
+    def _maybe_boom(*a, **k):
+        if boom["on"]:
+            raise RuntimeError("simulated crash before stamp")
+        raise AssertionError("unexpected call")
+
+    monkeypatch.setattr(scan_mod, "replace_prose_sections", _maybe_boom)
+    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+
+    page = _page(wiki)
+    text = page.read_text(encoding="utf-8")
+    assert "_(scanner will populate on next scan)_" in text  # placeholder still exposed
+    assert _fm.load(page).metadata.get("last_updated_commit") is None  # no anchor minted
+
+    # The NEXT emit re-tasks the entity via first_fill.
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    task = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
+    assert task.trigger == "first_fill"

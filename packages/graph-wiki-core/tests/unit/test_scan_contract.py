@@ -5,9 +5,6 @@ import pytest
 from graph_wiki_core.commands.scan_contract import (
     DriftSectionInput,
     DriftTask,
-    FillNeeds,
-    FillResult,
-    FillTask,
     PropagateEntity,
     PropagateTask,
     ProseRefreshResult,
@@ -17,28 +14,33 @@ from graph_wiki_core.commands.scan_contract import (
 )
 
 
+def _prose_task(**over):
+    base = dict(
+        uri="pkg:demo",
+        kind="package",
+        name="demo",
+        page_path="/w/entities/pkg_demo.md",
+        graph_path="packages/demo",
+        language="python",
+        entity_root="packages/demo",
+        trigger="diff",
+        diff="diff --git a/x b/x\n@@ -1 +1 @@\n+x\n",
+        changed_files=["packages/demo/x.py"],
+        page_content="---\n---\n# demo\n",
+        file_map_rows="| `x.py` | file | — TODO |",
+        prose_sections={"## Narrative": "old"},
+        graph_context="Language: python",
+        owning_short_head="abc1234",
+    )
+    base.update(over)
+    return ProseRefreshTask(**base)
+
+
 def _sample_worklist() -> ScanWorklist:
     return ScanWorklist(
         head_commit="a1b2c3d4e5",
         short_head="a1b2c3d",
-        fill_tasks=[
-            FillTask(
-                uri="pkg:wiki-io",
-                kind="package",
-                name="wiki-io",
-                page_path="/abs/wiki/entities/pkg_wiki-io.md",
-                graph_path="packages/wiki-io",
-                language="python",
-                needs=FillNeeds(
-                    narrative=True,
-                    file_todo_paths=["src/wiki_io/scan_monorepo.py"],
-                    dir_todo_contexts=["src/wiki_io/"],
-                    overview=True,
-                    purpose=True,
-                    public_api=False,
-                ),
-            )
-        ],
+        prose_tasks=[_prose_task(uri="pkg:wiki-io", name="wiki-io")],
         drift_tasks=[
             DriftTask(
                 uri="pkg:wiki-io",
@@ -75,17 +77,21 @@ def test_worklist_round_trips() -> None:
     assert restored == wl
 
 
+def test_worklist_is_empty_tracks_prose_tasks() -> None:
+    assert ScanWorklist(head_commit=None, short_head=None).is_empty
+    assert not ScanWorklist(head_commit=None, short_head=None, prose_tasks=[_prose_task()]).is_empty
+
+
 def test_results_round_trips() -> None:
     results = ScanResults(
-        fills=[
-            FillResult(
+        prose=[
+            ProseRefreshResult(
                 uri="pkg:wiki-io",
-                narrative="New prose.",
-                file_descriptions={"src/wiki_io/scan_monorepo.py": "Scan helpers."},
+                sections={"## Narrative": "New prose.", "## Purpose": "Purpose draft."},
+                file_map_descriptions={"src/wiki_io/scan_monorepo.py": "Scan helpers."},
                 dir_descriptions={"src/wiki_io/": "IO layer."},
                 overview="Package overview.",
-                purpose="Purpose draft.",
-                public_api=None,
+                error=None,
             )
         ],
         drift=[],
@@ -95,44 +101,36 @@ def test_results_round_trips() -> None:
     assert restored == results
 
 
-def test_results_tolerates_sparse_fill() -> None:
-    # A fill carrying only a narrative — every other field absent.
-    payload = {"schema": 1, "fills": [{"uri": "pkg:x", "narrative": "Only prose."}], "drift": [], "propagate": []}
+def test_results_tolerates_sparse_prose() -> None:
+    # A prose result carrying only sections — every other field absent.
+    payload = {
+        "schema": 2,
+        "prose": [{"uri": "pkg:x", "sections": {"## Narrative": "Only prose."}}],
+        "drift": [],
+        "propagate": [],
+    }
     results = ScanResults.from_dict(payload)
-    fill = results.fills[0]
-    assert fill.narrative == "Only prose."
-    assert fill.file_descriptions == {}
-    assert fill.dir_descriptions == {}
-    assert fill.overview is None
-    assert fill.purpose is None
-    assert fill.public_api is None
+    result = results.prose[0]
+    assert result.sections == {"## Narrative": "Only prose."}
+    assert result.file_map_descriptions == {}
+    assert result.dir_descriptions == {}
+    assert result.overview is None
+    assert result.error is None
 
 
 def test_results_rejects_bad_schema() -> None:
     with pytest.raises(ValueError):
-        ScanResults.from_dict({"schema": 99, "fills": [], "drift": [], "propagate": []})
+        ScanResults.from_dict({"schema": 99, "prose": [], "drift": [], "propagate": []})
 
 
-def _prose_task(**over):
-    base = dict(
-        uri="pkg:demo",
-        kind="package",
-        name="demo",
-        page_path="/w/entities/pkg_demo.md",
-        graph_path="packages/demo",
-        language="python",
-        entity_root="packages/demo",
-        trigger="diff",
-        diff="diff --git a/x b/x\n@@ -1 +1 @@\n+x\n",
-        changed_files=["packages/demo/x.py"],
-        page_content="---\n---\n# demo\n",
-        file_map_rows="| `x.py` | file | — TODO |",
-        prose_sections={"## Narrative": "old"},
-        graph_context="Language: python",
-        owning_short_head="abc1234",
-    )
-    base.update(over)
-    return ProseRefreshTask(**base)
+def test_v1_worklist_payload_rejected() -> None:
+    with pytest.raises(ValueError, match="unsupported worklist schema: 1"):
+        ScanWorklist.from_dict({"schema": 1, "head_commit": None, "short_head": None, "fill_tasks": []})
+
+
+def test_v1_results_payload_rejected() -> None:
+    with pytest.raises(ValueError, match="unsupported results schema: 1"):
+        ScanResults.from_dict({"schema": 1, "fills": [], "drift": [], "propagate": []})
 
 
 def test_prose_refresh_task_round_trip():

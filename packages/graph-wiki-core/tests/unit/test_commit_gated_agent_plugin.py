@@ -29,6 +29,8 @@ from graph_io import exit_codes, schema
 from graph_io.agent_plugins import emit as _ap_emit
 from graph_io.uri import RepoContext
 
+from ._spies import patch_repo_state
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -79,31 +81,12 @@ def _page(wiki: Path, uri: str = _PLUGIN_URI) -> Path:
 
 
 def _narrate_spy(heads: dict):
-    """SubagentPool.run_all spy: narrates every narrator item with prose encoding the HEAD.
+    """SubagentPool.run_all spy: answers every prose_refresher task with prose
+    encoding the current HEAD (plugin pages have no File map, so the shared
+    spy's file-map fills are no-ops here)."""
+    from ._spies import refresh_all_spy
 
-    The code_reader branch never actually fires for these tests: the code-reader
-    fan-out is driven by `file_mapped_pages`, which is populated only for
-    package/app (via fm_list_fns) and test_suite nodes. The workspace's only node
-    is the agent_plugin, so no describer item is ever produced. The branch is kept
-    as a harmless/defensive no-op.
-    """
-
-    async def _run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
-
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
-        elif role == "code_reader":
-            # code_reader — item == (uri, ws_dict, page_path, todo_paths)
-            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        else:
-            result.successes = []
-        return result
-
-    return _run_all
+    return refresh_all_spy(lambda t: f"PROSE {t.uri} @ {heads['v']}")
 
 
 @pytest.fixture
@@ -174,11 +157,7 @@ def test_command_added_refreshes_table_and_renarrates(plugin_workspace, monkeypa
     _make_plugin(repo, commands=["alpha", "beta"])
     _emit_plugin(db_path, repo)
     heads["v"] = "head2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["plugins/demo/commands/beta.md"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["plugins/demo/commands/beta.md"])
 
     # --- Scan 2 ---
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -213,40 +192,27 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
-    narrator_calls: list = []
+    from ._spies import refresh_all_spy
 
-    async def _spy_run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
-
-        result = FanOutResult()
-        if role == "narrator":
-            narrator_calls.append([it[0] for it in items])
-            result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
-        elif role == "code_reader":
-            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        else:
-            result.successes = []
-        return result
-
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy_run_all)
+    recorder: dict = {}
+    narrator_calls = recorder.setdefault("prose_tasks", [])
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        refresh_all_spy(lambda t: f"PROSE {t.uri} @ {heads['v']}", recorder=recorder),
+    )
 
     # --- Scan 1 ---
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
     calls_after_scan1 = len(narrator_calls)
-    assert calls_after_scan1 >= 1  # plugin was narrated in scan 1
+    assert calls_after_scan1 >= 1  # plugin was refreshed in scan 1
 
     # Reset calls tracking for scan 2
     narrator_calls.clear()
 
     # --- Scan 2: same HEAD, no file changes ---
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: [],
-    )
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     # plan decision (B): an agent_plugin narrated in scan 1 had no anchor at emit
@@ -257,10 +223,10 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _page(wiki).read_bytes() == page_bytes_after_scan2
 
-    # Narrator must NOT have been called for the plugin URI in scans 2/3
-    plugin_uris_narrated_scan2 = [uri for call in narrator_calls for uri in call if _PLUGIN_URI in uri]
+    # The refresher must NOT have been dispatched for the plugin URI in scans 2/3
+    plugin_uris_narrated_scan2 = [t.uri for t in narrator_calls if _PLUGIN_URI in t.uri]
     assert plugin_uris_narrated_scan2 == [], (
-        f"narrator should not re-narrate {_PLUGIN_URI} on a no-op scan; got calls: {narrator_calls}"
+        f"prose_refresher should not re-task {_PLUGIN_URI} on a no-op scan; got: {plugin_uris_narrated_scan2}"
     )
     # The anchor never advanced past head1.
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
@@ -306,11 +272,7 @@ def test_no_narrate_refreshes_tables_not_narrative(plugin_workspace, monkeypatch
     _make_plugin(repo, commands=["alpha", "gamma"])
     _emit_plugin(db_path, repo)
     heads["v"] = "head2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["plugins/demo/commands/gamma.md"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["plugins/demo/commands/gamma.md"])
 
     # --- Scan 2: narrate=False ---
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
@@ -403,28 +365,23 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
 
-    # Spy covering all three roles. On scan 1, verdict_fn marks all not-stale.
+    # Spy covering prose_refresher + drift_judge. On scan 1, verdict_fn marks
+    # all not-stale.
+    from ._spies import refresh_all_spy
+
     verdict_fn = {"fn": lambda it: {"stale": False, "reason": ""}}
-    recorder: dict = {}
-
-    async def _full_spy(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
-
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, f"PROSE {it[0]} @ {heads['v']}") for it in items]
-        elif role == "code_reader":
-            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        elif role == "drift_judge":
-            recorder.setdefault("items", []).extend(items)
-            result.successes = [(it, verdict_fn["fn"](it)) for it in items]
-        else:
-            result.successes = []
-        return result
-
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _full_spy)
+    drift_recorder: dict = {}
+    recorder = {}
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        refresh_all_spy(
+            lambda t: f"PROSE {t.uri} @ {heads['v']}",
+            recorder=drift_recorder,
+            verdict_fn=lambda it: verdict_fn["fn"](it),
+        ),
+    )
+    recorder = drift_recorder
 
     # --- Scan 1: plugin created, narrated, stamped at head1 ---
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
@@ -436,7 +393,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
     # plan decision (B): drift is judged against the EMIT-time anchor, so the page
     # narrated in scan 1 settles drift_checked_commit on the next scan. A no-change
     # settling scan advances drift_checked_commit to head1.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _fm.load(_page(wiki)).metadata.get("drift_checked_commit") == "head1"
 
@@ -451,11 +408,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
 
     # --- Setup for scan 2: code changed; judge marks the new section stale ---
     heads["v"] = "head2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["plugins/demo/commands/alpha.md"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["plugins/demo/commands/alpha.md"])
     verdict_fn["fn"] = lambda it: {"stale": True, "reason": "command semantics changed"}
     recorder.clear()
 
@@ -469,14 +422,14 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
     recorder.clear()
 
     # --- Scan 3: drift gate fires (last_updated head2 leads drift_checked head1) ---
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     page = _page(wiki)
     meta3 = _fm.load(page).metadata
 
     # Drift judge ran for the agent_plugin page (drift_checked_commit head1 lagged
     # last_updated_commit head2).
-    drift_items = recorder.get("items", [])
+    drift_items = recorder.get("drift_items", [])
     plugin_items = [it for it in drift_items if it[0] == page]
     assert plugin_items, f"drift judge was not called for agent_plugin page; drift_items={drift_items}"
 

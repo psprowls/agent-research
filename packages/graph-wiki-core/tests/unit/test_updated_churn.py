@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -13,6 +12,8 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+
+from ._spies import patch_repo_state
 
 _PKG_A = "pkg:org/repo/pkg-a"
 
@@ -45,24 +46,12 @@ def _seed_one_package(db_path: Path) -> None:
 
 
 def _fanout_spy(*, prose):
-    """narrator items -> prose(item); code_reader items -> JSON filling each
-    TODO path (so file maps reach a steady, fully-described state)."""
+    """prose_refresher tasks -> healthy ProseRefreshResult (prose(task) fills
+    the narrative; TODO rows/sections auto-filled so pages reach a steady,
+    fully-described state)."""
+    from ._spies import refresh_all_spy
 
-    async def _run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
-
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, prose(it)) for it in items]
-        elif role == "code_reader":
-            result.successes = [(it, json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        else:
-            result.successes = []
-        return result
-
-    return _run_all
+    return refresh_all_spy(prose)
 
 
 @pytest.fixture
@@ -95,7 +84,7 @@ def churn_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _fanout_spy(prose=lambda it: f"PROSE for {it[0]}"),
+        _fanout_spy(prose=lambda t: f"PROSE for {t.uri}"),
     )
     return workspace
 
@@ -122,7 +111,7 @@ def test_no_op_rescan_reports_zero_updated(churn_workspace, monkeypatch) -> None
     # scan 2 is the one that judges + stamps drift_checked_commit (a frontmatter-only
     # write — never an entity-body churn). Byte-identity is therefore asserted from
     # the now-settled scan 2 onward.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert result.entities_updated == []  # the fix: no churn
     text2 = _page(wiki).read_text(encoding="utf-8")
@@ -130,7 +119,14 @@ def test_no_op_rescan_reports_zero_updated(churn_workspace, monkeypatch) -> None
     assert "desc mod.py" in text2
     assert "_(scanner will populate on next scan)_" not in text2
 
-    # Scan 3: drift already settled -> the page is now byte-identical to scan 2.
+    # Scan 3: drift already settled -> the page is now byte-identical to scan 2,
+    # and the emit half re-tasks NOTHING (zero prose tasks).
+    worklist, _ = asyncio.run(
+        scan_mod.build_scan_worklist(
+            workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
+        )
+    )
+    assert worklist.prose_tasks == []
     result3 = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert result3.entities_updated == []
     assert _page(wiki).read_text(encoding="utf-8") == text2  # byte-identical, not rewritten
@@ -162,7 +158,7 @@ def test_human_section_edit_is_preserved_not_churned(churn_workspace, monkeypatc
     edited = page.read_text(encoding="utf-8").replace("## Purpose", "## Purpose\nHUMAN EDIT MARKER", 1)
     page.write_text(edited, encoding="utf-8")
 
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     text = _page(wiki).read_text(encoding="utf-8")
     assert "HUMAN EDIT MARKER" in text  # edit survives
@@ -185,7 +181,7 @@ def test_frontmatter_only_change_forces_updated(churn_workspace, monkeypatch) ->
     finally:
         conn.close()
 
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _PKG_A in result.entities_updated
     assert _fm.load(_page(wiki)).metadata.get("language") == "rust"

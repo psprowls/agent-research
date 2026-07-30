@@ -5,9 +5,9 @@ file-map injection → commit-gate → emit a commit-gated ScanWorklist. The fix
 mirrors test_commit_gated_narrative.py's m2a_workspace (stubbed cg update + state
 gate + deterministic file map over a real one-package graph). The "fully
 populated + stamped" precondition for the unchanged/commit-dirty cases is reached
-by running a full narrated run_scan via the suite's _narrate_all_spy stub, which
-both narrates and fills every — TODO file-map row, so a steady-state re-emit is
-genuinely empty.
+by running a full narrated run_scan via the shared refresh_all_spy stub, which
+fills the narrative, human sections, and every — TODO file-map row, so a
+steady-state re-emit is genuinely empty.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
 
-from .test_commit_gated_narrative import _narrate_all_spy
+from ._spies import patch_repo_state, refresh_all_spy
 
 _PKG_A = "pkg:org/repo/pkg-a"
 
@@ -88,10 +88,11 @@ def emit_workspace(tmp_path, monkeypatch):
     return workspace, repo
 
 
-def test_new_package_emits_fill_task_with_narrative_and_file_todos(emit_workspace) -> None:
-    """A brand-new package page emits a fill_task whose needs.narrative is True
-    (placeholder) and whose needs.file_todo_paths is non-empty (— TODO rows). The
-    page exists on disk with the deterministic file map injected."""
+def test_new_package_emits_first_fill_prose_task(emit_workspace) -> None:
+    """A brand-new package page emits a prose task with trigger == "first_fill"
+    (placeholder narrative + — TODO rows). The page exists on disk with the
+    deterministic file map injected, and prose_sections carries the template's
+    human sections keyed by FULL headings."""
     workspace, repo = emit_workspace
 
     worklist, scan_result = asyncio.run(
@@ -100,55 +101,47 @@ def test_new_package_emits_fill_task_with_narrative_and_file_todos(emit_workspac
         )
     )
 
-    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
-    assert alpha.needs.narrative is True
-    assert alpha.needs.file_todo_paths  # at least one — TODO file row
-    # The fresh entity-write template seeds ## Purpose / ## Public API as TODO
-    # placeholders (human-owned). find_todo_human_sections returns BARE headings,
-    # so the worklist must key on "Purpose"/"Public API" — regression guard for
-    # the "## Purpose" prefix bug that dropped both fill signals.
-    assert alpha.needs.purpose is True
-    assert alpha.needs.public_api is True
+    alpha = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
+    assert alpha.trigger == "first_fill"
+    assert alpha.diff is None
+    # The template seeds ## Purpose / ## Public API as TODO placeholders — the
+    # prose surface hands them (and ## Narrative) to the refresher, FULL-heading
+    # keyed.
+    assert "## Narrative" in alpha.prose_sections
+    assert "## Purpose" in alpha.prose_sections
+    assert "## Public API" in alpha.prose_sections
     assert Path(alpha.page_path).exists()
     # The deterministic file map was injected (— TODO Description cell present).
     assert "| `pyproject.toml` | file | — TODO |" in Path(alpha.page_path).read_text(encoding="utf-8")
+    assert alpha.file_map_rows  # rows snapshot travels with the task
     assert _PKG_A in scan_result.entities_created
 
 
 def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> None:
-    """After a full narrated scan (prose + every row filled + anchor stamped) AND
-    the human-owned ## Purpose / ## Public API sections filled with real prose,
-    a steady-state re-emit (no code change) produces no fill_task and no
-    drift_task — worklist.is_empty."""
-    from wiki_io.human_sections import replace_todo_human_sections
-
+    """After a full narrated scan (prose + every row + human sections filled +
+    anchor stamped), a steady-state re-emit (no code change) produces no
+    prose_task and no drift_task — worklist.is_empty."""
     workspace, repo = emit_workspace
     wiki = workspace / "wiki"
 
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+        refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
-    # Full narrated scan: fills narrative + all — TODO rows + stamps last_updated_commit=head1.
+    # Full narrated scan: fills narrative + human sections + all — TODO rows +
+    # stamps last_updated_commit=head1.
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     page = _page_for(wiki)
     text = page.read_text(encoding="utf-8")
     assert "PROSE for pkg:org/repo/pkg-a" in text
     assert "| `pyproject.toml` | file | — TODO |" not in text  # rows filled
 
-    # The narrated scan does NOT fill the human-owned ## Purpose / ## Public API
-    # placeholders (the package_reader stub returns []), so fill them with real
-    # prose to reach a GENUINE steady state. replace_todo_human_sections keys on
-    # the bare heading (human_sections.py:80-82) and only swaps TODO-like bodies.
-    changed = replace_todo_human_sections(page, {"Purpose": "Real purpose prose.", "Public API": "Real API prose."})
-    assert set(changed) == {"Purpose", "Public API"}
-
     # plan decision (B): the page narrated in scan 1 had no anchor at emit time, so
     # its drift is judged on the next scan. A second no-change scan settles
     # drift_checked_commit == last_updated_commit so the page is no longer a drift
     # candidate — only then is the worklist genuinely empty.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
     # Steady-state re-emit: files clean, head unchanged, drift settled.
@@ -160,10 +153,9 @@ def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> 
     assert worklist.is_empty
 
 
-def test_commit_dirty_unchanged_package_marks_narrative(emit_workspace, monkeypatch) -> None:
-    """A commit-dirty but structurally-unchanged package re-emits a fill_task with
-    needs.narrative True (decision A — the commit_dirty union folds into the
-    in-memory needs_narrative set the worklist consumes)."""
+def test_commit_dirty_unchanged_package_emits_diff_task(emit_workspace, monkeypatch) -> None:
+    """A committed source change on a stamped, healthy package re-emits a prose
+    task with trigger == "diff" carrying the scoped hunks."""
     workspace, repo = emit_workspace
     wiki = workspace / "wiki"
 
@@ -176,25 +168,25 @@ def test_commit_dirty_unchanged_package_marks_narrative(emit_workspace, monkeypa
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+        refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _fm.load(_page_for(wiki)).metadata.get("last_updated_commit") == "head1"
 
-    # HEAD moved and pkg-a's source changed since head1 (no structural delta).
+    # HEAD moved and pkg-a's source changed since head1 (no structural delta;
+    # mod.py is not a described File-map row, so the page stays healthy and the
+    # diff branch fires).
     heads["v"] = "head2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/mod.py"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     worklist, _ = asyncio.run(
         scan_mod.build_scan_worklist(
             workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False
         )
     )
-    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
-    assert alpha.needs.narrative is True  # decision A: commit-dirty re-narrates
+    alpha = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
+    assert alpha.trigger == "diff"
+    assert alpha.diff and "packages/pkg-a/mod.py" in alpha.diff
+    assert alpha.changed_files == ["packages/pkg-a/mod.py"]
 
 
 def test_dirty_state_gate_yields_no_head(emit_workspace, monkeypatch) -> None:
@@ -222,15 +214,32 @@ def test_dirty_state_gate_yields_no_head(emit_workspace, monkeypatch) -> None:
 
 from graph_wiki_core.commands.scan import apply_scan_results  # noqa: E402
 from graph_wiki_core.commands.scan_contract import (  # noqa: E402
-    FillResult,
+    ProseRefreshResult,
     ScanResults,
 )
 from wiki_io._workspace import resolve_wiki_and_repo  # noqa: E402
+from wiki_io.entity_writer import dir_section_todo_contexts, file_map_todo_paths  # noqa: E402
 
 
-def test_apply_injects_fills_and_stamps(emit_workspace) -> None:
-    """A canned ScanResults for the package's fill_task injects narrative, fills
-    every — TODO file row, replaces ## Purpose / ## Public API, and stamps
+def _full_result(alpha) -> ProseRefreshResult:
+    """Hand-built success result covering every fill surface of the task."""
+    page = Path(alpha.page_path)
+    return ProseRefreshResult(
+        uri=alpha.uri,
+        sections={
+            "## Narrative": "Alpha is a sample package.",
+            "## Purpose": "The purpose.",
+            "## Public API": "The API.",
+        },
+        file_map_descriptions={p: "Source file." for p in file_map_todo_paths(page)},
+        dir_descriptions={c: "A directory." for c in dir_section_todo_contexts(page)},
+        overview=None,
+    )
+
+
+def test_apply_injects_prose_and_stamps(emit_workspace) -> None:
+    """A canned ScanResults for the package's prose task injects the narrative,
+    fills every — TODO file row, replaces ## Purpose / ## Public API, and stamps
     last_updated_commit to short_head."""
     workspace, repo = emit_workspace
     worklist, _ = asyncio.run(
@@ -239,25 +248,14 @@ def test_apply_injects_fills_and_stamps(emit_workspace) -> None:
         )
     )
     wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
-    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
-    results = ScanResults(
-        fills=[
-            FillResult(
-                uri=alpha.uri,
-                narrative="Alpha is a sample package.",
-                file_descriptions={p: "Source file." for p in alpha.needs.file_todo_paths},
-                dir_descriptions={c: "A directory." for c in alpha.needs.dir_todo_contexts},
-                overview="Overview of alpha." if alpha.needs.overview else None,
-                purpose="The purpose." if alpha.needs.purpose else None,
-                public_api="The API." if alpha.needs.public_api else None,
-            )
-        ]
-    )
+    alpha = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
+    results = ScanResults(prose=[_full_result(alpha)])
     applied = asyncio.run(apply_scan_results(worklist, results, wiki, resolved_repo or repo, propagate=False))
     page = Path(alpha.page_path).read_text(encoding="utf-8")
     assert "Alpha is a sample package." in page
     assert "— TODO" not in page.split("## File map")[-1]  # all rows filled
     assert applied.narrated >= 1 and applied.stamped >= 1
+    assert applied.sections_filled >= 2  # Purpose + Public API via replace_prose_sections
     assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") == worklist.short_head
 
 
@@ -271,8 +269,8 @@ def test_apply_partial_leaves_page_unstamped(emit_workspace) -> None:
         )
     )
     wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
-    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
-    results = ScanResults(fills=[FillResult(uri=alpha.uri, narrative="Some prose.")])
+    alpha = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
+    results = ScanResults(prose=[ProseRefreshResult(uri=alpha.uri, sections={"## Narrative": "Some prose."})])
     asyncio.run(apply_scan_results(worklist, results, wiki, resolved_repo or repo, propagate=False))
     assert _fm.load(alpha.page_path).metadata.get("last_updated_commit") is None
 
@@ -287,16 +285,14 @@ def test_apply_failed_narration_leaves_page_unstamped(emit_workspace) -> None:
         )
     )
     wiki, resolved_repo = resolve_wiki_and_repo(workspace, repo)
-    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    alpha = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
     # Fill every file row + human sections, but NO narrative -> placeholder stays.
     results = ScanResults(
-        fills=[
-            FillResult(
+        prose=[
+            ProseRefreshResult(
                 uri=alpha.uri,
-                narrative=None,
-                file_descriptions={p: "Source file." for p in alpha.needs.file_todo_paths},
-                purpose="The purpose.",
-                public_api="The API.",
+                sections={"## Purpose": "The purpose.", "## Public API": "The API."},
+                file_map_descriptions={p: "Source file." for p in file_map_todo_paths(Path(alpha.page_path))},
             )
         ]
     )
@@ -349,22 +345,24 @@ async def test_emit_apply_round_trip_via_disk(emit_workspace, tmp_path) -> None:
     assert scan_result is not None
 
     worklist = ScanWorklist.from_json(wl_path.read_text(encoding="utf-8"))
-    alpha = next(t for t in worklist.fill_tasks if t.uri == _PKG_A)
+    alpha = next(t for t in worklist.prose_tasks if t.uri == _PKG_A)
 
     # Hand-author a results.json as the Claude agent would assemble it.
     res_path.write_text(
         _json.dumps(
             {
-                "schema": 1,
-                "fills": [
+                "schema": 2,
+                "prose": [
                     {
                         "uri": alpha.uri,
-                        "narrative": "Alpha is a sample package.",
-                        "file_descriptions": {p: "src file" for p in alpha.needs.file_todo_paths},
-                        "dir_descriptions": {c: "a dir" for c in alpha.needs.dir_todo_contexts},
-                        "overview": "overview of alpha" if alpha.needs.overview else None,
-                        "purpose": "the purpose" if alpha.needs.purpose else None,
-                        "public_api": "the api" if alpha.needs.public_api else None,
+                        "sections": {
+                            "## Narrative": "Alpha is a sample package.",
+                            "## Purpose": "the purpose",
+                            "## Public API": "the api",
+                        },
+                        "file_map_descriptions": {p: "src file" for p in file_map_todo_paths(Path(alpha.page_path))},
+                        "dir_descriptions": {c: "a dir" for c in dir_section_todo_contexts(Path(alpha.page_path))},
+                        "overview": None,
                     }
                 ],
                 "drift": [],
@@ -409,9 +407,9 @@ def _narrate_and_stamp_pkg_a(workspace, repo, monkeypatch) -> Path:
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _narrate_all_spy(lambda it: f"PROSE for {it[0]}"),
+        refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a, **k: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     return _page_for(workspace / "wiki")
 

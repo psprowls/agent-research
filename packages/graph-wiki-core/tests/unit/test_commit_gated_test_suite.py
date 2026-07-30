@@ -4,7 +4,6 @@ entities (package/app parity)."""
 from __future__ import annotations
 
 import asyncio
-import json
 import sqlite3
 from pathlib import Path
 from unittest.mock import MagicMock
@@ -14,6 +13,8 @@ import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
 from wiki_io.entity_writer import EntityWriteResult
+
+from ._spies import patch_repo_state
 
 _SUITE = "test_suite:org/repo/pkg-a/tests"
 
@@ -49,26 +50,14 @@ def _seed_one_suite(db_path: Path) -> None:
 
 
 def _fanout_spy(*, prose, descs):
-    async def _run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
+    from ._spies import refresh_all_spy
 
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, prose(it)) for it in items]
-        elif role == "code_reader":  # code_reader — item == (uri, ws_dict, page_path, todo_paths)
-            result.successes = [(it, json.dumps(descs(it))) for it in items]
-        elif role == "package_reader":
-            result.successes = []
-        else:
-            result.successes = []
-        return result
-
-    return _run_all
+    return refresh_all_spy(prose, descs_fn=descs)
 
 
 def _descs_tagged(tag: dict):
-    def _f(item) -> dict[str, str]:
-        return {p: f"{tag['v']}:{p}" for p in item[3]}
+    def _f(task, todo_paths) -> dict[str, str]:
+        return {p: f"{tag['v']}:{p}" for p in todo_paths}
 
     return _f
 
@@ -119,7 +108,7 @@ def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+        _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t1 = _page(wiki).read_text(encoding="utf-8")
@@ -128,11 +117,7 @@ def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
 
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/tests/test_mod.py"])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
     assert "D2:test_mod.py" in t2  # changed row re-described
@@ -159,7 +144,7 @@ def test_suite_trigger_gap_commit_dirty_not_refreshed(suite_workspace, monkeypat
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+        _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert "D1:test_mod.py" in _page(wiki).read_text(encoding="utf-8")
@@ -171,11 +156,7 @@ def test_suite_trigger_gap_commit_dirty_not_refreshed(suite_workspace, monkeypat
         "write_entities",
         lambda conn, wiki_arg, kinds: EntityWriteResult(unchanged=[_SUITE]),
     )
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/tests/test_mod.py"])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
     assert "D2:test_mod.py" in t2
@@ -211,18 +192,14 @@ def test_suite_path_namespace_nested_file(suite_workspace, monkeypatch) -> None:
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+        _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert "D1:sub/test_deep.py" in _page(wiki).read_text(encoding="utf-8")
 
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/tests/sub/test_deep.py"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/tests/sub/test_deep.py"])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     t2 = _page(wiki).read_text(encoding="utf-8")
     assert "D2:sub/test_deep.py" in t2  # nested changed row re-described
@@ -245,18 +222,14 @@ def test_suite_no_narrate_keeps_cost_cache_and_anchor(suite_workspace, monkeypat
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
-        _fanout_spy(prose=lambda it: f"prose {it[0]}", descs=_descs_tagged(desc_tag)),
+        _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
 
     heads["v"] = "head2"
     desc_tag["v"] = "D2"
-    monkeypatch.setattr(
-        scan_mod,
-        "changed_files_since",
-        lambda repo, sha, sub: ["packages/pkg-a/tests/test_mod.py"],
-    )
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/tests/test_mod.py"])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
     t2 = _page(wiki).read_text(encoding="utf-8")
     assert "D1:test_mod.py" in t2  # NOT re-described (cost cache intact)

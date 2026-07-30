@@ -448,9 +448,9 @@ async def test_run_query_default_path_preserves_librarian_override_precedence(tm
 
 
 async def test_run_scan_model_override(tmp_path: Path) -> None:
-    """Phase 45 D-06/D-08: `run_scan(model_override=...)` builds the NARRATOR LLM
-    via make_llm("narrator", model_override=candidate) — NOT make_llm("narrator")
-    with no override.
+    """`run_scan(model_override=...)` builds the PROSE_REFRESHER LLM via
+    make_llm("prose_refresher", model_override=candidate) — NOT
+    make_llm("prose_refresher") with no override.
     """
     from types import SimpleNamespace
 
@@ -478,7 +478,8 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
         make_llm_calls.append((role, model_override))
         return narrator_instance
 
-    # write_entities returns one URI needing narration so the narrator pool fires.
+    # write_entities returns one URI needing a first fill so the prose_refresher
+    # fan-out fires.
     needy_uri = "pkg:agent-research/foo"
     fake_write_result = EntityWriteResult(
         created=[needy_uri],
@@ -492,8 +493,8 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
     fake_node = SimpleNamespace(name="foo", path="packages/foo", kind="package", attrs={"uri": needy_uri})
     fake_list_fns = {"package": lambda conn: [fake_node]}
 
-    # The split contract builds its worklist (and narrator fill_tasks) from on-disk
-    # entity pages, so the mocked write_entities must leave a placeholder page behind.
+    # The split contract builds its worklist (prose_tasks) from on-disk entity
+    # pages, so the mocked write_entities must leave a placeholder page behind.
     from wiki_io.entity_writer import short_filename as _short_filename
 
     def _write_entities_with_page(conn, wiki, admitted_kinds):
@@ -546,13 +547,25 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
                 return_value=_reader_mock,
             )
         )
-        # Phase 45: write_entities + narrator pool + inject_narrative.
+        # write_entities + prose pool + the (patched) refresh agent.
         stack.enter_context(
             patch(
                 "graph_wiki_core.commands.scan.write_entities",
                 side_effect=_write_entities_with_page,
             )
         )
+        from graph_wiki_core.commands.scan_contract import ProseRefreshResult
+
+        async def _fake_run_prose_refresh(*, llm, task, repo, wiki, graph_tools):
+            return ProseRefreshResult(uri=task.uri, sections={"## Narrative": "prose body"})
+
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan.run_prose_refresh",
+                side_effect=_fake_run_prose_refresh,
+            )
+        )
+        stack.enter_context(patch("graph_wiki_core.commands.scan.build_graph_tools", return_value=[]))
         stack.enter_context(
             patch(
                 "graph_wiki_core.commands.scan._kind_list_fns",
@@ -571,7 +584,7 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
                 return_value={"uri": needy_uri, "kind": "package"},
             )
         )
-        stack.enter_context(patch("graph_wiki_core.commands.scan.inject_narrative"))
+        stack.enter_context(patch("graph_wiki_core.commands.scan.replace_prose_sections", return_value=[]))
         stack.enter_context(
             patch(
                 "graph_wiki_core.commands.scan.generate_index",
@@ -596,13 +609,14 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
         await run_scan(workspace_path=vault, model_override=candidate, no_file_map=True)
 
-    # narrator built via make_llm with the candidate override.
-    assert ("narrator", candidate) in make_llm_calls, (
-        f"Expected make_llm('narrator', model_override={candidate!r}); got: {make_llm_calls}"
+    # prose_refresher built via make_llm with the candidate override.
+    assert ("prose_refresher", candidate) in make_llm_calls, (
+        f"Expected make_llm('prose_refresher', model_override={candidate!r}); got: {make_llm_calls}"
     )
-    # make_llm('narrator') with NO override must NOT have happened.
-    assert ("narrator", None) not in make_llm_calls, (
-        f"make_llm('narrator') with no override should not be called when model_override is set; got: {make_llm_calls}"
+    # make_llm('prose_refresher') with NO override must NOT have happened.
+    assert ("prose_refresher", None) not in make_llm_calls, (
+        f"make_llm('prose_refresher') with no override should not be called when "
+        f"model_override is set; got: {make_llm_calls}"
     )
 
 

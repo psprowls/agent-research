@@ -12,6 +12,8 @@ import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
 
+from ._spies import patch_repo_state
+
 _PKG_A = "pkg:org/repo/pkg-a"
 
 
@@ -70,36 +72,21 @@ def ws(tmp_path, monkeypatch):
 
 
 def _spy(verdict_fn, *, recorder: dict | None = None, propagate_verdict_fn=None):
-    """Async SubagentPool.run_all replacement covering all four roles.
+    """Async SubagentPool.run_all replacement covering the post-flip roles.
 
-    narrator -> prose; code_reader -> JSON filling every TODO row; drift_judge ->
-    verdict_fn(item); drift_propagator -> propagate_verdict_fn(item) (default
-    not-stale). When `recorder` is given, records the drift_judge / drift_propagator
-    items so a test can assert the judge was (not) called.
+    prose_refresher -> healthy ProseRefreshResult (narrative + TODO sections +
+    File-map rows filled); drift_judge -> verdict_fn(item); drift_propagator ->
+    propagate_verdict_fn(item) (default not-stale). When `recorder` is given,
+    records the dispatched items so a test can assert a role was (not) called.
     """
+    from ._spies import refresh_all_spy
 
-    async def _run_all(self, *, items, task, role, model_id, max_concurrency):
-        from subagent_runtime.pool import FanOutResult
-
-        result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, f"PROSE for {it[0]}") for it in items]
-        elif role == "code_reader":
-            import json as _json
-
-            result.successes = [(it, _json.dumps({p: f"desc {p}" for p in it[3]})) for it in items]
-        elif role == "drift_judge":
-            if recorder is not None:
-                recorder.setdefault("drift_items", []).extend(items)
-            result.successes = [(it, verdict_fn(it)) for it in items]
-        elif role == "drift_propagator":
-            if recorder is not None:
-                recorder.setdefault("propagate_items", []).extend(items)
-            fn = propagate_verdict_fn or (lambda it: {"stale": False, "findings": []})
-            result.successes = [(it, fn(it)) for it in items]
-        return result
-
-    return _run_all
+    return refresh_all_spy(
+        lambda t: f"PROSE for {t.uri}",
+        recorder=recorder,
+        verdict_fn=verdict_fn,
+        propagate_verdict_fn=propagate_verdict_fn,
+    )
 
 
 def _add_human_section(page: Path, heading: str, body: str) -> None:
@@ -107,50 +94,49 @@ def _add_human_section(page: Path, heading: str, body: str) -> None:
     page.write_text(text.rstrip("\n") + f"\n\n{heading}\n{body}\n", encoding="utf-8")
 
 
-def test_package_reader_fill_stamps_and_skips_on_rescan(ws, monkeypatch):
+def test_prose_refresher_fill_stamps_and_redispatches_on_unknown_anchor(ws, monkeypatch):
     wiki = ws / "wiki"
     repo = ws / "repo"
     heads = {"v": "head1"}
-    calls = {"package_reader": 0}
+    rec: dict = {}
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
-
-    async def fake_package_reader_pass(**kwargs):
-        calls["package_reader"] += 1
-        page = _page_for(wiki)
-        from wiki_io.human_sections import replace_todo_human_sections
-
-        changed = replace_todo_human_sections(page, {"Purpose": "Owns package-level scan orchestration."})
-        return ({_PKG_A} if changed else set(), [])
-
-    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))
+    monkeypatch.setattr(
+        scan_mod.SubagentPool,
+        "run_all",
+        _spy(lambda it: {"stale": False, "reason": ""}, recorder=rec),
+    )
 
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     page = _page_for(wiki)
     text = page.read_text(encoding="utf-8")
     meta = _fm.load(page).metadata
 
-    assert "## Purpose\nOwns package-level scan orchestration." in text
+    # The unified refresher filled the TODO human section and the page stamped.
+    assert "## Purpose\nFilled body for Purpose." in text
     assert meta["last_updated_commit"] == "head1"
     assert "drift_review" not in meta
-    assert calls["package_reader"] == 1
+    pkg_tasks = [x for x in rec.get("prose_tasks", []) if x.uri == _PKG_A]
+    assert len(pkg_tasks) == 1
 
     # plan decision (B): drift is judged against the emit-time anchor, so the page
     # narrated in scan 1 settles drift_checked_commit only on the next scan. This
-    # repo is not a real git tree, so changed_files_since returns None (unknown
-    # anchor) every scan → the page stays commit-dirty and re-narrates, so scan 2
-    # both re-runs package_reader and settles drift_checked_commit == head1.
+    # repo is not a real git tree, so the git probes report the anchor unknown
+    # every scan → the preserved-drop re-TODOs the File-map row and the page
+    # re-tasks (first_fill), so scan 2 both re-dispatches the refresher and
+    # settles drift_checked_commit == head1.
     _add_human_section(page, "## Behavior", "Curated behavior notes stay human-owned.")
 
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
 
     page = _page_for(wiki)
     rescan_meta = _fm.load(page).metadata
-    assert calls["package_reader"] == 2
+    pkg_tasks = [x for x in rec.get("prose_tasks", []) if x.uri == _PKG_A]
+    assert len(pkg_tasks) == 2
+    assert pkg_tasks[1].trigger == "first_fill"  # unknown anchor dropped a row -> re-fill
     assert rescan_meta["last_updated_commit"] == "head1"
     assert rescan_meta["drift_checked_commit"] == "head1"  # settled on the second scan
     assert "Curated behavior notes stay human-owned." in page.read_text(encoding="utf-8")
@@ -180,7 +166,7 @@ def test_renarrated_stale_section_is_flagged(ws, monkeypatch):
 
     # Scan 2: code changed (head2) -> re-narrate -> judge says stale.
     heads["v"] = "head2"
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
@@ -224,7 +210,7 @@ def test_already_checked_entity_skips_judge(ws, monkeypatch):
     # plan decision (B): the page narrated in scan 1 had no anchor at emit time,
     # so its drift is judged on the NEXT scan. A no-change scan settles
     # drift_checked_commit == last_updated_commit == head1.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     assert _fm.load(_page_for(wiki)).metadata["drift_checked_commit"] == "head1"
 
@@ -253,7 +239,7 @@ def test_fresh_verdict_no_flag_but_checked_advances(ws, monkeypatch):
     # plan decision (B): a page narrated this scan has no anchor at emit time, so
     # its drift is judged the NEXT scan (emit-time ground truth). A second no-change
     # scan settles drift_checked_commit.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     meta = _fm.load(_page_for(wiki)).metadata
     assert "drift_review" not in meta
@@ -282,7 +268,7 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head2"},
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
@@ -300,7 +286,7 @@ def test_auto_clear_on_edit_no_judge_call(ws, monkeypatch):
     # at the head1 anchor while last_updated_commit advanced to head2 — the page is
     # still drift-lagging. A no-change settling scan re-judges against head2 and
     # advances drift_checked_commit to head2 (Behavior stays flagged, stale prose).
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
@@ -398,7 +384,7 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head2"},
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda repo, sha, sub: ["packages/pkg-a/mod.py"])
+    patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
@@ -415,7 +401,7 @@ def test_ack_drift_clears_without_edit(ws, monkeypatch):
     # last_updated_commit advanced to head2 — the page still lags. A no-change
     # settling scan re-judges against head2 and advances drift_checked_commit to
     # head2 so the page is genuinely settled before the ack.
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=ws, repo_path=repo, narrate=True))
     assert _fm.load(_page_for(wiki)).metadata["drift_checked_commit"] == "head2"
 
@@ -496,7 +482,7 @@ def test_scan_propagate_drift_off_by_default(ws, monkeypatch):
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a, **k: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
     rec = {}
     monkeypatch.setattr(
         scan_mod.SubagentPool,
@@ -534,7 +520,7 @@ def test_scan_propagate_drift_on_runs_producer(ws, monkeypatch):
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
-    monkeypatch.setattr(scan_mod, "changed_files_since", lambda *a, **k: [])
+    patch_repo_state(monkeypatch, scan_mod, [])
 
     # Scan 1: create + stamp the entity page (last_updated_commit=head1).
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _spy(lambda it: {"stale": False, "reason": ""}))

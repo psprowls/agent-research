@@ -1,6 +1,8 @@
 """Unit tests for the scan command (Plan 05-04).
 
-Requirements covered: CMD-02, MCP-03.
+Requirements covered: CMD-02, MCP-03. Post-flip, the four prose fan-outs
+(narrator / code_reader / synthesizer / package_reader) are ONE
+``role == "prose_refresher"`` dispatch whose items are ProseRefreshTasks.
 """
 
 from __future__ import annotations
@@ -76,7 +78,7 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
     assert mock_build.call_args.args[0] == fake_repo.resolve()
 
 
-def test_run_scan_no_narrate_does_not_call_package_reader(monkeypatch, tmp_path: Path) -> None:
+def test_run_scan_no_narrate_does_not_run_prose_refresh(monkeypatch, tmp_path: Path) -> None:
     import asyncio
 
     import graph_wiki_core.commands.scan as scan_mod
@@ -107,106 +109,24 @@ def test_run_scan_no_narrate_does_not_call_package_reader(monkeypatch, tmp_path:
     monkeypatch.setattr(scan_mod, "generate_index", lambda wiki, conn: None)
     monkeypatch.setattr(scan_mod, "regenerate_referenced_in_wiki", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
-    assert hasattr(scan_mod, "_run_package_reader_pass")
+    assert hasattr(scan_mod, "run_prose_refresh")
 
-    def explode_package_reader(*args, **kwargs):
-        raise AssertionError("package_reader must not run when narrate=False")
+    def explode_prose_refresh(*args, **kwargs):
+        raise AssertionError("prose_refresher must not run when narrate=False")
 
-    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", explode_package_reader)
+    monkeypatch.setattr(scan_mod, "run_prose_refresh", explode_prose_refresh)
 
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
 
 
-async def test_run_package_reader_pass_keeps_page_load_errors_best_effort(monkeypatch, tmp_path: Path) -> None:
-    import graph_wiki_core.commands.scan as scan_mod
-
-    wiki = tmp_path / "workspace" / "wiki"
-    repo = tmp_path / "workspace" / "repo"
-    wiki.mkdir(parents=True)
-    repo.mkdir()
-
-    missing_page = wiki / "entities" / "missing.md"
-    valid_page = wiki / "entities" / "valid.md"
-    valid_page.parent.mkdir(parents=True, exist_ok=True)
-    valid_page.write_text(
-        "---\nkind: package\nuri: package:valid\ntitle: Valid Package\n---\n\n## Narrative\nAlready filled prose.\n",
-        encoding="utf-8",
-    )
-    seen_paths: list[Path] = []
-    real_frontmatter_load = scan_mod.frontmatter.load
-
-    def tracking_frontmatter_load(path):
-        seen_paths.append(Path(path))
-        return real_frontmatter_load(path)
-
-    class _UnusedPool:
-        def __init__(self, *args, **kwargs) -> None:
-            raise AssertionError("pool should not be constructed when there are no valid TODO items")
-
-    monkeypatch.setattr(scan_mod.frontmatter, "load", tracking_frontmatter_load)
-    monkeypatch.setattr(
-        scan_mod,
-        "_bedrock_stack",
-        lambda: (
-            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
-            lambda role, model_override=None: object(),
-            _UnusedPool,
-            object,
-        ),
-    )
-
-    filled, errors = await scan_mod._run_package_reader_pass(
-        wiki=wiki,
-        repo=repo,
-        reader=None,
-        model_override=None,
-        candidate_pages={
-            "package:missing": scan_mod._PackageReaderCandidate(page_path=missing_page),
-            "package:valid": scan_mod._PackageReaderCandidate(page_path=valid_page),
-        },
-    )
-
-    assert filled == set()
-    assert seen_paths == [missing_page, valid_page]
-    assert errors == [
-        "package:missing: package_reader page load failed: FileNotFoundError(2, 'No such file or directory')"
-    ]
+# ---------------------------------------------------------------------------
+# Provider fan-out: ProseRefreshTask shape (entity_root / graph_path routing)
+# ---------------------------------------------------------------------------
 
 
-async def test_run_package_reader_pass_uses_graph_path_for_entity_root(monkeypatch, tmp_path: Path) -> None:
-    import graph_wiki_core.commands.scan as scan_mod
-    from graph_wiki_core.commands.package_reader import PackageReaderResult
-
-    wiki = tmp_path / "workspace" / "wiki"
-    repo = tmp_path / "workspace" / "repo"
-    wiki.mkdir(parents=True)
-    repo.mkdir()
-
-    page = wiki / "entities" / "pkg-a.md"
-    page.parent.mkdir(parents=True, exist_ok=True)
-    page.write_text(
-        "---\n"
-        "kind: package\n"
-        "uri: pkg:org/repo/pkg-a\n"
-        "title: pkg-a\n"
-        "language: python\n"
-        "---\n\n"
-        "# pkg-a\n\n"
-        "## Purpose\n"
-        "> TODO: explain why this package exists.\n\n"
-        "## Narrative\n"
-        "Scanner prose.\n",
-        encoding="utf-8",
-    )
-    captured_entity_roots: list[str] = []
-
-    async def fake_run_package_reader(*, llm, item, repo, wiki, graph_tools):
-        captured_entity_roots.append(item.entity_root)
-        return PackageReaderResult(
-            status="ok",
-            replacements={"Purpose": "Owns package-level scan orchestration."},
-            error=None,
-        )
+def _awaiting_fake_pool():
+    """FakePool whose run_all actually awaits task(item) — so the provider's
+    refresh coroutine (and the patched run_prose_refresh) runs."""
 
     class _FakeTaskResult:
         def __init__(self, value, response) -> None:
@@ -223,6 +143,8 @@ async def test_run_package_reader_pass_uses_graph_path_for_entity_root(monkeypat
                     self.successes = successes
                     self.errors = errors
 
+            if role != "prose_refresher":
+                return _Result(successes=[], errors=[])
             successes = []
             for item in items:
                 task_result = await task(item)
@@ -230,213 +152,16 @@ async def test_run_package_reader_pass_uses_graph_path_for_entity_root(monkeypat
                 successes.append((item, payload))
             return _Result(successes=successes, errors=[])
 
-    monkeypatch.setattr(scan_mod, "run_package_reader", fake_run_package_reader)
-    monkeypatch.setattr(
-        scan_mod,
-        "_bedrock_stack",
-        lambda: (
-            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
-            lambda role, model_override=None: object(),
-            _FakePool,
-            _FakeTaskResult,
-        ),
-    )
-
-    filled, errors = await scan_mod._run_package_reader_pass(
-        wiki=wiki,
-        repo=repo,
-        reader=None,
-        model_override=None,
-        candidate_pages={
-            "pkg:org/repo/pkg-a": scan_mod._PackageReaderCandidate(
-                page_path=page,
-                graph_path="packages/pkg-a",
-                kind="package",
-                name="pkg-a",
-                language="python",
-            )
-        },
-    )
-
-    assert captured_entity_roots == ["packages/pkg-a"]
-    assert filled == {"pkg:org/repo/pkg-a"}
-    assert errors == []
-    assert "## Purpose\nOwns package-level scan orchestration.\n" in page.read_text(encoding="utf-8")
+    return _FakePool, _FakeTaskResult
 
 
-async def test_run_package_reader_pass_requires_candidate_graph_path(monkeypatch, tmp_path: Path) -> None:
-    import graph_wiki_core.commands.scan as scan_mod
-
-    wiki = tmp_path / "workspace" / "wiki"
-    repo = tmp_path / "workspace" / "repo"
-    wiki.mkdir(parents=True)
-    repo.mkdir()
-
-    page = wiki / "entities" / "pkg-a.md"
-    page.parent.mkdir(parents=True, exist_ok=True)
-    page.write_text(
-        "---\n"
-        "kind: package\n"
-        "uri: pkg:org/repo/pkg-a\n"
-        "path: wiki/entities/wrong.md\n"
-        "graph_path: wrong/frontmatter/value\n"
-        "---\n\n"
-        "# pkg-a\n\n"
-        "## Purpose\n"
-        "> TODO: explain why this package exists.\n\n"
-        "## Narrative\n"
-        "Scanner prose.\n",
-        encoding="utf-8",
-    )
-
-    class _UnusedPool:
-        def __init__(self, *args, **kwargs) -> None:
-            raise AssertionError("pool should not be constructed when candidate graph_path is missing")
-
-    monkeypatch.setattr(
-        scan_mod,
-        "_bedrock_stack",
-        lambda: (
-            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
-            lambda role, model_override=None: object(),
-            _UnusedPool,
-            object,
-        ),
-    )
-
-    filled, errors = await scan_mod._run_package_reader_pass(
-        wiki=wiki,
-        repo=repo,
-        reader=None,
-        model_override=None,
-        candidate_pages={
-            "pkg:org/repo/pkg-a": scan_mod._PackageReaderCandidate(page_path=page),
-        },
-    )
-
-    assert filled == set()
-    assert errors == ["pkg:org/repo/pkg-a: package_reader missing graph path"]
-
-
-async def test_run_package_reader_pass_accepts_root_path_sentinel(monkeypatch, tmp_path: Path) -> None:
-    import graph_wiki_core.commands.scan as scan_mod
-    from graph_wiki_core.commands.package_reader import PackageReaderResult
-
-    wiki = tmp_path / "workspace" / "wiki"
-    repo = tmp_path / "workspace" / "repo"
-    wiki.mkdir(parents=True)
-    repo.mkdir()
-
-    page = wiki / "entities" / "pkg-root.md"
-    page.parent.mkdir(parents=True, exist_ok=True)
-    page.write_text(
-        "---\n"
-        "kind: package\n"
-        "uri: pkg:org/repo/root\n"
-        "title: repo-root\n"
-        "language: python\n"
-        "---\n\n"
-        "# repo-root\n\n"
-        "## Purpose\n"
-        "> TODO: explain why this package exists.\n\n"
-        "## Narrative\n"
-        "Scanner prose.\n",
-        encoding="utf-8",
-    )
-    captured_entity_roots: list[str] = []
-
-    async def fake_run_package_reader(*, llm, item, repo, wiki, graph_tools):
-        captured_entity_roots.append(item.entity_root)
-        return PackageReaderResult(
-            status="ok",
-            replacements={"Purpose": "Owns the whole repository."},
-            error=None,
-        )
-
-    class _FakeTaskResult:
-        def __init__(self, value, response) -> None:
-            self.value = value
-            self.response = response
-
-    class _FakePool:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-        async def run_all(self, *, items, task, role, model_id, max_concurrency):
-            class _Result:
-                def __init__(self, successes, errors) -> None:
-                    self.successes = successes
-                    self.errors = errors
-
-            successes = []
-            for item in items:
-                task_result = await task(item)
-                payload = getattr(task_result, "value", task_result)
-                successes.append((item, payload))
-            return _Result(successes=successes, errors=[])
-
-    monkeypatch.setattr(scan_mod, "run_package_reader", fake_run_package_reader)
-    monkeypatch.setattr(
-        scan_mod,
-        "_bedrock_stack",
-        lambda: (
-            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
-            lambda role, model_override=None: object(),
-            _FakePool,
-            _FakeTaskResult,
-        ),
-    )
-
-    filled, errors = await scan_mod._run_package_reader_pass(
-        wiki=wiki,
-        repo=repo,
-        reader=None,
-        model_override=None,
-        candidate_pages={
-            "pkg:org/repo/root": scan_mod._PackageReaderCandidate(
-                page_path=page,
-                graph_path="",
-                kind="package",
-                name="repo-root",
-                language="python",
-            )
-        },
-    )
-
-    assert captured_entity_roots == [""]
-    assert filled == {"pkg:org/repo/root"}
-    assert errors == []
-
-
-def test_record_package_reader_candidate_keeps_root_path_sentinel() -> None:
-    import graph_wiki_core.commands.scan as scan_mod
-
-    candidates: dict[str, scan_mod._PackageReaderCandidate] = {}
-    root_candidate = scan_mod._PackageReaderCandidate(
-        page_path=Path("wiki/entities/root.md"),
-        graph_path="",
-        kind="package",
-        name="root",
-        language="python",
-    )
-    later_candidate = scan_mod._PackageReaderCandidate(
-        page_path=Path("wiki/entities/root.md"),
-        graph_path="wrong/other",
-        kind="package",
-        name="root",
-        language="python",
-    )
-
-    scan_mod._record_package_reader_candidate(candidates, uri="pkg:org/repo/root", candidate=root_candidate)
-    scan_mod._record_package_reader_candidate(candidates, uri="pkg:org/repo/root", candidate=later_candidate)
-
-    assert candidates["pkg:org/repo/root"] is root_candidate
-
-
-async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatch, tmp_path: Path) -> None:
+async def _run_scan_capturing_tasks(monkeypatch, tmp_path: Path, *, node_path: str, uri: str) -> list:
+    """Drive run_scan over one faked package node; return the ProseRefreshTasks
+    handed to run_prose_refresh."""
     from types import SimpleNamespace
 
     import graph_wiki_core.commands.scan as scan_mod
+    from graph_wiki_core.commands.scan_contract import ProseRefreshResult
 
     workspace = tmp_path / "workspace"
     wiki = workspace / "wiki"
@@ -445,14 +170,13 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
     repo.mkdir()
     (wiki / "log.md").write_text("", encoding="utf-8")
 
-    uri = "pkg:org/repo/pkg-a"
     node = SimpleNamespace(
         name="pkg-a",
-        path="packages/pkg-a",
+        path=node_path,
         kind="package",
         attrs={"uri": uri, "language": "python"},
     )
-    captured_candidates: dict[str, object] = {}
+    captured_tasks: list = []
 
     class _FakeConn:
         def close(self) -> None:
@@ -461,45 +185,11 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
         def list_test_suites(self):
             return []
 
-    class _FakePool:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
+    fake_pool_cls, fake_task_result = _awaiting_fake_pool()
 
-        async def run_all(self, *, items, task, role, model_id, max_concurrency):
-            class _Result:
-                def __init__(self, successes, errors) -> None:
-                    self.successes = successes
-                    self.errors = errors
-
-            if role == "narrator":
-                return _Result(successes=[(items[0], "Narrated prose.")], errors=[])
-            raise AssertionError(f"unexpected role: {role}")
-
-    class _FakeTaskResult:
-        def __init__(self, value, response) -> None:
-            self.value = value
-            self.response = response
-
-    def fake_inject_narrative(page_path: Path, prose: str) -> None:
-        page_path.parent.mkdir(parents=True, exist_ok=True)
-        page_path.write_text(
-            "---\n"
-            f"uri: {uri}\n"
-            "kind: package\n"
-            "path: wiki/entities/wrong.md\n"
-            "graph_path: wrong/frontmatter/value\n"
-            "---\n\n"
-            "# pkg-a\n\n"
-            "## Purpose\n"
-            "> TODO: explain why this package exists.\n\n"
-            "## Narrative\n"
-            f"{prose}\n",
-            encoding="utf-8",
-        )
-
-    async def fake_package_reader_pass(*, wiki, repo, reader, model_override, candidate_pages):
-        captured_candidates.update(candidate_pages)
-        return set(), []
+    async def fake_run_prose_refresh(*, llm, task, repo, wiki, graph_tools):
+        captured_tasks.append(task)
+        return ProseRefreshResult(uri=task.uri, sections={"## Narrative": "Narrated prose."})
 
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
     monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (0, "", ""))
@@ -517,8 +207,8 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
     )
 
     def _fake_write_entities(conn, wiki, admitted_kinds):
-        # The contract builds its worklist (and package_reader candidates) from
-        # on-disk entity pages, so write_entities must leave a real page behind.
+        # The contract builds its worklist from on-disk entity pages, so
+        # write_entities must leave a real (placeholder) page behind.
         from wiki_io.entity_writer import short_filename
 
         page = wiki / "entities" / f"{short_filename(uri, frozenset())}.md"
@@ -542,150 +232,9 @@ async def test_run_scan_passes_node_path_to_package_reader_candidates(monkeypatc
     monkeypatch.setattr(scan_mod, "_kind_list_fns", lambda: {"package": lambda conn: [node]})
     monkeypatch.setattr(scan_mod, "scanner_frontmatter_for_node", lambda conn, kind, node: {"uri": uri, "kind": kind})
     monkeypatch.setattr(scan_mod, "_compute_collision_set", lambda *args, **kwargs: frozenset())
-    monkeypatch.setattr(scan_mod, "inject_narrative", fake_inject_narrative)
     monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
-    monkeypatch.setattr(scan_mod, "_drift_flag_pass", AsyncMock())
-    monkeypatch.setattr(scan_mod, "_drift_clear_pass", lambda wiki: None)
-    monkeypatch.setattr(scan_mod, "update_index", lambda wiki: None)
-    monkeypatch.setattr(
-        scan_mod,
-        "generate_index",
-        lambda conn, wiki, display_name: SimpleNamespace(changed=False, bytes_written=0),
-    )
-    monkeypatch.setattr(scan_mod, "regenerate_referenced_in_wiki", lambda wiki: [])
-    monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_mod, "file_map_todo_paths", lambda page_path: [])
-    monkeypatch.setattr(
-        scan_mod,
-        "_bedrock_stack",
-        lambda: (
-            lambda role: {"model_id": "fake-model", "max_concurrency": 1},
-            lambda role, model_override=None: object(),
-            _FakePool,
-            _FakeTaskResult,
-        ),
-    )
-
-    await scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-
-    candidate = captured_candidates[uri]
-    assert candidate.graph_path == "packages/pkg-a"
-
-
-async def test_run_scan_passes_root_path_sentinel_to_package_reader_candidates(monkeypatch, tmp_path: Path) -> None:
-    from types import SimpleNamespace
-
-    import graph_wiki_core.commands.scan as scan_mod
-
-    workspace = tmp_path / "workspace"
-    wiki = workspace / "wiki"
-    repo = workspace / "repo"
-    wiki.mkdir(parents=True)
-    repo.mkdir()
-    (wiki / "log.md").write_text("", encoding="utf-8")
-
-    uri = "pkg:org/repo/root"
-    node = SimpleNamespace(
-        name="root",
-        path="",
-        kind="package",
-        attrs={"uri": uri, "language": "python"},
-    )
-    captured_candidates: dict[str, object] = {}
-
-    class _FakeConn:
-        def close(self) -> None:
-            return None
-
-        def list_test_suites(self):
-            return []
-
-    class _FakePool:
-        def __init__(self, *args, **kwargs) -> None:
-            pass
-
-        async def run_all(self, *, items, task, role, model_id, max_concurrency):
-            class _Result:
-                def __init__(self, successes, errors) -> None:
-                    self.successes = successes
-                    self.errors = errors
-
-            if role == "narrator":
-                return _Result(successes=[(items[0], "Narrated prose.")], errors=[])
-            raise AssertionError(f"unexpected role: {role}")
-
-    class _FakeTaskResult:
-        def __init__(self, value, response) -> None:
-            self.value = value
-            self.response = response
-
-    def fake_inject_narrative(page_path: Path, prose: str) -> None:
-        page_path.parent.mkdir(parents=True, exist_ok=True)
-        page_path.write_text(
-            "---\n"
-            f"uri: {uri}\n"
-            "kind: package\n"
-            "path: wiki/entities/wrong.md\n"
-            "graph_path: wrong/frontmatter/value\n"
-            "---\n\n"
-            "# root\n\n"
-            "## Purpose\n"
-            "> TODO: explain why this package exists.\n\n"
-            "## Narrative\n"
-            f"{prose}\n",
-            encoding="utf-8",
-        )
-
-    async def fake_package_reader_pass(*, wiki, repo, reader, model_override, candidate_pages):
-        captured_candidates.update(candidate_pages)
-        return set(), []
-
-    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
-    monkeypatch.setattr(scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (0, "", ""))
-    # The split contract opens its own read-only conn (DB-existence guarded), so a
-    # placeholder code.db must exist for the FakeConn to be used.
-    from workspace_io.paths import graph_dir as _graph_dir
-
-    (_graph_dir(workspace)).mkdir(parents=True, exist_ok=True)
-    (_graph_dir(workspace) / "code.db").write_bytes(b"")
-    monkeypatch.setattr(scan_mod, "open_reader", lambda path: _FakeConn())
-    monkeypatch.setattr(
-        scan_mod,
-        "compute_state_gate",
-        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "abc"},
-    )
-
-    def _fake_write_entities(conn, wiki, admitted_kinds):
-        # The contract builds its worklist (and package_reader candidates) from
-        # on-disk entity pages, so write_entities must leave a real page behind.
-        from wiki_io.entity_writer import short_filename
-
-        page = wiki / "entities" / f"{short_filename(uri, frozenset())}.md"
-        page.parent.mkdir(parents=True, exist_ok=True)
-        page.write_text(
-            f"---\nuri: {uri}\nkind: package\n---\n\n# root\n\n"
-            "## Purpose\n> TODO: explain why this package exists.\n\n"
-            "## Narrative\n_(scanner will populate on next scan)_\n",
-            encoding="utf-8",
-        )
-        return SimpleNamespace(
-            created={uri},
-            updated=set(),
-            deleted=set(),
-            needs_narrative={uri},
-            errors=[],
-        )
-
-    monkeypatch.setattr(scan_mod, "write_entities", _fake_write_entities)
-    monkeypatch.setattr(scan_mod, "_commit_dirty_changes", lambda *args, **kwargs: {})
-    monkeypatch.setattr(scan_mod, "_kind_list_fns", lambda: {"package": lambda conn: [node]})
-    monkeypatch.setattr(scan_mod, "scanner_frontmatter_for_node", lambda conn, kind, node: {"uri": uri, "kind": kind})
-    monkeypatch.setattr(scan_mod, "_compute_collision_set", lambda *args, **kwargs: frozenset())
-    monkeypatch.setattr(scan_mod, "inject_narrative", fake_inject_narrative)
-    monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
-    monkeypatch.setattr(scan_mod, "_drift_flag_pass", AsyncMock())
+    monkeypatch.setattr(scan_mod, "build_graph_tools", lambda reader: [])
+    monkeypatch.setattr(scan_mod, "run_prose_refresh", fake_run_prose_refresh)
     monkeypatch.setattr(scan_mod, "_drift_clear_pass", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "update_index", lambda wiki: None)
     monkeypatch.setattr(
@@ -696,30 +245,48 @@ async def test_run_scan_passes_root_path_sentinel_to_package_reader_candidates(m
     monkeypatch.setattr(scan_mod, "regenerate_referenced_in_wiki", lambda wiki: [])
     monkeypatch.setattr(scan_mod, "regen_indexes_and_backlinks", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_mod, "file_map_todo_paths", lambda page_path: [])
     monkeypatch.setattr(
         scan_mod,
         "_bedrock_stack",
         lambda: (
             lambda role: {"model_id": "fake-model", "max_concurrency": 1},
             lambda role, model_override=None: object(),
-            _FakePool,
-            _FakeTaskResult,
+            fake_pool_cls,
+            fake_task_result,
         ),
     )
 
     await scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True)
-
-    candidate = captured_candidates[uri]
-    assert candidate.graph_path == ""
+    return captured_tasks
 
 
-def test_package_reader_errors_join_scan_result(monkeypatch, tmp_path: Path) -> None:
+async def test_run_scan_passes_node_path_to_prose_refresh_task(monkeypatch, tmp_path: Path) -> None:
+    uri = "pkg:org/repo/pkg-a"
+    tasks = await _run_scan_capturing_tasks(monkeypatch, tmp_path, node_path="packages/pkg-a", uri=uri)
+    task = next(t for t in tasks if t.uri == uri)
+    assert task.graph_path == "packages/pkg-a"
+    assert task.entity_root == "packages/pkg-a"
+    assert task.trigger == "first_fill"
+    assert "## Narrative" in task.prose_sections
+
+
+async def test_run_scan_passes_root_path_sentinel_to_prose_refresh_task(monkeypatch, tmp_path: Path) -> None:
+    """A root-path package (node.path == "") keeps the empty-string sentinel as
+    graph_path/entity_root (tool-rooting at the repo root)."""
+    uri = "pkg:org/repo/root"
+    tasks = await _run_scan_capturing_tasks(monkeypatch, tmp_path, node_path="", uri=uri)
+    task = next(t for t in tasks if t.uri == uri)
+    assert task.graph_path == ""
+    assert task.entity_root == ""
+
+
+def test_prose_refresher_errors_join_scan_result(monkeypatch, tmp_path: Path) -> None:
     import asyncio
     import sqlite3
 
     import graph_wiki_core.commands.scan as scan_mod
     from graph_io import exit_codes, schema
+    from graph_wiki_core.commands.scan_contract import ProseRefreshResult
     from workspace_io.paths import graph_dir
 
     workspace = tmp_path / "workspace"
@@ -759,18 +326,18 @@ def test_package_reader_errors_join_scan_result(monkeypatch, tmp_path: Path) -> 
         from subagent_runtime.pool import FanOutResult
 
         result = FanOutResult()
-        if role == "narrator":
-            result.successes = [(it, f"PROSE for {it[0]}") for it in items]
+        if role == "prose_refresher":
+            result.successes = [(t, ProseRefreshResult(uri=t.uri, error="invalid JSON")) for t in items]
         elif role == "drift_judge":
             result.successes = [(it, {"stale": False, "reason": ""}) for it in items]
         return result
 
-    async def fake_package_reader_pass(**kwargs):
-        return set(), ["pkg:org/repo/pkg-a: invalid JSON"]
-
     monkeypatch.setattr(scan_mod.SubagentPool, "run_all", fake_run_all)
-    monkeypatch.setattr(scan_mod, "_run_package_reader_pass", fake_package_reader_pass)
+    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: object())
 
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 
-    assert result.entity_errors == ["pkg:org/repo/pkg-a: invalid JSON"]
+    assert result.entity_errors == [
+        "pkg:org/repo/pkg-a: invalid JSON",
+        "repo:org/repo: invalid JSON",
+    ]

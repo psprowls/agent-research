@@ -19,7 +19,6 @@ stubbed SubagentPool.run_all that returns an empty FanOutResult — no Bedrock.
 from __future__ import annotations
 
 import asyncio
-import json
 import re
 import sqlite3
 from pathlib import Path
@@ -665,18 +664,20 @@ def test_code_reader_fanout_fills_todo_descriptions(tmp_workspace_with_packages,
         lambda path, **kw: pkg_a_block if str(path).endswith("pkg-a") else None,
     )
 
-    # Override the autouse empty-pool stub: the code_reader pool returns a
-    # {path: description} JSON for each item's todo paths; the narrator pool
-    # (role != code_reader) stays empty.
+    # Override the autouse empty-pool stub: the prose_refresher fan-out answers
+    # each task with the File-map descriptions for its page's TODO rows.
+    from graph_wiki_core.commands.scan_contract import ProseRefreshResult
     from subagent_runtime.pool import FanOutResult
+    from wiki_io.entity_writer import file_map_todo_paths as _todo
 
     async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
         res = FanOutResult()
-        if role == "code_reader":
-            for it in items:
-                _uri, _ws, _page, todo_paths = it
-                obj = {p: f"desc for {p}" for p in todo_paths}
-                res.successes.append((it, json.dumps(obj)))
+        if role == "prose_refresher":
+            for t in items:
+                todo_paths = _todo(Path(t.page_path))
+                res.successes.append(
+                    (t, ProseRefreshResult(uri=t.uri, file_map_descriptions={p: f"desc for {p}" for p in todo_paths}))
+                )
         return res
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
@@ -740,18 +741,20 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(tmp_workspace_with
         lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
     )
 
-    # Override the autouse empty-pool stub: the code_reader pool returns a
-    # {path: description} JSON for each item's todo paths; the narrator pool
-    # (role != code_reader) stays empty.
+    # Override the autouse empty-pool stub: the prose_refresher fan-out answers
+    # each task with the File-map descriptions for its page's TODO rows.
+    from graph_wiki_core.commands.scan_contract import ProseRefreshResult
     from subagent_runtime.pool import FanOutResult
+    from wiki_io.entity_writer import file_map_todo_paths as _todo
 
     async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
         res = FanOutResult()
-        if role == "code_reader":
-            for it in items:
-                _uri, _ws, _page, todo_paths = it
-                obj = {p: f"desc for {p}" for p in todo_paths}
-                res.successes.append((it, json.dumps(obj)))
+        if role == "prose_refresher":
+            for t in items:
+                todo_paths = _todo(Path(t.page_path))
+                res.successes.append(
+                    (t, ProseRefreshResult(uri=t.uri, file_map_descriptions={p: f"desc for {p}" for p in todo_paths}))
+                )
         return res
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
@@ -841,70 +844,6 @@ async def test_app_file_map_descriptions_survive_rescan(tmp_workspace_with_packa
     )
     # The un-filled row remains a — TODO placeholder.
     assert "| `pyproject.toml` | file | — TODO |" in text2
-
-
-@pytest.mark.asyncio
-async def test_description_fill_log_uses_entity_noun(tmp_workspace_with_packages, monkeypatch):
-    """Step 10c log wording: the `file descriptions filled` line must read
-    `entity(s)`, not `package(s)`, now that apps share the path. Asserts against
-    the real log.md (append_log is unpatched in this module).
-    """
-    workspace = tmp_workspace_with_packages
-    wiki = workspace / "wiki"
-    repo = workspace / "repo"
-
-    db = workspace / ".graph-wiki" / "code.db"
-    _seed_app_graph(db)
-
-    monkeypatch.setattr(
-        scan_module, "_cg_run_build", lambda repo, workspace, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
-    )
-
-    app_x_block = (
-        "## File map - app-x\n"
-        "TODO — overview of this app's tree.\n"
-        "\n"
-        "### app-x/\n"
-        "TODO — describe what this directory contains.\n"
-        "\n"
-        "| Path | Kind | Description |\n"
-        "|---|---|---|\n"
-        "| `pyproject.toml` | file | — TODO |\n"
-    )
-
-    monkeypatch.setattr(
-        scan_module,
-        "compute_state_gate",
-        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "x"},
-    )
-    # Step 10b now sources file-map text via build_file_map(repo / node.path).
-    # No real git repo in this fixture — mock returns the expected block for app-x.
-    monkeypatch.setattr(
-        scan_module,
-        "build_file_map",
-        lambda path, **kw: app_x_block if str(path).endswith("app-x") else None,
-    )
-
-    from subagent_runtime.pool import FanOutResult
-
-    async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
-        res = FanOutResult()
-        if role == "code_reader":
-            for it in items:
-                _uri, _ws, _page, todo_paths = it
-                obj = {p: f"desc for {p}" for p in todo_paths}
-                res.successes.append((it, json.dumps(obj)))
-        return res
-
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
-
-    await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
-
-    log_text = (wiki / "log.md").read_text(encoding="utf-8")
-    assert "file descriptions filled:" in log_text, f"description-fill log line missing; log:\n{log_text}"
-    fill_line = next(line for line in log_text.splitlines() if "file descriptions filled:" in line)
-    assert "entity(s)" in fill_line, f"expected 'entity(s)' noun; got: {fill_line!r}"
-    assert "package(s)" not in fill_line, f"stale 'package(s)' noun; got: {fill_line!r}"
 
 
 def _seed_test_suite_graph(db_path: Path) -> None:
@@ -1054,31 +993,34 @@ async def test_code_reader_fills_test_suite_todo_descriptions(tmp_workspace_with
     )
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
+    from graph_wiki_core.commands.scan_contract import ProseRefreshResult
     from subagent_runtime.pool import FanOutResult
+    from wiki_io.entity_writer import file_map_todo_paths as _todo
 
     captured_paths: dict = {}
 
     async def _role_aware_run_all(self, *, items, task, role, model_id, max_concurrency):
         res = FanOutResult()
-        if role == "code_reader":
-            for it in items:
-                uri_inner, ws_dict, _page, todo_paths = it
-                captured_paths[uri_inner] = (ws_dict, list(todo_paths))
-                obj = {p: f"desc for {p}" for p in todo_paths}
-                res.successes.append((it, json.dumps(obj)))
+        if role == "prose_refresher":
+            for t in items:
+                todo_paths = _todo(Path(t.page_path))
+                captured_paths[t.uri] = (t, list(todo_paths))
+                res.successes.append(
+                    (t, ProseRefreshResult(uri=t.uri, file_map_descriptions={p: f"desc for {p}" for p in todo_paths}))
+                )
         return res
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
 
     await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
-    # The suite was routed into the code_reader pool with a synthesized dict.
+    # The suite was routed into the prose_refresher pool as a ProseRefreshTask.
     suite_uri = "test_suite:org/repo/pkg-a/tests"
-    assert suite_uri in captured_paths, f"suite not dispatched to describer; got {captured_paths}"
-    ws_dict, todo = captured_paths[suite_uri]
-    assert ws_dict["type"] == "test_suite"
-    assert ws_dict["path"] == "packages/pkg-a/tests"
-    assert ws_dict["language"] == "python"
+    assert suite_uri in captured_paths, f"suite not dispatched to refresher; got {captured_paths}"
+    suite_task, todo = captured_paths[suite_uri]
+    assert suite_task.kind == "test_suite"
+    assert suite_task.graph_path == "packages/pkg-a/tests"
+    assert suite_task.language == "python"
     assert set(todo) == {"conftest.py", "test_pkg_a.py"}
 
     text = (wiki / "entities" / "unit_tests_pkg-a.md").read_text(encoding="utf-8")
@@ -1125,12 +1067,14 @@ async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_wit
     monkeypatch.setattr(scan_module, "build_file_map", lambda *a, **kw: None)
 
     from subagent_runtime.pool import FanOutResult
+    from wiki_io.entity_writer import file_map_todo_paths as _todo
 
-    code_reader_dispatches: list[list] = []
+    # [uri, todo-paths-at-dispatch] per prose_refresher task.
+    refresher_dispatches: list[tuple[str, list[str]]] = []
 
     async def _recording_run_all(self, *, items, task, role, model_id, max_concurrency):
-        if role == "code_reader":
-            code_reader_dispatches.append([it[0] for it in items])
+        if role == "prose_refresher":
+            refresher_dispatches.extend((t.uri, _todo(Path(t.page_path))) for t in items)
         return FanOutResult()
 
     monkeypatch.setattr(scan_module.SubagentPool, "run_all", _recording_run_all)
@@ -1156,7 +1100,7 @@ async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_wit
     )
     suite_page.write_text(filled, encoding="utf-8")
 
-    code_reader_dispatches.clear()
+    refresher_dispatches.clear()
 
     # Scan 2: write_entities re-renders the body; snapshot+merge must restore both.
     await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
@@ -1170,10 +1114,12 @@ async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_wit
     )
     assert "— TODO" not in text2
 
-    # A fully-described suite has no TODO paths → no code_reader dispatch at all.
-    flat = [uri for batch in code_reader_dispatches for uri in batch]
-    assert "test_suite:org/repo/pkg-a/tests" not in flat, (
-        f"fully-described suite should trigger no describer call; dispatches={code_reader_dispatches}"
+    # A fully-described suite has no TODO paths — the unified refresher may
+    # still be dispatched (placeholder narrative), but no File-map row is ever
+    # re-queued for description.
+    suite_todos = [todo for uri, todo in refresher_dispatches if uri == "test_suite:org/repo/pkg-a/tests"]
+    assert all(todo == [] for todo in suite_todos), (
+        f"fully-described suite should re-queue no File-map row; dispatches={refresher_dispatches}"
     )
 
 
