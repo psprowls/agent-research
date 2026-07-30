@@ -31,6 +31,7 @@ ALL_ROLES = [
     "linter",
     "ingestor",
     "package_reader",
+    "prose_refresher",
     "synthesizer",
     "judge_a",
     "judge_b",

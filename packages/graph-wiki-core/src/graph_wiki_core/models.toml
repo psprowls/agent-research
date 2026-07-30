@@ -127,6 +127,24 @@ sweep_candidates = [
   "moonshotai.kimi-k2.5",
 ]
 
+# Unified prose-refresh agent (Living Wiki: replaces the narrator /
+# code_reader-scan / synthesizer-scan / package_reader fan-outs). Tool-loop
+# role: per stale entity it updates `## Narrative`, human prose sections,
+# File-map descriptions, dir sections, and the overview in ONE pass, gated by
+# the scoped git diff since last_updated_commit. Token budget sized like the
+# old package_reader (multi-section JSON output); concurrency like narrator.
+[roles.prose_refresher]
+model_id        = "moonshotai.kimi-k2.5"
+region          = "us-east-1"
+max_tokens      = 4096
+max_concurrency = 10
+sweep_candidates = [
+  "openai.gpt-oss-120b-1:0",
+  "qwen.qwen3-32b-v1:0",
+  "minimax.minimax-m2.5",
+  "moonshotai.kimi-k2.5",
+]
+
 [roles.query_orchestrator]
 # Default planner/synthesizer for agentic `gw query`. One orchestrator owns
 # each query session; worker parallelism is controlled by librarian/code_reader.
