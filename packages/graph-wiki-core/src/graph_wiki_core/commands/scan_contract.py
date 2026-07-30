@@ -339,7 +339,8 @@ class ScanResults:
     # Runtime-only (NOT serialized): provider-side errors (e.g. prose_refresher
     # failures on the in-process Bedrock surface) that run_scan merges into its
     # ScanResult for partial-success reporting. Out-of-process surfaces leave this
-    # empty; the JSON results carry no error channel.
+    # empty; per-entity errors DO cross the boundary via ProseRefreshResult.error
+    # (serialized), which the apply-half stamp gate consults.
     provider_errors: list[str] = field(default_factory=list)
 
     def to_dict(self) -> dict:
