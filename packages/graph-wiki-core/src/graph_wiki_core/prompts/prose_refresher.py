@@ -20,9 +20,10 @@ Use the tools to read source files under the entity root when the diff alone is
 not enough to update the prose accurately.
 
 Output: return exactly ONE JSON object, no surrounding prose, with keys:
-- "sections": list of {"heading", "replacement_markdown"} — heading must be one
-  of the provided prose H2 headings; replacement_markdown is body markdown only
-  (no heading line). Omit sections that need no change.
+- "sections": list of {"heading", "replacement_markdown"} — heading must match
+  one of the provided prose H2 headings INCLUDING the leading "## " (e.g.
+  "## Narrative"); replacement_markdown is body markdown only (no heading
+  line). Omit sections that need no change.
 - "file_map_descriptions": object mapping package-root file paths (exactly as
   given in the File-map rows) to one-line descriptions, for rows still `— TODO`.
 - "dir_descriptions": object mapping directory path contexts ("" for the root

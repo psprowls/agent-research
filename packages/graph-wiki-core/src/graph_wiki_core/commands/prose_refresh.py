@@ -150,8 +150,11 @@ def _str_dict(value: object) -> dict[str, str]:
         return {}
     out: dict[str, str] = {}
     for key, val in value.items():
-        if isinstance(key, str) and isinstance(val, str) and val.strip():
-            out[key] = " ".join(val.split()).strip()
+        if not (isinstance(key, str) and isinstance(val, str) and val.strip()):
+            continue
+        cleaned = " ".join(val.split()).strip()
+        if cleaned and not is_todo_like_body(cleaned):
+            out[key] = cleaned
     return out
 
 
@@ -195,6 +198,8 @@ def parse_prose_refresher_output(raw: str, *, allowed_headings: list[str]) -> Pr
 
     overview_raw = payload.get("overview")
     overview = overview_raw.strip() if isinstance(overview_raw, str) and overview_raw.strip() else None
+    if overview is not None and is_todo_like_body(overview):
+        overview = None
     return ProseRefreshResult(
         uri="",
         sections=sections,
@@ -228,4 +233,5 @@ async def run_prose_refresh(
         return ProseRefreshResult(uri=task.uri, error=loop_result.error)
     parsed = parse_prose_refresher_output(loop_result.final_text, allowed_headings=list(task.prose_sections))
     parsed.uri = task.uri
+    parsed.error = parsed.error or loop_result.error
     return parsed
