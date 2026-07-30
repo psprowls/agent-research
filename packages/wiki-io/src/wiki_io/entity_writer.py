@@ -1236,6 +1236,77 @@ def inject_narrative(page_path: Path, prose: str) -> None:
 
 
 # ---------------------------------------------------------------------------
+# prose_section_bodies / replace_prose_sections — two-class prose write surface
+# ---------------------------------------------------------------------------
+
+
+def _h2_chunk_body(chunk: str) -> str:
+    """Body of a `_split_h2_sections` chunk (everything after the heading line)."""
+    heading_end = chunk.find("\n")
+    if heading_end == -1:
+        return ""
+    return chunk[heading_end + 1 :]
+
+
+def prose_section_bodies(text: str) -> dict[str, str]:
+    """Map every non-deterministic H2 heading to its current stripped body.
+
+    Excludes ``DETERMINISTIC_SECTIONS`` members and ``## File map*`` headings —
+    the prose surface handed to (and accepted back from) the prose-refresh
+    agent. First occurrence wins on duplicate headings.
+    """
+    _preamble, sections = _split_h2_sections(text)
+    out: dict[str, str] = {}
+    for heading, chunk in sections:
+        if heading in DETERMINISTIC_SECTIONS or _is_file_map_heading(heading):
+            continue
+        out.setdefault(heading, _h2_chunk_body(chunk).strip())
+    return out
+
+
+def replace_prose_sections(page_path: Path, replacements: dict[str, str]) -> list[str]:
+    """Replace the bodies of existing non-deterministic H2 sections.
+
+    Keys are FULL headings (``"## Narrative"``). ``DETERMINISTIC_SECTIONS``
+    members, File-map headings, headings absent from the page, and
+    empty/whitespace replacements are ignored. Headings are never created or
+    deleted. Returns the headings changed, in page order. Atomic write.
+
+    Raises:
+        FileNotFoundError: when ``page_path`` does not exist.
+    """
+    text = page_path.read_text(encoding="utf-8")
+    wanted = {
+        heading: body.strip()
+        for heading, body in replacements.items()
+        if body.strip() and heading not in DETERMINISTIC_SECTIONS and not _is_file_map_heading(heading)
+    }
+    if not wanted:
+        return []
+    preamble, sections = _split_h2_sections(text)
+    changed: list[str] = []
+    rebuilt: list[str] = [preamble]
+    for heading, chunk in sections:
+        replacement = wanted.get(heading)
+        if replacement is None or heading in changed:
+            rebuilt.append(chunk)
+            continue
+        suffix_len = len(chunk) - len(chunk.rstrip("\n"))
+        suffix = chunk[-suffix_len:] if suffix_len else ""
+        heading_line = chunk.split("\n", 1)[0]
+        rebuilt.append(f"{heading_line}\n{replacement}{suffix}")
+        changed.append(heading)
+    new_text = "".join(rebuilt)
+    if new_text != text:
+        tmp_path = page_path.with_suffix(page_path.suffix + ".tmp")
+        tmp_path.write_text(new_text, encoding="utf-8")
+        os.replace(tmp_path, page_path)
+    else:
+        changed = []
+    return changed
+
+
+# ---------------------------------------------------------------------------
 # inject_file_map — overwrite the whole `## File map` section deterministically
 # ---------------------------------------------------------------------------
 
