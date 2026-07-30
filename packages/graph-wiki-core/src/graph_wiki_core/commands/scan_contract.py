@@ -277,6 +277,107 @@ class FillResult:
 
 
 @dataclass
+class ProseRefreshTask:
+    """One stale entity's unified prose-refresh work order (schema v2).
+
+    ``trigger`` is "first_fill" (placeholder/TODO page or missing anchor) or
+    "diff" (scoped git diff non-empty). ``diff`` is the budgeted hunk text; it
+    is None for first_fill AND for trigger="diff" when the anchor SHA is
+    unknown to the owning repo (history rewrite) — the prompt builder renders
+    the "history rewritten" note from that combination. ``prose_sections`` and
+    result ``sections`` are keyed by FULL H2 headings ("## Narrative").
+    """
+
+    uri: str
+    kind: str
+    name: str
+    page_path: str
+    graph_path: str
+    language: str
+    entity_root: str
+    trigger: str
+    diff: str | None = None
+    changed_files: list[str] = field(default_factory=list)
+    page_content: str = ""
+    file_map_rows: str = ""
+    prose_sections: dict[str, str] = field(default_factory=dict)
+    graph_context: str = ""
+    owning_short_head: str | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "uri": self.uri,
+            "kind": self.kind,
+            "name": self.name,
+            "page_path": self.page_path,
+            "graph_path": self.graph_path,
+            "language": self.language,
+            "entity_root": self.entity_root,
+            "trigger": self.trigger,
+            "diff": self.diff,
+            "changed_files": list(self.changed_files),
+            "page_content": self.page_content,
+            "file_map_rows": self.file_map_rows,
+            "prose_sections": dict(self.prose_sections),
+            "graph_context": self.graph_context,
+            "owning_short_head": self.owning_short_head,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ProseRefreshTask:
+        return cls(
+            uri=d["uri"],
+            kind=d["kind"],
+            name=d["name"],
+            page_path=d["page_path"],
+            graph_path=d.get("graph_path", ""),
+            language=d.get("language", "unknown"),
+            entity_root=d.get("entity_root", ""),
+            trigger=d["trigger"],
+            diff=d.get("diff"),
+            changed_files=list(d.get("changed_files") or []),
+            page_content=d.get("page_content", ""),
+            file_map_rows=d.get("file_map_rows", ""),
+            prose_sections=dict(d.get("prose_sections") or {}),
+            graph_context=d.get("graph_context", ""),
+            owning_short_head=d.get("owning_short_head"),
+        )
+
+
+@dataclass
+class ProseRefreshResult:
+    """The refresh agent's parsed output for one entity (schema v2)."""
+
+    uri: str
+    sections: dict[str, str] = field(default_factory=dict)
+    file_map_descriptions: dict[str, str] = field(default_factory=dict)
+    dir_descriptions: dict[str, str] = field(default_factory=dict)
+    overview: str | None = None
+    error: str | None = None
+
+    def to_dict(self) -> dict:
+        return {
+            "uri": self.uri,
+            "sections": dict(self.sections),
+            "file_map_descriptions": dict(self.file_map_descriptions),
+            "dir_descriptions": dict(self.dir_descriptions),
+            "overview": self.overview,
+            "error": self.error,
+        }
+
+    @classmethod
+    def from_dict(cls, d: dict) -> ProseRefreshResult:
+        return cls(
+            uri=d["uri"],
+            sections=dict(d.get("sections") or {}),
+            file_map_descriptions=dict(d.get("file_map_descriptions") or {}),
+            dir_descriptions=dict(d.get("dir_descriptions") or {}),
+            overview=d.get("overview"),
+            error=d.get("error"),
+        )
+
+
+@dataclass
 class DriftVerdict:
     section: str  # heading WITHOUT the "## " prefix, e.g. "Purpose"
     stale: bool

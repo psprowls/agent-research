@@ -10,6 +10,8 @@ from graph_wiki_core.commands.scan_contract import (
     FillTask,
     PropagateEntity,
     PropagateTask,
+    ProseRefreshResult,
+    ProseRefreshTask,
     ScanResults,
     ScanWorklist,
 )
@@ -109,3 +111,54 @@ def test_results_tolerates_sparse_fill() -> None:
 def test_results_rejects_bad_schema() -> None:
     with pytest.raises(ValueError):
         ScanResults.from_dict({"schema": 99, "fills": [], "drift": [], "propagate": []})
+
+
+def _prose_task(**over):
+    base = dict(
+        uri="pkg:demo",
+        kind="package",
+        name="demo",
+        page_path="/w/entities/pkg_demo.md",
+        graph_path="packages/demo",
+        language="python",
+        entity_root="packages/demo",
+        trigger="diff",
+        diff="diff --git a/x b/x\n@@ -1 +1 @@\n+x\n",
+        changed_files=["packages/demo/x.py"],
+        page_content="---\n---\n# demo\n",
+        file_map_rows="| `x.py` | file | — TODO |",
+        prose_sections={"## Narrative": "old"},
+        graph_context="Language: python",
+        owning_short_head="abc1234",
+    )
+    base.update(over)
+    return ProseRefreshTask(**base)
+
+
+def test_prose_refresh_task_round_trip():
+    task = _prose_task()
+    assert ProseRefreshTask.from_dict(task.to_dict()) == task
+
+
+def test_prose_refresh_task_none_diff_first_fill():
+    task = _prose_task(trigger="first_fill", diff=None, changed_files=[])
+    restored = ProseRefreshTask.from_dict(task.to_dict())
+    assert restored.diff is None and restored.trigger == "first_fill"
+
+
+def test_prose_refresh_result_round_trip():
+    result = ProseRefreshResult(
+        uri="pkg:demo",
+        sections={"## Narrative": "new"},
+        file_map_descriptions={"src/x.py": "does x"},
+        dir_descriptions={"src": "sources"},
+        overview="pkg overview",
+        error=None,
+    )
+    assert ProseRefreshResult.from_dict(result.to_dict()) == result
+
+
+def test_prose_refresh_result_defaults():
+    r = ProseRefreshResult.from_dict({"uri": "pkg:demo"})
+    assert r.sections == {} and r.file_map_descriptions == {} and r.dir_descriptions == {}
+    assert r.overview is None and r.error is None
