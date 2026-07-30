@@ -9,6 +9,7 @@ pattern in scan_monorepo._git_ls_files.
 
 from __future__ import annotations
 
+import re
 import subprocess
 from pathlib import Path
 
@@ -107,3 +108,73 @@ def is_ancestor(repo: Path, ancestor_sha: str, descendant_sha: str) -> bool:
     if returncode == 1:
         return False
     raise RuntimeError(f"git merge-base --is-ancestor failed (exit {returncode}): {stderr.strip()}")
+
+
+# Character budget for the hunks handed to the prose-refresh agent. Past it the
+# diff is cut at a hunk boundary and remaining changed files are name-listed.
+PROSE_DIFF_CHAR_BUDGET = 20_000
+
+_DIFF_TARGET_RE = re.compile(r"^diff --git a/.* b/(.*)$", re.MULTILINE)
+
+
+def diff_since(repo: Path, since_sha: str, sub_paths: list[str]) -> str | None:
+    """Return `git diff <sha>..HEAD -- <paths…>` hunk text.
+
+    - Returns "" when there are no changes.
+    - Returns None when git is unavailable, the SHA is unknown to this repo
+      (history rewrite), or ``sub_paths`` is empty — same None semantics as
+      ``changed_files_since``.
+    """
+    if not since_sha or not sub_paths:
+        return None
+    out = _run(repo, "diff", f"{since_sha}..HEAD", "--", *sub_paths)
+    if out is None or out[0] != 0:
+        return None
+    return out[1]
+
+
+def changed_names_since(repo: Path, since_sha: str, sub_paths: list[str]) -> list[str] | None:
+    """Multi-path variant of ``changed_files_since`` (same None semantics)."""
+    if not since_sha or not sub_paths:
+        return None
+    out = _run(repo, "diff", "--name-only", f"{since_sha}..HEAD", "--", *sub_paths)
+    if out is None or out[0] != 0:
+        return None
+    return [line.strip() for line in out[1].splitlines() if line.strip()]
+
+
+def truncate_diff(diff: str, budget: int = PROSE_DIFF_CHAR_BUDGET) -> str:
+    """Cap ``diff`` at ``budget`` chars of hunks.
+
+    Whole per-file chunks are kept while they fit; the first chunk that crosses
+    the budget is cut at its last fitting ``@@`` hunk boundary; every file whose
+    chunk was dropped or cut is name-listed in a
+    ``(diff truncated; also changed: …)`` tail.
+    """
+    if len(diff) <= budget:
+        return diff
+    chunks = re.split(r"(?=^diff --git )", diff, flags=re.MULTILINE)
+    kept: list[str] = []
+    omitted: list[str] = []
+    used = 0
+    exhausted = False
+    for chunk in chunks:
+        if not chunk:
+            continue
+        m = _DIFF_TARGET_RE.match(chunk)
+        target = m.group(1) if m else None
+        if not exhausted and used + len(chunk) <= budget:
+            kept.append(chunk)
+            used += len(chunk)
+            continue
+        if not exhausted:
+            # First overflowing chunk: keep its hunks up to the last fitting @@.
+            window = chunk[: max(budget - used, 0)]
+            cut = window.rfind("\n@@ ")
+            if cut > 0:
+                kept.append(chunk[: cut + 1])
+            exhausted = True
+        if target:
+            omitted.append(target)
+    tail = f"\n(diff truncated; also changed: {', '.join(omitted)})\n" if omitted else ""
+    return "".join(kept) + tail
