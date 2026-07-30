@@ -9,7 +9,7 @@ runner = CliRunner()
 def test_list_resolves_models():
     result = runner.invoke(app, ["list"])
     assert result.exit_code == 0
-    for name in ("guidance_classifier", "package_reader", "librarian", "synthesizer", "guidance_orchestrator"):
+    for name in ("guidance_classifier", "prose_refresher", "librarian", "synthesizer", "guidance_orchestrator"):
         assert name in result.stdout
 
 

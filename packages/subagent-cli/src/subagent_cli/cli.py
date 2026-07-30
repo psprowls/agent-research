@@ -67,7 +67,7 @@ def list_cmd(json_output: bool = typer.Option(False, "--json", help="Emit the ta
 def run(
     name: str = typer.Argument(..., help="Adapter name (see `subagent list`)"),
     file: str = typer.Option("", "--file", help="File path selector (guidance_classifier)"),
-    package: str = typer.Option("", "--package", help="Package name selector (package_reader)"),
+    package: str = typer.Option("", "--package", help="Package name selector (prose_refresher)"),
     query: str = typer.Option("", "--query", help="Query text selector (query subagents)"),
     all_: bool = typer.Option(False, "--all", help="Fan out over the adapter's real worklist"),
     excerpts: str = typer.Option("", "--excerpts", help="synthesizer only: supply excerpts, skip retrieval"),

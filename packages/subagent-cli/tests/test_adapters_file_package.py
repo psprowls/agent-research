@@ -4,7 +4,7 @@ import pytest
 from graph_io import testing as graph_testing
 from subagent_cli.adapters.base import RunContext
 from subagent_cli.adapters.guidance_classifier import GuidanceClassifierAdapter
-from subagent_cli.adapters.package_reader import PackageReaderAdapter
+from subagent_cli.adapters.prose_refresher import ProseRefresherAdapter
 
 
 def _seed_db(tmp_path: Path) -> None:
@@ -45,15 +45,15 @@ async def test_guidance_classifier_prepare_builds_real_prompt(tmp_path):
     ctx.close()
 
 
-async def test_package_reader_missing_page_raises(tmp_path):
+async def test_prose_refresher_missing_page_raises(tmp_path):
     ctx = _ctx_with_repo(tmp_path)
-    adapter = PackageReaderAdapter()
+    adapter = ProseRefresherAdapter()
     with pytest.raises(FileNotFoundError):
         await adapter.prepare(ctx, "nonexistent-pkg")
     ctx.close()
 
 
-async def test_package_reader_prepare_from_entity_page(tmp_path):
+async def test_prose_refresher_prepare_from_entity_page(tmp_path):
     ctx = _ctx_with_repo(tmp_path)
     page = ctx.wiki / "entities" / "pkg_foo.md"
     page.write_text(
@@ -65,10 +65,11 @@ async def test_package_reader_prepare_from_entity_page(tmp_path):
         "# foo\n\n"
         "## Purpose\n\nTODO: describe the purpose.\n"
     )
-    adapter = PackageReaderAdapter()
+    adapter = ProseRefresherAdapter()
     prepared = await adapter.prepare(ctx, "foo")
-    assert prepared.system  # PACKAGE_READER_SYSTEM
+    assert prepared.system  # PROSE_REFRESHER_SYSTEM
     assert "foo" in prepared.item_id
     assert prepared.note and "tool loop" in prepared.note
+    assert "first fill" in prepared.human  # first_fill trigger — no diff
     assert prepared.parse is not None
     ctx.close()
