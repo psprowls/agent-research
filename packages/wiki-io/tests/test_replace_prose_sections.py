@@ -72,3 +72,11 @@ def test_replace_prose_sections_identical_replacement_not_reported(tmp_path):
     page = _write(tmp_path)
     changed = replace_prose_sections(page, {"## Narrative": "New prose.", "## Purpose": "TODO"})
     assert changed == ["## Narrative"]
+
+
+def test_replace_prose_sections_duplicate_heading_first_occurrence_wins(tmp_path):
+    page = tmp_path / "dup.md"
+    page.write_text("## Purpose\nTARGET\n\n## Purpose\nOTHER\n", encoding="utf-8")
+    changed = replace_prose_sections(page, {"## Purpose": "TARGET"})
+    assert changed == []
+    assert page.read_text(encoding="utf-8") == "## Purpose\nTARGET\n\n## Purpose\nOTHER\n"

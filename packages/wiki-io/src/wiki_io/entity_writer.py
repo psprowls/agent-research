@@ -1248,6 +1248,14 @@ def _h2_chunk_body(chunk: str) -> str:
     return chunk[heading_end + 1 :]
 
 
+def _is_prose_heading(heading: str) -> bool:
+    """True when a heading is prose (not deterministic or file-map).
+
+    Prose headings are the only ones the refresh agent can modify.
+    """
+    return heading not in DETERMINISTIC_SECTIONS and not _is_file_map_heading(heading)
+
+
 def prose_section_bodies(text: str) -> dict[str, str]:
     """Map every non-deterministic H2 heading to its current stripped body.
 
@@ -1258,7 +1266,7 @@ def prose_section_bodies(text: str) -> dict[str, str]:
     _preamble, sections = _split_h2_sections(text)
     out: dict[str, str] = {}
     for heading, chunk in sections:
-        if heading in DETERMINISTIC_SECTIONS or _is_file_map_heading(heading):
+        if not _is_prose_heading(heading):
             continue
         out.setdefault(heading, _h2_chunk_body(chunk).strip())
     return out
@@ -1272,25 +1280,28 @@ def replace_prose_sections(page_path: Path, replacements: dict[str, str]) -> lis
     empty/whitespace replacements are ignored. Headings are never created or
     deleted. Returns the headings changed, in page order. Atomic write.
 
+    Idempotent: calling with the same arguments twice produces byte-identical
+    output on the second call.
+
     Raises:
         FileNotFoundError: when ``page_path`` does not exist.
     """
     text = page_path.read_text(encoding="utf-8")
     wanted = {
-        heading: body.strip()
-        for heading, body in replacements.items()
-        if body.strip() and heading not in DETERMINISTIC_SECTIONS and not _is_file_map_heading(heading)
+        heading: body.strip() for heading, body in replacements.items() if body.strip() and _is_prose_heading(heading)
     }
     if not wanted:
         return []
     preamble, sections = _split_h2_sections(text)
     changed: list[str] = []
+    seen: set[str] = set()
     rebuilt: list[str] = [preamble]
     for heading, chunk in sections:
         replacement = wanted.get(heading)
-        if replacement is None or heading in changed:
+        if replacement is None or heading in seen:
             rebuilt.append(chunk)
             continue
+        seen.add(heading)
         current_body = _h2_chunk_body(chunk).strip()
         if current_body == replacement:
             rebuilt.append(chunk)
