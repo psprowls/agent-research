@@ -346,6 +346,27 @@ def test_oversized_diff_is_truncated_with_tail(gating_ws, monkeypatch) -> None:
     assert "zzz_tail.py" in task.diff.rsplit("(diff truncated; also changed:", 1)[1]
 
 
+def test_one_bad_entity_does_not_abort_worklist_assembly(gating_ws, monkeypatch) -> None:
+    """[fault isolation] A reader/graph-context failure on ONE entity skips just
+    that entity — every other stale entity still emits its task (pre-flip these
+    calls ran inside the per-item fan-out task and landed in fan.errors)."""
+    workspace, repo = gating_ws
+    real_build_graph_context = scan_mod._build_graph_context
+
+    def _exploding_graph_context(reader, kind, node):
+        if node.attrs.get("uri") == _PKG_A:
+            raise RuntimeError("simulated reader failure")
+        return real_build_graph_context(reader, kind, node)
+
+    monkeypatch.setattr(scan_mod, "_build_graph_context", _exploding_graph_context)
+
+    tasks = _tasks(_emit(workspace, repo))
+    assert _PKG_A not in tasks  # the bad entity was skipped, not fatal
+    # The other placeholder entities still emitted their first_fill tasks.
+    for uri in (_REPO_URI, _DOMAIN_URI, _DEP_URI):
+        assert uri in tasks, f"{uri} task missing — one bad entity aborted assembly"
+
+
 # ---------------------------------------------------------------------------
 # Stamp guard (rows 11-15) — hand-built worklist/results
 # ---------------------------------------------------------------------------

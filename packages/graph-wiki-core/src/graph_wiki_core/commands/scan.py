@@ -225,17 +225,12 @@ _WORKSPACE_LOCK_FILES: tuple[str, ...] = (
 )
 
 
-def _dependency_diff_scope(reader: Any, node: Any) -> list[str]:
-    """Repo-relative diff scope for a dependency page: each used_by package's
-    ecosystem manifest file(s) plus the workspace-level lock files."""
-    attrs = node.attrs if isinstance(node.attrs, dict) else {}
-    ecosystem = str(attrs.get("ecosystem") or "pypi")
-    try:
-        d = reader.describe_dependency(ecosystem=ecosystem, name=node.name)
-    except Exception:  # noqa: BLE001 — scope derivation must not abort emit
-        d = None
-    used_by = list(d.used_by) if d is not None else []
-    manifests = _MANIFEST_FILES_BY_ECOSYSTEM.get(ecosystem, ("pyproject.toml",))
+def _dependency_pkg_paths(reader: Any) -> dict[str, str]:
+    """``{package/app name: repo-relative path}`` for dependency diff scoping.
+
+    Built ONCE per worklist assembly (hoisted out of ``_dependency_diff_scope``
+    so N dependency nodes don't re-list every package/app N times).
+    """
     list_fns = _kind_list_fns()
     pkg_paths: dict[str, str] = {}
     for fn_key in ("package", "app"):
@@ -245,6 +240,23 @@ def _dependency_diff_scope(reader: Any, node: Any) -> list[str]:
         for pkg_node in fn(reader):
             if pkg_node.path:
                 pkg_paths[pkg_node.name] = pkg_node.path
+    return pkg_paths
+
+
+def _dependency_diff_scope(reader: Any, node: Any, pkg_paths: dict[str, str]) -> list[str]:
+    """Repo-relative diff scope for a dependency page: each used_by package's
+    ecosystem manifest file(s) plus the workspace-level lock files.
+
+    ``pkg_paths`` is the pre-built ``_dependency_pkg_paths`` map.
+    """
+    attrs = node.attrs if isinstance(node.attrs, dict) else {}
+    ecosystem = str(attrs.get("ecosystem") or "pypi")
+    try:
+        d = reader.describe_dependency(ecosystem=ecosystem, name=node.name)
+    except Exception:  # noqa: BLE001 — scope derivation must not abort emit
+        d = None
+    used_by = list(d.used_by) if d is not None else []
+    manifests = _MANIFEST_FILES_BY_ECOSYSTEM.get(ecosystem, ("pyproject.toml",))
     scope: list[str] = []
     for pkg_name in used_by:
         base = pkg_paths.get(pkg_name)
@@ -1141,6 +1153,7 @@ async def _build_scan_worklist_body(
     if reader is not None and entity_write_result is not None:
         list_fns = _kind_list_fns()
         collision = _compute_collision_set(reader, ADMITTED_KINDS, list_fns)
+        dep_pkg_paths = _dependency_pkg_paths(reader)
         for kind in sorted(ADMITTED_KINDS):
             fn = list_fns.get(kind)
             if fn is None:
@@ -1154,69 +1167,75 @@ async def _build_scan_worklist_body(
                 page_path = _entity_page_path(wiki, kind, node, uri, collision)
                 if not page_path.exists():
                     continue
+                # Per-entity fault isolation: a malformed page or a reader
+                # failure (graph-context / dependency-scope derivation) skips
+                # just THIS entity — pre-flip these calls ran inside the
+                # per-item fan-out task and landed in fan.errors.
                 try:
                     post = frontmatter.load(str(page_path))
-                except Exception:  # noqa: BLE001 — malformed page must not abort scan
-                    continue
-                page_text = page_path.read_text(encoding="utf-8", errors="replace")
-                anchor = post.metadata.get(LAST_UPDATED_COMMIT_KEY)
-                anchor = str(anchor) if anchor else None
-                owning_repo_path = owning_repo(uri, repo, repo_paths)
+                    page_text = page_path.read_text(encoding="utf-8", errors="replace")
+                    anchor = post.metadata.get(LAST_UPDATED_COMMIT_KEY)
+                    anchor = str(anchor) if anchor else None
+                    owning_repo_path = owning_repo(uri, repo, repo_paths)
 
-                trigger: str | None = None
-                diff_text: str | None = None
-                changed_files: list[str] = []
-                if _first_fill_needed(page_path, page_text, kind, anchor):
-                    trigger = "first_fill"
-                elif kind in PROSE_FIRST_FILL_ONLY_KINDS:
-                    pass  # never refreshed after birth
-                elif kind in PROSE_DIFF_GATED_KINDS and node.path:
-                    raw = diff_since(owning_repo_path, cast(str, anchor), [node.path])
-                    if raw is None:
-                        trigger, diff_text = "diff", None  # history rewritten
-                    elif raw.strip():
-                        trigger = "diff"
-                        diff_text = truncate_diff(raw)
-                        changed_files = changed_names_since(owning_repo_path, cast(str, anchor), [node.path]) or []
-                elif kind == "dependency":
-                    scope = _dependency_diff_scope(reader, node)
-                    raw = diff_since(repo, cast(str, anchor), scope)
-                    if raw is None:
-                        trigger, diff_text = "diff", None
-                    elif raw.strip():
-                        trigger = "diff"
-                        diff_text = truncate_diff(raw)
-                        changed_files = changed_names_since(repo, cast(str, anchor), scope) or []
-                if trigger is None:
-                    continue
+                    trigger: str | None = None
+                    diff_text: str | None = None
+                    changed_files: list[str] = []
+                    if _first_fill_needed(page_path, page_text, kind, anchor):
+                        trigger = "first_fill"
+                    elif kind in PROSE_FIRST_FILL_ONLY_KINDS:
+                        pass  # never refreshed after birth
+                    elif kind in PROSE_DIFF_GATED_KINDS and node.path:
+                        raw = diff_since(owning_repo_path, cast(str, anchor), [node.path])
+                        if raw is None:
+                            trigger, diff_text = "diff", None  # history rewritten
+                        elif raw.strip():
+                            trigger = "diff"
+                            diff_text = truncate_diff(raw)
+                            changed_files = changed_names_since(owning_repo_path, cast(str, anchor), [node.path]) or []
+                    elif kind == "dependency":
+                        scope = _dependency_diff_scope(reader, node, dep_pkg_paths)
+                        raw = diff_since(repo, cast(str, anchor), scope)
+                        if raw is None:
+                            trigger, diff_text = "diff", None
+                        elif raw.strip():
+                            trigger = "diff"
+                            diff_text = truncate_diff(raw)
+                            changed_files = changed_names_since(repo, cast(str, anchor), scope) or []
+                    if trigger is None:
+                        continue
 
-                # Owning member-repo short HEAD for the apply-phase anchor stamp.
-                # Multi-repo: the entity's member HEAD (per its repo path); single-
-                # repo (empty maps): None -> apply falls back to worklist short_head.
-                owning_short_head: str | None = None
-                if repo_paths:
-                    owning_head = _head_for_uri(uri, gates, head)
-                    if owning_head:
-                        owning_short_head = short_commit(owning_repo_path, owning_head)
-                prose_tasks.append(
-                    ProseRefreshTask(
-                        uri=uri,
-                        kind=kind,
-                        name=getattr(node, "name", "") or page_path.stem,
-                        page_path=str(page_path),
-                        graph_path=node.path or "",
-                        language=str(node.attrs.get("language") or "unknown"),
-                        entity_root=node.path or "",
-                        trigger=trigger,
-                        diff=diff_text,
-                        changed_files=changed_files,
-                        page_content=page_text,
-                        file_map_rows=extract_file_map(post.content) or "",
-                        prose_sections=prose_section_bodies(post.content),
-                        graph_context=_build_graph_context(reader, kind, node),
-                        owning_short_head=owning_short_head,
+                    # Owning member-repo short HEAD for the apply-phase anchor
+                    # stamp. Multi-repo: the entity's member HEAD (per its repo
+                    # path); single-repo (empty maps): None -> apply falls back
+                    # to the worklist short_head.
+                    owning_short_head: str | None = None
+                    if repo_paths:
+                        owning_head = _head_for_uri(uri, gates, head)
+                        if owning_head:
+                            owning_short_head = short_commit(owning_repo_path, owning_head)
+                    prose_tasks.append(
+                        ProseRefreshTask(
+                            uri=uri,
+                            kind=kind,
+                            name=getattr(node, "name", "") or page_path.stem,
+                            page_path=str(page_path),
+                            graph_path=node.path or "",
+                            language=str(node.attrs.get("language") or "unknown"),
+                            entity_root=node.path or "",
+                            trigger=trigger,
+                            diff=diff_text,
+                            changed_files=changed_files,
+                            page_content=page_text,
+                            file_map_rows=extract_file_map(post.content) or "",
+                            prose_sections=prose_section_bodies(post.content),
+                            graph_context=_build_graph_context(reader, kind, node),
+                            owning_short_head=owning_short_head,
+                        )
                     )
-                )
+                except Exception as exc:  # noqa: BLE001 — per-entity isolation
+                    logger.warning("prose task assembly failed for %s: %s", uri, exc)
+                    continue
 
     drift_tasks = _build_drift_tasks(wiki)
     propagate_tasks, propagate_anchors, propagate_pages = (

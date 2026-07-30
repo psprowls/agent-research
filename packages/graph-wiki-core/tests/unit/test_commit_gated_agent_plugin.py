@@ -370,18 +370,16 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
     from ._spies import refresh_all_spy
 
     verdict_fn = {"fn": lambda it: {"stale": False, "reason": ""}}
-    drift_recorder: dict = {}
-    recorder = {}
+    recorder: dict = {}
     monkeypatch.setattr(
         scan_mod.SubagentPool,
         "run_all",
         refresh_all_spy(
             lambda t: f"PROSE {t.uri} @ {heads['v']}",
-            recorder=drift_recorder,
+            recorder=recorder,
             verdict_fn=lambda it: verdict_fn["fn"](it),
         ),
     )
-    recorder = drift_recorder
 
     # --- Scan 1: plugin created, narrated, stamped at head1 ---
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
