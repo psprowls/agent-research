@@ -196,14 +196,8 @@ def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> 
     assert "PROSE for pkg:org/repo/pkg-a" in text
     assert "| `pyproject.toml` | file | — TODO |" not in text  # rows filled
 
-    # plan decision (B): the page narrated in scan 1 had no anchor at emit time, so
-    # its drift is judged on the next scan. A second no-change scan settles
-    # drift_checked_commit == last_updated_commit so the page is no longer a drift
-    # candidate — only then is the worklist genuinely empty.
+    # Steady-state re-emit: files clean, head unchanged, nothing to re-task.
     patch_repo_state(monkeypatch, scan_mod, [])
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-
-    # Steady-state re-emit: files clean, head unchanged, drift settled.
     worklist, _ = asyncio.run(
         scan_mod.build_scan_worklist(
             workspace_path=workspace, repo_path=repo, no_file_map=False, max_depth=3, propagate_drift=False

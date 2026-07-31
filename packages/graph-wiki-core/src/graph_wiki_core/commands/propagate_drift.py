@@ -23,8 +23,8 @@ from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
 from wiki_io.backlink_index import build_entity_backlink_map
-from wiki_io.drift import CONTENT_HASH_KEY, extract_narrative, page_body_hash, section_hash
-from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
+from wiki_io.content_hash import CONTENT_HASH_KEY, page_body_hash, section_hash
+from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, extract_narrative, update_frontmatter
 from wiki_io.git_state import changed_files_since, head_commit, is_ancestor
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals, upsert_proposal
 from workspace_io.paths import graph_dir
@@ -73,7 +73,7 @@ DRIFT_PROPAGATED_COMMIT_KEY = "drift_propagated_commit"
 _CATEGORY_TO_KIND = {"concepts": "concept", "adrs": "adr"}
 
 # Candidate kinds carry a node_path -> git change signal; mirrors
-# scan._commit_dirty_changes / DRIFT_TARGET_KINDS.
+# scan._commit_dirty_changes.
 _CANDIDATE_KINDS = ("package", "app", "test_suite", "agent_plugin")
 
 

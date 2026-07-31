@@ -209,31 +209,22 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
     calls_after_scan1 = len(prose_refresher_calls)
     assert calls_after_scan1 >= 1  # plugin was refreshed in scan 1
+    page_bytes_after_scan1 = _page(wiki).read_bytes()
 
     # Reset calls tracking for scan 2
     prose_refresher_calls.clear()
 
-    # --- Scan 2: same HEAD, no file changes ---
+    # --- Scan 2: same HEAD, no file changes -> byte-identical to scan 1 ---
     patch_repo_state(monkeypatch, scan_mod, [])
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
+    assert _page(wiki).read_bytes() == page_bytes_after_scan1
 
-    # plan decision (B): an agent_plugin narrated in scan 1 had no anchor at emit
-    # time, so scan 2 is the one that judges + stamps drift_checked_commit
-    # (frontmatter-only). Byte-identity is therefore asserted from scan 2 onward; a
-    # third no-op scan must be byte-identical to scan 2.
-    page_bytes_after_scan2 = _page(wiki).read_bytes()
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-    assert _page(wiki).read_bytes() == page_bytes_after_scan2
-
-    # The refresher must NOT have been dispatched for the plugin URI in scans 2/3
+    # The refresher must NOT have been dispatched for the plugin URI on the no-op scan
     plugin_uris_refreshed_scan2 = [t.uri for t in prose_refresher_calls if _PLUGIN_URI in t.uri]
     assert plugin_uris_refreshed_scan2 == [], (
         f"prose_refresher should not re-task {_PLUGIN_URI} on a no-op scan; got: {plugin_uris_refreshed_scan2}"
     )
     # The anchor never advanced past head1.
-    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
-
-    # Anchor unchanged
     assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head1"
 
 
@@ -328,123 +319,3 @@ def test_new_agent_plugin_bootstraps_anchor(plugin_workspace, monkeypatch) -> No
 
     assert f"PROSE {_PLUGIN_URI} @ head1" in text
     assert meta.get("last_updated_commit") == "head1"
-
-
-# ---------------------------------------------------------------------------
-# Test 13 — advancing last_updated_commit activates M2e drift flagging
-# (Test 12 — D4 no-file-map suite guard — lives in test_scan_graph_integration.py)
-# ---------------------------------------------------------------------------
-
-
-def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, monkeypatch) -> None:
-    """[Test 13] Advancing an agent_plugin's last_updated_commit (now possible
-    after Task 4 / commit-gate parity) activates M2e drift flagging for the
-    page's human sections.
-
-    Scenario:
-      Scan 1 (head1): plugin created + narrated + stamped; drift judge marks
-        all sections fresh (not-stale).
-      Add a curated human section (## How it fits together).
-      Scan 2 (head2): code changes -> re-narrate -> last_updated_commit
-        advances to head2; drift_checked_commit lags (was set to head1 by
-        scan 1). The drift flag pass fires, picks the page as a candidate
-        (last_updated_commit != drift_checked_commit), calls the judge on
-        the new human section, and stamps drift_checked_commit = head2.
-
-    This test proves the headline outcome of the parity milestone: the drift
-    machinery that was already gated on DRIFT_TARGET_KINDS (which includes
-    agent_plugin) activates automatically once the commit-gate is wired.
-    """
-    workspace = plugin_workspace
-    wiki = workspace / "wiki"
-    repo = workspace / "repo"
-    workspace / ".graph-wiki" / "code.db"
-
-    heads = {"v": "head1"}
-    monkeypatch.setattr(
-        scan_mod,
-        "compute_state_gate",
-        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
-    )
-
-    # Spy covering prose_refresher + drift_judge. On scan 1, verdict_fn marks
-    # all not-stale.
-    from ._spies import refresh_all_spy
-
-    verdict_fn = {"fn": lambda it: {"stale": False, "reason": ""}}
-    recorder: dict = {}
-    monkeypatch.setattr(
-        _SubagentPool,
-        "run_all",
-        refresh_all_spy(
-            lambda t: f"PROSE {t.uri} @ {heads['v']}",
-            recorder=recorder,
-            verdict_fn=lambda it: verdict_fn["fn"](it),
-        ),
-    )
-
-    # --- Scan 1: plugin created, narrated, stamped at head1 ---
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-    page = _page(wiki)
-    meta1 = _fm.load(page).metadata
-    assert meta1.get("last_updated_commit") == "head1"
-    assert "drift_review" not in meta1  # all sections fresh
-
-    # plan decision (B): drift is judged against the EMIT-time anchor, so the page
-    # narrated in scan 1 settles drift_checked_commit on the next scan. A no-change
-    # settling scan advances drift_checked_commit to head1.
-    patch_repo_state(monkeypatch, scan_mod, [])
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-    assert _fm.load(_page(wiki)).metadata.get("drift_checked_commit") == "head1"
-
-    # Human adds a curated section AFTER drift settled. Uses a heading that doesn't
-    # collide with template-seeded headings (## How it fits together).
-    page = _page(wiki)
-    text = page.read_text(encoding="utf-8")
-    page.write_text(
-        text.rstrip("\n") + "\n\n## How it fits together\nUsed by the CLI orchestrator.\n",
-        encoding="utf-8",
-    )
-
-    # --- Setup for scan 2: code changed; judge marks the new section stale ---
-    heads["v"] = "head2"
-    patch_repo_state(monkeypatch, scan_mod, ["plugins/demo/commands/alpha.md"])
-    verdict_fn["fn"] = lambda it: {"stale": True, "reason": "command semantics changed"}
-    recorder.clear()
-
-    # --- Scan 2: re-narrate advances last_updated_commit to head2. plan decision
-    # (B): the drift task is built at EMIT time, when the anchor was still head1
-    # (== drift_checked_commit), so the page is NOT yet a drift candidate this scan;
-    # the judge fires on the FOLLOWING scan once last_updated_commit (head2) leads
-    # drift_checked_commit (head1). ---
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-    assert _fm.load(_page(wiki)).metadata.get("last_updated_commit") == "head2"
-    recorder.clear()
-
-    # --- Scan 3: drift gate fires (last_updated head2 leads drift_checked head1) ---
-    patch_repo_state(monkeypatch, scan_mod, [])
-    asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
-    page = _page(wiki)
-    meta3 = _fm.load(page).metadata
-
-    # Drift judge ran for the agent_plugin page (drift_checked_commit head1 lagged
-    # last_updated_commit head2).
-    drift_items = recorder.get("drift_items", [])
-    plugin_items = [it for it in drift_items if it[0] == page]
-    assert plugin_items, f"drift judge was not called for agent_plugin page; drift_items={drift_items}"
-
-    # The curated section (## How it fits together) was judged.
-    judged_headings = {it[2] for it in plugin_items}
-    assert "## How it fits together" in judged_headings, (
-        f"curated section not judged; judged headings: {judged_headings}"
-    )
-
-    # drift_checked_commit was advanced to head2 (judge completed for this page).
-    assert meta3.get("drift_checked_commit") == "head2"
-
-    # drift_review was written because the stale verdict fired.
-    review = meta3.get("drift_review", [])
-    how_entry = next((e for e in review if e.get("section") == "How it fits together"), None)
-    assert how_entry is not None, f"drift_review entry missing for 'How it fits together'; review={review}"
-    assert how_entry["detected_commit"] == "head2"
-    assert how_entry["reason"] == "command semantics changed"

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import pytest
 from graph_wiki_core.commands.scan_contract import (
-    DriftSectionInput,
-    DriftTask,
     PropagateEntity,
     PropagateTask,
     ProseRefreshResult,
@@ -41,16 +39,6 @@ def _sample_worklist() -> ScanWorklist:
         head_commit="a1b2c3d4e5",
         short_head="a1b2c3d",
         prose_tasks=[_prose_task(uri="pkg:wiki-io", name="wiki-io")],
-        drift_tasks=[
-            DriftTask(
-                uri="pkg:wiki-io",
-                page_path="/abs/wiki/entities/pkg_wiki-io.md",
-                anchor="a1b2c3d",
-                narrative="Ground-truth prose.",
-                file_map="## File map - wiki-io\n...",
-                sections=[DriftSectionInput(heading="## Purpose", chunk="Old purpose body.")],
-            )
-        ],
         propagate_tasks=[
             PropagateTask(
                 kind="concept",
@@ -94,7 +82,6 @@ def test_results_round_trips() -> None:
                 error=None,
             )
         ],
-        drift=[],
         propagate=[],
     )
     restored = ScanResults.from_json(results.to_json())
@@ -106,7 +93,6 @@ def test_results_tolerates_sparse_prose() -> None:
     payload = {
         "schema": 2,
         "prose": [{"uri": "pkg:x", "sections": {"## Narrative": "Only prose."}}],
-        "drift": [],
         "propagate": [],
     }
     results = ScanResults.from_dict(payload)
@@ -120,7 +106,7 @@ def test_results_tolerates_sparse_prose() -> None:
 
 def test_results_rejects_bad_schema() -> None:
     with pytest.raises(ValueError):
-        ScanResults.from_dict({"schema": 99, "prose": [], "drift": [], "propagate": []})
+        ScanResults.from_dict({"schema": 99, "prose": [], "propagate": []})
 
 
 def test_v1_worklist_payload_rejected() -> None:
@@ -130,7 +116,7 @@ def test_v1_worklist_payload_rejected() -> None:
 
 def test_v1_results_payload_rejected() -> None:
     with pytest.raises(ValueError, match="unsupported results schema: 1"):
-        ScanResults.from_dict({"schema": 1, "fills": [], "drift": [], "propagate": []})
+        ScanResults.from_dict({"schema": 1, "fills": [], "propagate": []})
 
 
 def test_prose_refresh_task_round_trip():

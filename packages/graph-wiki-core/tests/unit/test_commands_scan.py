@@ -238,7 +238,6 @@ async def _run_scan_capturing_tasks(monkeypatch, tmp_path: Path, *, node_path: s
     monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
     monkeypatch.setattr(scan_bedrock_mod, "build_graph_tools", lambda reader: [])
     monkeypatch.setattr(scan_bedrock_mod, "run_prose_refresh", fake_run_prose_refresh)
-    monkeypatch.setattr(scan_mod, "_drift_clear_pass", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "update_index", lambda wiki: None)
     monkeypatch.setattr(
         scan_mod,
@@ -333,8 +332,6 @@ def test_prose_refresher_errors_join_scan_result(monkeypatch, tmp_path: Path) ->
         result = FanOutResult()
         if role == "prose_refresher":
             result.successes = [(t, ProseRefreshResult(uri=t.uri, error="invalid JSON")) for t in items]
-        elif role == "drift_judge":
-            result.successes = [(it, {"stale": False, "reason": ""}) for it in items]
         return result
 
     monkeypatch.setattr(_SubagentPool, "run_all", fake_run_all)

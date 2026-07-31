@@ -19,50 +19,6 @@ SCHEMA_VERSION = 2
 
 
 @dataclass
-class DriftSectionInput:
-    heading: str  # e.g. "## Purpose"
-    chunk: str
-
-    def to_dict(self) -> dict:
-        return {"heading": self.heading, "chunk": self.chunk}
-
-    @classmethod
-    def from_dict(cls, d: dict) -> DriftSectionInput:
-        return cls(heading=d["heading"], chunk=d.get("chunk", ""))
-
-
-@dataclass
-class DriftTask:
-    uri: str
-    page_path: str
-    anchor: str
-    narrative: str
-    file_map: str | None
-    sections: list[DriftSectionInput] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {
-            "uri": self.uri,
-            "page_path": self.page_path,
-            "anchor": self.anchor,
-            "narrative": self.narrative,
-            "file_map": self.file_map,
-            "sections": [s.to_dict() for s in self.sections],
-        }
-
-    @classmethod
-    def from_dict(cls, d: dict) -> DriftTask:
-        return cls(
-            uri=d["uri"],
-            page_path=d["page_path"],
-            anchor=d["anchor"],
-            narrative=d.get("narrative", ""),
-            file_map=d.get("file_map"),
-            sections=[DriftSectionInput.from_dict(s) for s in (d.get("sections") or [])],
-        )
-
-
-@dataclass
 class PropagateEntity:
     stem: str
     narrative: str
@@ -113,7 +69,6 @@ class ScanWorklist:
     head_commit: str | None
     short_head: str | None
     prose_tasks: list[ProseRefreshTask] = field(default_factory=list)
-    drift_tasks: list[DriftTask] = field(default_factory=list)
     propagate_tasks: list[PropagateTask] = field(default_factory=list)
     schema: int = SCHEMA_VERSION
     # M4 stamping bookkeeping: candidate uri -> anchor (last_updated_commit at emit).
@@ -125,7 +80,7 @@ class ScanWorklist:
 
     @property
     def is_empty(self) -> bool:
-        return not (self.prose_tasks or self.drift_tasks or self.propagate_tasks)
+        return not (self.prose_tasks or self.propagate_tasks)
 
     def to_dict(self) -> dict:
         return {
@@ -133,7 +88,6 @@ class ScanWorklist:
             "head_commit": self.head_commit,
             "short_head": self.short_head,
             "prose_tasks": [t.to_dict() for t in self.prose_tasks],
-            "drift_tasks": [t.to_dict() for t in self.drift_tasks],
             "propagate_tasks": [t.to_dict() for t in self.propagate_tasks],
             "propagate_anchors": dict(self.propagate_anchors),
             "propagate_pages": dict(self.propagate_pages),
@@ -151,7 +105,6 @@ class ScanWorklist:
             head_commit=d.get("head_commit"),
             short_head=d.get("short_head"),
             prose_tasks=[ProseRefreshTask.from_dict(t) for t in (d.get("prose_tasks") or [])],
-            drift_tasks=[DriftTask.from_dict(t) for t in (d.get("drift_tasks") or [])],
             propagate_tasks=[PropagateTask.from_dict(t) for t in (d.get("propagate_tasks") or [])],
             schema=schema,
             propagate_anchors=dict(d.get("propagate_anchors") or {}),
@@ -265,33 +218,6 @@ class ProseRefreshResult:
 
 
 @dataclass
-class DriftVerdict:
-    section: str  # heading WITHOUT the "## " prefix, e.g. "Purpose"
-    stale: bool
-    reason: str = ""
-
-    def to_dict(self) -> dict:
-        return {"section": self.section, "stale": self.stale, "reason": self.reason}
-
-    @classmethod
-    def from_dict(cls, d: dict) -> DriftVerdict:
-        return cls(section=d["section"], stale=bool(d.get("stale", False)), reason=str(d.get("reason", "")))
-
-
-@dataclass
-class DriftResultItem:
-    uri: str
-    verdicts: list[DriftVerdict] = field(default_factory=list)
-
-    def to_dict(self) -> dict:
-        return {"uri": self.uri, "verdicts": [v.to_dict() for v in self.verdicts]}
-
-    @classmethod
-    def from_dict(cls, d: dict) -> DriftResultItem:
-        return cls(uri=d["uri"], verdicts=[DriftVerdict.from_dict(v) for v in (d.get("verdicts") or [])])
-
-
-@dataclass
 class PropagateFinding:
     entity_stem: str
     claim: str
@@ -333,7 +259,6 @@ class PropagateResultItem:
 @dataclass
 class ScanResults:
     prose: list[ProseRefreshResult] = field(default_factory=list)
-    drift: list[DriftResultItem] = field(default_factory=list)
     propagate: list[PropagateResultItem] = field(default_factory=list)
     schema: int = SCHEMA_VERSION
     # Runtime-only (NOT serialized): provider-side errors (e.g. prose_refresher
@@ -347,7 +272,6 @@ class ScanResults:
         return {
             "schema": self.schema,
             "prose": [p.to_dict() for p in self.prose],
-            "drift": [d.to_dict() for d in self.drift],
             "propagate": [p.to_dict() for p in self.propagate],
         }
 
@@ -361,7 +285,6 @@ class ScanResults:
             raise ValueError(f"unsupported results schema: {schema!r}")
         return cls(
             prose=[ProseRefreshResult.from_dict(p) for p in (d.get("prose") or [])],
-            drift=[DriftResultItem.from_dict(x) for x in (d.get("drift") or [])],
             propagate=[PropagateResultItem.from_dict(p) for p in (d.get("propagate") or [])],
             schema=schema,
         )
@@ -379,7 +302,6 @@ class ApplyResult:
     described: int = 0
     dir_filled: int = 0
     sections_filled: int = 0
-    drift_flagged: int = 0
     stamped: int = 0
     propagated: int = 0
     entity_errors: list[str] = field(default_factory=list)
@@ -390,7 +312,6 @@ class ApplyResult:
             "described": self.described,
             "dir_filled": self.dir_filled,
             "sections_filled": self.sections_filled,
-            "drift_flagged": self.drift_flagged,
             "stamped": self.stamped,
             "propagated": self.propagated,
             "entity_errors": list(self.entity_errors),
