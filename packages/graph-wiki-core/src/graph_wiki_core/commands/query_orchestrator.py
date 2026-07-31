@@ -37,7 +37,6 @@ ALLOWED_WORKERS = ("librarian", "code_reader")
 DEGRADED_STATUS_VALUES = {"degraded", "failed", "error", "blocked", "stale"}
 DEGRADED_STATUS_KEYS = ("ingest_status", "proposal_status", "status")
 PLACEHOLDER_MARKERS = ("todo", "placeholder", "no narrative available", "needs review")
-STALE_DRIFT_VALUES = {"stale", "degraded", "failed", "error", "blocked", "outdated"}
 MIN_MEANINGFUL_BODY_CHARS = 40
 MAX_ORCHESTRATOR_WIKI_PAGE_CHARS = 40_000
 MAX_ORCHESTRATOR_SEARCH_ROWS = 20
@@ -771,9 +770,6 @@ def classify_wiki_freshness(page_path: Path, *, repo_head: str | None) -> Freshn
     metadata = frontmatter.loads(text).metadata
     body = body_without_frontmatter(text)
 
-    if _drift_review_is_stale(metadata.get("drift_review")):
-        return FreshnessClassification(freshness="stale", reason="drift_review")
-
     last_updated_commit = metadata.get("last_updated_commit")
     if repo_head and last_updated_commit and str(last_updated_commit) != repo_head:
         return FreshnessClassification(freshness="stale", reason="last_updated_commit mismatch")
@@ -826,33 +822,6 @@ def parse_orchestrator_output(
     )
     validate_orchestrator_output(output, require_stale_claim_gaps=require_stale_claim_gaps)
     return output
-
-
-def _drift_review_is_stale(value: Any) -> bool:
-    if not value:
-        return False
-    if isinstance(value, dict):
-        return any(
-            _stale_drift_value(value.get(key)) for key in ("status", "reason", "verdict", "state") if key in value
-        )
-    if isinstance(value, list | tuple | set):
-        return any(_drift_review_is_stale(item) for item in value)
-    return _stale_drift_value(value)
-
-
-def _stale_drift_value(value: Any) -> bool:
-    if isinstance(value, dict):
-        return _drift_review_is_stale(value)
-    if isinstance(value, list | tuple | set):
-        return any(_stale_drift_value(item) for item in value)
-    if isinstance(value, str):
-        normalized = value.strip().lower()
-        if normalized in {"", "false", "none", "null", "[]", "{}"}:
-            return False
-        return normalized in STALE_DRIFT_VALUES
-    if value is None:
-        return False
-    return str(value).strip().lower() in STALE_DRIFT_VALUES
 
 
 def _has_placeholder_content(body: str) -> bool:

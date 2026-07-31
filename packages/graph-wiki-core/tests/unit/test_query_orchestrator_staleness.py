@@ -23,32 +23,6 @@ def _write_page(tmp_path: Path, frontmatter: str, body: str | None = None) -> Pa
     return page
 
 
-def test_drift_review_status_stale_marks_page_stale(tmp_path: Path) -> None:
-    page = _write_page(tmp_path, "kind: package\ndrift_review: {status: stale}\n")
-
-    result = classify_wiki_freshness(page, repo_head="head1")
-
-    assert result.freshness == "stale"
-    assert result.reason == "drift_review"
-
-
-def test_multiline_drift_review_status_stale_marks_page_stale_even_when_commit_matches(tmp_path: Path) -> None:
-    page = _write_page(
-        tmp_path,
-        "kind: package\n"
-        "last_updated_commit: head1\n"
-        "drift_review:\n"
-        "  - section: Narrative\n"
-        "    status: stale\n"
-        "    reason: Source changed\n",
-    )
-
-    result = classify_wiki_freshness(page, repo_head="head1")
-
-    assert result.freshness == "stale"
-    assert result.reason == "drift_review"
-
-
 @pytest.mark.parametrize(
     "drift_review",
     [
@@ -58,7 +32,10 @@ def test_multiline_drift_review_status_stale_marks_page_stale_even_when_commit_m
         "drift_review: awaiting reviewer acknowledgement\n",
     ],
 )
-def test_benign_drift_review_metadata_does_not_mark_page_stale(tmp_path: Path, drift_review: str) -> None:
+def test_drift_review_metadata_is_ignored_entirely(tmp_path: Path, drift_review: str) -> None:
+    """drift_review is no longer read by classify_wiki_freshness at all (M2e
+    teardown) — presence of the key, benign or otherwise, has zero effect on
+    the freshness classification."""
     page = _write_page(tmp_path, f"kind: package\nlast_updated_commit: head1\n{drift_review}")
 
     result = classify_wiki_freshness(page, repo_head="head1")
