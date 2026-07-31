@@ -512,7 +512,7 @@ def test_target_page_stamped_on_first_observation(ws, conn, monkeypatch):
 def test_target_page_unchanged_hash_is_not_restamped(ws, conn, monkeypatch):
     """A page whose stored content_hash already matches its body is left alone —
     head_commit must not even be called (no needless git subprocess)."""
-    from wiki_io.drift import page_body_hash
+    from wiki_io.content_hash import page_body_hash
     from wiki_io.entity_writer import update_frontmatter as _uf
 
     wiki, repo = ws / "wiki", ws / "repo"
@@ -542,7 +542,7 @@ def test_target_page_unchanged_hash_is_not_restamped(ws, conn, monkeypatch):
 def test_target_page_hash_mismatch_restamps_both_keys(ws, conn, monkeypatch):
     """A curated page hand-edited since its last stamp (content_hash mismatch)
     gets both keys re-stamped to current HEAD."""
-    from wiki_io.drift import page_body_hash
+    from wiki_io.content_hash import page_body_hash
     from wiki_io.entity_writer import update_frontmatter as _uf
 
     wiki, repo = ws / "wiki", ws / "repo"
@@ -593,7 +593,7 @@ def test_dry_run_does_not_persist_curated_page_stamp(ws, conn, monkeypatch):
 def test_target_caught_up_suppresses_that_entity_but_not_others(ws, conn, monkeypatch):
     """A target already caught up with pkg_a's change (is_ancestor True for that
     pair) drops pkg_a's finding; pkg_b, not caught up, is still judged."""
-    from wiki_io.drift import page_body_hash
+    from wiki_io.content_hash import page_body_hash
     from wiki_io.entity_writer import update_frontmatter as _uf
 
     wiki, repo = ws / "wiki", ws / "repo"
@@ -648,7 +648,7 @@ def test_target_caught_up_suppresses_that_entity_but_not_others(ws, conn, monkey
 def test_target_not_caught_up_still_proposes(ws, conn, monkeypatch):
     """is_ancestor False (target predates the entity's change) -> no suppression,
     existing proposal behavior unchanged."""
-    from wiki_io.drift import page_body_hash
+    from wiki_io.content_hash import page_body_hash
     from wiki_io.entity_writer import update_frontmatter as _uf
 
     wiki, repo = ws / "wiki", ws / "repo"

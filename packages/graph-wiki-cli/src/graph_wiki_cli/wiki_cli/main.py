@@ -1,6 +1,6 @@
 """Native Typer command surface for `gw wiki`.
 
-Wiki-maintenance commands (lint, ack-drift, proposals, archive, propagate-drift)
+Wiki-maintenance commands (lint, proposals, archive, propagate-drift)
 delegate to graph_wiki_core.commands.*; this module owns only presentation.
 query, log, ingest, and tokens were promoted to top-level `gw` commands
 (see cli.py).
@@ -16,7 +16,6 @@ from typing import Optional
 
 import typer
 from graph_wiki_core.commands._paths import resolve_wiki_and_repo
-from graph_wiki_core.commands.ack_drift import run_ack_drift
 from graph_wiki_core.commands.graph_query import open_reader
 from graph_wiki_core.commands.lint import run_lint
 from graph_wiki_core.commands.propagate_drift import run_propagate_drift
@@ -59,26 +58,6 @@ def lint(
         for err in result.errors:
             typer.echo(f"  error: {err}", err=True)
         raise typer.Exit(code=3)
-
-
-@wiki_app.command(name="ack-drift")
-def ack_drift(
-    entity: str = typer.Argument(..., help="Entity URI or page slug to clear drift flags for"),
-    workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
-    json_output: bool = typer.Option(False, "--json", help="Emit the result as JSON"),
-) -> None:
-    """Acknowledge (clear) human-section drift flags on an entity page without editing its prose."""
-    workspace_path = Path(workspace) if workspace else None
-    try:
-        result = run_ack_drift(entity, workspace_path=workspace_path)
-    except (RuntimeError, ValueError, FileNotFoundError) as e:
-        typer.echo(f"Error: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    if json_output:
-        typer.echo(json.dumps(dataclasses.asdict(result), indent=2, default=str))
-    else:
-        typer.echo(f"[ok] Cleared {result.cleared} drift flag(s): {result.page_path}")
 
 
 @wiki_app.command(name="proposals")

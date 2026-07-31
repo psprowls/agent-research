@@ -16,8 +16,7 @@ from __future__ import annotations
 import json
 from typing import cast
 
-from wiki_io.entity_writer import DETERMINISTIC_SECTIONS
-from wiki_io.human_sections import is_todo_like_body
+from wiki_io.entity_writer import DETERMINISTIC_SECTIONS, is_todo_like_body
 
 from graph_wiki_core.commands.scan_contract import ProseRefreshResult, ProseRefreshTask
 from graph_wiki_core.text_utils import truncate_text

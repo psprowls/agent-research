@@ -36,12 +36,12 @@ from wiki_io.entity_writer import (
     LAST_UPDATED_COMMIT_KEY,
     file_map_todo_paths,
     fill_file_map_descriptions,
+    is_todo_like_body,
     prose_section_bodies,
     replace_prose_sections,
     set_frontmatter_value,
 )
 from wiki_io.git_state import truncate_diff as _real_truncate_diff
-from wiki_io.human_sections import is_todo_like_body
 
 _PKG_A = "pkg:org/repo/pkg-a"
 _REPO_URI = "repo:org/repo"

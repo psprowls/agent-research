@@ -28,12 +28,6 @@ from graph_io.tokens import count_tokens
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.backlink_index import build_entity_backlink_map, regenerate_referenced_in_wiki
-from wiki_io.drift import (
-    clear_resolved_flags,
-    extract_file_map,
-    iter_human_sections,
-    section_hash,
-)
 from wiki_io.entity_writer import (
     ADMITTED_KINDS,
     LAST_UPDATED_COMMIT_KEY,
@@ -42,11 +36,13 @@ from wiki_io.entity_writer import (
     _extract_file_map_descriptions,
     _kind_list_fns,
     dir_section_todo_contexts,
+    extract_file_map,
     extract_narrative,
     file_map_todo_paths,
     fill_dir_section_descriptions,
     fill_file_map_descriptions,
     fill_file_map_overview,
+    has_todo_prose,
     inject_file_map,
     is_overview_unfilled,
     prose_section_bodies,
@@ -58,7 +54,6 @@ from wiki_io.entity_writer import (
     write_entities,
 )
 from wiki_io.git_state import changed_files_since, changed_names_since, diff_since, short_commit, truncate_diff
-from wiki_io.human_sections import find_todo_human_sections
 from wiki_io.index_generator import generate_index
 from wiki_io.lint.common import FILE_MAP_SECTION_RE
 from wiki_io.proposals import HUMAN_DECIDED, list_proposals
@@ -84,8 +79,6 @@ from graph_wiki_core.commands.propagate_drift import (
 )
 from graph_wiki_core.commands.scan_contract import (
     ApplyResult,
-    DriftSectionInput,
-    DriftTask,
     PropagateEntity,
     PropagateTask,
     ProseRefreshResult,
@@ -257,7 +250,7 @@ def _first_fill_needed(page_path: Path, page_text: str, kind: str, anchor: str |
     re-trigger (fixes the sticky-placeholder gotcha)."""
     if extract_narrative(page_text) is None:
         return True
-    if find_todo_human_sections(page_text, entity_kind=kind):
+    if has_todo_prose(page_text):
         return True
     if file_map_todo_paths(page_path) or dir_section_todo_contexts(page_path) or is_overview_unfilled(page_path):
         return True
@@ -598,111 +591,9 @@ def _commit_dirty_changes(
     return dirty
 
 
-# Living Wiki M2e: kinds with BOTH a regenerated `## Narrative` and human-owned
-# sections worth drift-checking. `repository`/`domain`/`dependency` have no
-# curated human prose and are excluded (spec §3.4). `agent_plugin` is included
-# now for forward-compatibility — its commit-gated coverage completes with the
-# agent-plugin parity plan, but it already narrates on structural change.
-DRIFT_TARGET_KINDS: frozenset[str] = frozenset({"package", "app", "test_suite", "agent_plugin"})
-
-
-def _drift_candidates(wiki: Path) -> list[tuple[Path, str, str, str | None]]:
-    """Return ``[(page_path, anchor, narrative, file_map), ...]`` for entity pages
-    whose narrative is newer than their last drift check (spec §3.1 step 1).
-
-    Gate (all required): kind in DRIFT_TARGET_KINDS; `last_updated_commit`
-    present; `## Narrative` present (ground truth); and
-    `drift_checked_commit != last_updated_commit` (a missing checked-commit
-    counts as lagging). Comparison is string inequality — SHAs are not ordered.
-    """
-    entities_dir = wiki / "entities"
-    if not entities_dir.is_dir():
-        return []
-    out: list[tuple[Path, str, str, str | None]] = []
-    for page_path in sorted(entities_dir.glob("*.md")):
-        try:
-            post = frontmatter.load(str(page_path))
-        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
-            continue
-        meta = post.metadata
-        if meta.get("kind") not in DRIFT_TARGET_KINDS:
-            continue
-        anchor = meta.get(LAST_UPDATED_COMMIT_KEY)
-        if not anchor:
-            continue
-        if meta.get("drift_checked_commit") == anchor:
-            continue  # already drift-checked at this narrative revision
-        narrative = extract_narrative(post.content)
-        if not narrative:
-            continue  # no ground truth -> nothing to judge against
-        out.append((page_path, str(anchor), narrative, extract_file_map(post.content)))
-    return out
-
-
-def _drift_clear_pass(wiki: Path) -> None:
-    """Free, every-scan flag resolution (spec §3.2/D4). For every entity page
-    holding a `drift_review` key, recompute each flagged section's current hash;
-    drop entries whose hash changed (prose edited) or whose section is gone, and
-    remove the key when it empties. No LLM, runs even on --no-narrate scans."""
-    entities_dir = wiki / "entities"
-    if not entities_dir.is_dir():
-        return
-    for page_path in sorted(entities_dir.glob("*.md")):
-        try:
-            post = frontmatter.load(str(page_path))
-        except Exception:  # noqa: BLE001 — malformed page must not abort scan
-            continue
-        entries = post.metadata.get("drift_review")
-        if not isinstance(entries, list):
-            continue
-        survivors = clear_resolved_flags(cast(list[dict[str, Any]], entries), post.content)
-        if survivors == entries:
-            continue
-        try:
-            if survivors:
-                update_frontmatter(page_path, {"drift_review": survivors})
-            else:
-                update_frontmatter(page_path, delete=["drift_review"])
-        except Exception as exc:  # noqa: BLE001 — non-fatal
-            logger.warning("drift clear write failed for %s: %s", page_path, exc)
-
-
 # ---------------------------------------------------------------------------
 # Living Wiki M1.5 (split scan pipeline): emit-half worklist assembly
 # ---------------------------------------------------------------------------
-
-
-def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
-    """Serialize M2e drift candidates into DriftTasks (emit-time ground truth).
-
-    Mirror of scan_bedrock._drift_flag_pass's candidate+item assembly minus the LLM judge.
-    Each candidate page becomes one DriftTask carrying its regenerated narrative,
-    file map, and every human section chunk. The uri is read from frontmatter so
-    apply can key verdicts back to the page.
-    """
-    tasks: list[DriftTask] = []
-    for page_path, anchor, narrative, file_map in _drift_candidates(wiki):
-        try:
-            uri = frontmatter.load(str(page_path)).metadata.get("uri")
-        except Exception:  # noqa: BLE001 — a malformed page must not abort scan
-            continue
-        if not uri:
-            continue
-        body = page_path.read_text(encoding="utf-8")
-        sections = [DriftSectionInput(heading=heading, chunk=chunk) for heading, chunk in iter_human_sections(body)]
-        if not sections:
-            continue
-        tasks.append(
-            DriftTask(
-                uri=str(uri),
-                page_path=str(page_path),
-                anchor=anchor,
-                narrative=narrative,
-                file_map=file_map,
-                sections=sections,
-            )
-        )
-    return tasks
 
 
 def _build_propagate_tasks(
@@ -1124,7 +1015,6 @@ async def _build_scan_worklist_body(
                     logger.warning("prose task assembly failed for %s: %s", uri, exc)
                     continue
 
-    drift_tasks = _build_drift_tasks(wiki)
     propagate_tasks, propagate_anchors, propagate_pages = (
         _build_propagate_tasks(wiki, repo, reader, repo_paths=repo_paths)
         if (propagate_drift and reader is not None)
@@ -1135,7 +1025,6 @@ async def _build_scan_worklist_body(
         head_commit=head,
         short_head=short_head,
         prose_tasks=prose_tasks,
-        drift_tasks=drift_tasks,
         propagate_tasks=propagate_tasks,
         propagate_anchors=propagate_anchors,
         propagate_pages=propagate_pages,
@@ -1225,7 +1114,6 @@ async def apply_scan_results(
     # a --results-dir per-entity result take precedence over a --apply-worklist
     # file result for the same uri (it appends dir results after file results).
     prose_by_uri = {r.uri: r for r in results.prose}
-    drift_by_uri = {d.uri: d for d in results.drift}
     task_by_uri = {t.uri: t for t in worklist.prose_tasks}
     short_head = worklist.short_head
     head = worklist.head_commit
@@ -1272,7 +1160,7 @@ async def apply_scan_results(
                 page_text = page_path.read_text(encoding="utf-8", errors="replace")
                 if extract_narrative(page_text) is None:
                     continue
-                if find_todo_human_sections(page_text, entity_kind=task.kind):
+                if has_todo_prose(page_text):
                     continue
                 if (
                     file_map_todo_paths(page_path)
@@ -1288,39 +1176,6 @@ async def apply_scan_results(
                 out.stamped += 1
             except Exception as exc:  # noqa: BLE001 — non-fatal stamp
                 logger.warning("anchor stamp failed for %s: %s", uri, exc)
-
-    # --- M2e drift flag WRITE (judge already done by the provider) ---
-    for drift_task in worklist.drift_tasks:
-        page_path = Path(drift_task.page_path)
-        anchor = drift_task.anchor
-        result_item = drift_by_uri.get(drift_task.uri)
-        # Map verdicts by section name (without "## ") for hashing the current chunk.
-        chunk_by_section = {s.heading.removeprefix("## ").strip(): s.chunk for s in drift_task.sections}
-        entries: list[dict] = []
-        if result_item is not None:
-            for v in result_item.verdicts:
-                if not v.stale:
-                    continue
-                chunk = chunk_by_section.get(v.section, "")
-                entries.append(
-                    {
-                        "section": v.section,
-                        "detected_commit": anchor,
-                        "hash": section_hash(chunk),
-                        "reason": v.reason,
-                    }
-                )
-        try:
-            if entries:
-                update_frontmatter(page_path, {"drift_checked_commit": anchor, "drift_review": entries})
-                out.drift_flagged += len(entries)
-            else:
-                update_frontmatter(page_path, {"drift_checked_commit": anchor}, delete=["drift_review"])
-        except Exception as exc:  # noqa: BLE001 — non-fatal flag write
-            logger.warning("drift flag write failed for %s: %s", page_path, exc)
-
-    # --- Free every-scan clear pass ---
-    _drift_clear_pass(wiki)
 
     # --- M4 propagate WRITE: ledger proposals + per-candidate idempotence stamp.
     # Runs whenever propagate is on and candidates were considered (anchors set) —
@@ -1472,10 +1327,10 @@ async def _run_scan_structural_only(
     """Structural-only scan (the former run_scan(narrate=False) body, verbatim
     minus the now-dead narrate-gated fan-out blocks).
 
-    cg update → write_entities → deterministic file-map injection → free drift
-    clear pass → indexes/backlinks. No prose_refresher / drift_judge fan-outs
-    and no anchor stamping (those live in the narrated path's scan_bedrock.bedrock_provider
-    + apply_scan_results). Runs without model_adapter / subagent_runtime
+    cg update → write_entities → deterministic file-map injection →
+    indexes/backlinks. No prose_refresher fan-out and no anchor stamping
+    (those live in the narrated path's scan_bedrock.bedrock_provider +
+    apply_scan_results). Runs without model_adapter / subagent_runtime
     installed.
     """
     # Step 1: resolve wiki and repo
@@ -1750,15 +1605,10 @@ async def _run_scan_structural_only(
                     raise_exception=True,
                 )
 
-        # The unified prose-refresh fan-out, the refill-gated anchor stamp, the
-        # M2e drift judge, and the M4 producer are all narrate-only — they live
-        # in the narrated path's scan_bedrock.bedrock_provider + apply_scan_results and never
-        # ran here. Structural-only keeps the deterministic file maps + the free
-        # drift clear pass + indexes.
-
-        # Free clear pass — runs every scan (even --no-narrate): a human edit to a
-        # flagged section clears its flag promptly without an LLM call.
-        _drift_clear_pass(wiki)
+        # The unified prose-refresh fan-out, the refill-gated anchor stamp, and
+        # the M4 producer are all narrate-only — they live in the narrated
+        # path's scan_bedrock.bedrock_provider + apply_scan_results and never
+        # ran here. Structural-only keeps the deterministic file maps + indexes.
 
         # Step 12: regenerate indexes (Phase 45 D-01).
         # Order: graph-driven wiki/index.md → per-folder sub-indexes.

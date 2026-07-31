@@ -22,8 +22,8 @@ from wiki_io.entity_writer import (
     dir_section_todo_contexts,
     file_map_todo_paths,
     is_overview_unfilled,
+    is_todo_like_body,
 )
-from wiki_io.human_sections import is_todo_like_body
 
 
 def build_refresh_result(
@@ -79,12 +79,11 @@ def refresh_all_spy(
     """Async ``SubagentPool.run_all`` replacement covering the post-flip roles.
 
     - ``prose_refresher`` -> ``build_refresh_result(t, prose=prose_fn(t), descs=descs_fn)``
-    - ``drift_judge`` -> ``verdict_fn(item)`` (default not-stale)
     - ``drift_propagator`` -> ``propagate_verdict_fn(item)`` (default not-stale)
 
     When ``recorder`` is given, dispatched items are collected under
-    ``prose_tasks`` / ``drift_items`` / ``propagate_items`` so a test can assert
-    a role was (not) dispatched.
+    ``prose_tasks`` / ``propagate_items`` so a test can assert a role was (not)
+    dispatched.
     """
 
     async def _run_all(self, *, items, task, role, model_id, max_concurrency):
@@ -95,11 +94,6 @@ def refresh_all_spy(
             if recorder is not None:
                 recorder.setdefault("prose_tasks", []).extend(items)
             result.successes = [(t, build_refresh_result(t, prose=prose_fn(t), descs=descs_fn)) for t in items]
-        elif role == "drift_judge":
-            if recorder is not None:
-                recorder.setdefault("drift_items", []).extend(items)
-            fn = verdict_fn or (lambda it: {"stale": False, "reason": ""})
-            result.successes = [(it, fn(it)) for it in items]
         elif role == "drift_propagator":
             if recorder is not None:
                 recorder.setdefault("propagate_items", []).extend(items)
