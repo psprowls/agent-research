@@ -63,7 +63,7 @@ def _bedrock_stack() -> tuple[Any, Any, type["SubagentPoolType"], type["TaskResu
 
 
 # M4's per-entity provenance anchor (new key; preserved across re-scan; NOT in
-# SCANNER_OWNED_KEYS — see .claude/rules/backward-compatibility.md, Task 10).
+# DATA_KEYS — see .claude/rules/backward-compatibility.md, Task 10).
 DRIFT_PROPAGATED_COMMIT_KEY = "drift_propagated_commit"
 
 # Curated categories M4 proposes against, folder -> ledger kind. `sources`

@@ -106,7 +106,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 | `/graph-wiki:scan` | Build the code graph; create/update/delete one `entities/` page per admitted entity |
 | `/graph-wiki:ingest <path>` | Read a source from `raw/`, discuss, update vault, log it |
 | `/graph-wiki:query <question>` | Search vault, synthesize answer with citations, offer to file back |
-| `/graph-wiki:lint` | Health check — orphans, broken links, stale claims, **code drift**, and 29 work-layer lint rules |
+| `/graph-wiki:lint` | Health check — orphans, broken links, stale claims, **code drift**, and 31 work-layer lint rules |
 | `/graph-wiki:log` | Show recent log entries (uses unix tools on `log.md`) |
 | `/graph-wiki:file` | Interactively file a new work item (`gw work file`) |
 | `/graph-wiki:archive` | Archive terminal-status work items (`gw work archive`) |
@@ -186,7 +186,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 - `references/obsidian-setup.md` — Obsidian plugins, hotkeys, vault config
 - `references/cross-tool-setup.md` — per-tool setup (Codex, Cursor, Antigravity, etc.)
 - `references/monorepo-principles.md` — why this pattern works for code, how it differs from the generic LLM Wiki
-- `references/lifecycle-rules.md` — the 29 work-layer lint rules with severities and remediation, run by `/graph-wiki:lint` and `gw work lint`
+- `references/lifecycle-rules.md` — the 31 work-layer lint rules with severities and remediation, run by `/graph-wiki:lint` and `gw work lint`
 - `references/sidecar-schema.md` — `work-index.json` schema and stability guarantees
 
 ## Templates (`assets/`)
