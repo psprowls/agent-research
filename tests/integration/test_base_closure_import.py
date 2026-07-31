@@ -72,8 +72,6 @@ BEDROCK_GATED: dict[str, str] = {
     " `from langchain_core.messages import HumanMessage, SystemMessage`"
     " + `from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult`"
     " + `from graph_wiki_core.roles import load_role_config, make_llm`",
-    "graph_wiki_core.commands.propagate_drift": "module-scope"
-    " `from langchain_core.messages import HumanMessage, SystemMessage`",
     "graph_wiki_core.commands.proposal_reasoner": "module-scope"
     " `from langchain_core.messages import HumanMessage, SystemMessage`"
     " + `from langchain_core.tools import BaseTool, tool` (via agent_loop/roles)",
@@ -96,8 +94,6 @@ BEDROCK_GATED: dict[str, str] = {
     "graph_wiki_core.commands.work": "transitively imports"
     " `graph_wiki_core.commands.ingest` (IngestResult), which is langchain_core/subagent_runtime-gated",
     "graph_wiki_core.commands.archive_all": "transitively imports commands.work (gated via commands.ingest)",
-    "graph_wiki_core.commands.graph": "transitively imports commands.propose_domains at module scope"
-    ' (`graph_app.command("propose-domains")` wiring near end of file)',
     "graph_wiki_core.commands.lint_all": "transitively imports commands.lint and commands.work (both gated)",
     "graph_wiki_core.commands.next_guidance": "transitively imports commands.guidance_recall"
     " (langchain_core.messages) and commands.work (gated via commands.ingest)",

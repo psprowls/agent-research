@@ -716,11 +716,19 @@ def export_graph_cmd(
         raise typer.Exit(code=exit_code)
 
 
-from graph_wiki_core.commands.propose_domains import (  # noqa: E402
-    propose_domains_cmd as _propose_domains_cmd,
-)
-
-graph_app.command(name="propose-domains")(_propose_domains_cmd)
+# `propose-domains` needs the Bedrock stack (SubagentPool + langchain_core). This
+# module must import in graph-wiki-core's BASE closure — commands/scan.py imports
+# run_build at module scope, and the plugin path re-execs against that closure —
+# so the registration is guarded the way scan.py guards its own stack: absent the
+# extra, the subcommand simply is not registered.
+try:
+    from graph_wiki_core.commands.propose_domains import (  # noqa: E402
+        propose_domains_cmd as _propose_domains_cmd,
+    )
+except ImportError:  # pragma: no cover — exercised by the base-closure import test
+    pass
+else:
+    graph_app.command(name="propose-domains")(_propose_domains_cmd)
 
 from graph_wiki_core.commands.suggest_resources import (  # noqa: E402
     suggest_resources_cmd as _suggest_resources_cmd,
