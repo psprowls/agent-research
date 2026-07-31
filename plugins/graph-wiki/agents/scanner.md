@@ -52,7 +52,7 @@ Each prose-refresh subagent writes its own `<results_dir>/<page-stem>.json` — 
 
 ### 5. Apply
 ```bash
-uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --results-dir "$GRAPH_WIKI_WORKSPACE/.graph-wiki/results" --short-head <short_head-from-worklist>
+uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/graph-wiki/scripts/scan_monorepo.py --results-dir <results_dir-from-emit-payload> --short-head <short_head-from-worklist>
 ```
 
 (Add `--apply-worklist "$GRAPH_WIKI_WORKSPACE/.graph-wiki/results.json"` when you also assembled drift records; the two sources merge in one call. The worklist path defaults to the sibling `worklist.json` of whichever source you passed.)

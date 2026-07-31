@@ -17,7 +17,7 @@ plugins/graph-wiki/
 
 Real Claude-hosted implementation lives in `packages/wiki-io/` — IO, scan, ingest, lint, page templates (under `src/assets/`), and tests. Bedrock-facing runtime commands are exposed by `packages/graph-wiki-cli/` as the `gw` Typer CLI, backed by `packages/graph-wiki-core/`.
 
-The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `wiki_io.<name>` for the Claude branch or shells out to `gw` for the Bedrock branch (opt-in). There is also `_config.py` for backend selection between Claude (default) and the optional Bedrock CLI path.
+The plugin's `skills/graph-wiki/scripts/*.py` are **thin shims**: each one imports `main()` from `wiki_io.<name>` for the Claude branch or shells out to `gw` for the Bedrock branch (opt-in). `scan_monorepo.py` is the exception — its Claude branch drives `graph_wiki_core.commands.scan` in-process (that module is base-closure safe on purpose, so the shim's `_uv_reexec` target has no Bedrock stack). There is also `_config.py` for backend selection between Claude (default) and the optional Bedrock CLI path.
 
 Current Bedrock shim mapping:
 
