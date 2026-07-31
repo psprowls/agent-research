@@ -1,10 +1,9 @@
 """M4 content-hash primitives for drift detection on curated pages.
 
-These three symbols duplicate drift.py's implementations of the same names,
-to support M4 (curated page content-hash stamping) independently of the M2e
-drift-judge machinery. drift.py's copies remain the ones in active use until
-a later pass retargets their consumers and deletes drift.py and
-human_sections.py.
+Relocated from the now-deleted ``drift.py`` (Living Wiki M2e teardown): after
+M2e's intra-page drift judge was removed, these three symbols were the only
+still-live survivors — the M4 content-hash baseline used by
+``propagate_drift.py``.
 """
 
 from __future__ import annotations
