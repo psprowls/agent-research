@@ -1,14 +1,20 @@
-"""The shared prose-refresh contract: system prompt, work order, brief, sanitizer.
+"""The shared prose-refresh contract: system prompt, work order, brief, parser, sanitizer.
 
 Base-closure safe on purpose — BOTH executors read from here. The in-process
 Bedrock agent (commands/prose_refresh.py) sends PROSE_REFRESHER_SYSTEM plus
-build_prose_refresh_prompt() as chat messages; the out-of-process Claude
-subagent receives render_prose_refresh_brief(), which is the same two strings
-plus a tool-substitution paragraph. Neither side transcribes the ownership
-contract, so they cannot drift.
+build_prose_refresh_prompt() as chat messages, then parses the model's final
+text with parse_prose_refresher_output(); the out-of-process Claude subagent
+receives render_prose_refresh_brief() (the same two strings plus a
+tool-substitution paragraph) and its result file is read back with
+parse_prose_refresh_result_dict() (commands/scan.py::load_results_dir). Neither
+side transcribes the ownership contract or the response schema, so they cannot
+drift.
 """
 
 from __future__ import annotations
+
+import json
+from typing import cast
 
 from wiki_io.entity_writer import DETERMINISTIC_SECTIONS
 from wiki_io.human_sections import is_todo_like_body
@@ -57,10 +63,15 @@ You are a read-only inspection subagent. Read source files under the entity
 root shown below with `Read`, `Grep`, and `Glob` only. You have no live graph
 tools — the `Graph context` block below is all the graph information you get.
 
-When you are done, write the single JSON object described above — that object
-and nothing else, no surrounding prose or fences — to exactly this path:
+When you are done, write the single JSON object described above to exactly
+this path — that object and nothing else, no surrounding prose or fences:
 
     {results_path}
+
+That JSON object must also include a "uri" key set to this entity's URI,
+exactly as given below under "Entity URI":
+
+    "uri": "{uri}"
 
 Use `Write` for that one file only. Make no other writes: never edit the wiki
 page, and never edit anything in the repo.
@@ -111,7 +122,7 @@ def render_prose_refresh_brief(task: ProseRefreshTask, *, results_path: str) -> 
     """
     return (
         f"{PROSE_REFRESHER_SYSTEM}\n"
-        f"{BRIEF_TOOL_INSTRUCTIONS.format(results_path=results_path)}\n"
+        f"{BRIEF_TOOL_INSTRUCTIONS.format(results_path=results_path, uri=task.uri)}\n"
         "## Work order\n\n"
         f"{build_prose_refresh_prompt(task)}\n"
     )
@@ -172,4 +183,103 @@ def sanitize_prose_result(result: ProseRefreshResult, *, allowed_headings: list[
         dir_descriptions=clean_description_map(result.dir_descriptions),
         overview=overview,
         error=result.error,
+    )
+
+
+def _strip_json_fence(raw: str) -> str:
+    text = raw.strip()
+    if not text.startswith("```"):
+        return text
+    lines = text.splitlines()
+    if len(lines) >= 2 and lines[-1].strip() == "```":
+        return "\n".join(lines[1:-1]).strip()
+    return text
+
+
+def _sections_list_to_dict(raw_sections: list) -> dict[str, str]:
+    """The response schema PROSE_REFRESHER_SYSTEM documents: a list of
+    {"heading", "replacement_markdown"} objects. First occurrence of a
+    (normalized) heading wins; malformed entries are dropped, not fatal.
+    """
+    sections: dict[str, str] = {}
+    for section in raw_sections:
+        if not isinstance(section, dict):
+            continue
+        heading = section.get("heading")
+        body = section.get("replacement_markdown")
+        if not isinstance(heading, str) or not isinstance(body, str):
+            continue
+        normalized = normalize_heading(heading)
+        if normalized in sections:
+            continue  # first occurrence wins
+        sections[normalized] = body
+    return sections
+
+
+def parse_prose_refresher_output(raw: str, *, allowed_headings: list[str]) -> ProseRefreshResult:
+    """Parse the agent's final JSON into a ProseRefreshResult (uri filled by caller).
+
+    Structural failures return an empty result with ``error`` set. Per-section
+    filtering is delegated to ``sanitize_prose_result`` — the same filter the
+    apply half runs over out-of-process results.
+    """
+    try:
+        payload = json.loads(_strip_json_fence(raw))
+    except json.JSONDecodeError as exc:
+        return ProseRefreshResult(uri="", error=f"prose_refresher returned invalid JSON: {exc.msg}")
+    if not isinstance(payload, dict):
+        return ProseRefreshResult(uri="", error="prose_refresher output must be a JSON object")
+
+    raw_sections = payload.get("sections")
+    if raw_sections is not None and not isinstance(raw_sections, list):
+        return ProseRefreshResult(uri="", error='prose_refresher "sections" must be a list')
+
+    sections = _sections_list_to_dict(raw_sections or [])
+
+    overview_raw = payload.get("overview")
+    return sanitize_prose_result(
+        ProseRefreshResult(
+            uri="",
+            sections=sections,
+            file_map_descriptions=cast(dict[str, str], payload.get("file_map_descriptions") or {}),
+            dir_descriptions=cast(dict[str, str], payload.get("dir_descriptions") or {}),
+            overview=overview_raw if isinstance(overview_raw, str) else None,
+        ),
+        allowed_headings=allowed_headings,
+    )
+
+
+def parse_prose_refresh_result_dict(d: dict) -> ProseRefreshResult:
+    """Parse one ``results/*.json`` payload into a ProseRefreshResult, accepting
+    EITHER shape apply may see:
+
+    - The brief-documented response shape: list-valued ``"sections"`` of
+      {"heading", "replacement_markdown"} objects, exactly as
+      PROSE_REFRESHER_SYSTEM instructs an out-of-process subagent to write
+      (optionally with a "uri" key, per BRIEF_TOOL_INSTRUCTIONS).
+    - The internal ``ProseRefreshResult.to_dict()`` shape: dict-valued
+      ``"sections"`` of {heading: body}, as the combined ``results.json``
+      document and hand-written fixtures use.
+
+    ``uri`` is optional here and left "" when absent — ``load_results_dir``
+    resolves a missing uri from the page-stem filename. This does NOT
+    sanitize: ``apply_scan_results`` runs ``sanitize_prose_result`` over every
+    result regardless of source (using the task's declared ``prose_sections``
+    as the allow-list), so sanitizing again here would just be redundant.
+    """
+    raw_sections = d.get("sections")
+    if isinstance(raw_sections, list):
+        sections = _sections_list_to_dict(raw_sections)
+    elif isinstance(raw_sections, dict):
+        sections = dict(raw_sections)
+    else:
+        sections = {}
+    overview = d.get("overview")
+    return ProseRefreshResult(
+        uri=d.get("uri") or "",
+        sections=sections,
+        file_map_descriptions=dict(d.get("file_map_descriptions") or {}),
+        dir_descriptions=dict(d.get("dir_descriptions") or {}),
+        overview=overview if isinstance(overview, str) else None,
+        error=d.get("error"),
     )

@@ -11,6 +11,7 @@ from graph_wiki_core.commands.scan_contract import ProseRefreshResult, ProseRefr
 from graph_wiki_core.prompts.prose_refresher import (
     PROSE_REFRESHER_SYSTEM,
     build_prose_refresh_prompt,
+    parse_prose_refresh_result_dict,
     render_prose_refresh_brief,
     sanitize_prose_result,
 )
@@ -53,6 +54,48 @@ def test_brief_names_the_results_path_and_substitutes_tools():
     for tool in ("Read", "Grep", "Glob", "Write"):
         assert tool in brief
     assert "read_repo_file" not in brief
+
+
+def test_brief_tells_the_subagent_to_include_uri():
+    """Task 3's fix: PROSE_REFRESHER_SYSTEM never mentions "uri" (it's an LLM
+    response schema written for the Bedrock tool loop, which fills uri
+    out-of-band). The out-of-process brief must add that field explicitly, in
+    the executor-specific adapter half, without editing the shared system
+    prompt (that would change the Bedrock path too).
+    """
+    task = _task(uri="pkg:org/repo/pkg-a")
+    brief = render_prose_refresh_brief(task, results_path="/ws/.graph-wiki/results/pkg_pkg-a.json")
+
+    assert '"uri"' not in PROSE_REFRESHER_SYSTEM
+    assert '"uri": "pkg:org/repo/pkg-a"' in brief
+
+
+def test_documented_response_schema_round_trips_through_the_loader():
+    """Structural pin: build a payload using exactly the key names
+    PROSE_REFRESHER_SYSTEM documents ("sections", "heading",
+    "replacement_markdown") and confirm parse_prose_refresh_result_dict
+    recognizes them. If a future edit renames what the doc tells the model to
+    write without updating the parser (or vice versa), one of these two
+    assertions catches it: first that the doc still promises these exact key
+    names, second that the parser still keys on them.
+    """
+    for key in ('"sections"', '"heading"', '"replacement_markdown"'):
+        assert key in PROSE_REFRESHER_SYSTEM, f"{key} no longer documented in PROSE_REFRESHER_SYSTEM"
+
+    payload = {
+        "uri": "pkg:org/repo/pkg-a",
+        "sections": [{"heading": "## Narrative", "replacement_markdown": "Fresh prose."}],
+    }
+    result = parse_prose_refresh_result_dict(payload)
+
+    assert result.uri == "pkg:org/repo/pkg-a"
+    assert result.sections == {"## Narrative": "Fresh prose."}
+
+    # A payload using the WRONG key names must not be silently reinterpreted
+    # (this is exactly how the original defect went undetected: dict(list of
+    # dicts) reinterprets the dicts' own keys as data instead of raising).
+    wrong_keys = {"uri": "pkg:org/repo/pkg-a", "sections": [{"section": "## Narrative", "body": "Fresh prose."}]}
+    assert parse_prose_refresh_result_dict(wrong_keys).sections == {}
 
 
 def test_sanitizer_drops_deterministic_out_of_surface_and_todo_sections():

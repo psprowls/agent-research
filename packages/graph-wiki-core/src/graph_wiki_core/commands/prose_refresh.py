@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from typing import cast
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool, tool
@@ -20,9 +18,16 @@ from graph_wiki_core.prompts.prose_refresher import (
     MAX_WIKI_PAGE_CHARS,
     PROSE_REFRESHER_SYSTEM,
     build_prose_refresh_prompt,
-    normalize_heading,
+    parse_prose_refresher_output,
     sanitize_prose_result,
 )
+
+# parse_prose_refresher_output (and its _strip_json_fence helper) live in
+# prompts/prose_refresher.py now — it is base-closure safe (json + the
+# normalize/sanitize helpers already there, no Bedrock dependency) and the
+# out-of-process results-dir loader needs the same parsing logic. Re-exported
+# here so existing importers (this module's own run_prose_refresh, the
+# subagent-cli adapter) are undisturbed.
 
 MAX_PROSE_REFRESH_ITERS = 50
 MAX_REPO_FILE_CHARS = 40_000
@@ -112,60 +117,6 @@ def build_prose_refresh_tools(repo: Path, entity_root: str, wiki: Path, graph_to
 
     allowed_graph_tools = filter_graph_tools(graph_tools, _ALLOWED_GRAPH_TOOL_NAMES)
     return [read_repo_file, list_repo_tree, read_wiki_page, *allowed_graph_tools]
-
-
-def _strip_json_fence(raw: str) -> str:
-    text = raw.strip()
-    if not text.startswith("```"):
-        return text
-    lines = text.splitlines()
-    if len(lines) >= 2 and lines[-1].strip() == "```":
-        return "\n".join(lines[1:-1]).strip()
-    return text
-
-
-def parse_prose_refresher_output(raw: str, *, allowed_headings: list[str]) -> ProseRefreshResult:
-    """Parse the agent's final JSON into a ProseRefreshResult (uri filled by caller).
-
-    Structural failures return an empty result with ``error`` set. Per-section
-    filtering is delegated to ``sanitize_prose_result`` — the same filter the
-    apply half runs over out-of-process results.
-    """
-    try:
-        payload = json.loads(_strip_json_fence(raw))
-    except json.JSONDecodeError as exc:
-        return ProseRefreshResult(uri="", error=f"prose_refresher returned invalid JSON: {exc.msg}")
-    if not isinstance(payload, dict):
-        return ProseRefreshResult(uri="", error="prose_refresher output must be a JSON object")
-
-    raw_sections = payload.get("sections")
-    if raw_sections is not None and not isinstance(raw_sections, list):
-        return ProseRefreshResult(uri="", error='prose_refresher "sections" must be a list')
-
-    sections: dict[str, str] = {}
-    for section in raw_sections or []:
-        if not isinstance(section, dict):
-            continue
-        heading = section.get("heading")
-        body = section.get("replacement_markdown")
-        if not isinstance(heading, str) or not isinstance(body, str):
-            continue
-        normalized = normalize_heading(heading)
-        if normalized in sections:
-            continue  # first occurrence wins
-        sections[normalized] = body
-
-    overview_raw = payload.get("overview")
-    return sanitize_prose_result(
-        ProseRefreshResult(
-            uri="",
-            sections=sections,
-            file_map_descriptions=cast(dict[str, str], payload.get("file_map_descriptions") or {}),
-            dir_descriptions=cast(dict[str, str], payload.get("dir_descriptions") or {}),
-            overview=overview_raw if isinstance(overview_raw, str) else None,
-        ),
-        allowed_headings=allowed_headings,
-    )
 
 
 async def run_prose_refresh(

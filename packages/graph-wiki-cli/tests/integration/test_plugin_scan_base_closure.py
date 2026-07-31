@@ -55,6 +55,29 @@ def _seed_wiki(workspace: Path) -> None:
     (workspace / ".graph-wiki").mkdir(parents=True, exist_ok=True)
 
 
+def _run_shim(args: list[str], *, repo: Path, workspace: Path) -> subprocess.CompletedProcess[str]:
+    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
+    env["GRAPH_WIKI_WORKSPACE"] = str(workspace)
+    env["GRAPH_WIKI_SHIM_REEXEC"] = "1"  # already inside uv run — do not re-exec
+    return subprocess.run(
+        [
+            "uv",
+            "run",
+            "--isolated",
+            "--project",
+            str(REPO_ROOT / "packages" / "graph-wiki-core"),
+            "python",
+            str(SCRIPT),
+            *args,
+        ],
+        capture_output=True,
+        text=True,
+        cwd=str(repo),
+        env=env,
+        timeout=900,
+    )
+
+
 @INTEGRATION_GATE
 @pytest.mark.integration
 def test_plugin_emit_runs_without_the_bedrock_stack(tmp_path: Path) -> None:
@@ -67,29 +90,10 @@ def test_plugin_emit_runs_without_the_bedrock_stack(tmp_path: Path) -> None:
     _seed_wiki(workspace)
     worklist = workspace / ".graph-wiki" / "worklist.json"
 
-    env = {k: v for k, v in os.environ.items() if k not in ("VIRTUAL_ENV", "PYTHONPATH")}
-    env["GRAPH_WIKI_WORKSPACE"] = str(workspace)
-    env["GRAPH_WIKI_SHIM_REEXEC"] = "1"  # already inside uv run — do not re-exec
-
-    result = subprocess.run(
-        [
-            "uv",
-            "run",
-            "--isolated",
-            "--project",
-            str(REPO_ROOT / "packages" / "graph-wiki-core"),
-            "python",
-            str(SCRIPT),
-            "--emit-worklist",
-            str(worklist),
-            "--workspace",
-            str(workspace),
-        ],
-        capture_output=True,
-        text=True,
-        cwd=str(repo),
-        env=env,
-        timeout=900,
+    result = _run_shim(
+        ["--emit-worklist", str(worklist), "--workspace", str(workspace)],
+        repo=repo,
+        workspace=workspace,
     )
 
     assert result.returncode == 0, f"stdout:\n{result.stdout}\nstderr:\n{result.stderr}"
@@ -106,3 +110,81 @@ def test_plugin_emit_runs_without_the_bedrock_stack(tmp_path: Path) -> None:
     assert briefs, "expected at least one refresh brief from a first-time scan of a populated fixture repo"
     # Briefs must be self-contained: the ownership contract travels with them.
     assert "Deterministic sections are OFF-LIMITS" in briefs[0].read_text(encoding="utf-8")
+
+
+@INTEGRATION_GATE
+@pytest.mark.integration
+def test_plugin_apply_round_trips_a_brief_shaped_result_in_the_base_closure(tmp_path: Path) -> None:
+    """The apply half of the same round trip, in the same isolated base closure.
+
+    A final whole-feature review found that apply only ever worked when a
+    result file was hand-written in the internal ProseRefreshResult.to_dict()
+    shape (dict-valued "sections", "uri" present) — never the shape
+    PROSE_REFRESHER_SYSTEM actually documents to an out-of-process subagent
+    (list-valued "sections", no "uri" mentioned). This writes a result file
+    exactly as an agent following the emitted brief's text would, runs apply
+    under `uv run --isolated` against core's base closure (no langchain/
+    Bedrock stack installed), and reads the entity page back to confirm the
+    prose actually landed — not just that apply reported success.
+    """
+    assert SCRIPT.is_file()
+    if not FIXTURE.exists():
+        pytest.skip(f"sample_monorepo fixture not found at {FIXTURE}")
+
+    repo = _seed_repo(tmp_path / "repo")
+    workspace = tmp_path / "workspace"
+    _seed_wiki(workspace)
+    worklist = workspace / ".graph-wiki" / "worklist.json"
+
+    emitted = _run_shim(
+        ["--emit-worklist", str(worklist), "--workspace", str(workspace)],
+        repo=repo,
+        workspace=workspace,
+    )
+    assert emitted.returncode == 0, f"stdout:\n{emitted.stdout}\nstderr:\n{emitted.stderr}"
+    payload = json.loads(emitted.stdout)
+    briefs_dir = Path(payload["briefs_dir"])
+    results_dir = Path(payload["results_dir"])
+
+    # Pick a brief whose declared prose surface includes "## Narrative" (every
+    # entity page has it, but this stays honest about reading the brief's own
+    # text rather than assuming graph internals).
+    brief_path = next(
+        p
+        for p in sorted(briefs_dir.glob("*.md"))
+        if "## Narrative" in p.read_text(encoding="utf-8").split("Current prose sections", 1)[1]
+    )
+    brief_text = brief_path.read_text(encoding="utf-8")
+    uri_line = next(line for line in brief_text.splitlines() if line.startswith("Entity URI: "))
+    entity_uri = uri_line.removeprefix("Entity URI: ").strip()
+    assert entity_uri
+
+    marker = "Applied via the plugin-path base-closure round trip."
+    result_path = results_dir / f"{brief_path.stem}.json"
+    result_path.write_text(
+        json.dumps(
+            {
+                "uri": entity_uri,
+                "sections": [{"heading": "## Narrative", "replacement_markdown": marker}],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    applied_run = _run_shim(
+        ["--results-dir", str(results_dir), "--workspace", str(workspace)],
+        repo=repo,
+        workspace=workspace,
+    )
+    assert applied_run.returncode == 0, f"stdout:\n{applied_run.stdout}\nstderr:\n{applied_run.stderr}"
+    applied = json.loads(applied_run.stdout)
+    assert applied["entity_errors"] == [], applied["entity_errors"]
+    assert applied["narrated"] == 1
+
+    pages = [
+        p
+        for p in (workspace / "wiki" / "entities").glob("*.md")
+        if f"uri: {entity_uri}" in p.read_text(encoding="utf-8")
+    ]
+    assert pages, f"no entity page found with uri {entity_uri}"
+    assert marker in pages[0].read_text(encoding="utf-8")

@@ -93,7 +93,11 @@ from graph_wiki_core.commands.scan_contract import (
     ScanResults,
     ScanWorklist,
 )
-from graph_wiki_core.prompts.prose_refresher import render_prose_refresh_brief, sanitize_prose_result
+from graph_wiki_core.prompts.prose_refresher import (
+    parse_prose_refresh_result_dict,
+    render_prose_refresh_brief,
+    sanitize_prose_result,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -1912,8 +1916,22 @@ async def emit_scan_worklist(
     return scan_result
 
 
-def load_results_dir(results_dir: Path) -> tuple[list[ProseRefreshResult], list[str]]:
+def load_results_dir(
+    results_dir: Path, *, uri_by_stem: dict[str, str] | None = None
+) -> tuple[list[ProseRefreshResult], list[str]]:
     """Parse every ``*.json`` in ``results_dir`` as one ProseRefreshResult.
+
+    Accepts EITHER response shape: the brief-documented list-valued
+    ``"sections"`` an out-of-process subagent writes (per
+    PROSE_REFRESHER_SYSTEM / BRIEF_TOOL_INSTRUCTIONS), or the internal
+    ``ProseRefreshResult.to_dict()`` dict-valued shape existing artifacts and
+    the combined ``results.json`` document use — see
+    ``parse_prose_refresh_result_dict``.
+
+    ``uri`` resolution: an explicit "uri" key in the file wins; when absent,
+    ``uri_by_stem`` (the worklist's ``stem(page_path) -> uri`` map, built by
+    ``apply_scan_worklist``) resolves it from the filename, since results are
+    written as ``results/<page-stem>.json``.
 
     Returns ``(results, errors)``. The out-of-process fan-out gives each entity
     its own subagent and its own file, so one malformed or truncated result is
@@ -1925,12 +1943,18 @@ def load_results_dir(results_dir: Path) -> tuple[list[ProseRefreshResult], list[
     errors: list[str] = []
     if not results_dir.is_dir():
         return results, errors
+    uri_by_stem = uri_by_stem or {}
     for path in sorted(results_dir.glob("*.json")):
         try:
-            result = ProseRefreshResult.from_dict(json.loads(path.read_text(encoding="utf-8")))
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("prose result JSON must be an object")
+            result = parse_prose_refresh_result_dict(payload)
         except Exception as exc:  # noqa: BLE001 — one bad file must not fail the apply
             errors.append(f"{path.name}: unreadable prose result: {exc!r}")
             continue
+        if not result.uri:
+            result.uri = uri_by_stem.get(path.stem, "")
         if not result.uri:
             errors.append(f"{path.name}: prose result has no uri")
             continue
@@ -1966,14 +1990,17 @@ async def apply_scan_worklist(
     results = (
         ScanResults.from_json(results_path.read_text(encoding="utf-8")) if results_path is not None else ScanResults()
     )
+    worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
     dir_errors: list[str] = []
     if results_dir is not None:
-        dir_results, dir_errors = load_results_dir(results_dir)
+        # results/<page-stem>.json filenames are the fallback uri handle for a
+        # result that omits "uri" (see load_results_dir / BRIEF_TOOL_INSTRUCTIONS).
+        uri_by_stem = {Path(t.page_path).stem: t.uri for t in worklist.prose_tasks}
+        dir_results, dir_errors = load_results_dir(results_dir, uri_by_stem=uri_by_stem)
         # Append after the file results: apply_scan_results builds prose_by_uri
         # as a last-wins dict, so the fan-out-written per-entity result wins.
         results.prose = results.prose + dir_results
 
-    worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
     # Honor the emit-time stamp value handed back by the orchestrator.
     worklist.short_head = short_head
     if short_head is None:

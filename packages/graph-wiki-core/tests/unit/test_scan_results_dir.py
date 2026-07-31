@@ -87,11 +87,12 @@ def _narrative(ws: Path) -> str:
 
 
 def test_load_results_dir_skips_malformed_files(tmp_path: Path):
-    """broken.json fails to parse as JSON at all; missing_uri_key.json parses but
-    has no "uri" key, so ProseRefreshResult.from_dict's ``d["uri"]`` raises
-    KeyError. Both land in the generic except branch (the "unreadable" message),
-    NOT the dedicated falsy-uri guard — see
-    test_load_results_dir_empty_and_null_uri_hit_dedicated_guard for that path.
+    """broken.json fails to parse as JSON at all -> the generic "unreadable"
+    except branch. missing_uri_key.json parses fine but has no "uri" key and
+    no ``uri_by_stem`` entry for its stem, so it cannot be resolved at all and
+    hits the dedicated falsy-uri guard instead — see
+    test_load_results_dir_resolves_missing_uri_via_stem_fallback for the case
+    where the stem DOES resolve.
     """
     d = tmp_path / "results"
     d.mkdir()
@@ -106,8 +107,28 @@ def test_load_results_dir_skips_malformed_files(tmp_path: Path):
     broken_error = next(e for e in errors if "broken.json" in e)
     assert "unreadable prose result" in broken_error
     missing_key_error = next(e for e in errors if "missing_uri_key.json" in e)
-    assert "unreadable prose result" in missing_key_error
-    assert "no uri" not in missing_key_error
+    assert "prose result has no uri" in missing_key_error
+
+
+def test_load_results_dir_resolves_missing_uri_via_stem_fallback(tmp_path: Path):
+    """A result file that omits "uri" (the brief-documented shape, since
+    PROSE_REFRESHER_SYSTEM's schema never mentions uri) resolves it from
+    ``uri_by_stem`` — the page-stem filename handle apply_scan_worklist builds
+    from the worklist.
+    """
+    d = tmp_path / "results"
+    d.mkdir()
+    (d / "pkg_pkg-a.json").write_text(
+        json.dumps({"sections": [{"heading": "## Narrative", "replacement_markdown": "Resolved via stem."}]}),
+        encoding="utf-8",
+    )
+
+    results, errors = load_results_dir(d, uri_by_stem={"pkg_pkg-a": _URI})
+
+    assert errors == []
+    assert len(results) == 1
+    assert results[0].uri == _URI
+    assert results[0].sections == {"## Narrative": "Resolved via stem."}
 
 
 def test_load_results_dir_empty_and_null_uri_hit_dedicated_guard(tmp_path: Path):
@@ -134,6 +155,115 @@ def test_load_results_dir_empty_and_null_uri_hit_dedicated_guard(tmp_path: Path)
 
 def test_load_results_dir_missing_directory_is_empty(tmp_path: Path):
     assert load_results_dir(tmp_path / "nope") == ([], [])
+
+
+# --- the brief-documented response shape actually applies -------------------
+#
+# This is the seam that shipped broken: PROSE_REFRESHER_SYSTEM tells an
+# out-of-process subagent to write list-valued "sections" and never mentions
+# "uri"; every prior test only ever constructed results in the internal
+# to_dict() dict-shape, so a subagent that did exactly what the brief says
+# produced either a KeyError or (worse) silently-dropped garbage. These
+# exercise the loader with a payload built the way the brief's own text
+# describes, both with and without the "uri" BRIEF_TOOL_INSTRUCTIONS adds.
+
+
+def test_brief_shaped_result_without_uri_applies_via_stem_fallback(ws: Path):
+    """Exactly the PROSE_REFRESHER_SYSTEM schema — list "sections", no "uri" key."""
+    worklist_path = _write_worklist(ws)
+    results_dir = ws / ".graph-wiki" / "results"
+    results_dir.mkdir()
+    (results_dir / "pkg_pkg-a.json").write_text(
+        json.dumps(
+            {
+                "sections": [
+                    {"heading": "## Narrative", "replacement_markdown": "Brief-shaped, no uri."},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    applied = asyncio.run(
+        apply_scan_worklist(
+            workspace_path=ws,
+            repo_path=ws / "repo",
+            results_path=None,
+            short_head=None,
+            propagate=False,
+            worklist_path=worklist_path,
+            results_dir=results_dir,
+        )
+    )
+
+    assert applied.entity_errors == []
+    assert applied.narrated == 1
+    assert _narrative(ws) == "Brief-shaped, no uri."
+
+
+def test_brief_shaped_result_with_uri_applies(ws: Path):
+    """The PROSE_REFRESHER_SYSTEM schema plus the "uri" key BRIEF_TOOL_INSTRUCTIONS adds."""
+    worklist_path = _write_worklist(ws)
+    results_dir = ws / ".graph-wiki" / "results"
+    results_dir.mkdir()
+    (results_dir / "pkg_pkg-a.json").write_text(
+        json.dumps(
+            {
+                "uri": _URI,
+                "sections": [
+                    {"heading": "## Narrative", "replacement_markdown": "Brief-shaped, with uri."},
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    applied = asyncio.run(
+        apply_scan_worklist(
+            workspace_path=ws,
+            repo_path=ws / "repo",
+            results_path=None,
+            short_head=None,
+            propagate=False,
+            worklist_path=worklist_path,
+            results_dir=results_dir,
+        )
+    )
+
+    assert applied.entity_errors == []
+    assert applied.narrated == 1
+    assert _narrative(ws) == "Brief-shaped, with uri."
+
+
+def test_unresolvable_result_is_an_entity_error_not_a_crash_or_silent_drop(ws: Path):
+    """A result the loader truly cannot understand (no uri, no stem match)
+    must surface in entity_errors — the exact regression this fix closes was
+    a *silent* no-op (zero errors, zero effect), not a crash.
+    """
+    worklist_path = _write_worklist(ws)
+    results_dir = ws / ".graph-wiki" / "results"
+    results_dir.mkdir()
+    # A stem that doesn't match any task's page_path stem, AND no uri key.
+    (results_dir / "unknown_entity.json").write_text(
+        json.dumps({"sections": [{"heading": "## Narrative", "replacement_markdown": "orphan"}]}),
+        encoding="utf-8",
+    )
+
+    applied = asyncio.run(
+        apply_scan_worklist(
+            workspace_path=ws,
+            repo_path=ws / "repo",
+            results_path=None,
+            short_head=None,
+            propagate=False,
+            worklist_path=worklist_path,
+            results_dir=results_dir,
+        )
+    )
+
+    assert applied.narrated == 0
+    assert any("unknown_entity.json" in e and "no uri" in e for e in applied.entity_errors)
+    assert _narrative(ws) == "_(scanner will populate on next scan)_"
 
 
 # --- apply_scan_worklist source merging ------------------------------------
