@@ -29,9 +29,14 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--emit-worklist", default="", help="Emit the commit-gated worklist JSON to this path and exit")
     p.add_argument("--apply-worklist", default="", help="Apply a results JSON from this path")
     p.add_argument(
+        "--results-dir",
+        default="",
+        help="Apply per-entity result JSON files from this directory (merges with --apply-worklist)",
+    )
+    p.add_argument(
         "--worklist-path",
         default="",
-        help="Worklist JSON for --apply-worklist (defaults to <results>.parent/worklist.json)",
+        help="Worklist JSON for apply (defaults to worklist.json beside the results source)",
     )
     p.add_argument("--short-head", default="", help="Stamp value for --apply-worklist (short HEAD sha)")
     p.add_argument("--propagate-drift", action="store_true", help="Include opt-in M4 cross-page drift")
@@ -60,8 +65,14 @@ def main() -> None:
     workspace_path = Path(args.workspace) if args.workspace else None
 
     if args.emit_worklist:
-        from graph_wiki_core.commands.scan import ScanAbortedError, emit_scan_worklist
+        from graph_wiki_core.commands.scan import (
+            ScanAbortedError,
+            briefs_dir_for,
+            emit_scan_worklist,
+            results_dir_for,
+        )
 
+        out_path = Path(args.emit_worklist)
         try:
             result = asyncio.run(
                 emit_scan_worklist(
@@ -70,29 +81,39 @@ def main() -> None:
                     no_file_map=args.no_file_map,
                     max_depth=args.max_depth,
                     propagate=args.propagate_drift,
-                    out_path=Path(args.emit_worklist),
+                    out_path=out_path,
                 )
             )
         except ScanAbortedError as e:
             print(f"[error] scan aborted: {e}", file=sys.stderr)
             sys.exit(2)
-        payload = {"worklist_path": args.emit_worklist, "scan_result": dataclasses.asdict(result)}
+        payload = {
+            "worklist_path": args.emit_worklist,
+            "briefs_dir": str(briefs_dir_for(out_path)),
+            "results_dir": str(results_dir_for(out_path)),
+            "scan_result": dataclasses.asdict(result),
+        }
         print(json.dumps(payload, indent=2))
         if result.entity_errors:
             sys.exit(3)
         return
 
-    if args.apply_worklist:
+    if args.apply_worklist or args.results_dir:
         from graph_wiki_core.commands.scan import apply_scan_worklist
 
-        worklist_path = (
-            Path(args.worklist_path) if args.worklist_path else Path(args.apply_worklist).parent / "worklist.json"
-        )
+        results_path = Path(args.apply_worklist) if args.apply_worklist else None
+        results_dir = Path(args.results_dir) if args.results_dir else None
+        # worklist.json sits beside whichever results source was given:
+        #   <ws>/.graph-wiki/results.json -> <ws>/.graph-wiki/worklist.json
+        #   <ws>/.graph-wiki/results/     -> <ws>/.graph-wiki/worklist.json
+        source_dir = results_path.parent if results_path is not None else results_dir.parent  # type: ignore[union-attr]
+        worklist_path = Path(args.worklist_path) if args.worklist_path else source_dir / "worklist.json"
         applied = asyncio.run(
             apply_scan_worklist(
                 workspace_path=workspace_path,
                 repo_path=None,
-                results_path=Path(args.apply_worklist),
+                results_path=results_path,
+                results_dir=results_dir,
                 worklist_path=worklist_path,
                 short_head=(args.short_head or None),
                 propagate=args.propagate_drift,
