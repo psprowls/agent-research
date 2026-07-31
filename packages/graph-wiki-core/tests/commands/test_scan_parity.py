@@ -70,10 +70,10 @@ def _scan_patches(wiki: Path, repo: Path):
     stack = ExitStack()
     stack.enter_context(patch("graph_wiki_core.commands.scan.resolve_wiki_and_repo", return_value=(wiki, repo)))
     stack.enter_context(patch("graph_wiki_core.commands.scan.compute_state_gate", return_value=fake_state_gate))
-    stack.enter_context(patch("graph_wiki_core.commands.scan.make_llm"))
+    stack.enter_context(patch("graph_wiki_core.commands.scan_bedrock.make_llm"))
     pool_mock = AsyncMock()
     pool_mock.run_all = AsyncMock(return_value=_empty_fan_result())
-    pool_patch = stack.enter_context(patch("graph_wiki_core.commands.scan.SubagentPool"))
+    pool_patch = stack.enter_context(patch("graph_wiki_core.commands.scan_bedrock.SubagentPool"))
     pool_patch.return_value = pool_mock
     stack.enter_context(patch("graph_wiki_core.commands.scan.update_index"))
     stack.enter_context(patch("graph_wiki_core.commands.scan._cg_run_build", return_value=(0, "", "")))

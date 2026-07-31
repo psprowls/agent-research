@@ -10,6 +10,8 @@ from langchain_core.tools import BaseTool
 from wiki_io.proposals import read_proposal
 from wiki_io.update_index import parse_frontmatter
 
+from graph_wiki_core.text_utils import truncate_text  # noqa: F401 — re-exported for existing callers
+
 CURATED_CATALOG_BUCKETS = ("concepts", "adrs", "sources")
 DEFAULT_EXCERPT_CHARS = 500
 
@@ -28,12 +30,6 @@ def body_without_frontmatter(text: str) -> str:
     if len(parts) < 3:
         return text
     return parts[2].strip()
-
-
-def truncate_text(text: str, max_chars: int) -> str:
-    if len(text) <= max_chars:
-        return text
-    return text[:max_chars] + f"\n\n[TRUNCATED after {max_chars} chars]"
 
 
 def _frontmatter_entry(path: Path, wiki: Path, kind: str, *, excerpt_chars: int) -> dict[str, Any] | None:

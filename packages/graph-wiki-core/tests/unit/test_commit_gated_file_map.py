@@ -11,7 +11,9 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
 from graph_wiki_core.commands.scan import _changed_rel_paths
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 from wiki_io.entity_writer import EntityWriteResult
 
 from ._spies import patch_repo_state
@@ -92,7 +94,7 @@ def m2b_workspace(tmp_path, monkeypatch):
         "_cg_run_build",
         lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", ""),
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "build_file_map",
@@ -142,7 +144,7 @@ def test_redescribe_changed_row_preserves_unchanged(m2b_workspace, monkeypatch) 
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -180,7 +182,7 @@ def test_trigger_gap_commit_dirty_not_refreshed(m2b_workspace, monkeypatch) -> N
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -220,7 +222,7 @@ def test_redescription_advances_anchor_then_idempotent(m2b_workspace, monkeypatc
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -259,7 +261,7 @@ def test_empty_narration_alone_does_not_stamp(m2b_workspace, monkeypatch) -> Non
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: "", descs=_descs_tagged({"v": "D1"})),
     )
@@ -282,7 +284,7 @@ def test_redescription_advances_anchor_despite_empty_narration(m2b_workspace, mo
     prose_tag = {"v": "real prose"}
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: prose_tag["v"], descs=_descs_tagged(desc_tag)),
     )
@@ -315,7 +317,7 @@ def test_unknown_anchor_full_redescribe_and_restamp(m2b_workspace, monkeypatch) 
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -348,7 +350,7 @@ def test_no_narrate_keeps_cost_cache_and_anchor(m2b_workspace, monkeypatch) -> N
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -389,7 +391,7 @@ def test_failed_redescribe_does_not_advance_anchor(m2b_workspace, monkeypatch) -
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -404,7 +406,7 @@ def test_failed_redescribe_does_not_advance_anchor(m2b_workspace, monkeypatch) -
     heads["v"] = "head2"
     patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: "", descs=_descs_empty),
     )
@@ -433,7 +435,7 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(m2b_workspace, mon
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -446,7 +448,7 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(m2b_workspace, mon
     heads["v"] = "head2"
     patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_empty),
     )
@@ -462,7 +464,7 @@ def test_good_prose_with_failed_describe_does_not_strand_todo(m2b_workspace, mon
     desc_tag["v"] = "D3"
     patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -485,7 +487,7 @@ def test_narrated_only_page_still_stamps(m2b_workspace, monkeypatch) -> None:
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged({"v": "D1"})),
     )
@@ -498,7 +500,7 @@ def test_narrated_only_page_still_stamps(m2b_workspace, monkeypatch) -> None:
     heads["v"] = "head2"
     patch_repo_state(monkeypatch, scan_mod, ["packages/pkg-a/mod.py"])
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged({"v": "D2"})),
     )

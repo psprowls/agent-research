@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import BaseTool, tool
-from wiki_io.entity_writer import DETERMINISTIC_SECTIONS
-from wiki_io.human_sections import is_todo_like_body
 
 from graph_wiki_core.agent_loop import run_tool_loop
 from graph_wiki_core.agent_tools import (
@@ -17,13 +14,40 @@ from graph_wiki_core.agent_tools import (
     truncate_text,
 )
 from graph_wiki_core.commands.scan_contract import ProseRefreshResult, ProseRefreshTask
-from graph_wiki_core.prompts.prose_refresher import PROSE_REFRESHER_SYSTEM
+from graph_wiki_core.prompts.prose_refresher import (
+    MAX_WIKI_PAGE_CHARS,
+    PROSE_REFRESHER_SYSTEM,
+    build_prose_refresh_prompt,
+    parse_prose_refresher_output,
+    sanitize_prose_result,
+)
+
+# parse_prose_refresher_output (and its _strip_json_fence helper) live in
+# prompts/prose_refresher.py now — it is base-closure safe (json + the
+# normalize/sanitize helpers already there, no Bedrock dependency) and the
+# out-of-process results-dir loader needs the same parsing logic. Re-exported
+# here so existing importers (this module's own run_prose_refresh, the
+# subagent-cli adapter) are undisturbed.
 
 MAX_PROSE_REFRESH_ITERS = 50
 MAX_REPO_FILE_CHARS = 40_000
-MAX_WIKI_PAGE_CHARS = 40_000
 MAX_TREE_ENTRIES = 200
 _ALLOWED_GRAPH_TOOL_NAMES = {"cg_find", "cg_describe"}
+
+__all__ = [
+    "MAX_PROSE_REFRESH_ITERS",
+    "MAX_REPO_FILE_CHARS",
+    "MAX_TREE_ENTRIES",
+    "MAX_WIKI_PAGE_CHARS",
+    "PROSE_REFRESHER_SYSTEM",
+    "ProseRefreshResult",
+    "ProseRefreshTask",
+    "build_prose_refresh_prompt",
+    "build_prose_refresh_tools",
+    "parse_prose_refresher_output",
+    "run_prose_refresh",
+    "sanitize_prose_result",
+]
 
 
 def _resolve_under_entity_root(root: Path, rel_path: str) -> Path | None:
@@ -93,121 +117,6 @@ def build_prose_refresh_tools(repo: Path, entity_root: str, wiki: Path, graph_to
 
     allowed_graph_tools = filter_graph_tools(graph_tools, _ALLOWED_GRAPH_TOOL_NAMES)
     return [read_repo_file, list_repo_tree, read_wiki_page, *allowed_graph_tools]
-
-
-def build_prose_refresh_prompt(task: ProseRefreshTask) -> str:
-    if task.trigger == "first_fill":
-        diff_block = "(first fill — no diff; write fresh prose for placeholder sections)"
-    elif task.diff is None:
-        diff_block = (
-            "(history rewritten — the recorded anchor commit is unknown to this repo; "
-            "re-verify all prose against current source)"
-        )
-    else:
-        diff_block = task.diff
-    sections_block = "\n\n".join(f"{heading}\n{body or '(empty)'}" for heading, body in task.prose_sections.items())
-    changed = "\n".join(f"- {p}" for p in task.changed_files)
-    return (
-        f"Entity URI: {task.uri}\n"
-        f"Kind: {task.kind}\n"
-        f"Name: {task.name}\n"
-        f"Graph path: {task.graph_path}\n"
-        f"Language: {task.language}\n"
-        f"Entity root: {task.entity_root}\n"
-        f"Trigger: {task.trigger}\n\n"
-        "Source diff since the prose was last updated:\n"
-        f"{diff_block}\n\n"
-        "Changed files:\n"
-        f"{changed or '(none)'}\n\n"
-        "Current prose sections (heading + body; these are the ONLY headings you may return):\n"
-        f"{sections_block or '(none)'}\n\n"
-        "Current File-map rows:\n"
-        f"{task.file_map_rows or '(none)'}\n\n"
-        "Graph context:\n"
-        f"{task.graph_context or '(none)'}\n\n"
-        "Current page content:\n"
-        f"{truncate_text(task.page_content, MAX_WIKI_PAGE_CHARS)}"
-    )
-
-
-def _strip_json_fence(raw: str) -> str:
-    text = raw.strip()
-    if not text.startswith("```"):
-        return text
-    lines = text.splitlines()
-    if len(lines) >= 2 and lines[-1].strip() == "```":
-        return "\n".join(lines[1:-1]).strip()
-    return text
-
-
-def _normalize_heading(raw: str) -> str:
-    stripped = raw.strip()
-    return stripped if stripped.startswith("## ") else f"## {stripped.removeprefix('##').strip()}"
-
-
-def _str_dict(value: object) -> dict[str, str]:
-    if not isinstance(value, dict):
-        return {}
-    out: dict[str, str] = {}
-    for key, val in value.items():
-        if not (isinstance(key, str) and isinstance(val, str) and val.strip()):
-            continue
-        cleaned = " ".join(val.split()).strip()
-        if cleaned and not is_todo_like_body(cleaned):
-            out[key] = cleaned
-    return out
-
-
-def parse_prose_refresher_output(raw: str, *, allowed_headings: list[str]) -> ProseRefreshResult:
-    """Parse the agent's final JSON into a ProseRefreshResult (uri filled by caller).
-
-    Structural failures return an empty result with ``error`` set. Per-section
-    filtering (deterministic/unknown headings, TODO-like or empty bodies) drops
-    silently.
-    """
-    try:
-        payload = json.loads(_strip_json_fence(raw))
-    except json.JSONDecodeError as exc:
-        return ProseRefreshResult(uri="", error=f"prose_refresher returned invalid JSON: {exc.msg}")
-    if not isinstance(payload, dict):
-        return ProseRefreshResult(uri="", error="prose_refresher output must be a JSON object")
-
-    allowed = set(allowed_headings)
-    sections: dict[str, str] = {}
-    raw_sections = payload.get("sections")
-    if raw_sections is not None and not isinstance(raw_sections, list):
-        return ProseRefreshResult(uri="", error='prose_refresher "sections" must be a list')
-    for section in raw_sections or []:
-        if not isinstance(section, dict):
-            continue
-        heading = section.get("heading")
-        body = section.get("replacement_markdown")
-        if not isinstance(heading, str) or not isinstance(body, str):
-            continue
-        normalized = _normalize_heading(heading)
-        cleaned = body.strip()
-        if (
-            normalized not in allowed
-            or normalized in DETERMINISTIC_SECTIONS
-            or normalized in sections
-            or not cleaned
-            or is_todo_like_body(cleaned)
-        ):
-            continue
-        sections[normalized] = cleaned
-
-    overview_raw = payload.get("overview")
-    overview = overview_raw.strip() if isinstance(overview_raw, str) and overview_raw.strip() else None
-    if overview is not None and is_todo_like_body(overview):
-        overview = None
-    return ProseRefreshResult(
-        uri="",
-        sections=sections,
-        file_map_descriptions=_str_dict(payload.get("file_map_descriptions")),
-        dir_descriptions=_str_dict(payload.get("dir_descriptions")),
-        overview=overview,
-        error=None,
-    )
 
 
 async def run_prose_refresh(

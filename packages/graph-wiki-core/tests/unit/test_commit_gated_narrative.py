@@ -13,7 +13,9 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
 from graph_wiki_core.commands.scan import _commit_dirty_changes
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, short_filename
 
 
@@ -154,7 +156,7 @@ def m2a_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     # Minimal deterministic file map so the package page gets a File map section.
     monkeypatch.setattr(
         scan_mod,
@@ -208,7 +210,7 @@ def m2a_workspace_two(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
 
     # Per-package deterministic file map for either pkg-a or pkg-b paths.
     def _file_map(path, **kw):
@@ -237,7 +239,7 @@ def test_narrative_survives_no_op_rescan(m2a_workspace, monkeypatch) -> None:
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -272,7 +274,7 @@ def test_narrative_survives_no_narrate_rescan(m2a_workspace, monkeypatch) -> Non
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -301,7 +303,7 @@ def test_commit_dirty_entity_is_refreshed_and_restamped(m2a_workspace, monkeypat
     # Distinct prose per scan so we can tell a refresh from a restore.
     prose_tag = {"v": "FIRST"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_all_spy(lambda t: f"{prose_tag['v']} prose for {t.uri}"),
     )
@@ -337,7 +339,7 @@ def test_mixed_scan_refreshes_changed_preserves_unchanged(m2a_workspace_two, mon
     )
     prose_tag = {"v": "FIRST"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_all_spy(lambda t: f"{prose_tag['v']} prose for {t.uri}"),
     )
@@ -451,7 +453,7 @@ def m2a_workspace_gitrepo(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "build_file_map",
@@ -478,7 +480,7 @@ def test_stamped_commit_is_short_form(m2a_workspace_gitrepo, monkeypatch) -> Non
     wiki = workspace / "wiki"
     repo = workspace / "repo"
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_all_spy(lambda t: f"PROSE for {t.uri}"),
     )

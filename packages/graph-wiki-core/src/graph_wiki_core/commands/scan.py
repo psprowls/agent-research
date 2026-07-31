@@ -14,34 +14,17 @@ Public API:
 
 from __future__ import annotations
 
+import json
 import logging
+import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 import frontmatter
 from graph_io import GraphNotInitializedError, exit_codes, open_reader
 from graph_io.tokens import count_tokens
-from langchain_core.messages import HumanMessage, SystemMessage
-
-# Bedrock fan-out stack — imported only for the narrated path (narrate=True).
-# Guarded so the plugin's Claude branch (narrate=False) runs without these
-# workspace members installed. When absent, the prose-refresh/drift fan-out
-# blocks are unreachable (gated on `narrate`), so the None bindings are never
-# called.
-try:
-    from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult
-
-    from graph_wiki_core.roles import load_role_config, make_llm
-except ImportError:  # pragma: no cover — exercised by the lazy-import test via reload
-    load_role_config = make_llm = None  # type: ignore[assignment]
-    SubagentPool = TaskResult = FanOutResult = None  # type: ignore[assignment]
-
-if TYPE_CHECKING:
-    from subagent_runtime.pool import SubagentPool as SubagentPoolType
-    from subagent_runtime.pool import TaskResult as TaskResultType
-
 from wiki_io._workspace import resolve_wiki_and_repo
 from wiki_io.append_log import append_log
 from wiki_io.backlink_index import build_entity_backlink_map, regenerate_referenced_in_wiki
@@ -87,7 +70,7 @@ from wiki_io.scan_monorepo import (
 from wiki_io.update_index import update_index
 from wiki_io.update_tokens import update_vault
 from workspace_io import manifest as _manifest
-from workspace_io.paths import graph_dir, manifest_path
+from workspace_io.paths import manifest_path
 
 from graph_wiki_core.commands._reindex import regen_indexes_and_backlinks
 from graph_wiki_core.commands._repo_gates import build_repo_paths, compute_state_gates, owning_repo
@@ -99,43 +82,24 @@ from graph_wiki_core.commands.propagate_drift import (
     propagation_candidates,
     write_propagation_findings,
 )
-from graph_wiki_core.commands.prose_refresh import run_prose_refresh
 from graph_wiki_core.commands.scan_contract import (
     ApplyResult,
-    DriftResultItem,
     DriftSectionInput,
     DriftTask,
-    DriftVerdict,
     PropagateEntity,
-    PropagateFinding,
-    PropagateResultItem,
     PropagateTask,
+    ProseRefreshResult,
     ProseRefreshTask,
     ScanResults,
     ScanWorklist,
 )
-from graph_wiki_core.graph_tools import build_graph_tools
-from graph_wiki_core.prompts.drift_judge import (
-    build_drift_judge_prompt,
-    parse_drift_verdict,
-)
-from graph_wiki_core.prompts.drift_propagator import (
-    build_drift_propagator_prompt,
-    parse_drift_propagator_verdict,
+from graph_wiki_core.prompts.prose_refresher import (
+    parse_prose_refresh_result_dict,
+    render_prose_refresh_brief,
+    sanitize_prose_result,
 )
 
 logger = logging.getLogger(__name__)
-
-
-def _bedrock_stack() -> tuple[Any, Any, type["SubagentPoolType"], type["TaskResultType"]] | None:
-    if load_role_config is None or make_llm is None or SubagentPool is None or TaskResult is None:
-        return None
-    return (
-        cast(Any, load_role_config),
-        cast(Any, make_llm),
-        cast(type["SubagentPoolType"], SubagentPool),
-        cast(type["TaskResultType"], TaskResult),
-    )
 
 
 # ---------------------------------------------------------------------------
@@ -675,83 +639,6 @@ def _drift_candidates(wiki: Path) -> list[tuple[Path, str, str, str | None]]:
     return out
 
 
-async def _drift_flag_pass(wiki: Path, model_override: str | None) -> None:
-    """Judge each human-owned section of every drift candidate against its page's
-    regenerated narrative; write `drift_review` + advance `drift_checked_commit`.
-
-    Judge-once: only candidate pages (narrative newer than last check) are judged,
-    and each is stamped to its anchor afterward, so a (page, narrative-change) pair
-    costs LLM tokens exactly once (spec §3.1/D3).
-    """
-    stack = _bedrock_stack()
-    if stack is None:
-        return
-    load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-    candidates = _drift_candidates(wiki)
-    if not candidates:
-        return
-
-    # item = (page_path, anchor, heading, chunk, narrative, file_map)
-    items: list[tuple[Path, str, str, str, str, str | None]] = []
-    page_anchor: dict[Path, str] = {}
-    for page_path, anchor, narrative, file_map in candidates:
-        page_anchor[page_path] = anchor
-        body = page_path.read_text(encoding="utf-8")
-        for heading, chunk in iter_human_sections(body):
-            items.append((page_path, anchor, heading, chunk, narrative, file_map))
-
-    verdicts: list[tuple] = []
-    if items:
-        drift_cfg = load_role_config_fn("drift_judge")
-        drift_llm = make_llm_fn("drift_judge", model_override=model_override)
-        drift_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-        async def judge(item: tuple) -> TaskResultType:
-            _pp, _anchor, heading, chunk, narrative, file_map = item
-            system_msg, human_msg = build_drift_judge_prompt(heading, chunk, narrative, file_map)
-            resp = await drift_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-            return task_result_type(value=parse_drift_verdict(resp.content), response=resp)
-
-        fan = await drift_pool.run_all(
-            items=items,
-            task=judge,
-            role="drift_judge",
-            model_id=drift_cfg["model_id"],
-            max_concurrency=drift_cfg["max_concurrency"],
-        )
-        verdicts = list(fan.successes)
-
-    flags_by_page: dict[Path, list[dict]] = {}
-    for item, verdict in verdicts:
-        page_path, anchor, heading, chunk, _narr, _fmp = item
-        if isinstance(verdict, dict) and verdict.get("stale"):
-            flags_by_page.setdefault(page_path, []).append(
-                {
-                    "section": heading.removeprefix("## ").strip(),
-                    "detected_commit": anchor,
-                    "hash": section_hash(chunk),
-                    "reason": str(verdict.get("reason", "")),
-                }
-            )
-
-    for page_path, anchor in page_anchor.items():
-        entries = flags_by_page.get(page_path)
-        try:
-            if entries:
-                update_frontmatter(
-                    page_path,
-                    {"drift_checked_commit": anchor, "drift_review": entries},
-                )
-            else:
-                update_frontmatter(
-                    page_path,
-                    {"drift_checked_commit": anchor},
-                    delete=["drift_review"],
-                )
-        except Exception as exc:  # noqa: BLE001 — non-fatal flag write
-            logger.warning("drift flag write failed for %s: %s", page_path, exc)
-
-
 def _drift_clear_pass(wiki: Path) -> None:
     """Free, every-scan flag resolution (spec §3.2/D4). For every entity page
     holding a `drift_review` key, recompute each flagged section's current hash;
@@ -788,7 +675,7 @@ def _drift_clear_pass(wiki: Path) -> None:
 def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
     """Serialize M2e drift candidates into DriftTasks (emit-time ground truth).
 
-    Mirror of _drift_flag_pass's candidate+item assembly minus the LLM judge.
+    Mirror of scan_bedrock._drift_flag_pass's candidate+item assembly minus the LLM judge.
     Each candidate page becomes one DriftTask carrying its regenerated narrative,
     file map, and every human section chunk. The uri is read from frontmatter so
     apply can key verdicts back to the page.
@@ -1266,180 +1153,6 @@ async def _build_scan_worklist_body(
 
 
 # ---------------------------------------------------------------------------
-# Living Wiki M1.5 (split scan pipeline): in-process Bedrock provider
-# ---------------------------------------------------------------------------
-
-
-async def _bedrock_provider(
-    worklist: ScanWorklist,
-    wiki: Path,
-    repo: Path,
-    *,
-    model_override: str | None = None,
-    propagate: bool = False,
-) -> ScanResults:
-    """Turn a ScanWorklist into ScanResults via the in-process Bedrock fan-outs.
-
-    ONE unified prose fan-out (role="prose_refresher") runs a bounded tool-loop
-    agent per stale entity and collects each parsed ProseRefreshResult keyed by
-    uri; the drift_judge / drift_propagator fan-outs are unchanged. Nothing is
-    injected here — the apply half routes results into the pages. Per-item
-    failures are surfaced via `results.provider_errors`, which run_scan merges
-    into the ScanResult so partial-success reporting is unchanged.
-    """
-    results = ScanResults()
-    provider_errors: list[str] = []
-
-    stack = _bedrock_stack()
-
-    # Open a read-only reader for the prose_refresher's graph tools. Closed in
-    # finally. The open mirrors run_scan's
-    # `if reader is not None` gating: on a NOT_INITIALIZED fallback the graph DB
-    # was never written, so open_reader raises GraphNotInitializedError and we
-    # proceed reader-less.
-    reader = None
-    try:
-        try:
-            reader = open_reader(wiki.parent)
-        except GraphNotInitializedError:
-            reader = None
-
-        # --- Unified prose-refresh fan-out (role="prose_refresher") ---
-        if stack is not None and worklist.prose_tasks:
-            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-            graph_tools = build_graph_tools(reader) if reader is not None else []
-            cfg = load_role_config_fn("prose_refresher")
-            llm = make_llm_fn("prose_refresher", model_override=model_override)
-            pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-            async def refresh(task: ProseRefreshTask) -> TaskResultType:
-                result = await run_prose_refresh(llm=llm, task=task, repo=repo, wiki=wiki, graph_tools=graph_tools)
-                return task_result_type(value=result, response=result)
-
-            fan = await pool.run_all(
-                items=list(worklist.prose_tasks),
-                task=refresh,
-                role="prose_refresher",
-                model_id=cfg["model_id"],
-                max_concurrency=cfg["max_concurrency"],
-            )
-            for task_item, result in fan.successes:
-                if result.error:
-                    provider_errors.append(f"{task_item.uri}: {result.error}")
-                results.prose.append(result)
-            for err in fan.errors:
-                provider_errors.append(f"{err.item.uri}: {err.exception!r}")
-
-        # --- drift_judge fan-out (role="drift_judge") — emit-time ground truth ---
-        if stack is not None and worklist.drift_tasks:
-            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-            # item = (page_path, anchor, heading, chunk, narrative, file_map) —
-            # identical to _drift_flag_pass so the spies' verdict_fn(it) works.
-            drift_items: list[tuple[Path, str, str, str, str, str | None]] = []
-            for dtask in worklist.drift_tasks:
-                page_path = Path(dtask.page_path)
-                for section in dtask.sections:
-                    drift_items.append(
-                        (page_path, dtask.anchor, section.heading, section.chunk, dtask.narrative, dtask.file_map)
-                    )
-
-            if drift_items:
-                drift_cfg = load_role_config_fn("drift_judge")
-                drift_llm = make_llm_fn("drift_judge", model_override=model_override)
-                drift_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-                async def judge(item: tuple) -> TaskResultType:
-                    _pp, _anchor, heading, chunk, narrative, file_map = item
-                    system_msg, human_msg = build_drift_judge_prompt(heading, chunk, narrative, file_map)
-                    resp = await drift_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-                    return task_result_type(value=parse_drift_verdict(resp.content), response=resp)
-
-                fan = await drift_pool.run_all(
-                    items=drift_items,
-                    task=judge,
-                    role="drift_judge",
-                    model_id=drift_cfg["model_id"],
-                    max_concurrency=drift_cfg["max_concurrency"],
-                )
-                drift_by_uri: dict[str, DriftResultItem] = {}
-                task_uri_by_page = {Path(d.page_path): d.uri for d in worklist.drift_tasks}
-                for item, verdict in fan.successes:
-                    page_path, _anchor, heading, _chunk, _narr, _fmp = item
-                    uri = task_uri_by_page.get(page_path)
-                    if uri is None:
-                        continue
-                    if not isinstance(verdict, dict):
-                        continue
-                    item_out = drift_by_uri.setdefault(uri, DriftResultItem(uri=uri))
-                    item_out.verdicts.append(
-                        DriftVerdict(
-                            section=heading.removeprefix("## ").strip(),
-                            stale=bool(verdict.get("stale")),
-                            reason=str(verdict.get("reason", "")),
-                        )
-                    )
-                results.drift = list(drift_by_uri.values())
-
-        # --- drift_propagator fan-out (role="drift_propagator") — M4, opt-in ---
-        if propagate and stack is not None and worklist.propagate_tasks:
-            load_role_config_fn, make_llm_fn, subagent_pool_type, task_result_type = stack
-            # item = (kind, target_slug, title, body, entity_tuples) — mirrors
-            # run_propagate_drift's judge half (entity_tuples = (stem, narrative, files)).
-            prop_items: list[tuple[str, str, str, str, list[tuple[str, str, list[str]]]]] = []
-            for ptask in worklist.propagate_tasks:
-                body = Path(ptask.page_path).read_text(encoding="utf-8")
-                entity_tuples = [(e.stem, e.narrative, e.changed_files) for e in ptask.entities]
-                prop_items.append((ptask.kind, ptask.target_slug, ptask.title, body, entity_tuples))
-
-            if prop_items:
-                prop_cfg = load_role_config_fn("drift_propagator")
-                prop_llm = make_llm_fn("drift_propagator", model_override=model_override)
-                prop_pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
-
-                async def judge_propagate(item: tuple) -> TaskResultType:
-                    kind_inner, _slug, title, body, entity_tuples = item
-                    system_msg, human_msg = build_drift_propagator_prompt(kind_inner, title, body, entity_tuples)
-                    resp = await prop_llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])
-                    return task_result_type(value=parse_drift_propagator_verdict(resp.content), response=resp)
-
-                fan = await prop_pool.run_all(
-                    items=prop_items,
-                    task=judge_propagate,
-                    role="drift_propagator",
-                    model_id=prop_cfg["model_id"],
-                    max_concurrency=prop_cfg["max_concurrency"],
-                )
-                propagate_results: list[PropagateResultItem] = []
-                for item, verdict in fan.successes:
-                    kind_inner, slug, _title, _body, _entity_tuples = item
-                    if not (isinstance(verdict, dict) and verdict.get("stale")):
-                        continue
-                    findings = [
-                        PropagateFinding(
-                            entity_stem=str(f.get("entity_stem", "")),
-                            claim=str(f.get("stale_claim", "")),
-                            reason=str(f.get("rationale", "")),
-                        )
-                        for f in (verdict.get("findings") or [])
-                        if str(f.get("entity_stem", "")).strip()
-                    ]
-                    if findings:
-                        propagate_results.append(
-                            PropagateResultItem(kind=kind_inner, target_slug=slug, stale=True, findings=findings)
-                        )
-                results.propagate = propagate_results
-    finally:
-        if reader is not None:
-            try:
-                reader.close()
-            except Exception:  # noqa: BLE001
-                pass
-
-    results.provider_errors = provider_errors
-    return results
-
-
-# ---------------------------------------------------------------------------
 # Living Wiki M1.5 (split scan pipeline): apply-half (deterministic back-half)
 # ---------------------------------------------------------------------------
 
@@ -1508,6 +1221,9 @@ async def apply_scan_results(
     isolated (mirrors Bedrock per-item try/except).
     """
     out = ApplyResult()
+    # Deliberately last-wins per uri: apply_scan_worklist relies on this to make
+    # a --results-dir per-entity result take precedence over a --apply-worklist
+    # file result for the same uri (it appends dir results after file results).
     prose_by_uri = {r.uri: r for r in results.prose}
     drift_by_uri = {d.uri: d for d in results.drift}
     task_by_uri = {t.uri: t for t in worklist.prose_tasks}
@@ -1519,6 +1235,11 @@ async def apply_scan_results(
         task = task_by_uri.get(uri)
         if task is None:
             continue  # result references an entity not in this worklist — skip
+        # Provider-agnostic filter: deterministic headings, headings outside this
+        # task's declared prose surface, and TODO-like bodies never reach a page.
+        # The Bedrock parser already filtered (harmless double-filter); the
+        # out-of-process path gets the filtering it never had.
+        result = sanitize_prose_result(result, allowed_headings=list(task.prose_sections))
         page_path = Path(task.page_path)
         try:
             if result.sections:
@@ -1675,6 +1396,11 @@ async def run_scan(
     # apply_scan_results (deterministic back-half). The narrate=False structural-
     # only fast path below is unchanged (it runs without the Bedrock stack).
     if narrate:
+        # The ONE crossing into the Bedrock half. Kept lazy so this module stays
+        # importable in graph-wiki-core's base closure (property (e)) — the
+        # plugin's narrate=False branch never reaches this line.
+        from graph_wiki_core.commands.scan_bedrock import bedrock_provider
+
         worklist, scan_result = await build_scan_worklist(
             workspace_path=workspace_path,
             repo_path=repo_path,
@@ -1690,12 +1416,10 @@ async def run_scan(
         else:
             repo = Path.cwd()
 
-        results = await _bedrock_provider(
-            worklist, wiki, repo, model_override=model_override, propagate=propagate_drift
-        )
+        results = await bedrock_provider(worklist, wiki, repo, model_override=model_override, propagate=propagate_drift)
         # Living Wiki M4: opt-in cross-page drift producer now flows through the
         # contract once — propagate_tasks (emit) → drift_propagator fan-out
-        # (_bedrock_provider) → _apply_propagate_results (apply). No direct call.
+        # (scan_bedrock.bedrock_provider) → _apply_propagate_results (apply). No direct call.
         applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate_drift)
 
         scan_result.entities_narrated = sorted(
@@ -1750,7 +1474,7 @@ async def _run_scan_structural_only(
 
     cg update → write_entities → deterministic file-map injection → free drift
     clear pass → indexes/backlinks. No prose_refresher / drift_judge fan-outs
-    and no anchor stamping (those live in the narrated path's _bedrock_provider
+    and no anchor stamping (those live in the narrated path's scan_bedrock.bedrock_provider
     + apply_scan_results). Runs without model_adapter / subagent_runtime
     installed.
     """
@@ -1860,7 +1584,7 @@ async def _run_scan_structural_only(
         head = state_gate.get("head_commit")
 
         # Step 9a: entity write only. The prose-refresh fan-out lives in the
-        # narrated path's _bedrock_provider — structural-only never narrates.
+        # narrated path's scan_bedrock.bedrock_provider — structural-only never narrates.
         entity_write_result = None
         # M2b: per-URI changed-file lists for commit-dirty package/app pages
         # (keys = dirty URIs; value = repo-relative changed paths, or None when
@@ -2028,7 +1752,7 @@ async def _run_scan_structural_only(
 
         # The unified prose-refresh fan-out, the refill-gated anchor stamp, the
         # M2e drift judge, and the M4 producer are all narrate-only — they live
-        # in the narrated path's _bedrock_provider + apply_scan_results and never
+        # in the narrated path's scan_bedrock.bedrock_provider + apply_scan_results and never
         # ran here. Structural-only keeps the deterministic file maps + the free
         # drift clear pass + indexes.
 
@@ -2117,6 +1841,27 @@ async def _run_scan_structural_only(
 # ---------------------------------------------------------------------------
 
 
+BRIEFS_DIRNAME = "briefs"
+RESULTS_DIRNAME = "results"
+
+
+def briefs_dir_for(worklist_path: Path) -> Path:
+    """Directory holding one rendered refresh brief per prose task."""
+    return worklist_path.parent / BRIEFS_DIRNAME
+
+
+def results_dir_for(worklist_path: Path) -> Path:
+    """Drop-box the out-of-process fan-out writes per-entity result JSON into."""
+    return worklist_path.parent / RESULTS_DIRNAME
+
+
+def _reset_dir(path: Path) -> None:
+    """Empty `path` (creating it if absent). Emit's clearing is load-bearing."""
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
 async def emit_scan_worklist(
     *,
     workspace_path: Path | None,
@@ -2126,10 +1871,16 @@ async def emit_scan_worklist(
     propagate: bool,
     out_path: Path,
 ) -> ScanResult:
-    """Run the mechanical front-half, write worklist.json to out_path, return the ScanResult.
+    """Run the mechanical front-half, write worklist.json + per-entity briefs, return the ScanResult.
 
-    Thin wrapper over build_scan_worklist for the out-of-process (Claude plugin) path.
-    Creates parent directories as needed.
+    Thin wrapper over build_scan_worklist for the out-of-process (Claude plugin)
+    path. Alongside `out_path` it writes `briefs/<page-stem>.md` — one rendered
+    prompt per stale entity, built from the SAME system prompt and work order
+    the Bedrock provider sends — and resets an empty `results/` for the fan-out.
+
+    Clearing `results/` is load-bearing: a per-entity result left by a previous
+    run would otherwise be silently re-applied against a page whose diff window
+    has since moved.
     """
     worklist, scan_result = await build_scan_worklist(
         workspace_path=workspace_path,
@@ -2140,31 +1891,122 @@ async def emit_scan_worklist(
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(worklist.to_json(), encoding="utf-8")
+
+    briefs_dir = briefs_dir_for(out_path)
+    results_dir = results_dir_for(out_path)
+    try:
+        _reset_dir(briefs_dir)
+        _reset_dir(results_dir)
+    except OSError as exc:
+        # briefs/ or results/ itself is unwritable (permission denied, read-only
+        # fs, or a race with a still-running fan-out) — there is nowhere to write
+        # a brief, so skip the loop entirely rather than raising past the
+        # ScanAbortedError-only handlers at the CLI/plugin call sites.
+        scan_result.entity_errors.append(f"briefs/results reset failed: {exc!r}")
+        return scan_result
+    for task in worklist.prose_tasks:
+        stem = Path(task.page_path).stem
+        try:
+            (briefs_dir / f"{stem}.md").write_text(
+                render_prose_refresh_brief(task, results_path=str(results_dir / f"{stem}.json")),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            scan_result.entity_errors.append(f"{task.uri}: brief write failed: {exc!r}")
     return scan_result
+
+
+def load_results_dir(
+    results_dir: Path, *, uri_by_stem: dict[str, str] | None = None
+) -> tuple[list[ProseRefreshResult], list[str]]:
+    """Parse every ``*.json`` in ``results_dir`` as one ProseRefreshResult.
+
+    Accepts EITHER response shape: the brief-documented list-valued
+    ``"sections"`` an out-of-process subagent writes (per
+    PROSE_REFRESHER_SYSTEM / BRIEF_TOOL_INSTRUCTIONS), or the internal
+    ``ProseRefreshResult.to_dict()`` dict-valued shape existing artifacts and
+    the combined ``results.json`` document use — see
+    ``parse_prose_refresh_result_dict``.
+
+    ``uri`` resolution: an explicit "uri" key in the file wins; when absent,
+    ``uri_by_stem`` (the worklist's ``stem(page_path) -> uri`` map, built by
+    ``apply_scan_worklist``) resolves it from the filename, since results are
+    written as ``results/<page-stem>.json``.
+
+    Returns ``(results, errors)``. The out-of-process fan-out gives each entity
+    its own subagent and its own file, so one malformed or truncated result is
+    isolated: it becomes an error string and its entity retries on the next
+    scan, while every sibling still applies. A missing directory is empty, not
+    an error — `--apply-worklist` alone is still a valid apply.
+    """
+    results: list[ProseRefreshResult] = []
+    errors: list[str] = []
+    if not results_dir.is_dir():
+        return results, errors
+    uri_by_stem = uri_by_stem or {}
+    for path in sorted(results_dir.glob("*.json")):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(payload, dict):
+                raise ValueError("prose result JSON must be an object")
+            result = parse_prose_refresh_result_dict(payload)
+        except Exception as exc:  # noqa: BLE001 — one bad file must not fail the apply
+            errors.append(f"{path.name}: unreadable prose result: {exc!r}")
+            continue
+        if not result.uri:
+            result.uri = uri_by_stem.get(path.stem, "")
+        if not result.uri:
+            errors.append(f"{path.name}: prose result has no uri")
+            continue
+        results.append(result)
+    return results, errors
 
 
 async def apply_scan_worklist(
     *,
     workspace_path: Path | None,
     repo_path: Path | None,
-    results_path: Path,
+    results_path: Path | None,
     short_head: str | None,
     propagate: bool,
     worklist_path: Path,
+    results_dir: Path | None = None,
 ) -> ApplyResult:
-    """Read results.json + worklist.json, apply fill results, return ApplyResult.
+    """Read the worklist + one or both result sources, apply them, return the ApplyResult.
 
     The worklist is read from disk (written by emit_scan_worklist) so the apply
     view is identical to the emit view — no second scan is needed. short_head is
-    passed in to honor the state-gate decision made at emit time; it overrides the
-    worklist's stored value (the only state crossing the process boundary).
+    passed in to honor the state-gate decision made at emit time; it overrides
+    the worklist's stored value (the only state crossing the process boundary).
+
+    At least one of ``results_path`` (a single ScanResults document) and
+    ``results_dir`` (one ProseRefreshResult per file) is required. When both are
+    given they merge, and the directory's per-entity result wins uri-wise — it
+    is the fresher, fan-out-written source.
     """
-    results = ScanResults.from_json(results_path.read_text(encoding="utf-8"))
+    if results_path is None and results_dir is None:
+        raise ValueError("apply_scan_worklist requires results_path, results_dir, or both")
+
+    results = (
+        ScanResults.from_json(results_path.read_text(encoding="utf-8")) if results_path is not None else ScanResults()
+    )
     worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
+    dir_errors: list[str] = []
+    if results_dir is not None:
+        # results/<page-stem>.json filenames are the fallback uri handle for a
+        # result that omits "uri" (see load_results_dir / BRIEF_TOOL_INSTRUCTIONS).
+        uri_by_stem = {Path(t.page_path).stem: t.uri for t in worklist.prose_tasks}
+        dir_results, dir_errors = load_results_dir(results_dir, uri_by_stem=uri_by_stem)
+        # Append after the file results: apply_scan_results builds prose_by_uri
+        # as a last-wins dict, so the fan-out-written per-entity result wins.
+        results.prose = results.prose + dir_results
+
     # Honor the emit-time stamp value handed back by the orchestrator.
     worklist.short_head = short_head
     if short_head is None:
         worklist.head_commit = None
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
     repo = repo_path.resolve() if repo_path else (resolved_repo or Path.cwd())
-    return await apply_scan_results(worklist, results, wiki, repo, propagate=propagate)
+    applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate)
+    applied.entity_errors.extend(dir_errors)
+    return applied

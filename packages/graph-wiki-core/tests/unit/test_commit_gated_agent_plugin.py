@@ -28,6 +28,8 @@ import pytest
 from graph_io import exit_codes, schema
 from graph_io.agent_plugins import emit as _ap_emit
 from graph_io.uri import RepoContext
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 from ._spies import patch_repo_state
 
@@ -110,7 +112,7 @@ def plugin_workspace(tmp_path, monkeypatch):
         lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", ""),
     )
     monkeypatch.setattr(
-        scan_mod,
+        scan_bedrock_mod,
         "make_llm",
         lambda role, *, model_override=None: MagicMock(),
     )
@@ -140,7 +142,7 @@ def test_command_added_refreshes_table_and_renarrates(plugin_workspace, monkeypa
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_spy(heads),
     )
@@ -197,7 +199,7 @@ def test_noop_rescan_stays_unchanged(plugin_workspace, monkeypatch) -> None:
     recorder: dict = {}
     prose_refresher_calls = recorder.setdefault("prose_tasks", [])
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE {t.uri} @ {heads['v']}", recorder=recorder),
     )
@@ -258,7 +260,7 @@ def test_no_narrate_refreshes_tables_not_narrative(plugin_workspace, monkeypatch
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_spy(heads),
     )
@@ -313,7 +315,7 @@ def test_new_agent_plugin_bootstraps_anchor(plugin_workspace, monkeypatch) -> No
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _narrate_spy(heads),
     )
@@ -372,7 +374,7 @@ def test_agent_plugin_commit_advance_activates_drift_flagging(plugin_workspace, 
     verdict_fn = {"fn": lambda it: {"stale": False, "reason": ""}}
     recorder: dict = {}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(
             lambda t: f"PROSE {t.uri} @ {heads['v']}",

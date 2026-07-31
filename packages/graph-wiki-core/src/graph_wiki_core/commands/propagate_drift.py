@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
 import frontmatter
-from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io.backlink_index import build_entity_backlink_map
 from wiki_io.drift import CONTENT_HASH_KEY, extract_narrative, page_body_hash, section_hash
 from wiki_io.entity_writer import LAST_UPDATED_COMMIT_KEY, update_frontmatter
@@ -406,6 +405,10 @@ async def run_propagate_drift(
         pool = subagent_pool_type(trace_dir=graph_dir(wiki.parent) / "traces")
 
         async def judge(item: tuple) -> TaskResultType:
+            # Lazy: this module is base-closure-safe (commands/scan.py imports it
+            # at module scope); only the judge itself needs the Bedrock stack.
+            from langchain_core.messages import HumanMessage, SystemMessage
+
             kind, _slug, title, body, entity_tuples, _entry = item
             system_msg, human_msg = build_drift_propagator_prompt(kind, title, body, entity_tuples)
             resp = await llm.ainvoke([SystemMessage(content=system_msg), HumanMessage(content=human_msg)])

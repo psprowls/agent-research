@@ -3,12 +3,12 @@ from __future__ import annotations
 import asyncio
 import sqlite3
 from pathlib import Path
-from unittest.mock import MagicMock
 
 import frontmatter
 import pytest
 from graph_io import exit_codes
 from graph_wiki_core.commands import scan as scan_module
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 
 def _seed_minimal_graph(db_path: Path) -> None:
@@ -66,8 +66,7 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
 
         return FanOutResult()
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _spy_run_all)
-    monkeypatch.setattr(scan_module, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(_SubagentPool, "run_all", _spy_run_all)
 
     # Minimal deterministic file map so the package page gets a File map section.
     pkg_a_block = (
@@ -108,9 +107,10 @@ def test_narrate_false_skips_fanout_and_keeps_placeholder(tmp_workspace, monkeyp
 
 
 def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch):
-    """With model_adapter/subagent_runtime un-importable, importing scan.py binds
-    the Bedrock symbols to None (except branch) and run_scan(narrate=False) still
-    completes end-to-end."""
+    """With model_adapter/subagent_runtime un-importable, scan.py has no Bedrock
+    symbols bound at all (they live in scan_bedrock.py, imported lazily only on
+    the narrate=True branch) and run_scan(narrate=False) still completes
+    end-to-end."""
     import importlib
     import sys
 
@@ -125,9 +125,12 @@ def test_narrate_false_runs_without_bedrock_installed(tmp_workspace, monkeypatch
 
     reloaded = importlib.reload(scan_module)
     try:
-        # The except branch bound the symbols to None.
-        assert reloaded.make_llm is None
-        assert reloaded.SubagentPool is None
+        # After the scan/scan_bedrock split there are no Bedrock symbols to bind
+        # at all — scan.py's module scope is base-closure clean. The permanent
+        # proof is tests/integration/test_base_closure_import.py; this test keeps
+        # the narrate=False path itself honest.
+        assert not hasattr(reloaded, "SubagentPool")
+        assert not hasattr(reloaded, "make_llm")
 
         reloaded_setattr = monkeypatch.setattr
         reloaded_setattr(

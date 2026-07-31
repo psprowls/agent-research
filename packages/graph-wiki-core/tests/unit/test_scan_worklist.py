@@ -21,6 +21,8 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 from ._spies import patch_repo_state, refresh_all_spy
 
@@ -52,6 +54,36 @@ def _page_for(wiki: Path):
     return next(p for p in (wiki / "entities").glob("*.md") if _fm.load(p).metadata.get("uri") == _PKG_A)
 
 
+_PKG_B = "pkg:org/repo/pkg-b"
+
+
+def _seed_two_packages(db_path: Path) -> None:
+    """Graph with two package nodes pkg-a and pkg-b under packages/."""
+    from graph_io import schema
+
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(db_path)
+    try:
+        schema.apply_schema(conn)
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('repository', 'repo', NULL, NULL, '{\"uri\": \"repo:org/repo\"}', 'repo:org/repo')"
+        )
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\": \"python\"}', "
+            "'pkg:org/repo/pkg-a')"
+        )
+        conn.execute(
+            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
+            "('package', 'pkg-b', 'packages/pkg-b', NULL, '{\"language\": \"python\"}', "
+            "'pkg:org/repo/pkg-b')"
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 @pytest.fixture
 def emit_workspace(tmp_path, monkeypatch):
     """One-package workspace with stubbed cg update, state gate (clean @ head1),
@@ -68,7 +100,7 @@ def emit_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
@@ -85,6 +117,33 @@ def emit_workspace(tmp_path, monkeypatch):
             else None
         ),
     )
+    return workspace, repo
+
+
+@pytest.fixture
+def emit_workspace_two(tmp_path, monkeypatch):
+    """Like `emit_workspace`, but seeds two packages (pkg-a, pkg-b) so tests can
+    pin per-iteration fault isolation — a single-entity worklist can't distinguish
+    "skip the bad task" from "abort the whole loop"."""
+    workspace = tmp_path / "workspace"
+    wiki = workspace / "wiki"
+    repo = workspace / "repo"
+    (wiki / ".graph-wiki").mkdir(parents=True)
+    (wiki / "CLAUDE.md").write_text("# Wiki\n")
+    (wiki / "log.md").write_text("", encoding="utf-8")
+    repo.mkdir()
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(workspace))
+    _seed_two_packages(workspace / ".graph-wiki" / "code.db")
+    monkeypatch.setattr(
+        scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
+    )
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(
+        scan_mod,
+        "compute_state_gate",
+        lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
+    )
+    monkeypatch.setattr(scan_mod, "build_file_map", lambda path, **kw: None)
     return workspace, repo
 
 
@@ -125,7 +184,7 @@ def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> 
     wiki = workspace / "wiki"
 
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -166,7 +225,7 @@ def test_commit_dirty_unchanged_package_emits_diff_task(emit_workspace, monkeypa
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -405,7 +464,7 @@ def _narrate_and_stamp_pkg_a(workspace, repo, monkeypatch) -> Path:
     (last_updated_commit=head1, no drift_propagated_commit -> a propagate
     candidate). Returns the entity page path."""
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -499,3 +558,147 @@ def test_m4_off_by_default_emits_no_propagate_tasks(emit_workspace, monkeypatch)
     wiki_resolved, resolved_repo = resolve_wiki_and_repo(workspace, repo)
     asyncio.run(apply_scan_results(worklist, ScanResults(), wiki_resolved, resolved_repo or repo, propagate=False))
     assert list_proposals(wiki) == []
+
+
+# ---------------------------------------------------------------------------
+# Emit-side briefs: the out-of-process fan-out's instructions + drop-box
+# ---------------------------------------------------------------------------
+
+
+def test_emit_writes_one_brief_per_prose_task(emit_workspace, monkeypatch) -> None:
+    """Every stale entity gets a rendered brief named by its page stem."""
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist, results_dir_for
+    from graph_wiki_core.commands.scan_contract import ScanWorklist
+    from graph_wiki_core.prompts.prose_refresher import render_prose_refresh_brief
+
+    workspace, repo = emit_workspace
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    worklist = ScanWorklist.from_json(out_path.read_text(encoding="utf-8"))
+    assert worklist.prose_tasks, "fixture must produce at least one stale entity"
+
+    briefs = sorted(p.name for p in briefs_dir_for(out_path).glob("*.md"))
+    assert briefs == sorted(f"{Path(t.page_path).stem}.md" for t in worklist.prose_tasks)
+
+    task = worklist.prose_tasks[0]
+    stem = Path(task.page_path).stem
+    expected = render_prose_refresh_brief(task, results_path=str(results_dir_for(out_path) / f"{stem}.json"))
+    assert (briefs_dir_for(out_path) / f"{stem}.md").read_text(encoding="utf-8") == expected
+
+
+def test_emit_clears_stale_briefs_and_results(emit_workspace) -> None:
+    """A result file from a previous run must never survive into this one — its
+    page's diff window has moved, so re-applying it would inject stale prose."""
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist, results_dir_for
+
+    workspace, repo = emit_workspace
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    stale_brief = briefs_dir_for(out_path) / "gone.md"
+    stale_result = results_dir_for(out_path) / "gone.json"
+    stale_brief.parent.mkdir(parents=True, exist_ok=True)
+    stale_result.parent.mkdir(parents=True, exist_ok=True)
+    stale_brief.write_text("old brief", encoding="utf-8")
+    stale_result.write_text('{"uri": "pkg:gone"}', encoding="utf-8")
+
+    asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    assert not stale_brief.exists()
+    assert not stale_result.exists()
+    assert results_dir_for(out_path).is_dir(), "results/ must exist (empty) for the fan-out to write into"
+
+
+def test_emit_brief_write_failure_is_isolated_and_reported(emit_workspace_two, monkeypatch) -> None:
+    """A brief that fails to write appends an entity_errors entry instead of
+    aborting the emit — worklist.json still lands, and the OTHER entity's brief
+    is still written. A two-entity worklist is required here: with only one
+    task, "skip the failed task and continue" and "abort the whole loop" are
+    observationally identical."""
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist
+
+    workspace, repo = emit_workspace_two
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    original_write_text = Path.write_text
+    failing_stem = "pkg_pkg-a"
+
+    def _flaky_write_text(self, *args, **kwargs):
+        if self.parent == briefs_dir_for(out_path) and self.stem == failing_stem:
+            raise OSError("disk full")
+        return original_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", _flaky_write_text, raising=True)
+
+    scan_result = asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    assert out_path.exists(), "worklist.json must still be written despite the brief failure"
+    assert scan_result.entity_errors, "the failed brief write must be reported, not swallowed"
+    assert any("brief write failed" in e for e in scan_result.entity_errors)
+
+    briefs = {p.stem for p in briefs_dir_for(out_path).glob("*.md")}
+    assert failing_stem not in briefs, "the failing entity's brief must not land"
+    assert briefs, "the OTHER entity's brief must still be written — this is what pins per-iteration isolation"
+
+
+def test_emit_degrades_gracefully_when_reset_dir_fails(emit_workspace, monkeypatch) -> None:
+    """When briefs/ or results/ itself can't be reset (permission denied, race
+    with a still-running fan-out, etc.), emit must not raise past the
+    ScanAbortedError-only handlers at the CLI/plugin call sites — it records one
+    top-level entity_errors entry and returns, worklist.json still written."""
+    from graph_wiki_core.commands import scan as scan_mod2
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist
+
+    workspace, repo = emit_workspace
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    def _flaky_reset_dir(path):
+        raise OSError("permission denied")
+
+    monkeypatch.setattr(scan_mod2, "_reset_dir", _flaky_reset_dir)
+
+    scan_result = asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    assert out_path.exists(), "worklist.json must still be written despite the reset failure"
+    assert scan_result.entity_errors, "the reset failure must be reported, not raised"
+    assert any("reset failed" in e for e in scan_result.entity_errors)
+    assert not briefs_dir_for(out_path).exists() or not any(briefs_dir_for(out_path).iterdir()), (
+        "no briefs can be written when the reset itself failed"
+    )

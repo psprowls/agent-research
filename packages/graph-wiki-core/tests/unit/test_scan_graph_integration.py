@@ -27,6 +27,7 @@ from unittest.mock import MagicMock
 import pytest
 from graph_io import exit_codes
 from graph_wiki_core.commands import scan as scan_module
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -164,15 +165,17 @@ def stub_pool_run_all(monkeypatch):
         result = FanOutResult()
         return result
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _stub)
+    monkeypatch.setattr(_SubagentPool, "run_all", _stub)
 
 
 @pytest.fixture(autouse=True)
 def stub_make_llm(monkeypatch):
     """Replace make_llm so no Bedrock-credential lookup happens during run_scan."""
-    monkeypatch.setattr(scan_module, "make_llm", lambda role, *, model_override=None: MagicMock())
+    from graph_wiki_core.commands import scan_bedrock as scan_bedrock_module
+
+    monkeypatch.setattr(scan_bedrock_module, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
-        scan_module,
+        scan_bedrock_module,
         "load_role_config",
         lambda role: {
             "model_id": "fake-model",
@@ -217,7 +220,7 @@ def test_cg_update_dispatched_before_fanout(tmp_workspace_with_packages, monkeyp
         order.append("fanout")
         return FanOutResult()
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _track_run_all)
+    monkeypatch.setattr(_SubagentPool, "run_all", _track_run_all)
 
     # Pretend cg succeeded but no DB on disk → conn open should fail with
     # GraphNotInitializedError; scan should still complete via fallback.
@@ -280,7 +283,7 @@ def test_hard_abort_on_runtime_failure(tmp_workspace_with_packages, monkeypatch,
         pool_calls.append(1)
         return FanOutResult()
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _track)
+    monkeypatch.setattr(_SubagentPool, "run_all", _track)
 
     with pytest.raises(scan_module.ScanAbortedError) as excinfo:
         asyncio.run(scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=True))
@@ -680,7 +683,7 @@ def test_code_reader_fanout_fills_todo_descriptions(tmp_workspace_with_packages,
                 )
         return res
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+    monkeypatch.setattr(_SubagentPool, "run_all", _role_aware_run_all)
 
     import frontmatter
 
@@ -757,7 +760,7 @@ async def test_code_reader_fanout_fills_app_todo_descriptions(tmp_workspace_with
                 )
         return res
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+    monkeypatch.setattr(_SubagentPool, "run_all", _role_aware_run_all)
 
     import frontmatter
 
@@ -1010,7 +1013,7 @@ async def test_code_reader_fills_test_suite_todo_descriptions(tmp_workspace_with
                 )
         return res
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _role_aware_run_all)
+    monkeypatch.setattr(_SubagentPool, "run_all", _role_aware_run_all)
 
     await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)
 
@@ -1077,7 +1080,7 @@ async def test_test_suite_file_map_descriptions_survive_rescan(tmp_workspace_wit
             refresher_dispatches.extend((t.uri, _todo(Path(t.page_path))) for t in items)
         return FanOutResult()
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _recording_run_all)
+    monkeypatch.setattr(_SubagentPool, "run_all", _recording_run_all)
 
     # Scan 1: suite page created, File map injected with — TODO rows.
     await scan_module.run_scan(workspace_path=workspace, repo_path=repo, no_file_map=False)

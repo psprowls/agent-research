@@ -547,6 +547,14 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
                 return_value=_reader_mock,
             )
         )
+        # bedrock_provider (scan_bedrock.py) opens its own read-only reader —
+        # patch it too so it doesn't trip over the placeholder code.db written above.
+        stack.enter_context(
+            patch(
+                "graph_wiki_core.commands.scan_bedrock.open_reader",
+                return_value=_reader_mock,
+            )
+        )
         # write_entities + prose pool + the (patched) refresh agent.
         stack.enter_context(
             patch(
@@ -561,11 +569,11 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
 
         stack.enter_context(
             patch(
-                "graph_wiki_core.commands.scan.run_prose_refresh",
+                "graph_wiki_core.commands.scan_bedrock.run_prose_refresh",
                 side_effect=_fake_run_prose_refresh,
             )
         )
-        stack.enter_context(patch("graph_wiki_core.commands.scan.build_graph_tools", return_value=[]))
+        stack.enter_context(patch("graph_wiki_core.commands.scan_bedrock.build_graph_tools", return_value=[]))
         stack.enter_context(
             patch(
                 "graph_wiki_core.commands.scan._kind_list_fns",
@@ -591,10 +599,10 @@ async def test_run_scan_model_override(tmp_path: Path) -> None:
                 return_value=MagicMock(changed=False, bytes_written=0),
             )
         )
-        mock_pool_cls = stack.enter_context(patch("graph_wiki_core.commands.scan.SubagentPool"))
+        mock_pool_cls = stack.enter_context(patch("graph_wiki_core.commands.scan_bedrock.SubagentPool"))
         stack.enter_context(
             patch(
-                "graph_wiki_core.commands.scan.make_llm",
+                "graph_wiki_core.commands.scan_bedrock.make_llm",
                 side_effect=_fake_make_llm,
             )
         )

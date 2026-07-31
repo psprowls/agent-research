@@ -12,6 +12,7 @@ import pytest
 async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
     """run_scan calls regenerate_referenced_in_wiki(wiki) in both narrate modes."""
     from graph_wiki_core.commands import scan as scan_mod
+    from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
 
     wiki = tmp_path / "wiki"
     (wiki / "entities").mkdir(parents=True)
@@ -27,13 +28,15 @@ async def test_run_scan_regenerates_referenced_in_wiki(tmp_path: Path) -> None:
     fake_state_gate = {"allowed": True, "reason": "test-mode", "head_commit": "abc123"}
 
     pool_mock = AsyncMock()
-    pool_mock.run_all = AsyncMock(return_value=scan_mod.FanOutResult() if scan_mod.FanOutResult is not None else None)
+    pool_mock.run_all = AsyncMock(
+        return_value=scan_bedrock_mod.FanOutResult() if scan_bedrock_mod.FanOutResult is not None else None
+    )
 
     with (
         patch.object(scan_mod, "resolve_wiki_and_repo", return_value=(wiki, tmp_path)),
         patch.object(scan_mod, "compute_state_gate", return_value=fake_state_gate),
-        patch.object(scan_mod, "make_llm"),
-        patch.object(scan_mod, "SubagentPool", return_value=pool_mock),
+        patch.object(scan_bedrock_mod, "make_llm"),
+        patch.object(scan_bedrock_mod, "SubagentPool", return_value=pool_mock),
         patch.object(scan_mod, "update_index"),
         patch.object(scan_mod, "_cg_run_build", return_value=(0, "", "")),
         patch.object(

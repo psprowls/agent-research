@@ -72,8 +72,6 @@ BEDROCK_GATED: dict[str, str] = {
     " `from langchain_core.messages import HumanMessage, SystemMessage`"
     " + `from subagent_runtime.pool import FanOutResult, SubagentPool, TaskResult`"
     " + `from graph_wiki_core.roles import load_role_config, make_llm`",
-    "graph_wiki_core.commands.propagate_drift": "module-scope"
-    " `from langchain_core.messages import HumanMessage, SystemMessage`",
     "graph_wiki_core.commands.proposal_reasoner": "module-scope"
     " `from langchain_core.messages import HumanMessage, SystemMessage`"
     " + `from langchain_core.tools import BaseTool, tool` (via agent_loop/roles)",
@@ -84,7 +82,11 @@ BEDROCK_GATED: dict[str, str] = {
     "graph_wiki_core.commands.query_orchestrator": "module-scope"
     " `from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage`"
     " + `from subagent_runtime.pool import ...` (also transitively imports commands.query's bm25s)",
-    "graph_wiki_core.commands.scan": "module-scope `from langchain_core.messages import HumanMessage, SystemMessage`",
+    "graph_wiki_core.commands.scan_bedrock": "module-scope"
+    " `from langchain_core.messages import HumanMessage, SystemMessage`"
+    " + `from graph_wiki_core.graph_tools import build_graph_tools`"
+    " + `from graph_wiki_core.commands.prose_refresh import run_prose_refresh`"
+    " (the whole point: commands.scan stays base-safe, this half does not)",
     "graph_wiki_core.commands.subagent_fanout": "module-scope"
     " `from subagent_runtime.pool import SubagentPool, TaskResult`"
     " + `from subagent_runtime.pricing import cost_for_usage`"
@@ -96,8 +98,6 @@ BEDROCK_GATED: dict[str, str] = {
     "graph_wiki_core.commands.work": "transitively imports"
     " `graph_wiki_core.commands.ingest` (IngestResult), which is langchain_core/subagent_runtime-gated",
     "graph_wiki_core.commands.archive_all": "transitively imports commands.work (gated via commands.ingest)",
-    "graph_wiki_core.commands.graph": "transitively imports commands.propose_domains at module scope"
-    ' (`graph_app.command("propose-domains")` wiring near end of file)',
     "graph_wiki_core.commands.lint_all": "transitively imports commands.lint and commands.work (both gated)",
     "graph_wiki_core.commands.next_guidance": "transitively imports commands.guidance_recall"
     " (langchain_core.messages) and commands.work (gated via commands.ingest)",
@@ -191,3 +191,21 @@ def test_gated_modules_fail_to_import_in_base_closure() -> None:
         "base closure; remove it from the denylist) or a gated module crashed with a "
         f"non-ImportError — see stderr:\n{result.stderr}"
     )
+
+
+def test_graph_app_builds_without_propose_domains_in_base_closure() -> None:
+    """commands/graph.py guards its `propose-domains` registration behind
+    try/except ImportError (propose_domains.py is Bedrock-gated). In the base
+    closure that import fails, so graph_app must still build — just without the
+    propose-domains subcommand — while keeping its other subcommands (proven
+    here by suggest-resources, registered right after the guarded block)."""
+    code = (
+        "from graph_wiki_core.commands.graph import graph_app\n"
+        "names = sorted(c.name for c in graph_app.registered_commands)\n"
+        "assert 'propose-domains' not in names, names\n"
+        "assert 'suggest-resources' in names, names\n"
+        "print('OK')\n"
+    )
+    result = _run_in_base_closure(code)
+    assert result.returncode == 0, f"base-closure graph_app build failed:\n{result.stderr}"
+    assert "OK" in result.stdout, result.stdout
