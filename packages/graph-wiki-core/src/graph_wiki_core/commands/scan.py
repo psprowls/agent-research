@@ -14,6 +14,7 @@ Public API:
 
 from __future__ import annotations
 
+import json
 import logging
 import shutil
 import sys
@@ -87,11 +88,12 @@ from graph_wiki_core.commands.scan_contract import (
     DriftTask,
     PropagateEntity,
     PropagateTask,
+    ProseRefreshResult,
     ProseRefreshTask,
     ScanResults,
     ScanWorklist,
 )
-from graph_wiki_core.prompts.prose_refresher import render_prose_refresh_brief
+from graph_wiki_core.prompts.prose_refresher import render_prose_refresh_brief, sanitize_prose_result
 
 logger = logging.getLogger(__name__)
 
@@ -1226,6 +1228,11 @@ async def apply_scan_results(
         task = task_by_uri.get(uri)
         if task is None:
             continue  # result references an entity not in this worklist — skip
+        # Provider-agnostic filter: deterministic headings, headings outside this
+        # task's declared prose surface, and TODO-like bodies never reach a page.
+        # The Bedrock parser already filtered (harmless double-filter); the
+        # out-of-process path gets the filtering it never had.
+        result = sanitize_prose_result(result, allowed_headings=list(task.prose_sections))
         page_path = Path(task.page_path)
         try:
             if result.sections:
@@ -1902,23 +1909,65 @@ async def emit_scan_worklist(
     return scan_result
 
 
+def load_results_dir(results_dir: Path) -> tuple[list[ProseRefreshResult], list[str]]:
+    """Parse every ``*.json`` in ``results_dir`` as one ProseRefreshResult.
+
+    Returns ``(results, errors)``. The out-of-process fan-out gives each entity
+    its own subagent and its own file, so one malformed or truncated result is
+    isolated: it becomes an error string and its entity retries on the next
+    scan, while every sibling still applies. A missing directory is empty, not
+    an error — `--apply-worklist` alone is still a valid apply.
+    """
+    results: list[ProseRefreshResult] = []
+    errors: list[str] = []
+    if not results_dir.is_dir():
+        return results, errors
+    for path in sorted(results_dir.glob("*.json")):
+        try:
+            result = ProseRefreshResult.from_dict(json.loads(path.read_text(encoding="utf-8")))
+        except Exception as exc:  # noqa: BLE001 — one bad file must not fail the apply
+            errors.append(f"{path.name}: unreadable prose result: {exc!r}")
+            continue
+        if not result.uri:
+            errors.append(f"{path.name}: prose result has no uri")
+            continue
+        results.append(result)
+    return results, errors
+
+
 async def apply_scan_worklist(
     *,
     workspace_path: Path | None,
     repo_path: Path | None,
-    results_path: Path,
+    results_path: Path | None,
     short_head: str | None,
     propagate: bool,
     worklist_path: Path,
+    results_dir: Path | None = None,
 ) -> ApplyResult:
-    """Read results.json + worklist.json, apply fill results, return ApplyResult.
+    """Read the worklist + one or both result sources, apply them, return the ApplyResult.
 
     The worklist is read from disk (written by emit_scan_worklist) so the apply
     view is identical to the emit view — no second scan is needed. short_head is
-    passed in to honor the state-gate decision made at emit time; it overrides the
-    worklist's stored value (the only state crossing the process boundary).
+    passed in to honor the state-gate decision made at emit time; it overrides
+    the worklist's stored value (the only state crossing the process boundary).
+
+    At least one of ``results_path`` (a single ScanResults document) and
+    ``results_dir`` (one ProseRefreshResult per file) is required. When both are
+    given they merge, and the directory's per-entity result wins uri-wise — it
+    is the fresher, fan-out-written source.
     """
-    results = ScanResults.from_json(results_path.read_text(encoding="utf-8"))
+    if results_path is None and results_dir is None:
+        raise ValueError("apply_scan_worklist requires results_path, results_dir, or both")
+
+    results = (
+        ScanResults.from_json(results_path.read_text(encoding="utf-8")) if results_path is not None else ScanResults()
+    )
+    dir_errors: list[str] = []
+    if results_dir is not None:
+        dir_results, dir_errors = load_results_dir(results_dir)
+        results.prose = list(results.prose) + dir_results
+
     worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
     # Honor the emit-time stamp value handed back by the orchestrator.
     worklist.short_head = short_head
@@ -1926,4 +1975,6 @@ async def apply_scan_worklist(
         worklist.head_commit = None
     wiki, resolved_repo = resolve_wiki_and_repo(workspace_path)
     repo = repo_path.resolve() if repo_path else (resolved_repo or Path.cwd())
-    return await apply_scan_results(worklist, results, wiki, repo, propagate=propagate)
+    applied = await apply_scan_results(worklist, results, wiki, repo, propagate=propagate)
+    applied.entity_errors.extend(dir_errors)
+    return applied
