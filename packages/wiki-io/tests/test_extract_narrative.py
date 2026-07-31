@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from wiki_io.entity_writer import extract_narrative
+from wiki_io.entity_writer import extract_file_map, extract_narrative
 
 
 def test_returns_real_prose_stripped() -> None:
@@ -27,3 +27,19 @@ def test_missing_heading_returns_none() -> None:
 def test_narrative_at_eof() -> None:
     text = "# P\n\n## Narrative\nProse with no trailing section.\n"
     assert extract_narrative(text) == "Prose with no trailing section."
+
+
+def test_extract_file_map_returns_stripped_section() -> None:
+    body = (
+        "# pkg:a\n\n"
+        "## Narrative\nThe package does async fan-out.\n\n"
+        "## File map - a\n\n| Path | Kind | Description |\n|---|---|---|\n"
+        "| `x.py` | file | core |\n\n"
+        "## Referenced in wiki\n- [[entities/foo]]\n"
+    )
+    assert "| `x.py` |" in extract_file_map(body)
+
+
+def test_extract_file_map_returns_none_when_absent() -> None:
+    no_fm = "# t\n\n## Narrative\nn\n\n## Purpose\np\n"
+    assert extract_file_map(no_fm) is None

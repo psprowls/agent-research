@@ -1321,6 +1321,47 @@ def replace_prose_sections(page_path: Path, replacements: dict[str, str]) -> lis
     return changed
 
 
+_TODO_HEAD_RE = re.compile(r"^(?:>\s*)?(?:[-*]\s*)?(?:TODO\b|[-—]\s*TODO\b)", re.IGNORECASE)
+
+
+def is_todo_like_body(body: str) -> bool:
+    """Return True when ``body`` still looks like a placeholder."""
+    cleaned = body.strip()
+    if not cleaned:
+        return True
+    for line in cleaned.splitlines():
+        stripped = line.strip()
+        if not stripped:
+            continue
+        if not _TODO_HEAD_RE.match(stripped):
+            return False
+    return True
+
+
+def has_todo_prose(text: str) -> bool:
+    """True when any prose section (see ``prose_section_bodies``) still looks
+    like a TODO placeholder.
+
+    Replaces the old ``find_todo_human_sections``: both call sites (the
+    first-fill gate and the anchor-stamp gate) tested only truthiness, so this
+    returns a bool instead of the sections themselves. The old ``entity_kind``
+    parameter is gone — ``prose_section_bodies`` already excludes
+    ``DETERMINISTIC_SECTIONS`` (the agent_plugin data tables among them)
+    unconditionally, for every kind, so the kind-specific exclusion is
+    redundant under the two-class ownership model.
+    """
+    return any(is_todo_like_body(b) for b in prose_section_bodies(text).values())
+
+
+def extract_file_map(body: str) -> str | None:
+    """Return the stripped ``## File map[ - <name>]`` chunk, or None when absent."""
+    _preamble, sections = _split_h2_sections(body)
+    for heading, chunk in sections:
+        if _is_file_map_heading(heading):
+            return chunk.strip()
+    return None
+
+
 # ---------------------------------------------------------------------------
 # inject_file_map — overwrite the whole `## File map` section deterministically
 # ---------------------------------------------------------------------------

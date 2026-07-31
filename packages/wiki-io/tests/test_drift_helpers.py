@@ -1,5 +1,5 @@
-"""Living Wiki M2e: unit tests for the structured frontmatter setter and the
-pure drift helpers (wiki_io.drift)."""
+"""Unit tests for the structured frontmatter setter (wiki_io.entity_writer)
+and the M4 content-hash primitives (wiki_io.content_hash)."""
 
 from __future__ import annotations
 
@@ -19,28 +19,25 @@ def test_update_frontmatter_sets_structured_value(tmp_path):
     update_frontmatter(
         page,
         {
-            "drift_checked_commit": "abc123",
-            "drift_review": [{"section": "Purpose", "detected_commit": "abc123", "hash": "9f2c", "reason": "stale"}],
+            "content_hash": "9f2c",
+            "custom_list": ["a", "b"],
         },
     )
     meta = _fm.load(page).metadata
-    assert meta["drift_checked_commit"] == "abc123"
-    assert meta["drift_review"] == [
-        {"section": "Purpose", "detected_commit": "abc123", "hash": "9f2c", "reason": "stale"}
-    ]
+    assert meta["content_hash"] == "9f2c"
+    assert meta["custom_list"] == ["a", "b"]
 
 
 def test_update_frontmatter_deletes_key(tmp_path):
-    page = _write(tmp_path, "uri: pkg:a\nkind: package\ndrift_review:\n- {section: Purpose}\n")
-    update_frontmatter(page, {"drift_checked_commit": "x"}, delete=["drift_review"])
+    page = _write(tmp_path, "uri: pkg:a\nkind: package\ncontent_hash: old\n")
+    update_frontmatter(page, {"content_hash": "new"}, delete=["content_hash"])
     meta = _fm.load(page).metadata
-    assert "drift_review" not in meta
-    assert meta["drift_checked_commit"] == "x"
+    assert "content_hash" not in meta
 
 
 def test_update_frontmatter_preserves_body_and_other_keys(tmp_path):
     page = _write(tmp_path, "uri: pkg:a\nkind: package\nsummary: keep me\n")
-    update_frontmatter(page, {"drift_checked_commit": "x"})
+    update_frontmatter(page, {"content_hash": "x"})
     post = _fm.load(page)
     assert post.metadata["summary"] == "keep me"
     assert post.metadata["uri"] == "pkg:a"
@@ -53,100 +50,16 @@ def test_update_frontmatter_missing_file_raises(tmp_path):
 
 
 # ---------------------------------------------------------------------------
-# Task 2: pure drift helpers (wiki_io.drift)
+# M4 content-hash primitives (wiki_io.content_hash)
 # ---------------------------------------------------------------------------
 
-from wiki_io.drift import (  # noqa: E402
-    clear_resolved_flags,
-    extract_file_map,
-    iter_human_sections,
-    section_hash,
-)
-
-_BODY = (
-    "# pkg:a\n\n"
-    "## Narrative\nThe package does async fan-out.\n\n"
-    "## Purpose\nProcesses items synchronously.\n\n"
-    "## Public API\n`run()`\n\n"
-    "## File map - a\n\n| Path | Kind | Description |\n|---|---|---|\n"
-    "| `x.py` | file | core |\n\n"
-    "## Referenced in wiki\n- [[entities/foo]]\n"
-)
-
-
-def test_iter_human_sections_excludes_scanner_sections():
-    secs = iter_human_sections(_BODY)
-    headings = [h for h, _ in secs]
-    assert headings == ["## Purpose", "## Public API"]
-    # chunk includes the heading line
-    assert secs[0][1].startswith("## Purpose")
-    assert "synchronously" in secs[0][1]
+from wiki_io.content_hash import page_body_hash, section_hash  # noqa: E402
 
 
 def test_section_hash_is_stable_and_edit_sensitive():
     chunk = "## Purpose\nProcesses items synchronously.\n"
     assert section_hash(chunk) == section_hash(chunk + "\n\n")  # trailing ws ignored
     assert section_hash(chunk) != section_hash("## Purpose\nProcesses items async.\n")
-
-
-def test_extract_file_map_returns_section_or_none():
-    assert "| `x.py` |" in extract_file_map(_BODY)
-    no_fm = "# t\n\n## Narrative\nn\n\n## Purpose\np\n"
-    assert extract_file_map(no_fm) is None
-
-
-def test_clear_resolved_flags_drops_edited_and_missing():
-    purpose_chunk = "## Purpose\nProcesses items synchronously.\n\n"
-    entries = [
-        {"section": "Purpose", "detected_commit": "c1", "hash": section_hash(purpose_chunk), "reason": "r1"},
-        {
-            "section": "Public API",
-            "detected_commit": "c1",
-            "hash": "STALEHASH",
-            "reason": "r2",
-        },  # hash mismatch -> edited -> drop
-        {"section": "Gone", "detected_commit": "c1", "hash": "whatever", "reason": "r3"},  # section absent -> drop
-    ]
-    survivors = clear_resolved_flags(entries, _BODY)
-    assert [e["section"] for e in survivors] == ["Purpose"]
-
-
-def test_clear_resolved_flags_keeps_all_when_unchanged():
-    entries = [
-        {"section": h.removeprefix("## "), "detected_commit": "c1", "hash": section_hash(chunk), "reason": "r"}
-        for h, chunk in iter_human_sections(_BODY)
-    ]
-    assert clear_resolved_flags(entries, _BODY) == entries
-
-
-def test_drift_keys_are_not_data_keys():
-    """Guards §5.7: drift_checked_commit / drift_review must be PRESERVED across
-    re-scan (until Child 3 deletes the machinery), so they must never be added
-    to DATA_KEYS (which merge wipes to scanner values)."""
-    from wiki_io.entity_writer import DATA_KEYS
-
-    assert "drift_checked_commit" not in DATA_KEYS
-    assert "drift_review" not in DATA_KEYS
-
-
-def test_merge_frontmatter_preserves_drift_keys():
-    """A scanner re-render keeps unknown preserved keys (like last_updated_commit,
-    drift_checked_commit, drift_review)."""
-    from wiki_io.entity_writer import merge_frontmatter
-
-    existing = {
-        "uri": "pkg:a",
-        "kind": "package",
-        "drift_checked_commit": "abc",
-        "drift_review": [{"section": "Purpose", "hash": "h", "detected_commit": "abc", "reason": "r"}],
-    }
-    scanner = {"uri": "pkg:a", "kind": "package"}
-    merged = merge_frontmatter(existing, scanner)
-    assert merged["drift_checked_commit"] == "abc"
-    assert merged["drift_review"] == existing["drift_review"]
-
-
-from wiki_io.drift import page_body_hash  # noqa: E402
 
 
 def test_page_body_hash_is_stable_and_edit_sensitive():
