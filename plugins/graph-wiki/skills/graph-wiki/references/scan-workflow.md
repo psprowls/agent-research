@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then fills placeholders (`## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API`) via a commit-gated Claude subagent fan-out. A bare / `--no-narrate` invocation runs the mechanical write only.
+Keep the wiki's single `entities/` folder in sync with the code graph. The scan builds the graph, renders one page per admitted entity, then refreshes model-maintained prose (`## Narrative`, `## Purpose`, `## Public API`, file/dir descriptions, overview) via a diff-gated Claude subagent fan-out: an entity is refreshed only when the commit range `last_updated_commit..HEAD` touches its files. A bare invocation runs the mechanical write only.
 
 ## Inputs
 
@@ -19,13 +19,11 @@ One page per admitted entity into `<workspace>/wiki/entities/`, across the **7 a
 
 The default scan runs as a three-phase pipeline:
 
-**Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`fill_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`.
+**Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`prose_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`. It also writes `<workspace>/.graph-wiki/briefs/<page-stem>.md` — one rendered refresh prompt per stale entity — and resets an empty `<workspace>/.graph-wiki/results/`.
 
-**Phase 2 — Fan-out**: read-only subagents (one per entity in `fill_tasks`/`drift_tasks`) inspect source files and return structured records — narrative, file/dir descriptions, overview, `## Purpose`/`## Public API`, drift judgements. Subagents are strictly read-only (Read/Grep/Glob only); no page writes happen here.
+**Phase 2 — Fan-out**: one read-only subagent per `prose_tasks` entry follows its brief and writes a single `results/<page-stem>.json`. Subagents read with Read/Grep/Glob and write nothing but that one file — no wiki page, no repo file.
 
-**Phase 3 — Apply** (`--apply-worklist <results.json> --short-head <sha>`): injects all structured results, runs the M2c refill-gated anchor stamp, writes M2e `drift_review` flags, regenerates indexes and backlinks, and appends to `log.md`.
-
-A bare invocation (or `--no-narrate` on `gw scan`) is the mechanical structural-only fast path — no worklist written, no prose generated. `## Narrative` and file-map descriptions keep their placeholders on this path only.
+**Phase 3 — Apply** (`--results-dir <dir>` and/or `--apply-worklist <results.json>`, plus `--short-head <sha>`): sanitizes every result against its task's declared prose surface, injects it, runs the refill-gated anchor stamp, writes drift flags, regenerates indexes and backlinks, and appends to `log.md`.
 
 ### 2. Report entities
 From the `ScanResult` JSON: `entities_created`, `entities_updated`, `entities_deleted` (URIs), `entity_errors`.
@@ -55,25 +53,27 @@ The state gate (`last_updated_commit` stamping on scan/ingest) is configurable p
 
 ## Contract
 
-Two JSON files live under `<workspace>/.graph-wiki/` across the emit/apply boundary:
+Artifacts live under `<workspace>/.graph-wiki/` across the emit/apply boundary:
 
-**`worklist.json`** — written by `--emit-worklist`, consumed by the fan-out and `--apply-worklist`:
-- `fill_tasks` — list of per-entity records describing what prose/descriptions need generation.
-- `drift_tasks` — list of per-entity records for human-section drift judging.
-- `propagate_tasks` — list of cross-page drift propagation tasks (M4).
+**`worklist.json`** — written by `--emit-worklist`, consumed by `--apply-worklist` / `--results-dir`:
+- `prose_tasks` — one diff-gated `ProseRefreshTask` per stale entity: `trigger` (`first_fill` | `diff`), the scoped `diff`, `changed_files`, the current `prose_sections`, `file_map_rows`, `graph_context`, and `owning_short_head`.
+- `drift_tasks` — per-entity records for human-section drift judging.
+- `propagate_tasks` — cross-page drift propagation tasks (M4).
 - `short_head` — abbreviated HEAD SHA at emit time; passed as `--short-head` to apply so anchors are stamped to the correct commit.
+- `schema: 2`.
 
-**`results.json`** — written by the fan-out (assembled by the scanner agent), consumed by `--apply-worklist`:
-- `fills` — structured fill records (narrative, file/dir descriptions, overview, purpose, public_api) keyed by entity URI.
-- `drift` — per-section drift judgement records (`{section, stale, reason}`).
-- `propagate` — cross-page drift propagation records.
-- `schema: 1` — version sentinel; apply phase validates before writing.
+**`briefs/<page-stem>.md`** — one self-contained refresh prompt per `prose_tasks` entry, rendered from the same system prompt and work order the Bedrock provider sends. The fan-out follows these; nothing re-derives the contract from this document.
 
-Both files are transient workspace artifacts; they are safe to delete and are overwritten on each scan.
+**`results/<page-stem>.json`** — one `ProseRefreshResult` per entity, written by that entity's subagent: `uri`, `sections` (keyed by full H2 headings), `file_map_descriptions`, `dir_descriptions`, `overview`, `error`.
+
+**`results.json`** (optional) — a combined `{schema: 2, prose, drift, propagate}` document; still accepted via `--apply-worklist`, and merged when both sources are given.
+
+Every one of these is a transient workspace artifact: safe to delete, and `briefs/` + `results/` are emptied at the start of each emit.
 
 ## Anti-patterns
 
 - Hand-writing `entities/*.md` pages (the graph renders them).
-- Letting fill subagents write pages directly (they are read-only; the apply phase performs all writes).
+- Letting a prose-refresh subagent write anything but its own `results/<stem>.json` (page writes belong to the apply phase).
+- Re-deriving the prose contract from this document instead of following the emitted brief.
 - Silently accepting a large deletion set.
 - Expecting `apps/`, `packages/`, or `domains/` page folders — there are none; everything is in `entities/`.
