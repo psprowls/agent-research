@@ -1,18 +1,16 @@
 """Living Wiki M4: DRIFT_PROPAGATOR prompt + verdict parser (cross-page judge).
 
-Where M2e's drift_judge compares a human SECTION against its own entity's
-narrative (within-page), the propagator compares a whole CURATED page (concept /
-ADR) against the CURRENT state of the changed entities that backlink it
-(cross-page). It is kind-aware: concept pages (including folded `kind:
-architecture` pages that live under concepts/) are stale when their described
-behaviour no longer matches the entity; ADR pages are annotate-only (stale only
-when Status/Consequences/Supersedes are overtaken by code reality — never a
+The propagator compares a whole CURATED page (concept / ADR) against the
+CURRENT state of the changed entities that backlink it (cross-page). It is
+kind-aware: concept pages (including folded `kind: architecture` pages that
+live under concepts/) are stale when their described behaviour no longer
+matches the entity; ADR pages are annotate-only (stale only when
+Status/Consequences/Supersedes are overtaken by code reality — never a
 rewrite of decision history).
 
 Output is a small JSON verdict with one finding per triggering entity, so each
-ledger origin gets precise attribution. ``parse_drift_propagator_verdict`` fails
-SAFE (not-stale) on any unparseable / malformed reply, mirroring
-``parse_drift_verdict``.
+ledger origin gets precise attribution. ``parse_drift_propagator_verdict``
+fails SAFE (not-stale) on any unparseable / malformed reply.
 """
 
 from __future__ import annotations
