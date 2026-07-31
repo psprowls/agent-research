@@ -38,7 +38,7 @@ Parse the JSON. Capture:
 - **Work lifecycle**: `work_lifecycle` — `{total_items, findings}`, all 31 lifecycle rules (same set as `gw work lint`)
 - **Obsidian render**: `obsidian_render_findings` — markdown that breaks Obsidian's renderer
 - **Guidance lint**: `guidance_lint_findings` — frontmatter/tag/placement findings for `wiki/guidance/` pages
-- **Scanner heading drift**: `scanner_heading_drift` — entity pages missing a scanner-owned section
+- **Scanner heading drift**: `scanner_heading_drift` — entity pages missing a deterministic section
 - **Source path drift**: `source_path_drift` — `sources/` pages whose `raw/` file was archived
 
 Any of the last five may fail-soft as `{"error": "<msg>"}` — report the error line, don't skip the section silently.

@@ -33,7 +33,7 @@ Default report:
 - **Obsidian render** (`lint/obsidian_render.py`, JSON key `obsidian_render_findings`) — markdown that breaks Obsidian's renderer: bare angle-bracket placeholders, malformed callouts, malformed wikilinks/embeds, unescaped table pipes. Covers `index.md` files too.
 - **Guidance frontmatter** (`guidance_io.lint`, JSON key `guidance_lint_findings`) — invalid frontmatter, non-allowlisted tags, keyword shape, and topic placement for pages under `wiki/guidance/`.
 - **Work lifecycle** (`work_io.lifecycle_lint`, JSON key `work_lifecycle` = `{total_items, findings}`) — all 31 lifecycle rules over every `wiki/work/*.md` item, same rule set as `gw work lint`.
-- **Scanner heading drift** (`lint/scanner_heading.py`, JSON key `scanner_heading_drift`) — entity pages missing an expected scanner-owned section for their kind (e.g. a human renamed `## Narrative`).
+- **Scanner heading drift** (`lint/scanner_heading.py`, JSON key `scanner_heading_drift`) — entity pages missing an expected deterministic section for their kind (e.g. a human renamed `## Referenced in wiki`).
 - **Source path drift** (JSON key `source_path_drift`) — `sources/` pages whose workspace-relative `raw/` `source_path` no longer exists on disk (the file was archived).
 
 The last five run fail-soft: an unexpected per-check exception is reported as `{"error": "<msg>"}` under that JSON key instead of killing the pass. These keys give `/graph-wiki:lint` mechanical parity with `gw lint`; the parity regression test lives in `packages/graph-wiki-core/tests/unit/test_lint_parity.py`.

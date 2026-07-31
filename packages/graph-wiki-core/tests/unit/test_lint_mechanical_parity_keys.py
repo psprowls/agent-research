@@ -92,14 +92,14 @@ def test_work_lifecycle_no_work_dir(tmp_path: Path) -> None:
 
 def test_scanner_heading_drift_reported(tmp_path: Path) -> None:
     wiki = _mk_wiki(tmp_path)
-    # Entity page (kind: package) missing every scanner-owned section.
+    # Entity page (kind: package) missing every deterministic section.
     _write(
         wiki / "entities" / "my-pkg.md",
         "---\nuri: pkg:org/repo/my-pkg\nkind: package\n---\n\n# my-pkg\n\n## Purpose\nhand-written\n",
     )
     result = scan(wiki, stale_days=90, log_gap_days=14)
     drift = result["scanner_heading_drift"]
-    assert any("entities/my-pkg" in issue and "## Narrative" in issue for issue in drift)
+    assert any("entities/my-pkg" in issue and "## Referenced in wiki" in issue for issue in drift)
 
 
 def test_source_path_drift_propagated(tmp_path: Path) -> None:

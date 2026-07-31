@@ -19,11 +19,11 @@ One page per admitted entity into `<workspace>/wiki/entities/`, across the **7 a
 
 The default scan runs as a three-phase pipeline:
 
-**Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`prose_tasks`, `drift_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`. It also writes `<workspace>/.graph-wiki/briefs/<page-stem>.md` — one rendered refresh prompt per stale entity — and resets an empty `<workspace>/.graph-wiki/results/`.
+**Phase 1 — Emit** (`--emit-worklist <path>`): builds the code graph (`cg update`, incremental), calls `write_entities`, injects deterministic file maps, computes the commit-gate, and serializes the worklist (`prose_tasks`, `propagate_tasks`, `short_head`) to `<workspace>/.graph-wiki/worklist.json`. It also writes `<workspace>/.graph-wiki/briefs/<page-stem>.md` — one rendered refresh prompt per stale entity — and resets an empty `<workspace>/.graph-wiki/results/`.
 
 **Phase 2 — Fan-out**: one read-only subagent per `prose_tasks` entry follows its brief and writes a single `results/<page-stem>.json`. Subagents read with Read/Grep/Glob and write nothing but that one file — no wiki page, no repo file.
 
-**Phase 3 — Apply** (`--results-dir <dir>` and/or `--apply-worklist <results.json>`, plus `--short-head <sha>`): sanitizes every result against its task's declared prose surface, injects it, runs the refill-gated anchor stamp, writes drift flags, regenerates indexes and backlinks, and appends to `log.md`.
+**Phase 3 — Apply** (`--results-dir <dir>` and/or `--apply-worklist <results.json>`, plus `--short-head <sha>`): sanitizes every result against its task's declared prose surface, injects it, runs the refill-gated anchor stamp, regenerates indexes and backlinks, and appends to `log.md`.
 
 ### 2. Report entities
 From the `ScanResult` JSON: `entities_created`, `entities_updated`, `entities_deleted` (URIs), `entity_errors`.
@@ -42,11 +42,10 @@ Bulleted wikilinks; suggest `/graph-wiki:lint` and `/graph-wiki:ingest` to flesh
 
 ## Frontmatter contract
 
-Scanner-owned keys (replaced every scan): `uri`, `kind`, `graph_name`, `last_scan_at`, plus per-kind edge/attr keys (`depends_on`, `domains`, `test_suites`, `entry_points`, `language`, `version`, `app_kind`, `app_signals`, `parent_domain`, `sub_domains`, `packages`, `tested_packages`, `suite_kind`, `file_count`, `ecosystem`, `used_by`, `versions_in_use`, `package_count`). Human keys preserved verbatim: `status`, `last_reviewed`, `owner`, `notes`. `summary` is fill-when-empty.
+Data keys (`DATA_KEYS`, replaced every scan): `uri`, `kind`, `graph_name`, `last_scan_at`, plus per-kind edge/attr keys (`depends_on`, `domains`, `test_suites`, `entry_points`, `language`, `version`, `app_kind`, `app_signals`, `parent_domain`, `sub_domains`, `packages`, `tested_packages`, `suite_kind`, `file_count`, `ecosystem`, `used_by`, `versions_in_use`, `package_count`). Human keys preserved verbatim: `status`, `last_reviewed`, `owner`, `notes`. `summary` is fill-when-empty.
 
-Provenance keys (scanner-stamped but deliberately NOT in `SCANNER_OWNED_KEYS` — preserved verbatim across re-scan):
-- `last_updated_commit` — HEAD at which `## Narrative` was last regenerated; gates commit-driven narrative refresh (Living Wiki M2a).
-- `drift_checked_commit` — HEAD at which the human-section drift judge last evaluated this page's curated sections; prevents re-running the judge against an unchanged page.
+Provenance keys (scanner-stamped but deliberately NOT in `DATA_KEYS` — preserved verbatim across re-scan):
+- `last_updated_commit` — HEAD at which prose sections (`## Narrative`, `## Purpose`, etc.) were last refreshed; gates the diff-driven prose-refresh pass.
 - `drift_propagated_commit` — the entity's `last_updated_commit` value at which M4's drift producer last proposed against curated pages backlinking it; gates the M4 cross-page drift pass (proposal ledger) and keeps repeat runs idempotent.
 
 The state gate (`last_updated_commit` stamping on scan/ingest) is configurable per-workspace via the `state_gate:` block in `<workspace>/.graph-wiki.yaml` (`enabled` + allowed `branches`); absent config gates on a clean `main`. See the workspace-io README for the schema.
@@ -57,7 +56,6 @@ Artifacts live under `<workspace>/.graph-wiki/` across the emit/apply boundary:
 
 **`worklist.json`** — written by `--emit-worklist`, consumed by `--apply-worklist` / `--results-dir`:
 - `prose_tasks` — one diff-gated `ProseRefreshTask` per stale entity: `trigger` (`first_fill` | `diff`), the scoped `diff`, `changed_files`, the current `prose_sections`, `file_map_rows`, `graph_context`, and `owning_short_head`.
-- `drift_tasks` — per-entity records for human-section drift judging.
 - `propagate_tasks` — cross-page drift propagation tasks (M4).
 - `short_head` — abbreviated HEAD SHA at emit time; passed as `--short-head` to apply so anchors are stamped to the correct commit.
 - `schema: 2`.
@@ -66,7 +64,7 @@ Artifacts live under `<workspace>/.graph-wiki/` across the emit/apply boundary:
 
 **`results/<page-stem>.json`** — one `ProseRefreshResult` per entity, written by that entity's subagent: `uri`, `sections` (keyed by full H2 headings), `file_map_descriptions`, `dir_descriptions`, `overview`, `error`.
 
-**`results.json`** (optional) — a combined `{schema: 2, prose, drift, propagate}` document; still accepted via `--apply-worklist`, and merged when both sources are given.
+**`results.json`** (optional) — a combined `{schema: 2, prose, propagate}` document; still accepted via `--apply-worklist`, and merged when both sources are given.
 
 Every one of these is a transient workspace artifact: safe to delete, and `briefs/` + `results/` are emptied at the start of each emit.
 
