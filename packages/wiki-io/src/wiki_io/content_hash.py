@@ -1,9 +1,10 @@
 """M4 content-hash primitives for drift detection on curated pages.
 
-These three symbols were relocated from drift.py to support M4 (curated page
-content-hash stamping) independently of the M2e drift-judge machinery. drift.py
-continues to re-export them for now; a later pass will delete the whole M2e
-module alongside human_sections.py.
+These three symbols duplicate drift.py's implementations of the same names,
+to support M4 (curated page content-hash stamping) independently of the M2e
+drift-judge machinery. drift.py's copies remain the ones in active use until
+a later pass retargets their consumers and deletes drift.py and
+human_sections.py.
 """
 
 from __future__ import annotations
