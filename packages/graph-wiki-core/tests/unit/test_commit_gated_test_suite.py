@@ -12,6 +12,8 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 from wiki_io.entity_writer import EntityWriteResult
 
 from ._spies import patch_repo_state
@@ -78,7 +80,7 @@ def suite_workspace(tmp_path, monkeypatch):
         "_cg_run_build",
         lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", ""),
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     # Step 10b-ts uses build_dir_file_map for suites (not build_file_map).
     monkeypatch.setattr(
         scan_mod,
@@ -106,7 +108,7 @@ def test_suite_redescribe_on_change(suite_workspace, monkeypatch) -> None:
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -142,7 +144,7 @@ def test_suite_trigger_gap_commit_dirty_not_refreshed(suite_workspace, monkeypat
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -190,7 +192,7 @@ def test_suite_path_namespace_nested_file(suite_workspace, monkeypatch) -> None:
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )
@@ -220,7 +222,7 @@ def test_suite_no_narrate_keeps_cost_cache_and_anchor(suite_workspace, monkeypat
     )
     desc_tag = {"v": "D1"}
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         _fanout_spy(prose=lambda t: f"prose {t.uri}", descs=_descs_tagged(desc_tag)),
     )

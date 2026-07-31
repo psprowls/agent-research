@@ -24,6 +24,7 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
 from graph_wiki_core.commands.scan import apply_scan_results
 from graph_wiki_core.commands.scan_contract import (
     ProseRefreshResult,
@@ -129,7 +130,7 @@ def gating_ws(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "build_file_map",

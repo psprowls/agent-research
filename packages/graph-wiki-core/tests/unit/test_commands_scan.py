@@ -48,10 +48,10 @@ async def test_run_scan_repo_path_overrides_cwd(tmp_path: Path) -> None:
         patch("graph_wiki_core.commands.scan.compute_state_gate") as mock_gate,
         patch("graph_wiki_core.commands.scan.build_file_map", return_value=None),
         patch("graph_wiki_core.commands.scan.pick_representative", return_value=[]),
-        patch("graph_wiki_core.commands.scan.SubagentPool") as MockPool,
-        patch("graph_wiki_core.commands.scan.make_llm"),
+        patch("graph_wiki_core.commands.scan_bedrock.SubagentPool") as MockPool,
+        patch("graph_wiki_core.commands.scan_bedrock.make_llm"),
         patch(
-            "graph_wiki_core.commands.scan.load_role_config",
+            "graph_wiki_core.commands.scan_bedrock.load_role_config",
             return_value={"model_id": "fake-model", "max_concurrency": 2},
         ),
         patch("graph_wiki_core.commands.scan.update_index"),
@@ -84,6 +84,7 @@ def test_run_scan_no_narrate_does_not_run_prose_refresh(monkeypatch, tmp_path: P
     import graph_wiki_core.commands.scan as scan_mod
     from graph_io import exit_codes
     from graph_io.store import GraphNotInitializedError
+    from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
 
     workspace = tmp_path / "workspace"
     wiki = workspace / "wiki"
@@ -109,12 +110,12 @@ def test_run_scan_no_narrate_does_not_run_prose_refresh(monkeypatch, tmp_path: P
     monkeypatch.setattr(scan_mod, "generate_index", lambda wiki, conn: None)
     monkeypatch.setattr(scan_mod, "regenerate_referenced_in_wiki", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
-    assert hasattr(scan_mod, "run_prose_refresh")
+    assert hasattr(scan_bedrock_mod, "run_prose_refresh")
 
     def explode_prose_refresh(*args, **kwargs):
         raise AssertionError("prose_refresher must not run when narrate=False")
 
-    monkeypatch.setattr(scan_mod, "run_prose_refresh", explode_prose_refresh)
+    monkeypatch.setattr(scan_bedrock_mod, "run_prose_refresh", explode_prose_refresh)
 
     asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=False))
 
@@ -161,6 +162,7 @@ async def _run_scan_capturing_tasks(monkeypatch, tmp_path: Path, *, node_path: s
     from types import SimpleNamespace
 
     import graph_wiki_core.commands.scan as scan_mod
+    from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
     from graph_wiki_core.commands.scan_contract import ProseRefreshResult
 
     workspace = tmp_path / "workspace"
@@ -200,6 +202,7 @@ async def _run_scan_capturing_tasks(monkeypatch, tmp_path: Path, *, node_path: s
     (_graph_dir(workspace)).mkdir(parents=True, exist_ok=True)
     (_graph_dir(workspace) / "code.db").write_bytes(b"")
     monkeypatch.setattr(scan_mod, "open_reader", lambda path: _FakeConn())
+    monkeypatch.setattr(scan_bedrock_mod, "open_reader", lambda path: _FakeConn())
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
@@ -233,8 +236,8 @@ async def _run_scan_capturing_tasks(monkeypatch, tmp_path: Path, *, node_path: s
     monkeypatch.setattr(scan_mod, "scanner_frontmatter_for_node", lambda conn, kind, node: {"uri": uri, "kind": kind})
     monkeypatch.setattr(scan_mod, "_compute_collision_set", lambda *args, **kwargs: frozenset())
     monkeypatch.setattr(scan_mod, "build_file_map", lambda *args, **kwargs: None)
-    monkeypatch.setattr(scan_mod, "build_graph_tools", lambda reader: [])
-    monkeypatch.setattr(scan_mod, "run_prose_refresh", fake_run_prose_refresh)
+    monkeypatch.setattr(scan_bedrock_mod, "build_graph_tools", lambda reader: [])
+    monkeypatch.setattr(scan_bedrock_mod, "run_prose_refresh", fake_run_prose_refresh)
     monkeypatch.setattr(scan_mod, "_drift_clear_pass", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "update_index", lambda wiki: None)
     monkeypatch.setattr(
@@ -246,7 +249,7 @@ async def _run_scan_capturing_tasks(monkeypatch, tmp_path: Path, *, node_path: s
     monkeypatch.setattr(scan_mod, "regen_indexes_and_backlinks", lambda wiki: None)
     monkeypatch.setattr(scan_mod, "append_log", lambda *args, **kwargs: None)
     monkeypatch.setattr(
-        scan_mod,
+        scan_bedrock_mod,
         "_bedrock_stack",
         lambda: (
             lambda role: {"model_id": "fake-model", "max_concurrency": 1},
@@ -286,7 +289,9 @@ def test_prose_refresher_errors_join_scan_result(monkeypatch, tmp_path: Path) ->
 
     import graph_wiki_core.commands.scan as scan_mod
     from graph_io import exit_codes, schema
+    from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
     from graph_wiki_core.commands.scan_contract import ProseRefreshResult
+    from subagent_runtime.pool import SubagentPool as _SubagentPool
     from workspace_io.paths import graph_dir
 
     workspace = tmp_path / "workspace"
@@ -332,8 +337,8 @@ def test_prose_refresher_errors_join_scan_result(monkeypatch, tmp_path: Path) ->
             result.successes = [(it, {"stale": False, "reason": ""}) for it in items]
         return result
 
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", fake_run_all)
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: object())
+    monkeypatch.setattr(_SubagentPool, "run_all", fake_run_all)
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: object())
 
     result = asyncio.run(scan_mod.run_scan(workspace_path=workspace, repo_path=repo, narrate=True))
 

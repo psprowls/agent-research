@@ -12,6 +12,8 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 from ._spies import patch_repo_state
 
@@ -67,7 +69,7 @@ def crash_workspace(tmp_path, monkeypatch):
         "_cg_run_build",
         lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", ""),
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "build_file_map",
@@ -78,7 +80,7 @@ def crash_workspace(tmp_path, monkeypatch):
         "compute_state_gate",
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": "head1"},
     )
-    monkeypatch.setattr(scan_mod.SubagentPool, "run_all", _fanout_spy())
+    monkeypatch.setattr(_SubagentPool, "run_all", _fanout_spy())
     return workspace
 
 

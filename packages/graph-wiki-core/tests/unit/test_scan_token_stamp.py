@@ -16,6 +16,8 @@ from unittest.mock import MagicMock
 import pytest
 from graph_io import exit_codes
 from graph_wiki_core.commands import scan as scan_module
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_module
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 
 def _seed_minimal_graph(db_path: Path) -> None:
@@ -69,8 +71,8 @@ def _stub_pipeline(monkeypatch):
 
         return FanOutResult()
 
-    monkeypatch.setattr(scan_module.SubagentPool, "run_all", _empty_run_all)
-    monkeypatch.setattr(scan_module, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(_SubagentPool, "run_all", _empty_run_all)
+    monkeypatch.setattr(scan_bedrock_module, "make_llm", lambda role, *, model_override=None: MagicMock())
 
 
 def test_narrated_scan_stamps_tokens(tmp_workspace, monkeypatch):

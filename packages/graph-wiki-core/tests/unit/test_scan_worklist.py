@@ -21,6 +21,8 @@ import frontmatter as _fm
 import graph_wiki_core.commands.scan as scan_mod
 import pytest
 from graph_io import exit_codes
+from graph_wiki_core.commands import scan_bedrock as scan_bedrock_mod
+from subagent_runtime.pool import SubagentPool as _SubagentPool
 
 from ._spies import patch_repo_state, refresh_all_spy
 
@@ -68,7 +70,7 @@ def emit_workspace(tmp_path, monkeypatch):
     monkeypatch.setattr(
         scan_mod, "_cg_run_build", lambda repo, ws, *, full, scope_to_repo=True: (exit_codes.SUCCESS, "", "")
     )
-    monkeypatch.setattr(scan_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
+    monkeypatch.setattr(scan_bedrock_mod, "make_llm", lambda role, *, model_override=None: MagicMock())
     monkeypatch.setattr(
         scan_mod,
         "compute_state_gate",
@@ -125,7 +127,7 @@ def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> 
     wiki = workspace / "wiki"
 
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -166,7 +168,7 @@ def test_commit_dirty_unchanged_package_emits_diff_task(emit_workspace, monkeypa
         lambda repo, **kwargs: {"allowed": True, "reason": "clean", "head_commit": heads["v"]},
     )
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
@@ -405,7 +407,7 @@ def _narrate_and_stamp_pkg_a(workspace, repo, monkeypatch) -> Path:
     (last_updated_commit=head1, no drift_propagated_commit -> a propagate
     candidate). Returns the entity page path."""
     monkeypatch.setattr(
-        scan_mod.SubagentPool,
+        _SubagentPool,
         "run_all",
         refresh_all_spy(lambda t: f"PROSE for {t.uri}"),
     )
