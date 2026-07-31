@@ -38,7 +38,9 @@ def _seed_repo(dest: Path) -> Path:
         ["git", "config", "user.email", "test@example.com"],
         ["git", "config", "user.name", "test"],
         ["git", "add", "."],
-        ["git", "commit", "-q", "-m", "seeded init"],
+        # -c commit.gpgsign=false: a runner with global signing on (and no cached
+        # passphrase) would otherwise hang or fail this seed step.
+        ["git", "-c", "commit.gpgsign=false", "commit", "-q", "-m", "seeded init"],
     ):
         subprocess.run(argv, cwd=dest, check=True)
     return dest
