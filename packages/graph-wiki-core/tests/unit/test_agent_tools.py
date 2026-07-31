@@ -206,3 +206,18 @@ def test_filter_graph_tools_exposes_only_allowed_names() -> None:
     filtered = filter_graph_tools([cg_find, cg_describe, cg_callers], {"cg_find", "cg_describe"})
 
     assert [graph_tool.name for graph_tool in filtered] == ["cg_find", "cg_describe"]
+
+
+def test_truncate_text_lives_in_base_text_utils():
+    """truncate_text must be importable without the Bedrock stack (prompts use it)."""
+    from graph_wiki_core.text_utils import truncate_text as base_truncate
+
+    assert base_truncate("abc", 10) == "abc"
+    assert base_truncate("abcdef", 3) == "abc\n\n[TRUNCATED after 3 chars]"
+
+
+def test_agent_tools_reexports_truncate_text():
+    from graph_wiki_core import agent_tools
+    from graph_wiki_core.text_utils import truncate_text as base_truncate
+
+    assert agent_tools.truncate_text is base_truncate
