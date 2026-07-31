@@ -667,7 +667,7 @@ def _drift_clear_pass(wiki: Path) -> None:
 def _build_drift_tasks(wiki: Path) -> list[DriftTask]:
     """Serialize M2e drift candidates into DriftTasks (emit-time ground truth).
 
-    Mirror of _drift_flag_pass's candidate+item assembly minus the LLM judge.
+    Mirror of scan_bedrock._drift_flag_pass's candidate+item assembly minus the LLM judge.
     Each candidate page becomes one DriftTask carrying its regenerated narrative,
     file map, and every human section chunk. The uri is read from frontmatter so
     apply can key verdicts back to the page.
