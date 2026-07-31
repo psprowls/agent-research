@@ -317,14 +317,6 @@ Run a mechanical + semantic lint pass over the wiki and report findings.
 - `--log-gap-days INT` (default `14`) — days before a log gap is flagged.
 - plus `--workspace`, `--json`.
 
-### `gw wiki ack-drift <entity>`
-
-Acknowledge (clear) human-section drift flags on an entity page without editing
-its prose.
-
-- Argument: `<entity>` **(required)** — entity uri/stem.
-- plus `--workspace`, `--json`.
-
 ### `gw wiki proposals`
 
 List curated-page proposals from the ledger (defaults to open ones).

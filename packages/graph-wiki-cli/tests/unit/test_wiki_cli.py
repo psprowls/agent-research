@@ -39,39 +39,6 @@ def test_query_log_ingest_are_top_level() -> None:
         assert name in root_command.commands
 
 
-def test_ack_drift_subcommand_registered() -> None:
-    """`gw wiki ack-drift` is registered under the wiki group."""
-    from graph_wiki_cli.cli import app
-
-    root_command = typer.main.get_command(app)
-    wiki_group = root_command.commands["wiki"]
-    assert "ack-drift" in wiki_group.commands
-
-
-def test_ack_drift_cli_clears_and_exits_zero(tmp_path: Path) -> None:
-    """`gw wiki ack-drift <uri> --workspace <ws>` exits 0 and prints cleared count."""
-    from graph_wiki_core.commands.ack_drift import AckDriftResult
-
-    fake_page = tmp_path / "pkg-a.md"
-    fake_result = AckDriftResult(page_path=fake_page, cleared=2)
-
-    with patch("graph_wiki_cli.wiki_cli.main.run_ack_drift", return_value=fake_result) as mock_fn:
-        result = runner.invoke(app, ["wiki", "ack-drift", "pkg:org/repo/pkg-a", "--workspace", str(tmp_path)])
-
-    assert result.exit_code == 0, result.output
-    assert "Cleared 2" in result.output
-    mock_fn.assert_called_once_with("pkg:org/repo/pkg-a", workspace_path=tmp_path)
-
-
-def test_ack_drift_cli_unknown_entity_exits_nonzero() -> None:
-    """`gw wiki ack-drift` exits 1 when run_ack_drift raises ValueError."""
-    with patch("graph_wiki_cli.wiki_cli.main.run_ack_drift", side_effect=ValueError("no entity page found")):
-        result = runner.invoke(app, ["wiki", "ack-drift", "pkg:does/not/exist"])
-
-    assert result.exit_code == 1
-    assert "no entity page found" in result.output
-
-
 def test_ingest_source_cli_warns_on_degraded_and_stripped(tmp_path):
     """Text-mode CLI prints loud warnings (stderr) when frontmatter didn't
     parse and when wikilinks were stripped. Click 8.3 captures stderr
