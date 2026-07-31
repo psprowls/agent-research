@@ -15,6 +15,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+import shutil
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -90,6 +91,7 @@ from graph_wiki_core.commands.scan_contract import (
     ScanResults,
     ScanWorklist,
 )
+from graph_wiki_core.prompts.prose_refresher import render_prose_refresh_brief
 
 logger = logging.getLogger(__name__)
 
@@ -1825,6 +1827,27 @@ async def _run_scan_structural_only(
 # ---------------------------------------------------------------------------
 
 
+BRIEFS_DIRNAME = "briefs"
+RESULTS_DIRNAME = "results"
+
+
+def briefs_dir_for(worklist_path: Path) -> Path:
+    """Directory holding one rendered refresh brief per prose task."""
+    return worklist_path.parent / BRIEFS_DIRNAME
+
+
+def results_dir_for(worklist_path: Path) -> Path:
+    """Drop-box the out-of-process fan-out writes per-entity result JSON into."""
+    return worklist_path.parent / RESULTS_DIRNAME
+
+
+def _reset_dir(path: Path) -> None:
+    """Empty `path` (creating it if absent). Emit's clearing is load-bearing."""
+    if path.exists():
+        shutil.rmtree(path)
+    path.mkdir(parents=True, exist_ok=True)
+
+
 async def emit_scan_worklist(
     *,
     workspace_path: Path | None,
@@ -1834,10 +1857,16 @@ async def emit_scan_worklist(
     propagate: bool,
     out_path: Path,
 ) -> ScanResult:
-    """Run the mechanical front-half, write worklist.json to out_path, return the ScanResult.
+    """Run the mechanical front-half, write worklist.json + per-entity briefs, return the ScanResult.
 
-    Thin wrapper over build_scan_worklist for the out-of-process (Claude plugin) path.
-    Creates parent directories as needed.
+    Thin wrapper over build_scan_worklist for the out-of-process (Claude plugin)
+    path. Alongside `out_path` it writes `briefs/<page-stem>.md` — one rendered
+    prompt per stale entity, built from the SAME system prompt and work order
+    the Bedrock provider sends — and resets an empty `results/` for the fan-out.
+
+    Clearing `results/` is load-bearing: a per-entity result left by a previous
+    run would otherwise be silently re-applied against a page whose diff window
+    has since moved.
     """
     worklist, scan_result = await build_scan_worklist(
         workspace_path=workspace_path,
@@ -1848,6 +1877,20 @@ async def emit_scan_worklist(
     )
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(worklist.to_json(), encoding="utf-8")
+
+    briefs_dir = briefs_dir_for(out_path)
+    results_dir = results_dir_for(out_path)
+    _reset_dir(briefs_dir)
+    _reset_dir(results_dir)
+    for task in worklist.prose_tasks:
+        stem = Path(task.page_path).stem
+        try:
+            (briefs_dir / f"{stem}.md").write_text(
+                render_prose_refresh_brief(task, results_path=str(results_dir / f"{stem}.json")),
+                encoding="utf-8",
+            )
+        except OSError as exc:  # noqa: BLE001 — one bad brief must not abort the emit
+            scan_result.entity_errors.append(f"{task.uri}: brief write failed: {exc!r}")
     return scan_result
 
 

@@ -501,3 +501,71 @@ def test_m4_off_by_default_emits_no_propagate_tasks(emit_workspace, monkeypatch)
     wiki_resolved, resolved_repo = resolve_wiki_and_repo(workspace, repo)
     asyncio.run(apply_scan_results(worklist, ScanResults(), wiki_resolved, resolved_repo or repo, propagate=False))
     assert list_proposals(wiki) == []
+
+
+# ---------------------------------------------------------------------------
+# Emit-side briefs: the out-of-process fan-out's instructions + drop-box
+# ---------------------------------------------------------------------------
+
+
+def test_emit_writes_one_brief_per_prose_task(emit_workspace, monkeypatch) -> None:
+    """Every stale entity gets a rendered brief named by its page stem."""
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist, results_dir_for
+    from graph_wiki_core.commands.scan_contract import ScanWorklist
+    from graph_wiki_core.prompts.prose_refresher import render_prose_refresh_brief
+
+    workspace, repo = emit_workspace
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    worklist = ScanWorklist.from_json(out_path.read_text(encoding="utf-8"))
+    assert worklist.prose_tasks, "fixture must produce at least one stale entity"
+
+    briefs = sorted(p.name for p in briefs_dir_for(out_path).glob("*.md"))
+    assert briefs == sorted(f"{Path(t.page_path).stem}.md" for t in worklist.prose_tasks)
+
+    task = worklist.prose_tasks[0]
+    stem = Path(task.page_path).stem
+    expected = render_prose_refresh_brief(task, results_path=str(results_dir_for(out_path) / f"{stem}.json"))
+    assert (briefs_dir_for(out_path) / f"{stem}.md").read_text(encoding="utf-8") == expected
+
+
+def test_emit_clears_stale_briefs_and_results(emit_workspace) -> None:
+    """A result file from a previous run must never survive into this one — its
+    page's diff window has moved, so re-applying it would inject stale prose."""
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist, results_dir_for
+
+    workspace, repo = emit_workspace
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    stale_brief = briefs_dir_for(out_path) / "gone.md"
+    stale_result = results_dir_for(out_path) / "gone.json"
+    stale_brief.parent.mkdir(parents=True, exist_ok=True)
+    stale_result.parent.mkdir(parents=True, exist_ok=True)
+    stale_brief.write_text("old brief", encoding="utf-8")
+    stale_result.write_text('{"uri": "pkg:gone"}', encoding="utf-8")
+
+    asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    assert not stale_brief.exists()
+    assert not stale_result.exists()
+    assert results_dir_for(out_path).is_dir(), "results/ must exist (empty) for the fan-out to write into"
