@@ -329,7 +329,7 @@ async def run_propagate_drift(
     candidates = propagation_candidates(wiki, repo, reader, repo_paths=repo_paths or None)
 
     # The Bedrock stack is required to judge; absent it (plugin branch) we make
-    # no proposals and stamp nothing (mirrors scan._drift_flag_pass early-out).
+    # no proposals and stamp nothing.
     stack = _bedrock_stack()
     if stack is None:
         return PropagateDriftResult(0, len(candidates), 0, 0, 0, dry_run, [])
