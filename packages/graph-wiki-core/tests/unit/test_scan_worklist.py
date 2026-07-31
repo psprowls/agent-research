@@ -569,3 +569,36 @@ def test_emit_clears_stale_briefs_and_results(emit_workspace) -> None:
     assert not stale_brief.exists()
     assert not stale_result.exists()
     assert results_dir_for(out_path).is_dir(), "results/ must exist (empty) for the fan-out to write into"
+
+
+def test_emit_brief_write_failure_is_isolated_and_reported(emit_workspace, monkeypatch) -> None:
+    """A brief that fails to write appends an entity_errors entry instead of
+    aborting the emit — worklist.json still lands and the process returns."""
+    from graph_wiki_core.commands.scan import briefs_dir_for, emit_scan_worklist
+
+    workspace, repo = emit_workspace
+    out_path = workspace / ".graph-wiki" / "worklist.json"
+
+    original_write_text = Path.write_text
+
+    def _flaky_write_text(self, *args, **kwargs):
+        if self.parent == briefs_dir_for(out_path):
+            raise OSError("disk full")
+        return original_write_text(self, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "write_text", _flaky_write_text, raising=True)
+
+    scan_result = asyncio.run(
+        emit_scan_worklist(
+            workspace_path=workspace,
+            repo_path=repo,
+            no_file_map=False,
+            max_depth=3,
+            propagate=False,
+            out_path=out_path,
+        )
+    )
+
+    assert out_path.exists(), "worklist.json must still be written despite the brief failure"
+    assert scan_result.entity_errors, "the failed brief write must be reported, not swallowed"
+    assert any("brief write failed" in e for e in scan_result.entity_errors)
