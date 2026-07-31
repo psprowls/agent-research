@@ -1217,6 +1217,9 @@ async def apply_scan_results(
     isolated (mirrors Bedrock per-item try/except).
     """
     out = ApplyResult()
+    # Deliberately last-wins per uri: apply_scan_worklist relies on this to make
+    # a --results-dir per-entity result take precedence over a --apply-worklist
+    # file result for the same uri (it appends dir results after file results).
     prose_by_uri = {r.uri: r for r in results.prose}
     drift_by_uri = {d.uri: d for d in results.drift}
     task_by_uri = {t.uri: t for t in worklist.prose_tasks}
@@ -1966,7 +1969,9 @@ async def apply_scan_worklist(
     dir_errors: list[str] = []
     if results_dir is not None:
         dir_results, dir_errors = load_results_dir(results_dir)
-        results.prose = list(results.prose) + dir_results
+        # Append after the file results: apply_scan_results builds prose_by_uri
+        # as a last-wins dict, so the fan-out-written per-entity result wins.
+        results.prose = results.prose + dir_results
 
     worklist = ScanWorklist.from_json(worklist_path.read_text(encoding="utf-8"))
     # Honor the emit-time stamp value handed back by the orchestrator.

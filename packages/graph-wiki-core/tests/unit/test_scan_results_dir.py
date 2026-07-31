@@ -87,18 +87,49 @@ def _narrative(ws: Path) -> str:
 
 
 def test_load_results_dir_skips_malformed_files(tmp_path: Path):
+    """broken.json fails to parse as JSON at all; missing_uri_key.json parses but
+    has no "uri" key, so ProseRefreshResult.from_dict's ``d["uri"]`` raises
+    KeyError. Both land in the generic except branch (the "unreadable" message),
+    NOT the dedicated falsy-uri guard — see
+    test_load_results_dir_empty_and_null_uri_hit_dedicated_guard for that path.
+    """
     d = tmp_path / "results"
     d.mkdir()
     (d / "good.json").write_text(json.dumps({"uri": _URI, "sections": {"## Narrative": "ok"}}), encoding="utf-8")
     (d / "broken.json").write_text("{not json", encoding="utf-8")
-    (d / "no_uri.json").write_text(json.dumps({"sections": {}}), encoding="utf-8")
+    (d / "missing_uri_key.json").write_text(json.dumps({"sections": {}}), encoding="utf-8")
 
     results, errors = load_results_dir(d)
 
     assert [r.uri for r in results] == [_URI]
     assert len(errors) == 2
-    assert any("broken.json" in e for e in errors)
-    assert any("no_uri.json" in e for e in errors)
+    broken_error = next(e for e in errors if "broken.json" in e)
+    assert "unreadable prose result" in broken_error
+    missing_key_error = next(e for e in errors if "missing_uri_key.json" in e)
+    assert "unreadable prose result" in missing_key_error
+    assert "no uri" not in missing_key_error
+
+
+def test_load_results_dir_empty_and_null_uri_hit_dedicated_guard(tmp_path: Path):
+    """Unlike a missing "uri" key (KeyError -> generic except), an explicit
+    falsy uri parses fine and is caught by the dedicated `if not result.uri`
+    guard, which reports a distinct "has no uri" message.
+    """
+    d = tmp_path / "results"
+    d.mkdir()
+    (d / "empty_uri.json").write_text(json.dumps({"uri": "", "sections": {}}), encoding="utf-8")
+    (d / "null_uri.json").write_text(json.dumps({"uri": None, "sections": {}}), encoding="utf-8")
+
+    results, errors = load_results_dir(d)
+
+    assert results == []
+    assert len(errors) == 2
+    empty_error = next(e for e in errors if "empty_uri.json" in e)
+    assert "prose result has no uri" in empty_error
+    assert "unreadable" not in empty_error
+    null_error = next(e for e in errors if "null_uri.json" in e)
+    assert "prose result has no uri" in null_error
+    assert "unreadable" not in null_error
 
 
 def test_load_results_dir_missing_directory_is_empty(tmp_path: Path):
