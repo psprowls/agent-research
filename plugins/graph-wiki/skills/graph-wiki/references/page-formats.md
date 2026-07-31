@@ -107,7 +107,9 @@ _(scanner will populate on next scan)_
 | `<file>` | file | — TODO |
 ```
 
-The scanner owns three H2s on every entity page — `## Narrative`, `## File map - <name>`, and `## Referenced in wiki` — all regenerated from the graph on every scan (narrative prose fills in only on narrate passes; `## File map - <name>` is pre-populated with `— TODO` Description placeholders even on structural-only scans). `agent_plugin` pages additionally carry template-authoritative scanner-data sections (`## Commands`, `## Agents`, `## Skills`, `## Scripts`, `## Hooks`, `## MCP servers`) that are always regenerated from the graph, never sourced from the on-disk page. Any other hand-added H2 is human-owned and preserved across re-scan. See the [File map convention](#file-map-convention-apps-and-packages) section for the full table rules.
+Entity-page content splits into two classes by how it's produced. `## Referenced in wiki` and the `## File map - <name>` row set (the `Path`/`Kind` columns) are **deterministic**: pure graph projections, always regenerated fresh on every scan at zero model cost (`## File map - <name>` is pre-populated with `— TODO` Description placeholders even on structural-only scans; `## Referenced in wiki` is always regenerated from forward-links). `agent_plugin` pages additionally carry template-authoritative deterministic data tables (`## Commands`, `## Agents`, `## Skills`, `## Scripts`, `## Hooks`, `## MCP servers`), always regenerated from the graph, never sourced from the on-disk page.
+
+`## Narrative`, the File map's Description column, and any other hand-added H2 are **prose**: model-maintained, filled in on first scan, then updated only when the diff-driven refresh pass fires (the commit range since `last_updated_commit` touches the entity's files). Prose is never mechanically protected — the refresh prompt treats current page text as ground truth to preserve unless the code diff contradicts it. See the [File map convention](#file-map-convention-apps-and-packages) section for the full table rules.
 
 ## 2. Entity page (app)
 
