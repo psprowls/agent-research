@@ -1880,8 +1880,16 @@ async def emit_scan_worklist(
 
     briefs_dir = briefs_dir_for(out_path)
     results_dir = results_dir_for(out_path)
-    _reset_dir(briefs_dir)
-    _reset_dir(results_dir)
+    try:
+        _reset_dir(briefs_dir)
+        _reset_dir(results_dir)
+    except OSError as exc:
+        # briefs/ or results/ itself is unwritable (permission denied, read-only
+        # fs, or a race with a still-running fan-out) — there is nowhere to write
+        # a brief, so skip the loop entirely rather than raising past the
+        # ScanAbortedError-only handlers at the CLI/plugin call sites.
+        scan_result.entity_errors.append(f"briefs/results reset failed: {exc!r}")
+        return scan_result
     for task in worklist.prose_tasks:
         stem = Path(task.page_path).stem
         try:
@@ -1889,7 +1897,7 @@ async def emit_scan_worklist(
                 render_prose_refresh_brief(task, results_path=str(results_dir / f"{stem}.json")),
                 encoding="utf-8",
             )
-        except OSError as exc:  # noqa: BLE001 — one bad brief must not abort the emit
+        except OSError as exc:
             scan_result.entity_errors.append(f"{task.uri}: brief write failed: {exc!r}")
     return scan_result
 
