@@ -179,7 +179,7 @@ def test_new_package_emits_first_fill_prose_task(emit_workspace) -> None:
 def test_unchanged_package_emits_empty_worklist(emit_workspace, monkeypatch) -> None:
     """After a full narrated scan (prose + every row + human sections filled +
     anchor stamped), a steady-state re-emit (no code change) produces no
-    prose_task and no drift_task — worklist.is_empty."""
+    prose_task — worklist.is_empty."""
     workspace, repo = emit_workspace
     wiki = workspace / "wiki"
 
