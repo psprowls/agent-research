@@ -27,7 +27,11 @@ def _parse_args(argv: list[str]) -> argparse.Namespace:
     p.add_argument("--max-depth", type=int, default=3, help="Max file-map directory depth")
     p.add_argument("--json", action="store_true", dest="json_output", help="Emit ScanResult/ApplyResult as JSON")
     p.add_argument("--emit-worklist", default="", help="Emit the commit-gated worklist JSON to this path and exit")
-    p.add_argument("--apply-worklist", default="", help="Apply a results JSON from this path")
+    p.add_argument(
+        "--apply-worklist",
+        default="",
+        help="Apply a results JSON from this path (combine with --results-dir, or omit and use --results-dir alone)",
+    )
     p.add_argument(
         "--results-dir",
         default="",
@@ -88,7 +92,7 @@ def main() -> None:
             print(f"[error] scan aborted: {e}", file=sys.stderr)
             sys.exit(2)
         payload = {
-            "worklist_path": args.emit_worklist,
+            "worklist_path": str(out_path),
             "briefs_dir": str(briefs_dir_for(out_path)),
             "results_dir": str(results_dir_for(out_path)),
             "scan_result": dataclasses.asdict(result),
@@ -103,10 +107,11 @@ def main() -> None:
 
         results_path = Path(args.apply_worklist) if args.apply_worklist else None
         results_dir = Path(args.results_dir) if args.results_dir else None
-        # worklist.json sits beside whichever results source was given:
+        # worklist.json sits beside whichever results source was given (the file wins when both
+        # are passed, since --apply-worklist and --results-dir may point at different parents):
         #   <ws>/.graph-wiki/results.json -> <ws>/.graph-wiki/worklist.json
         #   <ws>/.graph-wiki/results/     -> <ws>/.graph-wiki/worklist.json
-        source_dir = results_path.parent if results_path is not None else results_dir.parent  # type: ignore[union-attr]
+        source_dir = Path(args.apply_worklist).parent if args.apply_worklist else Path(args.results_dir).parent
         worklist_path = Path(args.worklist_path) if args.worklist_path else source_dir / "worklist.json"
         applied = asyncio.run(
             apply_scan_worklist(
