@@ -104,8 +104,8 @@ def scan_vault(wiki):
                 "title": infer_title(md, fm),
                 "summary": str(fm.get("summary") or ""),
                 "tags": fm.get("tags") or "",
-                "sources": fm.get("sources", ""),
-                "updated": fm.get("updated", ""),
+                "sources": fm.get("sources") or "",
+                "updated": fm.get("updated") or "",
                 "status": str(fm.get("status") or ""),  # issue, roadmap, adr
                 "kind": str(fm.get("kind") or ""),
             }
@@ -148,8 +148,8 @@ def scan_work(workspace):
                 "title": infer_title(md, fm),
                 "summary": str(fm.get("summary") or ""),
                 "tags": fm.get("tags") or "",
-                "sources": fm.get("sources", ""),
-                "updated": fm.get("updated", ""),
+                "sources": fm.get("sources") or "",
+                "updated": fm.get("updated") or "",
                 "status": str(fm.get("status") or ""),
             }
         )

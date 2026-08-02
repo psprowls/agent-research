@@ -560,6 +560,18 @@ class TestCuratedScan:
         entries = _scan_curated_lane(tmp_path, "concepts")
         assert [e["title"] for e in entries] == ["alpha", "Mu", "Zeta"]
 
+    def test_non_string_frontmatter_values_coerced_to_str(self, tmp_path):
+        """Unquoted numeric title/summary resolve to real YAML int/float types;
+        _scan_curated_lane (via _infer_title) must coerce them to str so
+        sorting and downstream rendering never AttributeErrors."""
+        _write_curated_page(tmp_path / "concepts" / "numeric.md", title=2026, summary=3.5)
+        entries = _scan_curated_lane(tmp_path, "concepts")
+        assert len(entries) == 1
+        assert entries[0]["title"] == "2026"
+        assert isinstance(entries[0]["title"], str)
+        assert entries[0]["summary"] == "3.5"
+        assert isinstance(entries[0]["summary"], str)
+
 
 class TestWorkScan:
     def test_no_work_directory(self, tmp_path):
