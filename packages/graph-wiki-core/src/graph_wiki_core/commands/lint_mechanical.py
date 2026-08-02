@@ -140,7 +140,15 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None, i
                 ws = name_to_ws.get(slug)
                 if not ws:
                     continue
-                vault_exports = p["fm"].get("exports", "").strip()
+                raw_exports = p["fm"].get("exports")
+                if isinstance(raw_exports, list):
+                    # Real YAML list (e.g. `exports: [a, b]`) — join back into the
+                    # comma-separated form the naive parser below expects, rather
+                    # than str()'ing the list repr (which would quote each item
+                    # and break the split(",") count below).
+                    vault_exports = ", ".join(str(x) for x in raw_exports)
+                else:
+                    vault_exports = str(raw_exports or "").strip()
                 disk_exports = ws.get("exports", [])
                 if vault_exports and disk_exports:
                     # Naive: if frontmatter is set but differs in count

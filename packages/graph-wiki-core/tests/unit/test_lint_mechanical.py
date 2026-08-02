@@ -190,6 +190,36 @@ def test_code_drift_recognizes_legacy_pkg_pkg_md(tmp_path: Path, monkeypatch) ->
     assert cd["missing_in_vault"] == []
 
 
+def test_code_drift_tolerates_list_typed_exports(tmp_path: Path, monkeypatch) -> None:
+    """A list-valued ``exports:`` (real YAML, not the naive-parser string form)
+    must not raise AttributeError and silently disable the whole code_drift
+    block (the broad except at the bottom of the code-drift try swallows it
+    into {"error": ...} otherwise)."""
+    from graph_wiki_core.commands import lint_mechanical as lw
+
+    workspace = tmp_path / "workspace"
+    workspace.mkdir()
+    wiki = workspace / "wiki"
+    (wiki / "packages" / "gamma").mkdir(parents=True)
+    (wiki / "packages" / "gamma" / "overview.md").write_text(
+        "---\ntitle: gamma\ncategory: package\nsummary: gamma package\ntokens: 10\n"
+        "updated: 2099-01-01\nexports: [a, b, c]\n---\n\nBody.\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        lw,
+        "_scan_discover",
+        lambda repo, pinned_containers=None: [{"name": "gamma", "exports": ["a", "b"]}],
+    )
+
+    result = lw.scan(wiki, stale_days=90, log_gap_days=14, repo_path=tmp_path / "repo")
+    cd = result["code_drift"]
+
+    assert "error" not in cd, f"code_drift silently disabled: {cd}"
+    assert cd["exports_drift"] == [{"page": "packages/gamma/overview", "vault_count": 3, "disk_count": 2}]
+
+
 def test_total_pages_excludes_schema_files(tmp_path: Path) -> None:
     """total_pages reflects content pages only, not schema files."""
     from graph_wiki_core.commands.lint_mechanical import scan
