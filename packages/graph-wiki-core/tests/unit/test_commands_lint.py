@@ -652,6 +652,7 @@ async def test_run_lint_fail_soft_error_dicts_escalate_into_errors(tmp_path: Pat
         "missing_tokens": [],
         "source_path_drift": [],
         "duplicate_titles": {},
+        "unparseable_frontmatter": [],
         "log_gap": None,
         "code_drift": {"skipped": True},
         "file_map_drift": [],

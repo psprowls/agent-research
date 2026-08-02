@@ -25,7 +25,7 @@ def check(pages: dict) -> list[str]:
         fm = page["fm"]
         if fm.get("category") != "package":
             continue
-        domain = (fm.get("domain") or "").strip()
+        domain = str(fm.get("domain") or "").strip()
         parts = key.split("/")
         if len(parts) >= 4 and parts[0] == "domains" and parts[2] == "packages":
             page_domain = parts[1]

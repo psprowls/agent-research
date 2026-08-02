@@ -6,7 +6,8 @@ from __future__ import annotations
 
 import re
 
-FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
+from wiki_io.frontmatter import FRONTMATTER_RE  # re-exported: workflow_hints + strip_frontmatter use it
+
 # Wikilinks: ``[[target]]``, ``[[target#anchor]]``, ``[[target|alias]]``.
 # Inside markdown table cells the alias separator is escaped as ``\|`` so it
 # doesn't collide with the cell delimiter — the lookahead ``(?!\\\|)`` stops
@@ -103,18 +104,6 @@ def _is_placeholder_target(target: str) -> bool:
         True if target contains placeholder markers (..., <, or >), False otherwise.
     """
     return "..." in target or "<" in target or ">" in target
-
-
-def parse_frontmatter(text: str) -> dict:
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return {}
-    fm: dict = {}
-    for line in m.group(1).splitlines():
-        if ":" in line and not line.lstrip().startswith("#"):
-            k, _, v = line.partition(":")
-            fm[k.strip()] = v.strip().strip("'\"")
-    return fm
 
 
 def strip_code(text: str) -> str:

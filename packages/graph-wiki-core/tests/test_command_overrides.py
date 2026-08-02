@@ -692,6 +692,7 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
                 "missing_tokens": [],
                 "source_path_drift": [],
                 "duplicate_titles": [],
+                "unparseable_frontmatter": [],
                 "log_gap": False,
                 "code_drift": {},
                 "file_map_drift": [],

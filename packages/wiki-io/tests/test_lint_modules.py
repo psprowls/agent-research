@@ -38,7 +38,7 @@ def _load_pages(wiki: Path) -> dict:
 
     Each page entry: {"fm": dict, "text": str}
     """
-    from wiki_io.lint.common import parse_frontmatter
+    from wiki_io.frontmatter import parse as parse_page_frontmatter
 
     pages: dict = {}
     for md in sorted(wiki.rglob("*.md")):
@@ -47,7 +47,7 @@ def _load_pages(wiki: Path) -> dict:
         if key.endswith(".md"):
             key = key[:-3]
         text = md.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
+        fm, _err = parse_page_frontmatter(text)
         pages[key] = {"fm": fm, "text": text}
     return pages
 
@@ -95,6 +95,16 @@ def test_file_map_check_returns_list() -> None:
     pages = _load_pages(EDGE_CASE_VAULT)
     result = file_map.check(EDGE_CASE_VAULT, pages)
     assert isinstance(result, list), f"Expected list, got {type(result)}"
+
+
+def test_dependency_load_bearing_accepts_bool() -> None:
+    """load_bearing: true (YAML bool, not string) must pass the check."""
+    page = {
+        "fm": {"category": "dependency", "kind": "package", "ecosystem": "pypi", "load_bearing": True},
+        "text": "---\n---\n" + "line\n" * 20,
+    }
+    findings = dependency.check({"dependencies/foo": page})
+    assert not any("load-bearing" in f for f in findings)
 
 
 def test_package_sync_check_returns_list() -> None:

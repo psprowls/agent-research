@@ -235,6 +235,7 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None, i
         "missing_tokens": mech["missing_tokens"],
         "source_path_drift": mech["source_path_drift"],
         "duplicate_titles": mech["duplicate_titles"],
+        "unparseable_frontmatter": mech["unparseable_frontmatter"],
         "log_gap": mech["log_gap"],
         "code_drift": code_drift,
         "file_map_drift": file_map_drift,
@@ -283,6 +284,11 @@ def print_report(r):
     header("pages missing frontmatter", len(r["missing_frontmatter"]))
     for p in r["missing_frontmatter"][:20]:
         print(f"   - {p}")
+    print()
+
+    header("unparseable frontmatter", len(r.get("unparseable_frontmatter", [])))
+    for p, err in r.get("unparseable_frontmatter", [])[:20]:
+        print(f"   - {p}: {err}")
     print()
 
     header("pages missing tokens field", len(r["missing_tokens"]))

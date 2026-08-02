@@ -78,6 +78,7 @@ class LintResult:
     missing_tokens: list[str] = field(default_factory=list)
     source_path_drift: list[str] = field(default_factory=list)
     duplicate_titles: dict[str, list[str]] = field(default_factory=dict)
+    unparseable_frontmatter: list[tuple[str, str]] = field(default_factory=list)
     log_gap: dict | None = None
     code_drift: dict = field(default_factory=lambda: _SKIPPED.copy())
     file_map_drift: list[str] = field(default_factory=list)
@@ -314,6 +315,7 @@ async def run_lint(
         missing_tokens=report["missing_tokens"],
         source_path_drift=report["source_path_drift"],
         duplicate_titles=report["duplicate_titles"],
+        unparseable_frontmatter=report["unparseable_frontmatter"],
         log_gap=report["log_gap"],
         code_drift=report["code_drift"],
         file_map_drift=report["file_map_drift"],

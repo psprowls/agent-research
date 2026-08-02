@@ -23,6 +23,13 @@ def _is_dependency(page: dict) -> bool:
     return page["fm"].get("category") == "dependency"
 
 
+def _flag_str(value) -> str:
+    """Normalize a truthy-flag frontmatter value (bool or str) to lowercase text."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value or "").strip().lower()
+
+
 def check(pages: dict, *, workspaces: list[dict] | None = None) -> list[str]:
     """Run dependency_layer rules. Returns one finding string per issue."""
     findings: list[str] = []
@@ -31,24 +38,24 @@ def check(pages: dict, *, workspaces: list[dict] | None = None) -> list[str]:
         if not _is_dependency(page):
             continue
         fm = page["fm"]
-        kind = (fm.get("kind") or "").strip()
+        kind = str(fm.get("kind") or "").strip()
         if not kind or kind not in VALID_KINDS:
             findings.append(f"{key}: dep-kind-not-in-enum: kind='{kind}' not in {{package | service}}")
             # Skip per-kind checks when kind is invalid — they wouldn't be meaningful.
             continue
 
         if kind == "package":
-            if not (fm.get("ecosystem") or "").strip():
+            if not str(fm.get("ecosystem") or "").strip():
                 findings.append(f"{key}: dep-package-without-ecosystem: ecosystem: missing")
         elif kind == "service":
-            if not (fm.get("provider") or "").strip():
+            if not str(fm.get("provider") or "").strip():
                 findings.append(f"{key}: dep-service-without-provider: provider: missing")
 
         # dep-detail-without-load-bearing: package detail pages must declare load_bearing.
         # Only applies to kind == "package" — service pages are not individual
         # dependency detail pages in the same semantic sense.
         if kind == "package":
-            load_bearing = (fm.get("load_bearing") or "").strip().lower()
+            load_bearing = _flag_str(fm.get("load_bearing"))
             if load_bearing not in ("true", "yes", "1"):
                 findings.append(f"{key}: dep-detail-without-load-bearing: detail page exists but load_bearing != true")
 

@@ -23,10 +23,10 @@ from collections import defaultdict
 from pathlib import Path
 
 from wiki_io.entity_writer import ADMITTED_KINDS
+from wiki_io.frontmatter import parse as parse_page_frontmatter
 from wiki_io.lint.common import (
     LOG_ENTRY_RE,
     WIKILINK_RE,
-    parse_frontmatter,
     strip_code,
     strip_frontmatter,
 )
@@ -66,7 +66,7 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
 
     Returns a dict with keys: pages, orphans, broken_links, stale,
     missing_frontmatter, missing_tokens, source_path_drift, duplicate_titles,
-    log_gap, total_pages.
+    unparseable_frontmatter, log_gap, total_pages.
     """
     pages: dict = {}
     link_targets: set[str] = set()
@@ -102,10 +102,11 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
         if rel.name == "index.md":
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
+        fm, fm_error = parse_page_frontmatter(text)
         pages[key] = {
             "path": key + ".md",
             "fm": fm,
+            "fm_error": fm_error,
             "text": text,
             "linted": top in LINTED_TOPS,
             "is_work": top == "work",
@@ -168,7 +169,7 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
         text = md.read_text(encoding="utf-8", errors="replace")
         index_pages[idx_key] = {
             "path": idx_key + ".md",
-            "fm": parse_frontmatter(text),
+            "fm": parse_page_frontmatter(text)[0],
             "text": text,
         }
         scan_text = strip_code(strip_frontmatter(text))
@@ -218,7 +219,7 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
         if not page["linted"]:
             continue
         fm = page["fm"]
-        title = fm.get("title") or Path(key).name
+        title = str(fm.get("title") or Path(key).name)
         titles[title].append(key)
         if fm.get("kind") in ADMITTED_KINDS:
             # Graph-derived entities/ pages use the entity frontmatter contract:
@@ -247,12 +248,18 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
         updated = fm.get("updated")
         if updated:
             try:
-                d = dt.date.fromisoformat(updated)
+                if isinstance(updated, dt.datetime):
+                    d = updated.date()
+                elif isinstance(updated, dt.date):
+                    d = updated
+                else:
+                    d = dt.date.fromisoformat(str(updated))
                 if d < stale_cutoff:
-                    stale.append((key, updated))
-            except ValueError:
+                    stale.append((key, str(updated)))
+            except (ValueError, TypeError):
                 pass
     duplicate_titles = {t: ks for t, ks in titles.items() if len(ks) > 1}
+    unparseable = sorted((k, p["fm_error"]) for k, p in pages.items() if p["linted"] and p.get("fm_error"))
 
     log_path = wiki / "log.md"
     log_gap = None
@@ -298,6 +305,7 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
         "missing_tokens": sorted(missing_tokens),
         "source_path_drift": source_path_drift,
         "duplicate_titles": duplicate_titles,
+        "unparseable_frontmatter": unparseable,
         "log_gap": log_gap,
         "total_pages": len(pages),
     }

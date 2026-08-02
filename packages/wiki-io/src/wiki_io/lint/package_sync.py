@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from wiki_io.lint.common import parse_frontmatter
+from wiki_io.frontmatter import parse as parse_page_frontmatter
 
 GROUP = "package_sync"
 
@@ -30,7 +30,7 @@ def check(repo: Path, wiki: Path) -> list[str]:
         if any(part.startswith(".") for part in rel.parts):
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
+        fm, _err = parse_page_frontmatter(text)
         category = fm.get("category")
         if category not in ("package", "app"):
             continue
@@ -38,7 +38,8 @@ def check(repo: Path, wiki: Path) -> list[str]:
         pkg_rel = fm.get(path_field)
         if not pkg_rel:
             continue
-        sha = (fm.get("last_sync_commit") or "").strip()
+        pkg_rel = str(pkg_rel)
+        sha = str(fm.get("last_sync_commit") or "").strip()
         key = str(rel).replace("\\", "/")[:-3]
         if not sha:
             issues.append(f"{key}: never synced (no last_sync_commit)")
