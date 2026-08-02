@@ -10,6 +10,8 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from wiki_io.frontmatter import parse as parse_page_frontmatter
+
 # Share the scope-normalization helper with scan_monorepo / lint_wiki so
 # ``depends_on: [@scope/foo]`` entries resolve to ``packages/foo`` pages.
 try:
@@ -18,37 +20,6 @@ except ImportError:
     _unscope = lambda n: n  # noqa: E731
 
 WIKILINK_RE = re.compile(r"\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|[^\]]*)?\]\]")
-FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
-LIST_ITEM_RE = re.compile(r"^\s+-\s*[\"']?(.+?)[\"']?\s*$")
-
-
-def _parse_frontmatter_lists(text, keys):
-    """Extract block-list YAML values for ``keys`` from a page's frontmatter.
-
-    The other scripts in this skill use a flat line-based parser that silently
-    drops YAML list values. Graph analysis needs ``depends_on`` as actual edges,
-    so this helper understands the ``key:\\n  - item\\n  - item`` pattern for
-    the requested keys only.
-    """
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return {}
-    result = {k: [] for k in keys}
-    active = None
-    for line in m.group(1).splitlines():
-        if active is not None:
-            item = LIST_ITEM_RE.match(line)
-            if item:
-                result[active].append(item.group(1))
-                continue
-            active = None  # list block ended
-        stripped = line.strip()
-        if ":" in stripped and not stripped.startswith("#"):
-            k, _, v = stripped.partition(":")
-            k = k.strip()
-            if k in keys and v.strip() == "":
-                active = k
-    return result
 
 
 def build_graph(wiki):
@@ -109,9 +80,12 @@ def build_graph(wiki):
         # Treat ``depends_on:`` frontmatter entries as graph edges. Without
         # this, package pages that cross-reference each other only through
         # frontmatter (the convention in this skill) appear as orphans.
-        fm_lists = _parse_frontmatter_lists(text, ("depends_on",))
-        for dep in fm_lists.get("depends_on", ()):
-            slug = _unscope(dep)
+        fm, _err = parse_page_frontmatter(text)
+        deps = fm.get("depends_on") or []
+        if isinstance(deps, str):
+            deps = [deps]
+        for dep in deps:
+            slug = _unscope(str(dep))
             resolved = stems.get(slug)
             if resolved and resolved != key:
                 out[key].add(resolved)
