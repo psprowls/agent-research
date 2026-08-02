@@ -292,6 +292,7 @@ async def test_wiki_lint_emits_progress() -> None:
         broken_links=[],
         stale=[],
         missing_frontmatter=[],
+        unparseable_frontmatter=[("concepts/broken", "did not find expected ',' or ']'")],
         duplicate_titles={},
         log_gap=None,
         code_drift={"skipped": True},
@@ -309,11 +310,13 @@ async def test_wiki_lint_emits_progress() -> None:
 
     with patch("graph_wiki_mcp.server.run_lint", new_callable=AsyncMock) as mock_run_lint:
         mock_run_lint.return_value = mock_result
-        await wiki_lint(WikiLintInput(), mock_ctx)
+        output = await wiki_lint(WikiLintInput(), mock_ctx)
 
     assert mock_ctx.report_progress.await_count >= 2, (
         f"Expected >= 2 progress notifications, got {mock_ctx.report_progress.await_count}"
     )
+    # unparseable_frontmatter is passed through as list-of-lists (tuples serialized as lists).
+    assert output.unparseable_frontmatter == [["concepts/broken", "did not find expected ',' or ']'"]]
 
 
 async def test_wiki_ingest_source_passes_through_m3_fields() -> None:

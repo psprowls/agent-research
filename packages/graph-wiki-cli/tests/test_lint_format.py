@@ -16,6 +16,7 @@ def _blank_result(**over):
         broken_links=[],
         stale=[],
         missing_frontmatter=[],
+        unparseable_frontmatter=[],
         source_path_drift=[],
         duplicate_titles={},
         log_gap=None,
@@ -36,6 +37,18 @@ def _blank_result(**over):
 def test_obsidian_render_section_clean():
     out = "\n".join(format_wiki_lint(_blank_result()))
     assert "[OK] Obsidian render: 0" in out
+
+
+def test_unparseable_frontmatter_section_clean():
+    out = "\n".join(format_wiki_lint(_blank_result()))
+    assert "[OK] Unparseable frontmatter: 0" in out
+
+
+def test_unparseable_frontmatter_section_with_findings():
+    entries = [("concepts/broken", "while parsing a flow sequence: did not find expected ',' or ']'")]
+    out = "\n".join(format_wiki_lint(_blank_result(unparseable_frontmatter=entries)))
+    assert "[WARN] Unparseable frontmatter: 1" in out
+    assert "concepts/broken: while parsing a flow sequence" in out
 
 
 def test_obsidian_render_section_with_findings():

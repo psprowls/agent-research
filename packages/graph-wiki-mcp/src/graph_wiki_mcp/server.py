@@ -415,6 +415,7 @@ class WikiLintOutput(BaseModel):
     broken_links: list[list[str]]  # tuples serialized as lists
     stale: list[list[str]]  # tuples serialized as lists
     missing_frontmatter: list[str]
+    unparseable_frontmatter: list[list[str]]  # tuples serialized as lists
     duplicate_titles: dict
     log_gap: dict | None
     code_drift: dict
@@ -455,6 +456,7 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
         broken_links=[list(pair) for pair in result.broken_links],
         stale=[list(pair) for pair in result.stale],
         missing_frontmatter=result.missing_frontmatter,
+        unparseable_frontmatter=[list(pair) for pair in result.unparseable_frontmatter],
         duplicate_titles=result.duplicate_titles,
         log_gap=result.log_gap,
         code_drift=result.code_drift,

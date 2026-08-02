@@ -31,6 +31,8 @@ def format_wiki_lint(result: Any) -> list[str]:
     stale_items = [f"{p} (updated {d})" for p, d in result.stale]
     _section("Stale pages", stale_items)
     _section("Missing frontmatter", result.missing_frontmatter)
+    unparseable_items = [f"{page}: {error}" for page, error in result.unparseable_frontmatter]
+    _section("Unparseable frontmatter", unparseable_items)
     _section("Source path drift", result.source_path_drift)
 
     if result.duplicate_titles:
