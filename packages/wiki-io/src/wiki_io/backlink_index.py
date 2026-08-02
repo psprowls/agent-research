@@ -79,9 +79,13 @@ def _iter_preserved_pages(wiki: Path):
                     continue
                 yield folder, p
     # work/ lives under the wiki (wiki-rooted, like every other category).
+    # Non-recursive: only top-level work/<slug>.md pages carry forward-links.
+    # work/<slug>/<file>.md is a per-item working dir (design-spec/plan/results
+    # artifacts), not a page in its own right; work/_archive/<slug>/... is
+    # already excluded below.
     work_root = work_dir(wiki.parent)
     if work_root.is_dir():
-        for p in sorted(work_root.rglob("*.md")):
+        for p in sorted(work_root.glob("*.md")):
             if p.name == "index.md":
                 continue
             if "_archive" in p.relative_to(work_root).parts:

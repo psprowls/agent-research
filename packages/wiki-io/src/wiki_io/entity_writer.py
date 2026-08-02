@@ -290,6 +290,7 @@ def _load_frontmatter(path: Path) -> frontmatter.Post:
 
 from wiki_io._graph_protocol import GraphReaderLike  # noqa: E402
 from wiki_io.lint.common import SECTION_HEADER_RE, _split_pipes, parse_markdown_table  # noqa: E402
+from wiki_io.md_escape import escape_angle_brackets  # noqa: E402
 
 # Subset of DATA_KEYS that triggers needs_narrative when changed (D-10).
 # Phase 51 PKGFAM-03: `members` removed (was the sole carrier for the
@@ -906,8 +907,10 @@ def _compute_collision_set(
 
 
 def _md_escape(cell: str) -> str:
-    """Escape a markdown-table cell: pipes and newlines would break the row."""
-    return str(cell).replace("|", "\\|").replace("\n", " ").strip()
+    """Escape a markdown-table cell: pipes and newlines would break the row;
+    bare `<`/`>` would otherwise be parsed as an unclosed HTML tag by
+    Obsidian's renderer (see `obsidian-render-angle-bracket`)."""
+    return escape_angle_brackets(str(cell).replace("|", "\\|").replace("\n", " ").strip())
 
 
 def _md_table(headers: list[str], rows: list[list[str]]) -> str:
@@ -1497,7 +1500,7 @@ def _merge_preserved_descriptions(block: str, pkg_name: str, preserved: dict[str
                 preserved_desc = preserved.get(full)
                 if preserved_desc and not _is_filled_description(cells[2]):
                     cells[2] = preserved_desc
-                    cells = [c.replace("|", "\\|") for c in cells]
+                    cells = [escape_angle_brackets(c.replace("|", "\\|")) for c in cells]
                     line = "| " + " | ".join(cells) + " |"
         out.append(line)
     result = "\n".join(out)
@@ -1730,7 +1733,7 @@ def fill_dir_section_descriptions(page_path: Path, descriptions: dict[str, str])
         if m and i + 1 < n and lines[i + 1] == _DIR_SECTION_PLACEHOLDER:
             ctx = _section_path_context(m.group(1), pkg_name)
             if ctx in descriptions:
-                out.append(descriptions[ctx])
+                out.append(escape_angle_brackets(descriptions[ctx]))
                 filled += 1
                 i += 2
                 continue
@@ -1763,7 +1766,7 @@ def fill_file_map_overview(page_path: Path, overview: str) -> bool:
     first_line = rest.split("\n", 1)[0]
     if first_line != _OVERVIEW_PLACEHOLDER:
         return False
-    new_content = text[: match.end()] + overview + rest[len(first_line) :]
+    new_content = text[: match.end()] + escape_angle_brackets(overview) + rest[len(first_line) :]
     tmp = page_path.with_suffix(page_path.suffix + ".tmp")
     tmp.write_text(new_content, encoding="utf-8")
     os.replace(tmp, page_path)

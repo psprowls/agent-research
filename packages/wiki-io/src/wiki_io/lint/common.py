@@ -219,16 +219,23 @@ def parse_markdown_table(body: str) -> tuple[list[str], list[list[str]]] | None:
 def _split_pipes(line: str) -> list[str]:
     """Split a markdown-table row on ``|``, honoring ``\\|`` escapes.
 
-    Strips the leading and trailing ``|`` (with surrounding whitespace).
-    Returns the trimmed cell contents.
+    Strips exactly one leading and one trailing ``|`` (structurally, before
+    splitting -- not by dropping empty cells after the fact, which would
+    also swallow a legitimately empty last/first cell, e.g. a headerless
+    ``| | |`` row). Returns the trimmed cell contents.
     """
+    s = line.strip()
+    if s.startswith("|"):
+        s = s[1:]
+    if s.endswith("|"):
+        s = s[:-1]
     cells: list[str] = []
     buf: list[str] = []
     i = 0
-    n = len(line)
+    n = len(s)
     while i < n:
-        c = line[i]
-        if c == "\\" and i + 1 < n and line[i + 1] == "|":
+        c = s[i]
+        if c == "\\" and i + 1 < n and s[i + 1] == "|":
             buf.append("|")
             i += 2
             continue
@@ -239,13 +246,7 @@ def _split_pipes(line: str) -> list[str]:
             continue
         buf.append(c)
         i += 1
-    if buf:
-        cells.append("".join(buf).strip())
-    # Drop the empty cells produced by the leading/trailing ``|``.
-    if cells and cells[0] == "":
-        cells = cells[1:]
-    if cells and cells[-1] == "":
-        cells = cells[:-1]
+    cells.append("".join(buf).strip())
     return cells
 
 

@@ -60,6 +60,7 @@ from wiki_io.entity_writer import (
 from wiki_io.entity_writer import (
     short_filename as _short_filename,
 )
+from wiki_io.md_escape import escape_angle_brackets
 from wiki_io.wikilinks import vault_wikilink
 
 # ============================================================================
@@ -522,14 +523,16 @@ def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
     """Walk `workspace_root / 'wiki' / 'work'` for *.md pages; wiki-rooted paths.
 
     Returns [] if `work/` does not exist. Skips `index.md`, dotfiles, and
-    the `_archive/` sub-namespace.
+    the `_archive/` sub-namespace. Non-recursive: only top-level `work/<slug>.md`
+    pages are work items — `work/<slug>/<file>.md` is a per-item working dir
+    (design-spec/plan/results artifacts), not a page in its own right.
     """
     work_root = work_dir(workspace_root)
     if not work_root.exists():
         return []
     wiki = wiki_dir(workspace_root)
     entries: list[dict[str, str]] = []
-    for md in sorted(work_root.rglob("*.md")):
+    for md in sorted(work_root.glob("*.md")):
         rel = md.relative_to(wiki)
         if rel.name == "index.md":
             continue
@@ -613,7 +616,7 @@ def _entity_bullet(entity: PlacedEntity, collision_set: frozenset[str], indent: 
     The ` — {summary}` suffix is omitted when the entity has no summary,
     matching `_render_curated_section`'s inline shape."""
     link = _entity_wikilink(entity, collision_set)
-    summary = f" — {entity.summary}" if entity.summary else ""
+    summary = f" — {escape_angle_brackets(entity.summary)}" if entity.summary else ""
     return f"{indent}- {link}{summary}"
 
 
@@ -709,7 +712,7 @@ def _render_entity_heading(
     label = KIND_HEADING_LABELS[entity.kind]
     lines = [f"{'#' * level} {label}: {entity.name}", ""]
     link = _entity_wikilink(entity, collision_set, label="open page")
-    summary = f"{entity.summary} — " if entity.summary else ""
+    summary = f"{escape_angle_brackets(entity.summary)} — " if entity.summary else ""
     lines.append(f"{summary}{link}")
     if entity.kind in ("package", "app"):
         lines.extend(_render_pkg_nested(reader, entity, sub_for_pkg, name_to_entity, collision_set))
@@ -774,6 +777,7 @@ def _render_repository_section(
     reader: GraphReaderLike,
     *,
     repo_name: str,
+    repo_uri: str = "",
     domain_buckets: dict[str, list[PlacedEntity]],
     direct: list[PlacedEntity],
     repo_domains: list[str],
@@ -820,9 +824,24 @@ def _render_repository_section(
             )
         )
         direct_count += 1
+    # Orphan test suites (no single consumer package -- e.g. a repo-root
+    # cross-package integration suite) never nest under any package's
+    # `sub_for_pkg` entry and `_kind_major` drops test_suite from headings
+    # (D-R5), so without this they'd be placed but never rendered/linked
+    # anywhere. Surface them as a plain bullet list, not a heading -- test
+    # suites still never get their own heading.
+    orphan_suites = [e for e in direct if e.kind == "test_suite" and not e.parent_pkg_names]
+    if orphan_suites:
+        lines.append("- Other Test Suites")
+        for ts in sorted(orphan_suites, key=lambda x: x.uri):
+            lines.append(_entity_bullet(ts, collision_set, "  "))
     if not lines:
         return [], 0, 0
-    return [f"## Repository: {repo_name}", "", *lines], domain_count, direct_count
+    heading = f"## Repository: {repo_name}"
+    if repo_uri:
+        stem = _short_filename(repo_uri, collision_set)
+        heading = f"{heading} — {vault_wikilink(f'entities/{stem}', 'open page')}"
+    return [heading, "", *lines], domain_count, direct_count
 
 
 def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
@@ -832,7 +851,7 @@ def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
     lines = [f"## {label}", ""]
     for e in entries:
         link = vault_wikilink(e["path"], e["title"])
-        summary = f" — {e['summary']}" if e.get("summary") else ""
+        summary = f" — {escape_angle_brackets(e['summary'])}" if e.get("summary") else ""
         lines.append(f"- {link}{summary}")
     lines.append("")
     return lines
@@ -859,7 +878,7 @@ def _render_concepts_section(entries: list[dict]) -> list[str]:
         lines.append("")
         for e in group:
             link = vault_wikilink(e["path"], e["title"])
-            summary = f" — {e['summary']}" if e.get("summary") else ""
+            summary = f" — {escape_angle_brackets(e['summary'])}" if e.get("summary") else ""
             lines.append(f"- {link}{summary}")
         lines.append("")
     return lines
@@ -931,6 +950,8 @@ def _render(
         "",
     ]
 
+    repo_name_to_uri = {r.name: (r.attrs.get("uri") or "") for r in reader.list_repositories()}
+
     repo_count = 0
     domain_count = 0
     direct_count = 0
@@ -940,6 +961,7 @@ def _render(
         section, d_count, dir_count = _render_repository_section(
             reader,
             repo_name=repo_name,
+            repo_uri=repo_name_to_uri.get(repo_name, ""),
             domain_buckets=buckets,
             direct=direct,
             repo_domains=repo_domains,

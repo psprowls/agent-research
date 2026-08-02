@@ -86,6 +86,12 @@ def mechanical_scan(wiki, stale_days, log_gap_days):
             continue
         top = rel.parts[0] if rel.parts else ""
         key = str(rel).replace("\\", "/")[:-3]
+        # Per-item working-dir artifacts (work/<slug>/01-design-spec.md, etc.) are
+        # pipeline scratch files referenced only via frontmatter path pointers
+        # (spec_doc/plan_doc), never wikilinks -- not wiki pages, not link targets.
+        # Only top-level work/<slug>.md pages (and _archive/, handled below) count.
+        if top == "work" and len(rel.parts) >= 3 and rel.parts[1] != "_archive":
+            continue
         # <dir>/_archive/ items are valid link targets but excluded from orphan/stale checks
         if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
             link_targets.add(key)

@@ -16,6 +16,7 @@ from pathlib import Path
 from workspace_io.paths import wiki_dir, work_dir
 
 from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_GROUP_LABELS, KIND_GROUP_ORDER, kind_group
+from wiki_io.md_escape import escape_angle_brackets
 from wiki_io.wikilinks import vault_wikilink
 
 FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
@@ -135,13 +136,16 @@ def scan_work(workspace):
     wiki-relative (e.g. "work/2026-05-03-foo.md") so they render as
     wiki-rooted wikilinks. Skips the generated work index, dotfiles,
     and the _archive/ sub-namespace (owned by graph-wiki work lifecycle).
+    Non-recursive: only top-level `work/<slug>.md` pages are work items —
+    `work/<slug>/<file>.md` is a per-item working dir (design-spec/plan/
+    results artifacts), not a page in its own right.
     """
     work_root = work_dir(workspace)
     if not work_root.exists():
         return []
     wiki = wiki_dir(workspace)
     entries = []
-    for md in sorted(work_root.rglob("*.md")):
+    for md in sorted(work_root.glob("*.md")):
         rel = md.relative_to(wiki)
         if rel.name == "index.md":
             continue
@@ -236,7 +240,7 @@ def render_index(pages, wiki_name, vault_name):
         lines.append(f"## {label} ({len(nav_entries)})")
         lines.append("")
         for e in nav_entries:
-            summary = f" — {e['summary']}" if e["summary"] else ""
+            summary = f" — {escape_angle_brackets(e['summary'])}" if e["summary"] else ""
             link = vault_wikilink(e["path"], e["title"])
             lines.append(f"- {link}{summary}")
         lines.append("")
@@ -294,7 +298,7 @@ def render_category_index(entries, category, label, vault_name, location=None):
     ]
 
     def _bullet(e):
-        summary = f" — {e['summary']}" if e["summary"] else ""
+        summary = f" — {escape_angle_brackets(e['summary'])}" if e["summary"] else ""
         link = vault_wikilink(e["path"], e["title"])
         meta = []
         if e["status"]:
@@ -352,7 +356,7 @@ def render_guidance_topic_index(topic, entries, vault_name):
     ]
     for e in entries:
         link = vault_wikilink(e["path"], e["title"])
-        summary = f" — {e['summary']}" if e["summary"] else ""
+        summary = f" — {escape_angle_brackets(e['summary'])}" if e["summary"] else ""
         impact = f" _({e['impact']})_" if e["impact"] else ""
         lines.append(f"- {link}{summary}{impact}")
     lines.append("")
