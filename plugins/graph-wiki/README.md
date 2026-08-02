@@ -6,7 +6,11 @@ A Claude Code plugin that builds and maintains a persistent, cross-referenced kn
 
 `graph-wiki` gives your repo a comprehensive workflow including work tracking, code graph, and acompounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
 
-By default the wiki lives at `<repo>/<workspace>/wiki/`, and `<workspace>` defaults to `graph-wiki`. Obsidian opens the workspace root (`<repo>/<workspace>/`) to see the wiki and raw-source inbox as sibling directories; the work tracker lives inside the wiki at `wiki/work/`. You can override the default wiki location by setting the `GRAPH_WIKI_WORKSPACE` environment variable — normally via the repo's `.claude/settings.local.json` env block, which `gw config init --write-env` writes for you.
+The wiki lives at `<workspace>/wiki/`. **Point the plugin at your workspace with the `GRAPH_WIKI_WORKSPACE` environment variable** — it is the supported way to locate one, and the one thing worth configuring up front: set it and every command resolves with no `--workspace` flag. Put it in the `env` block of the `.claude/settings.local.json` belonging to whichever directory you run Claude Code from; `gw config init --write-env` writes it for you.
+
+Without it, the workspace is assumed to be `<repo>/graph-wiki/`. That fallback walks up from the current directory for `.git` and appends `graph-wiki` — it never searches for a `.graph-wiki.yaml`, so a workspace kept anywhere else (a sibling directory, a separate workspaces tree) is invisible to it and commands fail with `No .graph-wiki.yaml found in <path>`. Set the env var.
+
+Obsidian opens the workspace root (`<workspace>/`) to see the wiki and raw-source inbox as sibling directories; the work tracker lives inside the wiki at `wiki/work/`.
 
 The plugin has two delivery surfaces that share the same wiki format:
 

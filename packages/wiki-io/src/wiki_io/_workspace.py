@@ -1,13 +1,24 @@
 """Workspace path resolution for wiki-io.
 
-Thin delegation shim over ``workspace_io.config.resolve()``. Resolution priority:
+Thin delegation shim over ``workspace_io.config.resolve()``.
+
+**Set ``GRAPH_WIKI_WORKSPACE`` and nothing here needs a flag.** It is the
+supported way to point at a workspace, normally injected via the ``env`` block of
+the ``.claude/settings.local.json`` belonging to whichever directory the session
+runs from. Discovery is only a convenience for the default layout.
+
+Resolution priority:
 
 1. ``workspace_path`` argument — short-circuit (MCP boundary contract, Phase 11 SC#3).
    When an explicit path is supplied (e.g., from an MCP tool call) we trust it
-   and skip workspace-io's manifest walk-up entirely.
-2. ``workspace_io.config.resolve()`` — honors the ``GRAPH_WIKI_WORKSPACE`` env
-   var, otherwise walks up from cwd looking for ``.graph-wiki.yaml``.
-3. On failure, ``workspace_io.config.resolve()`` raises ``RuntimeError`` with a
+   and skip workspace-io's discovery entirely.
+2. ``workspace_io.config.resolve()``, which prefers the ``GRAPH_WIKI_WORKSPACE``
+   env var.
+3. Otherwise discovery — which does **not** search for ``.graph-wiki.yaml``. It
+   walks up from cwd for ``.git`` to find the repo root, then assumes the default
+   ``<repo>/graph-wiki``. A workspace anywhere else is unreachable this way, which
+   is exactly what the env var is for.
+4. On failure, ``workspace_io.config.resolve()`` raises ``RuntimeError`` with a
    message naming ``gw bootstrap <path>`` as the bootstrap command.
 """
 
@@ -30,8 +41,12 @@ def resolve_wiki_and_repo(
     1. ``workspace_path`` argument if provided — short-circuit. When ``repo_path``
        is not supplied, walk up from ``Path.cwd()`` to find the repo root, then
        apply any ``repo-directory:`` pin from ``<workspace>/.graph-wiki.yaml``.
-    2. ``GRAPH_WIKI_WORKSPACE`` env var (via ``workspace_io.config.resolve``).
-    3. ``.graph-wiki.yaml`` walk-up from cwd (via ``workspace_io.config.resolve``).
+    2. ``GRAPH_WIKI_WORKSPACE`` env var (via ``workspace_io.config.resolve``) —
+       the preferred path; with it set, callers can leave ``workspace_path`` None.
+       The ``repo-directory:`` pin in the workspace manifest supplies the repo,
+       so a workspace that lives outside its repo resolves both halves correctly.
+    3. Otherwise ``<repo>/graph-wiki`` from a ``.git`` walk-up (via
+       ``workspace_io.config.resolve``) — default layout only.
     4. Raises ``RuntimeError`` — names ``gw bootstrap <path>`` as fix.
 
     ``repo_path`` always overrides the discovered repo root when provided,

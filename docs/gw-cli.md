@@ -86,19 +86,26 @@ These take `--workspace`. Resolution precedence (`wiki_io._workspace.resolve_wik
 → `workspace_io.config.resolve`):
 
 1. **`--workspace PATH`** flag, if given — short-circuits everything else.
-2. **`GRAPH_WIKI_WORKSPACE`** env var, if set.
+2. **`GRAPH_WIKI_WORKSPACE`** env var, if set — **the recommended way to configure
+   this.** Set it once in the `env` block of the `.claude/settings.local.json`
+   belonging to whichever directory you run from and the flag becomes unnecessary
+   everywhere; `gw config init --write-env` writes it for you.
 3. **Discovery from the current directory** — walk up from cwd for `.git` to find
-   the repo, then default to `<repo>/graph-wiki` (the repo-side
-   `.graph-wiki.local.yaml` `workspace-directory:` pointer is dead; `resolve()`
-   warns if it finds one).
+   the repo, then default to `<repo>/graph-wiki`. This never searches for a
+   `.graph-wiki.yaml`, so it only ever finds a workspace in that one default
+   location (the repo-side `.graph-wiki.local.yaml` `workspace-directory:` pointer
+   is dead; `resolve()` warns if it finds one).
 
 In all cases the resolved workspace must contain a `.graph-wiki.yaml` manifest, or
 the command errors with `No .graph-wiki.yaml found in <ws>. Run: gw bootstrap`.
 
-**When you can omit `--workspace`:** if `GRAPH_WIKI_WORKSPACE` is set (this repo
-pins it via the `.claude/settings.local.json` env block), or if the default
-`<repo>/graph-wiki` workspace exists. Otherwise pass `--workspace` explicitly. `--repo` exists only on
-`bootstrap` (to override the cwd walk-up when creating a brand-new vault).
+**When you can omit `--workspace`:** if `GRAPH_WIKI_WORKSPACE` is set, or if the
+default `<repo>/graph-wiki` workspace exists. Setting the env var is the way to
+make this true everywhere — note it comes from the settings of whichever directory
+you launch from, so a repo and a separately-located workspace each need their own
+`.claude/settings.local.json` if you open sessions in both. Otherwise pass
+`--workspace` explicitly. `--repo` exists only on `bootstrap` (to override the cwd
+walk-up when creating a brand-new vault).
 
 ### Graph commands (`gw graph ...`)
 

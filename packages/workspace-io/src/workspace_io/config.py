@@ -151,11 +151,17 @@ def _multi_repo_members(workspace: Path) -> tuple[Path, ...]:
 
 
 def resolve_workspace(repo_root: Path) -> Path:
-    """Default workspace location for a repo.
+    """Default workspace location for a repo — `<repo>/graph-wiki`, unconditionally.
 
-    The repo-side `.graph-wiki.local.yaml` pointer is dead — `GRAPH_WIKI_WORKSPACE`
-    (normally injected via the repo's `.claude/settings.local.json` env block) is
-    the only external-workspace pointer.
+    This is the fallback only. `GRAPH_WIKI_WORKSPACE` (normally injected via the
+    `env` block of the `.claude/settings.local.json` belonging to whichever
+    directory the session runs from) is the only external-workspace pointer and
+    the recommended way to configure one; the repo-side `.graph-wiki.local.yaml`
+    `workspace-directory:` key is dead.
+
+    Note this function does not check that the returned path exists or holds a
+    manifest — a workspace kept anywhere other than `<repo>/graph-wiki` is simply
+    not discoverable, and `resolve()` will raise. Set the env var.
     """
     return (repo_root / DEFAULT_WORKSPACE_NAME).resolve()
 
@@ -182,13 +188,21 @@ def _warn_if_legacy_repo_pointer(repo_root: Path) -> None:
 def resolve(cwd: Path | None = None, require_manifest: bool = True) -> GraphWikiConfig:
     """Resolve the GraphWikiConfig for the given working directory.
 
-    Checks GRAPH_WIKI_WORKSPACE env var first for explicit override (used by tests).
-    Falls back to discovery from cwd; raises RuntimeError if no `.graph-wiki.yaml`
-    is found in the resolved workspace (D-03: strict).
+    `GRAPH_WIKI_WORKSPACE` is checked first and is the **primary, recommended way
+    to point at a workspace** — in production (normally injected via the `env`
+    block of the `.claude/settings.local.json` belonging to whichever directory
+    the session runs from) as well as in tests. Set it and callers need no
+    `--workspace` flag; the workspace manifest's `repo-directory:` pin then
+    supplies the repo, so a workspace living outside its repo resolves cleanly.
+
+    Falls back to discovery from cwd — a `.git` walk-up for the repo root, then
+    the default `<repo>/graph-wiki`. Discovery never searches for a
+    `.graph-wiki.yaml`, so it only finds a workspace in the default location; use
+    the env var for anything else. Raises RuntimeError if no `.graph-wiki.yaml` is
+    found in the resolved workspace (D-03: strict).
     """
-    # Check env var override first (does NOT enforce strict-manifest check;
-    # env override must work even before a manifest is written so tests can
-    # use it).
+    # Env var wins. It deliberately does NOT enforce the strict-manifest check —
+    # it must work before a manifest is written (bootstrap, and tests).
     env_workspace = os.environ.get("GRAPH_WIKI_WORKSPACE", "").strip()
     if env_workspace:
         workspace = Path(env_workspace).expanduser().resolve()
