@@ -78,3 +78,34 @@ def test_scan_work_reads_work_under_wiki(tmp_path):
 
     assert len(entries) == 1
     assert entries[0]["path"] == "work/2026-05-03-foo.md"
+
+
+def test_sources_zero_renders_no_sources_bullet():
+    from wiki_io.update_index import render_category_index
+
+    entries = [
+        {
+            "path": "sources/x.md",
+            "title": "X",
+            "summary": "s",
+            "tags": [],
+            "sources": 0,
+            "updated": "",
+            "status": "",
+        }
+    ]
+    out = render_category_index(entries, "source", "Source", "wiki")
+    assert "0 sources" not in out
+
+
+def test_scan_vault_titles_are_strings(tmp_path):
+    wiki = tmp_path / "wiki"
+    (wiki / "concepts").mkdir(parents=True)
+    # YAML resolves this title to an int without coercion
+    (wiki / "concepts" / "numeric.md").write_text(
+        "---\ntitle: 2026\ncategory: concept\nsummary: s\n---\n\nbody\n", encoding="utf-8"
+    )
+    from wiki_io.update_index import scan_vault
+
+    pages = scan_vault(wiki)
+    assert all(isinstance(e["title"], str) for e in pages["concept"])

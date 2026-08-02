@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from langchain_core.tools import BaseTool
+from wiki_io.frontmatter import parse as parse_page_frontmatter
 from wiki_io.proposals import read_proposal
-from wiki_io.update_index import parse_frontmatter
 
 from graph_wiki_core.text_utils import truncate_text  # noqa: F401 — re-exported for existing callers
 
@@ -38,7 +38,7 @@ def _frontmatter_entry(path: Path, wiki: Path, kind: str, *, excerpt_chars: int)
     except OSError:
         return None
 
-    metadata = parse_frontmatter(text)
+    metadata, _err = parse_page_frontmatter(text)
     rel_path = path.relative_to(wiki).as_posix()
     body = body_without_frontmatter(text)
     excerpt = " ".join(body.split())[:excerpt_chars]
@@ -46,10 +46,10 @@ def _frontmatter_entry(path: Path, wiki: Path, kind: str, *, excerpt_chars: int)
         "kind": kind,
         "slug": path.stem,
         "path": rel_path,
-        "title": metadata.get("title", path.stem.replace("-", " ").replace("_", " ").title()),
-        "summary": metadata.get("summary", ""),
-        "uri": metadata.get("uri", ""),
-        "entity_kind": metadata.get("kind", ""),
+        "title": str(metadata.get("title") or path.stem.replace("-", " ").replace("_", " ").title()),
+        "summary": str(metadata.get("summary") or ""),
+        "uri": str(metadata.get("uri") or ""),
+        "entity_kind": str(metadata.get("kind") or ""),
         "excerpt": excerpt,
     }
 
@@ -143,7 +143,7 @@ def read_bounded_wiki_page(wiki: Path, rel_path: str, *, max_chars: int = DEFAUL
     except OSError as exc:
         return f"ERROR: {exc}"
 
-    metadata = parse_frontmatter(text)
+    metadata, _err = parse_page_frontmatter(text)
     body = body_without_frontmatter(text)
     title = str(metadata.get("title") or page.stem.replace("-", " ").replace("_", " ").title())
     content = f"# {title}\n\n{body}" if body else f"# {title}"

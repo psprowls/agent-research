@@ -8,7 +8,6 @@ summaries read from each page's YAML frontmatter.
 from __future__ import annotations
 
 import datetime as dt
-import re
 import sys
 from collections import defaultdict
 from pathlib import Path
@@ -16,10 +15,10 @@ from pathlib import Path
 from workspace_io.paths import wiki_dir, work_dir
 
 from wiki_io.concept_kinds import DEFAULT_CONCEPT_KIND, KIND_GROUP_LABELS, KIND_GROUP_ORDER, kind_group
+from wiki_io.frontmatter import parse as parse_page_frontmatter
 from wiki_io.md_escape import escape_angle_brackets
 from wiki_io.wikilinks import vault_wikilink
 
-FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 # Categories rendered in the main index (navigation backbone only)
 MAIN_INDEX_CATEGORIES = ["app", "domain", "package"]
 
@@ -74,21 +73,9 @@ CATEGORY_LABELS = {
 }
 
 
-def parse_frontmatter(text):
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return {}
-    fm = {}
-    for line in m.group(1).splitlines():
-        if ":" in line and not line.lstrip().startswith("#"):
-            k, _, v = line.partition(":")
-            fm[k.strip()] = v.strip().strip("'\"")
-    return fm
-
-
 def infer_title(path, fm):
     if "title" in fm:
-        return fm["title"]
+        return str(fm["title"])
     return path.stem.replace("-", " ").replace("_", " ").title()
 
 
@@ -106,8 +93,8 @@ def scan_vault(wiki):
         if any(part.startswith(".") for part in rel.parts):
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
-        category = fm.get("category")
+        fm, _err = parse_page_frontmatter(text)
+        category = str(fm.get("category") or "") or None
         if not category and len(rel.parts) > 1:
             category = CATEGORY_DIRS.get(rel.parts[0], "other")
         category = category or "other"
@@ -115,17 +102,17 @@ def scan_vault(wiki):
             {
                 "path": str(rel).replace("\\", "/"),
                 "title": infer_title(md, fm),
-                "summary": fm.get("summary", ""),
-                "tags": fm.get("tags", ""),
+                "summary": str(fm.get("summary") or ""),
+                "tags": fm.get("tags") or "",
                 "sources": fm.get("sources", ""),
                 "updated": fm.get("updated", ""),
-                "status": fm.get("status", ""),  # issue, roadmap, adr
-                "kind": fm.get("kind", ""),
+                "status": str(fm.get("status") or ""),  # issue, roadmap, adr
+                "kind": str(fm.get("kind") or ""),
             }
         )
 
     for cat in pages:
-        pages[cat].sort(key=lambda p: p["title"].lower())
+        pages[cat].sort(key=lambda p: str(p["title"]).lower())
     return pages
 
 
@@ -154,19 +141,19 @@ def scan_work(workspace):
         if len(rel.parts) >= 2 and rel.parts[1] == "_archive":
             continue
         text = md.read_text(encoding="utf-8", errors="replace")
-        fm = parse_frontmatter(text)
+        fm, _err = parse_page_frontmatter(text)
         entries.append(
             {
                 "path": str(rel).replace("\\", "/"),
                 "title": infer_title(md, fm),
-                "summary": fm.get("summary", ""),
-                "tags": fm.get("tags", ""),
+                "summary": str(fm.get("summary") or ""),
+                "tags": fm.get("tags") or "",
                 "sources": fm.get("sources", ""),
                 "updated": fm.get("updated", ""),
-                "status": fm.get("status", ""),
+                "status": str(fm.get("status") or ""),
             }
         )
-    entries.sort(key=lambda p: p["title"].lower())
+    entries.sort(key=lambda p: str(p["title"]).lower())
     return entries
 
 
@@ -198,17 +185,17 @@ def scan_guidance_topics(wiki):
             if md.name == "index.md":
                 continue
             text = md.read_text(encoding="utf-8", errors="replace")
-            fm = parse_frontmatter(text)
+            fm, _err = parse_page_frontmatter(text)
             entries.append(
                 {
                     "path": f"guidance/{topic_dir.name}/{md.name}",
                     "title": infer_title(md, fm),
-                    "summary": fm.get("summary", ""),
-                    "impact": fm.get("impact", ""),
+                    "summary": str(fm.get("summary") or ""),
+                    "impact": str(fm.get("impact") or ""),
                 }
             )
         if entries:
-            entries.sort(key=lambda e: e["title"].lower())
+            entries.sort(key=lambda e: str(e["title"]).lower())
             topics[topic_dir.name] = entries
     return topics
 
@@ -310,7 +297,7 @@ def render_category_index(entries, category, label, vault_name, location=None):
         meta_str = f" _({' · '.join(meta)})_" if meta else ""
         return f"- {link}{summary}{meta_str}"
 
-    ordered = sorted(entries, key=lambda x: x["title"].lower())
+    ordered = sorted(entries, key=lambda x: str(x["title"]).lower())
     grouped = category == "concept" and any(
         kind_group({"kind": e.get("kind")}) != DEFAULT_CONCEPT_KIND for e in ordered
     )

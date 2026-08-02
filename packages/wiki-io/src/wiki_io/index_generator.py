@@ -42,7 +42,6 @@ from __future__ import annotations
 import dataclasses
 import datetime
 import os
-import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -60,6 +59,7 @@ from wiki_io.entity_writer import (
 from wiki_io.entity_writer import (
     short_filename as _short_filename,
 )
+from wiki_io.frontmatter import parse as _parse_page_frontmatter
 from wiki_io.md_escape import escape_angle_brackets
 from wiki_io.wikilinks import vault_wikilink
 
@@ -118,8 +118,6 @@ GENERATED_FILES: frozenset[str] = frozenset(
         "guidance/index.md",
     }
 )
-
-FRONTMATTER_RE = re.compile(r"^---\s*\n(.*?)\n---\s*\n", re.DOTALL)
 
 # 2026-06-12 repository grouping D-R7: schemes that are ecosystem-scoped
 # rather than repo-scoped — they never carry an {org}/{repo} segment.
@@ -289,7 +287,7 @@ def _read_entity_summary(wiki_root: Path, entity: PlacedEntity, collision_set: f
     if not page.exists():
         return ""
     text = page.read_text(encoding="utf-8", errors="replace")
-    return _parse_frontmatter(text).get("summary", "")
+    return str(_parse_frontmatter(text).get("summary") or "")
 
 
 def _place_entities(
@@ -469,22 +467,15 @@ def _place_entities(
 # ============================================================================
 
 
-def _parse_frontmatter(text: str) -> dict[str, str]:
-    """Port of `update_index.py::parse_frontmatter` (regex subset)."""
-    m = FRONTMATTER_RE.match(text)
-    if not m:
-        return {}
-    fm: dict[str, str] = {}
-    for line in m.group(1).splitlines():
-        if ":" in line and not line.lstrip().startswith("#"):
-            k, _, v = line.partition(":")
-            fm[k.strip()] = v.strip().strip("'\"")
+def _parse_frontmatter(text: str) -> dict:
+    """Dict-only shim over wiki_io.frontmatter.parse (fail-soft; error dropped)."""
+    fm, _err = _parse_page_frontmatter(text)
     return fm
 
 
 def _infer_title(path: Path, fm: dict) -> str:
     if "title" in fm:
-        return fm["title"]
+        return str(fm["title"])
     return path.stem.replace("-", " ").replace("_", " ").title()
 
 
@@ -511,11 +502,11 @@ def _scan_curated_lane(wiki_root: Path, lane_dir_rel: str) -> list[dict[str, str
             {
                 "path": rel_str,
                 "title": _infer_title(md, fm),
-                "summary": fm.get("summary", ""),
-                "kind": fm.get("kind", ""),
+                "summary": str(fm.get("summary") or ""),
+                "kind": str(fm.get("kind") or ""),
             }
         )
-    entries.sort(key=lambda e: e["title"].lower())
+    entries.sort(key=lambda e: str(e["title"]).lower())
     return entries
 
 
@@ -546,10 +537,10 @@ def _scan_work(workspace_root: Path) -> list[dict[str, str]]:
             {
                 "path": str(rel).replace("\\", "/"),
                 "title": _infer_title(md, fm),
-                "summary": fm.get("summary", ""),
+                "summary": str(fm.get("summary") or ""),
             }
         )
-    entries.sort(key=lambda e: e["title"].lower())
+    entries.sort(key=lambda e: str(e["title"]).lower())
     return entries
 
 

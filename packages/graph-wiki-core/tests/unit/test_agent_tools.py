@@ -221,3 +221,20 @@ def test_agent_tools_reexports_truncate_text():
     from graph_wiki_core.text_utils import truncate_text as base_truncate
 
     assert agent_tools.truncate_text is base_truncate
+
+
+def test_frontmatter_entry_is_json_safe(tmp_path: Path) -> None:
+    import json
+
+    from graph_wiki_core.agent_tools import _frontmatter_entry
+
+    wiki = tmp_path
+    page_dir = wiki / "concepts"
+    page_dir.mkdir()
+    p = page_dir / "typed.md"
+    p.write_text(
+        "---\ntitle: Typed\nsummary: s\nupdated: 2026-08-02\ntags:\n- a\n---\n\nbody\n",
+        encoding="utf-8",
+    )
+    entry = _frontmatter_entry(p, wiki, "concept", excerpt_chars=100)
+    json.dumps(entry)  # must not raise (datetime.date is not JSON-serializable)

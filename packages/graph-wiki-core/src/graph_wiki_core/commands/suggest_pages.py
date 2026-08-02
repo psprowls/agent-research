@@ -22,9 +22,9 @@ from pathlib import Path
 import yaml
 from langchain_core.messages import HumanMessage, SystemMessage
 from wiki_io.concept_kinds import CONCEPT_KINDS, DEFAULT_CONCEPT_KIND
+from wiki_io.frontmatter import parse as parse_page_frontmatter
 from wiki_io.ingest_source import slugify
 from wiki_io.proposals import upsert_proposal
-from wiki_io.update_index import parse_frontmatter
 
 from graph_wiki_core.commands.proposal_reasoner import ProposalReasonerResult, run_proposal_reasoner
 from graph_wiki_core.prompts.extractor import EXTRACTOR_SYSTEM
@@ -200,15 +200,15 @@ def build_curated_vault_index(wiki: Path) -> list[dict]:
             continue
         for md in sorted(d.glob("*.md")):
             try:
-                fm = parse_frontmatter(md.read_text(encoding="utf-8"))
+                fm, _err = parse_page_frontmatter(md.read_text(encoding="utf-8"))
             except OSError:
                 continue
             index.append(
                 {
                     "kind": kind,
                     "slug": md.stem,
-                    "title": fm.get("title", md.stem),
-                    "summary": fm.get("summary", ""),
+                    "title": str(fm.get("title") or md.stem),
+                    "summary": str(fm.get("summary") or ""),
                 }
             )
     return index
