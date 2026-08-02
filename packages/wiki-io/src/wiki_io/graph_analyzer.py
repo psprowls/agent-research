@@ -82,7 +82,7 @@ def build_graph(wiki):
         # frontmatter (the convention in this skill) appear as orphans.
         fm, _err = parse_page_frontmatter(text)
         deps = fm.get("depends_on") or []
-        if isinstance(deps, str):
+        if not isinstance(deps, list):
             deps = [deps]
         for dep in deps:
             slug = _unscope(str(dep))

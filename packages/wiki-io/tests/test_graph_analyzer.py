@@ -114,3 +114,15 @@ def test_index_pages_do_not_create_outbound_edges(tmp_path: Path) -> None:
     assert out["index"] == set()
     # But foo should have inbound from index
     assert "index" in inb["concepts/foo"]
+
+
+def test_depends_on_non_list_scalar_does_not_crash(tmp_path: Path) -> None:
+    """Non-list scalar values in depends_on should not crash build_graph (int, bool, etc.)."""
+    from wiki_io.graph_analyzer import build_graph
+
+    wiki = tmp_path / "wiki"
+    (wiki / "packages").mkdir(parents=True)
+    (wiki / "packages" / "user.md").write_text("---\ntitle: user\ndepends_on: 42\n---\n\nbody\n", encoding="utf-8")
+    # Should not raise TypeError; simply produces no edge since "42" resolves to nothing
+    nodes, out, inb = build_graph(wiki)
+    assert out["packages/user"] == set()
