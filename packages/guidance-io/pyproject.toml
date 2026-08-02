@@ -3,7 +3,7 @@ name = "guidance-io"
 version = "0.1.0"
 description = "Frontmatter, paths, and lifecycle helpers for graph-wiki guidance pages."
 requires-python = ">=3.11"
-dependencies = ["workspace-io", "pyyaml>=6.0"]
+dependencies = ["workspace-io", "pyyaml>=6.0", "python-frontmatter>=1.1"]
 
 [build-system]
 requires = ["uv_build>=0.11.14,<0.12"]

@@ -942,12 +942,14 @@ name = "guidance-io"
 version = "0.1.0"
 source = { editable = "packages/guidance-io" }
 dependencies = [
+    { name = "python-frontmatter" },
     { name = "pyyaml" },
     { name = "workspace-io" },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "python-frontmatter", specifier = ">=1.1" },
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
