@@ -32,8 +32,6 @@ def parse(text: str) -> tuple[dict, str | None]:
     except Exception as exc:  # noqa: BLE001 — yaml scanner/parser errors and friends
         return {}, str(exc)
     metadata = post.metadata
-    if not isinstance(metadata, dict):
-        return {}, f"frontmatter is not a YAML mapping: {type(metadata).__name__}"
     # Verify that the raw YAML is actually a mapping (not a list or scalar)
     # because python-frontmatter silently returns {} for non-mapping YAML
     fm_text = match.group(1)

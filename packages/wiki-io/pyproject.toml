@@ -5,6 +5,7 @@ description = "Vault IO for graph-wiki-agent"
 requires-python = ">=3.11"
 dependencies = [
     "python-frontmatter>=1.1",
+    "pyyaml>=6.0",
     "workspace-io",
     "markdown-it-py>=3.0",
 ]

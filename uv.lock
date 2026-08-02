@@ -3150,6 +3150,7 @@ source = { editable = "packages/wiki-io" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "python-frontmatter" },
+    { name = "pyyaml" },
     { name = "workspace-io" },
 ]
 
@@ -3157,6 +3158,7 @@ dependencies = [
 requires-dist = [
     { name = "markdown-it-py", specifier = ">=3.0" },
     { name = "python-frontmatter", specifier = ">=1.1" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "workspace-io", editable = "packages/workspace-io" },
 ]
 
