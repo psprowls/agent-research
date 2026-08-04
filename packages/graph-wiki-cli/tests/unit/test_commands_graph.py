@@ -19,7 +19,6 @@ def test_graph_help_lists_native_code_graph_subcommands() -> None:
     assert "update" in result.output
     assert "find" in result.output
     assert "describe" in result.output
-    assert "domain-clusters" in result.output
 
 
 def test_graph_find_help_is_typer_help() -> None:

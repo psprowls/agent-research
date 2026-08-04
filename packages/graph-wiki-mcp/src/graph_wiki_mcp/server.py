@@ -552,7 +552,6 @@ class GraphDescribeInput(BaseModel):
         "package",
         "path",
         "repository",
-        "domain",
         "entry_point",
         "test_suite",
         "app",

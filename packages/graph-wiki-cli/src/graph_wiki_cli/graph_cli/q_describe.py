@@ -23,7 +23,6 @@ from graph_wiki_cli.graph_cli import (
     q_describe_app,
     q_describe_builtin,
     q_describe_dependency,
-    q_describe_domain,
     q_describe_entry_point,
     q_describe_package,
     q_describe_path,
@@ -37,7 +36,6 @@ from graph_wiki_cli.graph_cli._args import AnyRunModule, MutableDescribeArgs
 _DISPATCH: dict[str, tuple[AnyRunModule, str | None]] = {
     "package": (q_describe_package, "name"),
     "app": (q_describe_app, "name"),
-    "domain": (q_describe_domain, "name"),
     "suite": (q_describe_suite, "name"),
     "dependency": (q_describe_dependency, "name"),
     "agent-plugin": (q_describe_agent_plugin, "name"),
@@ -58,7 +56,6 @@ DESCRIBE_KINDS = (*DESCRIBE_KINDS, *CODE_KINDS)
 _DB_KIND_TO_DISPATCH = {
     "package": "package",
     "app": "app",
-    "domain": "domain",
     "dependency": "dependency",
     "test_suite": "suite",
     "agent_plugin": "agent-plugin",

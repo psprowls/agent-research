@@ -88,36 +88,6 @@ def test_describe_falls_back_to_path_for_unknown_name(repo: Path) -> None:
     assert res.returncode == 0, res.stderr
 
 
-def test_describe_ambiguous_selector_emits_menu(tmp_path: Path) -> None:
-    """A name matching two kinds (package + domain) prints a copy-paste menu (exit 0)."""
-    init_repo(tmp_path)
-    write_and_commit(
-        tmp_path,
-        {
-            "pyproject.toml": '[project]\nname = "shared"\nversion = "0.1.0"\n',
-            "src/shared/__init__.py": "x = 1\n",
-        },
-        "init",
-    )
-    # D7: domains come from <workspace>/.graph-wiki.yaml graph.domains, not a
-    # repo-root domains.yaml. The workspace for this repo resolves to
-    # <repo>/graph-wiki/.
-    from workspace_io.config import resolve as resolve_workspace
-    from workspace_io.paths import manifest_path
-
-    ws = resolve_workspace(tmp_path, require_manifest=False).workspace
-    ws.mkdir(parents=True, exist_ok=True)
-    manifest_path(ws).write_text(
-        "version: 2\ngraph:\n  domains:\n    shared:\n      packages: [shared]\n      description: Shared domain\n",
-        encoding="utf-8",
-    )
-    assert _cg(["update", "--full"], tmp_path).returncode == 0
-    res = _cg(["describe", "shared"], tmp_path)
-    assert res.returncode == 0, res.stderr
-    assert "gw graph describe shared --kind package" in res.stdout
-    assert "gw graph describe shared --kind domain" in res.stdout
-
-
 # ---------------------------------------------------------------------------
 # Ecosystem auto-resolution for bare-name dependency describe
 # ---------------------------------------------------------------------------

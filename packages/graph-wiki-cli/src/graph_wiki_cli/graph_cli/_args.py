@@ -82,9 +82,5 @@ class WhatTestsArgs(FormatArgs, Protocol):
     kind: str | None
 
 
-class DomainArgs(FormatArgs, Protocol):
-    name: str
-
-
 class AnyRunModule(Protocol):
     def run(self, args: Any) -> int: ...

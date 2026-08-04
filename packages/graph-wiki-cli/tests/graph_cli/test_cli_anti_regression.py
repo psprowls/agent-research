@@ -1,6 +1,6 @@
 """SC#5 anti-regression: existing gw graph subcommands still exit 0 after Phase 33.
 
-Seeds a minimal repo with a Python package + pyproject + domains.yaml +
+Seeds a minimal repo with a Python package + pyproject +
 executable script, then runs `gw graph update --full` once. Each parametrized
 test then runs one of the 11 pre-existing subcommands with reasonable
 args resolved from the seeded DB and asserts a 0 exit code.
@@ -72,7 +72,6 @@ def post_phase33_fixture(tmp_path_factory) -> FixtureRefs:
             "src/sample_pkg/cli.py": "def main():\n    return 0\n",
             "src/sample_pkg/util.py": "def helper():\n    return 1\n",
             "scripts/run.py": "#!/usr/bin/env python\nprint('go')\n",
-            "domains.yaml": "core:\n  packages: [sample-pkg]\n",
         },
         "init",
     )

@@ -13,7 +13,6 @@ from typing import cast
 from graph_wiki_cli.graph_cli import (
     q_list_apps,
     q_list_builtins,
-    q_list_domains,
     q_list_packages,
     q_list_scripts,
     q_list_suites,
@@ -26,7 +25,6 @@ _DISPATCH: dict[str, AnyRunModule] = {
     "packages": q_list_packages,
     "scripts": q_list_scripts,
     "suites": q_list_suites,
-    "domains": q_list_domains,
 }
 LIST_KINDS = tuple(_DISPATCH)
 

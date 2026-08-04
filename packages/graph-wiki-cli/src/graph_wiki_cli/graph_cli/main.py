@@ -21,11 +21,7 @@ from graph_wiki_cli.graph_cli import (
     ops_update,
     q_callees,
     q_callers,
-    q_cross_cutting,
     q_describe,
-    q_domain_clusters,
-    q_domain_deps,
-    q_domain_refs,
     q_exported_by,
     q_find,
     q_imported_by,
@@ -37,7 +33,7 @@ from graph_wiki_cli.graph_cli import (
 OUTPUT_FORMATS = ["human", "json"]
 RUN_MODES = ["workspace", "test"]
 ENTRY_POINT_KINDS = ["executable", "library"]
-TEST_TARGET_KINDS = ["package", "domain"]
+TEST_TARGET_KINDS = ["package"]
 
 
 graph_app = typer.Typer(
@@ -219,37 +215,10 @@ def what_tests_cmd(
     name: str,
     kind: Optional[str] = typer.Option(None, "--kind"),
 ) -> None:
-    """Show tests for a package or domain."""
+    """Show tests for a package."""
     if kind is not None and kind not in TEST_TARGET_KINDS:
         raise typer.BadParameter(f"kind must be one of: {', '.join(TEST_TARGET_KINDS)}")
     _run(q_what_tests, ctx, name=name, kind=kind)
-
-
-@graph_app.command(name="domain-clusters")
-def domain_clusters_cmd(
-    ctx: typer.Context,
-    hub_threshold: float = typer.Option(0.5, "--hub-threshold"),
-) -> None:
-    """Compute domain clusters over package references."""
-    _run(q_domain_clusters, ctx, hub_threshold=hub_threshold)
-
-
-@graph_app.command(name="domain-refs")
-def domain_refs_cmd(ctx: typer.Context, name: str) -> None:
-    """Show package references for a domain."""
-    _run(q_domain_refs, ctx, name=name)
-
-
-@graph_app.command(name="domain-deps")
-def domain_deps_cmd(ctx: typer.Context, name: str) -> None:
-    """Show outgoing domain dependencies."""
-    _run(q_domain_deps, ctx, name=name)
-
-
-@graph_app.command(name="cross-cutting")
-def cross_cutting_cmd(ctx: typer.Context) -> None:
-    """Show cross-cutting packages."""
-    _run(q_cross_cutting, ctx)
 
 
 # --------------------------------------------------------------------------- #
@@ -266,23 +235,6 @@ from graph_wiki_core.commands.graph import (  # noqa: E402
 )
 
 graph_app.command(name="export")(_export_graph_cmd)
-
-
-# propose-domains pulls the Bedrock stack (model_adapter / subagent_runtime) at
-# import. Wrap it so the import stays inside the command body — keeping this
-# module (invoked per-command in the smoke suite) lightweight to import.
-@graph_app.command(name="propose-domains")
-def propose_domains_cmd(
-    workspace: str = typer.Option("", "--workspace", help="Workspace root (defaults to GRAPH_WIKI_WORKSPACE)"),
-    hub_threshold: float = typer.Option(
-        0.5, "--hub-threshold", help="Fraction-of-packages threshold for cross-cutting hub detection"
-    ),
-    model: Optional[str] = typer.Option(None, "--model", help="Override domain_proposer model_id"),
-) -> None:
-    """Propose candidate domains from domain-clusters via an LLM fan-out."""
-    from graph_wiki_core.commands.propose_domains import propose_domains_cmd as _core
-
-    _core(workspace=workspace, hub_threshold=hub_threshold, model=model)
 
 
 def main() -> None:

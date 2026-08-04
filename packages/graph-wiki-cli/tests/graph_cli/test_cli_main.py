@@ -20,7 +20,6 @@ def test_graph_app_is_native_typer_surface() -> None:
     assert isinstance(graph_app, typer.Typer)
     assert "find" in _command_names()
     assert "update" in _command_names()
-    assert "domain-clusters" in _command_names()
 
 
 def test_describe_list_consolidation_registry() -> None:
