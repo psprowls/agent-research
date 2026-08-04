@@ -1,6 +1,6 @@
 ---
 name: graph-wiki
-description: Use when building or maintaining a persistent wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Builds a code graph and renders one page per entity (repository, domain, package, app, agent_plugin, dependency, test_suite) into a single entities/ folder. Triggers include "wiki this repo", "document this codebase", "graph-wiki", "ingest this spec/PR/article into the wiki", or whenever the user wants a compounding, cross-referenced knowledge base alongside source code.
+description: Use when building or maintaining a persistent wiki alongside any source-code project — single packages, monorepos, or hybrid shapes. Builds a code graph and renders one page per entity (repository, package, app, agent_plugin, dependency, test_suite) into a single entities/ folder. Triggers include "wiki this repo", "document this codebase", "graph-wiki", "ingest this spec/PR/article into the wiki", or whenever the user wants a compounding, cross-referenced knowledge base alongside source code.
 context: fork
 version: 0.1.1
 author: psprowls
@@ -11,11 +11,11 @@ compatible_tools: [claude-code, codex-cli, cursor, antigravity, opencode, gemini
 
 # Code Wiki — Maintained Documentation Alongside Any Source-Code Project
 
-Adapts the LLM Wiki pattern ([graph-wiki](../graph-wiki/SKILL.md); Karpathy's [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)) to a source code monorepo. The LLM incrementally builds and maintains a persistent, interlinked markdown vault that documents every package, app, domain, and cross-cutting concept in the repo — plus ingested specs, PR summaries, articles, and design notes.
+Adapts the LLM Wiki pattern ([graph-wiki](../graph-wiki/SKILL.md); Karpathy's [gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)) to a source code monorepo. The LLM incrementally builds and maintains a persistent, interlinked markdown vault that documents every package, app, and cross-cutting concept in the repo — plus ingested specs, PR summaries, articles, and design notes.
 
 ## Core principle
 
-Code comments go stale. README files rot. Architecture diagrams drift from reality. The wiki is **compounding, cross-referenced, and kept current** — sources (code, specs, PRs, articles) are read once and integrated into package summaries, domain overviews, ADRs, and architecture syntheses. Every claim links to a source; contradictions with newer code get flagged; the index stays in sync with what the repo actually looks like.
+Code comments go stale. README files rot. Architecture diagrams drift from reality. The wiki is **compounding, cross-referenced, and kept current** — sources (code, specs, PRs, articles) are read once and integrated into package summaries, ADRs, and architecture syntheses. Every claim links to a source; contradictions with newer code get flagged; the index stays in sync with what the repo actually looks like.
 
 > Obsidian is the reading room. The LLM is the maintainer. Your repo is the source of truth.
 
@@ -23,7 +23,7 @@ Code comments go stale. README files rot. Architecture diagrams drift from reali
 
 - **Single-package repos** — libraries, services, or apps where a README isn't enough and you want per-module/area pages
 - **Monorepos** — Turborepo, pnpm workspaces, Nx, Bazel, Rush, Lerna, Go workspaces, Cargo workspaces
-- **Hybrid repos** — a primary package at the root with nested apps/packages/domains
+- **Hybrid repos** — a primary package at the root with nested apps/packages
 - **Onboarding** — a wiki that an LLM keeps up to date reduces the cost of new contributors (human or agent)
 - **Agent-assisted development** — coding agents read the vault before making edits; they edit the vault as they go
 - **Architecture bookkeeping** — ADRs, cross-package conventions, deprecation notices, migration plans
@@ -55,7 +55,7 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. `workspac
     │   ├── <slug>.md           # the work-item page (flat)
     │   └── <slug>/             # per-item working dir: 01-design-spec.md, 02-plan-plan.md,
     │                           # NN-<phase>-guidance.md, transcripts, result stubs
-    ├── entities/               # One graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, agent-plugin_*, *_tests_*)
+    ├── entities/               # One graph-derived page per admitted entity (pkg_*, app_*, dep_*, repo_*, agent-plugin_*, *_tests_*)
     ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
     ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
     ├── adrs/                   # Architecture Decision Records
@@ -64,7 +64,7 @@ The wiki lives inside the graph-wiki workspace at `<workspace>/wiki/`. `workspac
     └── AGENTS.md               # same content for Codex/Cursor/Antigravity/OpenCode
 ```
 
-Every workspace package, app, and domain — plus the repository, external dependencies, and test suites — is rendered as a single page under `entities/`, named `<prefix>_<name>[__hex].md` (prefixes: `repo_`, `domain_`, `pkg_`, `app_`, `agent-plugin_`, `dep_`, suite-kind-aware `unit_tests_`/`int_tests_`). There are no separate `apps/`/`packages/`/`domains/` page folders — the graph is the sole source for which entities exist.
+Every workspace package and app — plus the repository, external dependencies, and test suites — is rendered as a single page under `entities/`, named `<prefix>_<name>[__hex].md` (prefixes: `repo_`, `pkg_`, `app_`, `agent-plugin_`, `dep_`, suite-kind-aware `unit_tests_`/`int_tests_`). There are no separate `apps/`/`packages/` page folders — the graph is the sole source for which entities exist.
 
 **Source of truth is the code itself.** The wiki is a compiled layer above it. If the wiki disagrees with the code, the code wins — the wiki gets updated.
 
@@ -150,9 +150,8 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 | Category | What it documents | Directory |
 |---|---|---|
-| `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `<workspace>/wiki/entities/app_<name>.md` |
+| `app` | One application workspace (web, mobile, CLI) — platform, entry points, deployment | `<workspace>/wiki/entities/app_<name>.md` |
 | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `<workspace>/wiki/entities/pkg_<name>.md` |
-| `domain` | A feature area spanning multiple packages (e.g. "auth", "healthkit", "billing") | `<workspace>/wiki/entities/domain_<name>.md` |
 | `concept` | Cross-cutting technical idea, pattern, or architecture synthesis. Optional `kind:` frontmatter — `concept` (default), `pattern`, or `architecture` — selects the page template. Comparisons (`<a>-vs-<b>.md`) live here too. | `<workspace>/wiki/concepts/` |
 | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `<workspace>/wiki/entities/dep_<name>.md` |
 | `source` | Summary of an ingested spec, PR, article, transcript, etc. | `<workspace>/wiki/sources/` |
@@ -163,7 +162,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 | READMEs / generic docs | Code Wiki |
 |---|---|
 | Written once, go stale | Incrementally updated on every ingest/scan |
-| One-directional (README describes package) | Bidirectional — packages link to domains link to ADRs link to sources |
+| One-directional (README describes package) | Bidirectional — packages link to concepts link to ADRs link to sources |
 | Updates are manual chores | LLM does the cross-reference maintenance |
 | Drift is invisible until you read | Lint surfaces drift mechanically |
 | Searchable only by file | Indexed by category + frontmatter + BM25 |
@@ -177,7 +176,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 ## Reference docs
 
 - `references/wiki-schema.md` — full vault layout, page frontmatter, taxonomies, body-table conventions
-- `references/page-formats.md` — annotated examples for app, package, domain, concept (all three kinds), dependency, work, source, ADR
+- `references/page-formats.md` — annotated examples for app, package, concept (all three kinds), dependency, work, source, ADR
 - `references/scan-workflow.md` — how the scanner builds the code graph and renders entity pages
 - `references/ingest-workflow.md` — detailed ingest flow
 - `references/proposal-disposition.md` — review/accept/reject/supersede curated-page proposals; approve only flips status, then fan out one subagent per page to author it
@@ -193,7 +192,7 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 
 - `CLAUDE.md.template`, `AGENTS.md.template`, `cursorrules.template` — schema loaders per tool
 - `index.md.template`, `log.md.template` — starter index and log
-- `page-templates/` — graph-derived entity templates (`entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md`) plus curated-page templates (`concept.md`, `concept-pattern.md`, `concept-architecture.md`, `source.md`, `adr.md`, `dependency.md`, `work.md`, `index.md`)
+- `page-templates/` — graph-derived entity templates (`entity-repository.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md`) plus curated-page templates (`concept.md`, `concept-pattern.md`, `concept-architecture.md`, `source.md`, `adr.md`, `dependency.md`, `work.md`, `index.md`)
 
 ## Iron rules
 
@@ -202,5 +201,5 @@ Schema lives in `<workspace>/wiki/CLAUDE.md` (Claude Code) or `<workspace>/wiki/
 3. **All LLM writes for the wiki go under `<workspace>/wiki/`.** Work items go to `<workspace>/wiki/work/` (owned by `workspace_io`); ingested sources are archived under `<workspace>/raw/_archive/`.
 4. **Every vault page has YAML frontmatter.** Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; concept pages may also carry `kind: concept | pattern | architecture`; graph-derived `entities/` pages carry `uri`, `kind`, `graph_name`, `last_scan_at` plus per-kind edge/attr keys (the scanner owns their frontmatter) — `title`/`updated` are intentionally absent; the H1 carries the entity name and `last_scan_at` is the freshness signal.
 5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
 7. **Good query answers get filed back** — explorations compound.

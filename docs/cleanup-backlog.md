@@ -133,8 +133,9 @@ pattern; no action.
   `list_*` query helpers.
 - **Unused `ctx` parameters** (surgical, signature-only):
   - `derived_edges._compute_references_and_depends_on(conn, repo_root, ctx)` — `ctx` unused (L70-73)
-  - `derived_edges._compute_testsuite_domain(conn, ctx)` — `ctx` unused (L171-173)
   - `test_suites._emit_tests_edges(..., ctx, ...)` — `ctx` unused (L425-428)
+  - RESOLVED: `derived_edges._compute_testsuite_domain` no longer exists — `derived_edges.py` (and domain
+    nodes/edges generally) were removed as part of the domain/resource graph removal.
 - *False-positive guard:* the `*Description`/`*Record` dataclasses in `queries.py` look
   unused by name-grep but are query return contracts consumed structurally via
   `dataclasses.asdict()` — **keep them**. `internal_dependencies_of` is used by
@@ -187,10 +188,11 @@ All env-var usage is consistent, centralized, and well-guarded. No cleanup requi
   independent regex `parse_frontmatter` of the same format — consolidation opportunity.
 
 ### graph-io
-- **Warning channel split** (most notable divergence): `domains.py` is the only module using
-  `logging`; five others (`packages.py`, `entry_points.py`, `test_suites.py`, `sync_wiki.py`,
-  `update.py`) use `print(..., file=sys.stderr)` with ad-hoc prefixes. Pick one — for a library,
-  prefer `logging`.
+- **Warning channel split** — RESOLVED by removal, not by convergence: `domains.py` (the only module
+  using `logging`) was deleted as part of the domain/resource graph removal, so the remaining modules
+  (`packages.py`, `entry_points.py`, `test_suites.py`, `sync_wiki.py`, `update.py`) are now uniformly
+  on `print(..., file=sys.stderr)` with ad-hoc prefixes. Still worth converging to `logging` for a
+  library, but there's no more channel split to resolve.
 - **Mid-file import**: `import_scan.py:204` does `import sqlite3` ~200 lines in; hoist to the
   top import block.
 - **Aliased import outlier**: `render.py:14` does `import json as _json`; every other module uses
@@ -256,7 +258,8 @@ consumers in `graph-wiki-core` commands and `eval-harness`. All private helpers 
 
 ### subagent-runtime — none
 `SubagentPool`, `FanOutResult`, `PerItemError`, `TaskResult`, `write_trace_record`,
-`render_trace_record` all consumed by `graph-wiki-core` (scan/lint/query/propose_domains/ingest),
+`render_trace_record` all consumed by `graph-wiki-core` (scan/lint/query/ingest) — `propose_domains`
+was removed along with the domain/resource graph feature and is no longer a consumer —
 `graph-wiki-cli` (trace viewer), and `eval-harness`. No dead code.
 
 ### source-parser
@@ -399,12 +402,12 @@ by graph-wiki-cli / graph-wiki-mcp):
   is consumed only by core's own test** `test_commands_graph.py`. graph-wiki-mcp imports only the
   *library* functions `run_build`/`run_describe`/`run_query` + trace helpers; graph-wiki-cli has its
   own independent `graph_app` and imports nothing from this module. → Cleanup: remove the Typer
-  surface only (apps, `*_cmd`, `_describe_cli`, `import typer`, the propose-domains registration at
-  L634-646); keep the `run_*` library functions (live MCP API).
-- **`commands/propose_domains.py`** — `propose_domains_cmd` (L584) is a Typer command body, wired
-  only onto core's orphaned `graph_app` (graph.py:646). **No CLI or MCP anywhere exposes a
-  `propose-domains` command.** → The whole module is dead in production: either give it a real
-  entry point in graph-wiki-cli/mcp, or remove it + its registration.
+  surface only (apps, `*_cmd`, `_describe_cli`, `import typer`); keep the `run_*` library functions
+  (live MCP API). (This bullet used to also flag a propose-domains registration on this module —
+  that registration is gone now that `commands/propose_domains.py` was deleted; see below.)
+- **`commands/propose_domains.py`** — RESOLVED: the whole module and its `graph.py` registration
+  were deleted as part of the domain/resource graph removal. No CLI/MCP entry point was ever added
+  for it in production, so it was removed outright rather than wired up.
 - **Softer: `commands/query.py:995`** calls `sys.exit(BUDGET_EXCEEDED_EXIT_CODE)` from inside the
   library coroutine `run_query` — a library terminating the host process. Should raise a typed
   exception and let the entry point map it to an exit code (as other commands do via `*Result`).
@@ -440,9 +443,8 @@ by graph-wiki-cli / graph-wiki-mcp):
 ## P3.2 — Dead code
 
 ### graph-wiki-core
-- **`commands/propose_domains.py` (whole module)** — `propose_domains_cmd` + all its private helpers
-  and `ProposedDomain`/`ProposeResult` dataclasses are reachable only via the orphaned `graph_app`
-  registration; no production CLI/MCP exposure. Strongest signal (see P3.1).
+- **`commands/propose_domains.py` (whole module)** — RESOLVED: deleted as part of the domain/resource
+  graph removal; see P3.1.
 - **`prompts/scanner.py` (whole module)** — neither `SCANNER_SYSTEM` (L91) nor `build_scanner_system`
   (L65) is imported by any production code; `scan.py` builds prompts locally. Test- and docstring-only.
 - **`uri_slug.py` (whole module, `slug_from_uri`)** — superseded by `wiki_io.entity_lookup` (which
@@ -487,8 +489,9 @@ doc-only; the read happens in `workspace_io`.)
   7 `prompts/*` modules (`scanner`, `ingestor`, `librarian`, `synthesizer`, `file_describer`,
   `code_reader`, `linter`), and 5 `commands/*` (`ingest`, `query`, `log`, `scan`, `init`, `lint`).
   ~50/50 split with the compliant files — the package's biggest style inconsistency.
-- **`Optional[X]` vs `X | None`**: only the two Typer files (`graph.py`, `propose_domains.py`) use
-  `Optional[...]`; every other module uses `X | None`. (Disappears if the Typer surface is removed.)
+- **`Optional[X]` vs `X | None`**: only the one remaining Typer file (`graph.py`) uses `Optional[...]`;
+  every other module uses `X | None`. (`propose_domains.py`, which also used `Optional[...]`, was
+  deleted along with the domain/resource graph feature.) (Disappears if the Typer surface is removed.)
 - **Command modules not parallel in shape**: `run_init`/`run_log` are declared `async` but contain no
   `await` (gratuitous — callers wrap in `asyncio.run`); `run_ack_drift` is sync; `graph.py` library
   fns return `tuple[int,str,str]` while all others return a `*Result` dataclass with no shared base
@@ -527,9 +530,10 @@ doc-only; the read happens in `workspace_io`.)
 
 **High (rule violations / clear dead code)**
 1. graph-wiki-core: remove the Typer surface from `commands/graph.py` (apps, 8 `*_cmd`, `_describe_cli`,
-   `import typer`, propose-domains registration L634-646); keep the `run_*` library functions.
-2. graph-wiki-core: resolve `commands/propose_domains.py` — give it a real CLI/MCP entry point or remove
-   the whole module + its graph.py registration (whole-module dead in production).
+   `import typer`); keep the `run_*` library functions.
+2. RESOLVED — graph-wiki-core: `commands/propose_domains.py` and its `graph.py` registration were
+   deleted entirely as part of the domain/resource graph removal (no CLI/MCP entry point was added;
+   the whole module was removed rather than wired up).
 3. graph-wiki-cli: drop the 4 unused re-exports in `graph_cli/_format.py:11-17` (keep `render`).
 4. graph-wiki-core: delete `prompts/scanner.py`, `uri_slug.py`, `scan.py:231 build_stub_prompt`, and
    `prompts/drift_judge.py:17 DRIFT_JUDGE_SYSTEM` (all unconsumed in production); fix the stale

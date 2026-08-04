@@ -1,6 +1,6 @@
 ---
 name: scan
-description: Build the code graph and write one page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite) into the wiki's single entities/ folder. Reports created/updated/deleted entities by URI; surfaces deletions for confirmation. Workspace and repo discovered automatically. Usage /graph-wiki:scan
+description: Build the code graph and write one page per admitted entity (repository, package, app, agent_plugin, dependency, test_suite) into the wiki's single entities/ folder. Reports created/updated/deleted entities by URI; surfaces deletions for confirmation. Workspace and repo discovered automatically. Usage /graph-wiki:scan
 ---
 
 # /graph-wiki:scan
@@ -17,7 +17,7 @@ Workspace and repo are discovered automatically via `workspace_io`.
 
 ## What happens
 
-1. **Graph build + write** — `scripts/scan_monorepo.py` builds the code graph and writes one page per admitted entity into `<workspace>/wiki/entities/` (kinds: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). Pages use URI-based filenames. The default scan then fills `## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API` via a commit-gated subagent fan-out (emit → fan-out → apply). Placeholders (`## Narrative` placeholder, `— TODO` file-map rows) persist only on the structural-only fast path (bare plugin-shim invocation, or `gw scan --no-narrate` on Bedrock).
+1. **Graph build + write** — `scripts/scan_monorepo.py` builds the code graph and writes one page per admitted entity into `<workspace>/wiki/entities/` (kinds: `repository`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). Pages use URI-based filenames. The default scan then fills `## Narrative`, file/dir descriptions, overview, `## Purpose`/`## Public API` via a commit-gated subagent fan-out (emit → fan-out → apply). Placeholders (`## Narrative` placeholder, `— TODO` file-map rows) persist only on the structural-only fast path (bare plugin-shim invocation, or `gw scan --no-narrate` on Bedrock).
 2. **Frontmatter** — scanner-owned keys (`uri`, `kind`, `depends_on`, `language`, …) are replaced from the graph each scan; human keys (`status`, `last_reviewed`, `owner`, `notes`) and a non-empty `summary` are preserved.
 3. **Indexes + log** — `index.md` and per-folder sub-indexes are regenerated; a `scan` entry is appended to `log.md`.
 4. **Report** — created / updated / deleted entities are reported by URI. Deletions are surfaced for confirmation (with a git-based undo when the wiki is versioned); >10 deletions is a stop-and-ask red flag.

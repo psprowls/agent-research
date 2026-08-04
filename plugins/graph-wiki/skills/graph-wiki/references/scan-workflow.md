@@ -11,7 +11,7 @@ Keep the wiki's single `entities/` folder in sync with the code graph. The scan 
 
 ## What gets written
 
-One page per admitted entity into `<workspace>/wiki/entities/`, across the **7 admitted kinds**: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`. Filenames are URI-derived (`pkg_<name>.md`, `app_<name>.md`, `dep_<name>.md`, `domain_<name>.md`, `repo_<name>.md`, `agent-plugin_<name>.md`, suite-kind-aware `unit_tests_<pkg>.md` / `int_tests_<pkg>.md`), with a `__<6hex>` suffix on collision. See Appendix A in the plan / `wiki-schema.md` for the full vocabulary.
+One page per admitted entity into `<workspace>/wiki/entities/`, across the **6 admitted kinds**: `repository`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`. Filenames are URI-derived (`pkg_<name>.md`, `app_<name>.md`, `dep_<name>.md`, `repo_<name>.md`, `agent-plugin_<name>.md`, suite-kind-aware `unit_tests_<pkg>.md` / `int_tests_<pkg>.md`), with a `__<6hex>` suffix on collision. See Appendix A in the plan / `wiki-schema.md` for the full vocabulary.
 
 ## Step-by-step
 
@@ -42,7 +42,7 @@ Bulleted wikilinks; suggest `/graph-wiki:lint` and `/graph-wiki:ingest` to flesh
 
 ## Frontmatter contract
 
-Data keys (`DATA_KEYS`, replaced every scan): `uri`, `kind`, `graph_name`, `last_scan_at`, plus per-kind edge/attr keys (`depends_on`, `domains`, `test_suites`, `entry_points`, `language`, `version`, `app_kind`, `app_signals`, `parent_domain`, `sub_domains`, `packages`, `tested_packages`, `suite_kind`, `file_count`, `ecosystem`, `used_by`, `versions_in_use`, `package_count`). Human keys preserved verbatim: `status`, `last_reviewed`, `owner`, `notes`. `summary` is fill-when-empty.
+Data keys (`DATA_KEYS`, replaced every scan): `uri`, `kind`, `graph_name`, `last_scan_at`, plus per-kind edge/attr keys (`depends_on`, `test_suites`, `entry_points`, `language`, `version`, `app_kind`, `app_signals`, `tested_packages`, `suite_kind`, `file_count`, `ecosystem`, `used_by`, `versions_in_use`, `package_count`). Human keys preserved verbatim: `status`, `last_reviewed`, `owner`, `notes`. `summary` is fill-when-empty.
 
 Provenance keys (scanner-stamped but deliberately NOT in `DATA_KEYS` — preserved verbatim across re-scan):
 - `last_updated_commit` — HEAD at which prose sections (`## Narrative`, `## Purpose`, etc.) were last refreshed; gates the diff-driven prose-refresh pass.
@@ -74,4 +74,4 @@ Every one of these is a transient workspace artifact: safe to delete, and `brief
 - Letting a prose-refresh subagent write anything but its own `results/<stem>.json` (page writes belong to the apply phase).
 - Re-deriving the prose contract from this document instead of following the emitted brief.
 - Silently accepting a large deletion set.
-- Expecting `apps/`, `packages/`, or `domains/` page folders — there are none; everything is in `entities/`.
+- Expecting `apps/` or `packages/` page folders — there are none; everything is in `entities/`.

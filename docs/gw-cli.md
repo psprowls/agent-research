@@ -257,7 +257,7 @@ Show files exporting a symbol. Argument: `<name>` **(required)**. No flags.
 Describe a graph entity. Kind is inferred from the selector when `--kind` is omitted.
 
 - Argument: `[selector]` (optional) — entity name or path.
-- `--kind` / `-k` — one of `package`, `app`, `domain`, `suite`, `dependency`,
+- `--kind` / `-k` — one of `package`, `app`, `suite`, `dependency`,
   `agent-plugin`, `entry-point`, `builtin`, `path`, `repo`.
 - `--ecosystem TEXT` — dependency ecosystem (use with `--kind dependency`).
 
@@ -278,7 +278,7 @@ Inference when `--kind` is omitted:
 List graph entities of a given kind.
 
 - `--kind` / `-k` **(required)** — one of `apps`, `builtins`, `packages`,
-  `scripts`, `suites`, `domains`.
+  `scripts`, `suites`.
 
 ### `gw graph list-entry-points <package>`
 
@@ -289,26 +289,9 @@ List entry points declared by a package.
 
 ### `gw graph what-tests <name>`
 
-Show tests for a package or domain.
+Show tests for a package.
 
-- Argument: `<name>` **(required)**.
-- `--kind TEXT` — `package` or `domain` (target kind).
-
-### `gw graph domain-clusters`
-
-Compute domain clusters over package references.
-
-- `--hub-threshold FLOAT` (default `0.5`) — hub-detection threshold.
-
-### `gw graph domain-refs <name>` / `gw graph domain-deps <name>`
-
-Show package references for a domain / outgoing domain dependencies.
-
-- Argument: `<name>` **(required)** — domain name.
-
-### `gw graph cross-cutting`
-
-Show cross-cutting packages. No subcommand-local flags.
+- Argument: `<name>` **(required)** — package name.
 
 ## `gw wiki` — wiki-maintenance commands
 

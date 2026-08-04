@@ -33,7 +33,7 @@ The script guesses the source type from the raw/ subdirectory. Supported:
 | `raw/articles/` | `article` | Concept/dependency pages |
 | `raw/prs/` | `pr` | `[[entities/...]]` links for every package modified |
 | `raw/tickets/` | `ticket` | Source summary; light `[[entities/...]]` touches |
-| `raw/transcripts/` | `transcript` | ADRs + `[[entities/...]]` links for relevant domains |
+| `raw/transcripts/` | `transcript` | ADRs + `[[entities/...]]` links for relevant packages |
 | `raw/examples/` | `example` | Concept pages (often pattern-flavored); `[[entities/...]]` `## Inspirations` bullets |
 | skill dir (`SKILL.md`) | `skill` | Guidance pages under `guidance/<topic>/`; a `## Generates` source page |
 

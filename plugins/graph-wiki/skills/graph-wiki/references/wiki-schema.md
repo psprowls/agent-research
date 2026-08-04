@@ -34,7 +34,7 @@ The wiki lives at `<workspace>/wiki/`. The workspace is resolved via `workspace_
     └── .cursorrules             # (optional) legacy Cursor
 ```
 
-`entities/` is the single flat folder for all graph-derived entity pages (kinds: `repository`, `domain`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). There are no separate `apps/`, `packages/`, or `domains/` page folders. Bootstrap seeds `entities/.gitkeep`; `write_entities` removes it once real pages exist and restores it if all pages are swept.
+`entities/` is the single flat folder for all graph-derived entity pages (kinds: `repository`, `package`, `app`, `agent_plugin`, `dependency`, `test_suite`). There are no separate `apps/` or `packages/` page folders. Bootstrap seeds `entities/.gitkeep`; `write_entities` removes it once real pages exist and restores it if all pages are swept.
 
 ## Iron rules
 
@@ -57,7 +57,7 @@ updated: 2026-04-20
 ---
 ```
 
-Allowed `category` values: `app`, `package`, `domain`, `concept`, `dependency`, `work`, `source`, `adr`. For concept pages, an optional `kind` field discriminates: `concept` (default), `pattern`, or `architecture` (for high-level syntheses — build system, module graph, request flow, deployment topology).
+Allowed `category` values: `app`, `package`, `concept`, `dependency`, `work`, `source`, `adr`. For concept pages, an optional `kind` field discriminates: `concept` (default), `pattern`, or `architecture` (for high-level syntheses — build system, module graph, request flow, deployment topology).
 
 ## Category-specific frontmatter
 
@@ -70,10 +70,9 @@ Entity pages live under `<workspace>/wiki/entities/` — one page per graph-deri
 | Key | Applies to | Notes |
 |---|---|---|
 | `uri` | all | graph node URI |
-| `kind` | all | `repository \| domain \| package \| app \| agent_plugin \| dependency \| test_suite` |
+| `kind` | all | `repository \| package \| app \| agent_plugin \| dependency \| test_suite` |
 | `graph_name` | all | name of the graph that sourced this entity |
 | `last_scan_at` | all | YYYY-MM-DD of last scan |
-| `domains` | package, app | list of domain URIs/names |
 | `depends_on` | package, app | list of dependency names |
 | `test_suites` | package, app | associated test suite names |
 | `entry_points` | package, app | detected entry-point paths |
@@ -81,9 +80,6 @@ Entity pages live under `<workspace>/wiki/entities/` — one page per graph-deri
 | `version` | package, app | version string from manifest |
 | `app_kind` | app | app sub-type (web, mobile, cli, …) |
 | `app_signals` | app | detected signals (framework, deployment, …) |
-| `parent_domain` | domain | parent domain name, if nested |
-| `sub_domains` | domain | list of child domain names |
-| `packages` | domain | packages owned by this domain |
 | `tested_packages` | test_suite | packages the suite covers |
 | `suite_kind` | test_suite | `unit \| integration \| other` |
 | `file_count` | test_suite | number of test files detected |
@@ -106,7 +102,6 @@ uri: pkg:org/repo/common-aws-node-ts
 kind: package
 graph_name: my-repo
 last_scan_at: 2026-06-01
-domains: []
 depends_on: []
 test_suites: []
 entry_points: []
@@ -256,14 +251,14 @@ In-repo docs (an in-repo `.md` passed to `/graph-wiki:ingest` by repo-relative p
 
 ### Architecture pages (concept pages with `kind: architecture`)
 
-High-level syntheses — the layers, components, and flows that span multiple packages or domains — live in `concepts/` as concept pages with `kind: architecture`. The `## Thesis` body section is the load-bearing part; the rest (layers, diagrams, key concepts, decisions) supports the thesis and rotates as the codebase changes. `packages:` lists the workspaces the synthesis reasons about so lint can flag when a referenced package goes away.
+High-level syntheses — the layers, components, and flows that span multiple packages — live in `concepts/` as concept pages with `kind: architecture`. The `## Thesis` body section is the load-bearing part; the rest (layers, diagrams, key concepts, decisions) supports the thesis and rotates as the codebase changes. `packages:` lists the workspaces the synthesis reasons about so lint can flag when a referenced package goes away.
 
 ```yaml
 ---
 title: Request flow
 category: concept
 kind: architecture
-summary: How a request flows from edge → API → domain → datastore
+summary: How a request flows from edge → API → service layer → datastore
 packages: [web-next-ts, common-aws-node-ts, location-aws-node-ts]
 tags: [architecture, request-flow]
 sources: 0
@@ -296,7 +291,6 @@ updated: 2026-04-20
   | Kind | Prefix | Example |
   |---|---|---|
   | `repository` | `repo_` | `repo_my-monorepo.md` |
-  | `domain` | `domain_` | `domain_auth.md` |
   | `package` | `pkg_` | `pkg_common-aws-node-ts.md` |
   | `app` | `app_` | `app_web-next-ts.md` |
   | `agent_plugin` | `agent-plugin_` | `agent-plugin_graph-wiki.md` |
@@ -361,7 +355,7 @@ Anchors are advisory. Missing field = unknown; no `unknown` value.
 
 ### Blast radius (work)
 
-`file | package | domain | system`. **Practical impact, not source-code locality** — a one-line change to a shared library used by every domain is `system` even though the source is in one package.
+Blast-radius values: `file | package | domain | system`. **Practical impact, not source-code locality** — a one-line change to a shared library used by every domain is `system` even though the source is in one package.
 
 ### Per-kind field applicability (work)
 
@@ -421,7 +415,7 @@ Use Obsidian wikilinks. Three forms:
 [[pkg_common-aws-node-ts]]                                  # stem — resolves if unique
 ```
 
-For entity pages (packages, apps, domains, etc.), prefer stem links when the name is unambiguous; use the full `entities/<prefix>_<name>` path only when disambiguation is needed. Use full paths for non-entity pages (concepts, sources, ADRs, etc.).
+For entity pages (packages, apps, etc.), prefer stem links when the name is unambiguous; use the full `entities/<prefix>_<name>` path only when disambiguation is needed. Use full paths for non-entity pages (concepts, sources, ADRs, etc.).
 
 Code references — when citing actual code — use a plain code reference (Obsidian won't wikilink them but it's searchable):
 
@@ -431,7 +425,7 @@ See `packages/common-aws-node-ts/src/handlers/baseApiHandler.ts:42`
 
 ## Cross-reference rules
 
-- **Every package or domain mentioned on an entity or concept page must be a wikilink** to `entities/<prefix>_<name>`.
+- **Every package mentioned on an entity or concept page must be a wikilink** to `entities/<prefix>_<name>`.
 - **Every ADR referenced in entity/concept pages must be a wikilink** to `adrs/<id>-<slug>`.
 - **Every claim on an entity page cites** either a source page (`[[sources/xxx]]`) or a code path (backticked, with file:line).
 - **Contradictions get flagged inline** with a `> ⚠️ Contradiction:` callout naming the conflicting sources or code paths.
@@ -454,7 +448,7 @@ entities/pkg_timeline-native-ts.md. No renames or deletions.
 
 ## [2026-04-20] ingest | Auth Migration Spec
 Added sources/2026-04-auth-migration-spec.md. Updated concepts/global-context,
-entities/domain_auth.md, entities/pkg_shared-aws-node-ts.md, entities/pkg_shared-native-ts.md,
+entities/pkg_shared-aws-node-ts.md, entities/pkg_shared-native-ts.md,
 concepts/request-flow, adrs/0014-jwt-sessions (new). Flagged contradiction
 with concepts/global-context on session shape.
 ```

@@ -71,10 +71,10 @@ The wiki lives at `<workspace>/wiki/`. `workspace_io` resolves the workspace fro
 
 - `<workspace>/raw/` — staging inbox for sources. The LLM never edits file contents here; a successful ingest moves the source to `raw/_archive/<same relative path>`. Owned by `workspace_io`.
 - `<workspace>/wiki/work/` — unified work tracker, nested under `wiki/` (not a workspace-root sibling). Schema owned by `workspace_io`; lifecycle (lint, sidecar, archive, status) owned by this plugin.
-- `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. Architecture syntheses live in `concepts/` as pages with `kind: architecture`.
+- `<workspace>/wiki/` — the LLM-curated knowledge base. Subdirs (`entities/`, `concepts/`, `sources/`, `adrs/`, `.templates/`) live directly inside; there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity kind (repository, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/` page folders. Architecture syntheses live in `concepts/` as pages with `kind: architecture`.
 - `<workspace>/wiki/CLAUDE.md` and `<workspace>/wiki/AGENTS.md` are written by `init_vault` and carry the wiki schema + conventions for the host tool. They are not derived from the repo's folder shape — entity discovery is purely graph-driven, so nothing about the repo's structure is pinned into them.
 
-Inside `<workspace>/wiki/`, every workspace package/app/domain is rendered as a page under the single `entities/` folder, named `<prefix>_<name>[__hex].md`. Bootstrap seeds `entities/.gitkeep`, which `write_entities` removes once real pages exist and restores if all are swept.
+Inside `<workspace>/wiki/`, every workspace package/app is rendered as a page under the single `entities/` folder, named `<prefix>_<name>[__hex].md`. Bootstrap seeds `entities/.gitkeep`, which `write_entities` removes once real pages exist and restores if all are swept.
 
 When changing how entity pages are discovered, rendered, or written, update `run_scan` / `write_entities` in `packages/wiki-io/` and `packages/graph-wiki-core/` together with the matching reference docs under `plugins/graph-wiki/skills/graph-wiki/references/` — `scan-workflow.md`, `ingest-workflow.md`, `lint-workflow.md`, `query-workflow.md`, `wiki-schema.md`, `monorepo-principles.md`, `page-formats.md`, `obsidian-setup.md`, `cross-tool-setup.md`. The skill's behavior is defined by the union of the script and its reference doc; changing one without the other produces drift.
 
@@ -86,7 +86,7 @@ These are load-bearing for the skill's contract — preserve them when editing s
 2. The LLM never edits file contents under `<workspace>/raw/`; all LLM writes for the wiki go under `<workspace>/wiki/`. Single exception: after a successful ingest the source is *moved* to `<workspace>/raw/_archive/<same relative path>`.
 3. Every vault page has YAML frontmatter. Curated pages (concept/source/adr/dependency/work) carry `title`, `category`, `summary`, `updated`; graph-derived `entities/` pages carry `uri`, `kind`, `graph_name`, `last_scan_at` plus per-kind keys instead — `title`/`updated` are intentionally absent, the H1 carries the display name.
 4. Every ingest or scan touches ≥3 files: the changed/new page(s), `index.md`, `log.md`.
-5. Every claim on a package/domain page cites either a source page (`[[sources/xxx]]`) or a code path.
+5. Every claim on a package page cites either a source page (`[[sources/xxx]]`) or a code path.
 
 ## Namespacing after install
 

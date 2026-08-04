@@ -51,7 +51,7 @@ Code drift: 2 new packages un-documented. 3 orphans, 1 stale roadmap page.
 
 ## [2026-04-20] ingest | Auth Migration Spec
 Added sources/2026-04-auth-migration-spec.md. Updated concepts/global-context,
-entities/domain_auth, entities/pkg_shared-aws-node-ts, adrs/0014-jwt-sessions (new).
+entities/pkg_shared-aws-node-ts, adrs/0014-jwt-sessions (new).
 
 ## [2026-04-19] scan | detected 3 new packages
 Added entities/pkg_timeline-native-ts, entities/pkg_timeline-data-node-ts, entities/pkg_timeline-domain-ts.

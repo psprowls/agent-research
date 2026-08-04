@@ -26,7 +26,7 @@ Recommended Obsidian configuration for a Code Wiki. None of this is strictly req
 
 ## Core plugins to enable
 
-- **Graph view** — see the shape of your vault. Hubs, orphans, clusters. In a graph-wiki, you should see clusters per domain.
+- **Graph view** — see the shape of your vault. Hubs, orphans, clusters. In a graph-wiki, you should see clusters per package/feature area.
 - **Backlinks** — pane showing who links to the current page. Critical for "who depends on this package?"
 - **Outgoing links** — complementary pane.
 - **Templates** — enable and set the template folder to `.templates`
@@ -104,7 +104,7 @@ git commit -m "init wiki"
 
 ## Tips
 
-- **Graph view daily** — spot structural drift. Clusters per domain; concept pages with `kind: architecture` as hubs.
+- **Graph view daily** — spot structural drift. Clusters per package/feature area; concept pages with `kind: architecture` as hubs.
 - **Pin `index.md`, `log.md`, and the active architecture concept page or current `work/<epic>` item**
 - **Split view** — code on the left, vault on the right. Browse the vault while the LLM edits.
 - **Strict line breaks** — so your LLM's markdown renders as expected

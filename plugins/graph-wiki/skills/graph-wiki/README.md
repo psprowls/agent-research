@@ -4,7 +4,7 @@
 > An adaptation of [Andrej Karpathy's LLM Wiki pattern](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) targetting source code repositories.
 
 
-Turn any LLM CLI into a disciplined wiki maintainer for your repo. graph-wiki works on any repo shape — single package, workspace-style monorepo (Turborepo / pnpm / Nx / Bazel / Cargo / Go workspaces), or a hybrid. It builds a code graph and renders one page per entity (repository, domain, package, app, agent_plugin, dependency, test_suite) into a single `entities/` folder. The LLM walks your code, cross-references domains and concepts, ingests specs and articles and PRs, and keeps everything current as the code evolves.
+Turn any LLM CLI into a disciplined wiki maintainer for your repo. graph-wiki works on any repo shape — single package, workspace-style monorepo (Turborepo / pnpm / Nx / Bazel / Cargo / Go workspaces), or a hybrid. It builds a code graph and renders one page per entity (repository, package, app, agent_plugin, dependency, test_suite) into a single `entities/` folder. The LLM walks your code, cross-references packages and concepts, ingests specs and articles and PRs, and keeps everything current as the code evolves.
 
 ## When to use
 
@@ -15,7 +15,7 @@ Turn any LLM CLI into a disciplined wiki maintainer for your repo. graph-wiki wo
 
 ## The idea in one paragraph
 
-READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an LLM into a disciplined wiki maintainer that **reads the code**, **ingests your specs, PRs, and articles**, and **writes a persistent, interlinked Obsidian-compatible vault** alongside the repo. Every package has a summary page. Every domain has an overview. Every decision has an ADR. Every ingested article gets filed and cross-linked. Linting detects **code drift** — packages added/renamed/deleted without the vault noticing. The vault compounds instead of rotting.
+READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an LLM into a disciplined wiki maintainer that **reads the code**, **ingests your specs, PRs, and articles**, and **writes a persistent, interlinked Obsidian-compatible vault** alongside the repo. Every package has a summary page. Every decision has an ADR. Every ingested article gets filed and cross-linked. Linting detects **code drift** — packages added/renamed/deleted without the vault noticing. The vault compounds instead of rotting.
 
 ## What's in the box
 
@@ -26,7 +26,7 @@ READMEs go stale. Architecture diagrams drift. Comments rot. This skill turns an
 | **6 slash commands** | `/graph-wiki:bootstrap`, `/graph-wiki:scan`, `/graph-wiki:ingest`, `/graph-wiki:query`, `/graph-wiki:lint`, `/graph-wiki:log` |
 | **6 Python tools** | Via wiki_io: `init_vault`, `scan_monorepo`, `ingest_source`, `wiki_search`, `lint_wiki` (+ code-drift), plus `_config.py` backend selector |
 | **12 reference docs** | Schema, page formats, 4 workflows (scan/ingest/query/lint), Obsidian setup, cross-tool setup, monorepo principles, lifecycle rules, sidecar schema |
-| **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus entity templates (`entity-repository`, `entity-domain`, `entity-package`, `entity-app`, `entity-agent-plugin`, `entity-dependency`, `entity-test-suite`) and curated-page templates (`concept`, `concept-pattern`, `concept-architecture`, `source`, `adr`, `dependency`, `work`, `index`) |
+| **Wiki templates** | `CLAUDE.md`, `AGENTS.md`, `cursorrules`, `index.md`, `log.md`, plus entity templates (`entity-repository`, `entity-package`, `entity-app`, `entity-agent-plugin`, `entity-dependency`, `entity-test-suite`) and curated-page templates (`concept`, `concept-pattern`, `concept-architecture`, `source`, `adr`, `dependency`, `work`, `index`) |
 
 ## Quick start
 
@@ -38,7 +38,7 @@ uv run --project "$AGENT_RESEARCH_ROOT" python ${CLAUDE_PLUGIN_ROOT}/skills/grap
 # 2. Open the workspace in Obsidian (sidebar will show wiki/, raw/, work/ as siblings).
 open -a Obsidian ~/my-repo/graph-wiki
 
-# 3. Scan the repo — renders one entities/ page per admitted entity (package, app, domain, dependency, …)
+# 3. Scan the repo — renders one entities/ page per admitted entity (package, app, dependency, …)
 cd ~/my-repo
 # in Claude Code:
 > /graph-wiki:scan
@@ -57,9 +57,8 @@ cd ~/my-repo
 
 | Category | Example |
 |---|---|
-| `app` | `<workspace>/wiki/entities/app_web-next-ts.md` — Next.js app: platform, routes, domains consumed, deployment |
+| `app` | `<workspace>/wiki/entities/app_web-next-ts.md` — Next.js app: platform, routes, deployment |
 | `package` | `<workspace>/wiki/entities/pkg_common-aws-node-ts.md` — Lambda handlers, middleware, exports |
-| `domain` | `<workspace>/wiki/entities/domain_auth.md` — cross-package feature area (auth spans cognito + native + shared) |
 | `concept` | `<workspace>/wiki/concepts/global-context.md` — cross-cutting pattern; or `kind: architecture` for high-level syntheses, `kind: pattern` for reusable patterns |
 | `dependency` | `<workspace>/wiki/entities/dep_react.md` — external lib: versions in use, upgrade notes, gotchas (`kind: package | service`) |
 | `source` | `<workspace>/wiki/sources/2026-04-auth-migration-spec.md` — ingested spec with claims + citations |
@@ -98,7 +97,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 └── wiki/                      # this plugin's curated knowledge base
     ├── index.md               # content catalog
     ├── log.md                 # append-only timeline
-    ├── entities/              # one graph-derived page per admitted entity (pkg_*, app_*, domain_*, dep_*, repo_*, *_tests_*)
+    ├── entities/              # one graph-derived page per admitted entity (pkg_*, app_*, dep_*, repo_*, *_tests_*)
     ├── concepts/              # cross-cutting concepts; kind: architecture for high-level syntheses
     ├── sources/               # one summary per ingested source
     ├── adrs/                  # decision records
@@ -121,7 +120,7 @@ Only the schema loader file changes per tool. The scripts run identically everyw
 |---|---|
 | One per package, manually written | One per package, LLM-maintained and cross-linked |
 | Go stale silently | `lint` detects drift mechanically |
-| No cross-references | Every package links to domains, sources, ADRs |
+| No cross-references | Every package links to concepts, sources, ADRs |
 | No history of why decisions were made | ADRs capture decisions; log tracks every ingest/scan |
 | Specs and articles live elsewhere | Ingested into `raw/` and summarized in `sources/` |
 

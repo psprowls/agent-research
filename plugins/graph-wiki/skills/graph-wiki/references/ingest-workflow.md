@@ -71,7 +71,7 @@ For in-repo docs (`source_type: doc`), also set `last_sync_commit` (`state_gate.
 
 ### 5. Link the code entities (never edit entity pages)
 
-For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI from `entity_match.uri` in the brief (or `null` if none).
+For each code entity (package, app, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI from `entity_match.uri` in the brief (or `null` if none).
 
 ### 6. Update / create concept pages
 
@@ -130,7 +130,7 @@ Summary the user sees in chat:
 
 ### Specs / RFCs / design docs
 - Likely to produce an ADR. Include it in the step 3 "New pages" enumeration — consent comes from that single confirmation.
-- Expect heavy updates to domain pages and concept pages (especially `kind: architecture` syntheses).
+- Expect heavy updates to package pages and concept pages (especially `kind: architecture` syntheses).
 
 ### PR summaries
 - Source type `pr`. Include the PR URL in `source_path` or a `pr_url` frontmatter field.
@@ -143,7 +143,7 @@ Summary the user sees in chat:
 - Good source of comparison material — file as `concepts/<a>-vs-<b>.md`.
 
 ### Tickets
-- Usually light ingest — a short source summary plus `[[entities/...]]` links for the relevant package/domain entities.
+- Usually light ingest — a short source summary plus `[[entities/...]]` links for the relevant package entities.
 - Multiple related tickets may roll up into a single `sources/` page.
 
 ### Transcripts
@@ -162,10 +162,10 @@ Summary the user sees in chat:
 - `last_sync_commit` and `last_sync_at` are disallowed in frontmatter — examples are external; drift detection does not apply. The state-gate is a no-op for `source_type: example` in the brief output.
 - **Step 3 (Discuss)** for examples covers: TL;DR, what patterns the example demonstrates, key takeaways, which existing concept pages map to those patterns, and which code entities the user wants to flag under `## Where this could apply`.
 - **Step 5 (Link code entities)** for examples: add `[[entities/<prefix>_<name>]]` wikilinks under `## Touches` for the relevant entities. Do **not** edit entity pages. The scanner owns them and backfills `## Referenced in wiki`.
-- **Step 6 (Update / create concept pages)** — if the example demonstrates a reusable pattern, include `concepts/<topic>-pattern.md` in the step 3 New-pages enumeration — consent comes from that single confirmation. Pattern pages use the body template in `page-formats.md` Section 4a; the `pattern` tag is recommended.
+- **Step 6 (Update / create concept pages)** — if the example demonstrates a reusable pattern, include `concepts/<topic>-pattern.md` in the step 3 New-pages enumeration — consent comes from that single confirmation. Pattern pages use the body template in `page-formats.md` Section 3a; the `pattern` tag is recommended.
 - **Step 7 (ADR capture)** is suppressed by default for examples — examples don't represent decisions in this codebase. The ingestor may still include an ADR in the step 3 "New pages" list if the example concretely motivates a decision the user is making *now*, but it should not appear proactively.
 - **Step 8 (Contradictions)** still runs — an example can contradict an existing concept page's claim (e.g. "we said pattern X is bad but this example uses it well"). Flag both ways.
-- The source summary uses `page-formats.md` Section 5a (example variant): no `## Key claims`, no `## Proposed changes`; instead `Origin / What's in it / Patterns demonstrated / Key takeaways / Where this could apply / Caveats / Related`.
+- The source summary uses `page-formats.md` Section 4a (example variant): no `## Key claims`, no `## Proposed changes`; instead `Origin / What's in it / Patterns demonstrated / Key takeaways / Where this could apply / Caveats / Related`.
 - Each `[[entities/<prefix>_<name>]]` bullet under `## Where this could apply` on the source page is forward-linked; the scanner derives the reciprocal `## Referenced in wiki` backlink on entity pages automatically. Concept pages keep manual reciprocity (add `## Inspirations` bullets there by hand). `/graph-wiki:lint` cross-checks concept-page reciprocity and warns on drift.
 - Frontmatter contract: see `wiki-schema.md` for `origin_url`, `origin_repo`, `license`, `attribution` (`origin_url` or `origin_repo` should be set; lint warns if both are empty).
 

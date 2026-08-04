@@ -1,6 +1,6 @@
 ---
 name: scanner
-description: Dispatched sub-agent that walks the monorepo, builds the code graph, and writes one graph-derived page per admitted entity into the wiki's single `entities/` folder (repository, domain, package, app, agent_plugin, dependency, test_suite). Reports added/updated/deleted entities by URI and surfaces deletions for confirmation. Spawn when the user says "scan the monorepo", "update entity pages", "catch the wiki up to the code", or runs /graph-wiki:scan.
+description: Dispatched sub-agent that walks the monorepo, builds the code graph, and writes one graph-derived page per admitted entity into the wiki's single `entities/` folder (repository, package, app, agent_plugin, dependency, test_suite). Reports added/updated/deleted entities by URI and surfaces deletions for confirmation. Spawn when the user says "scan the monorepo", "update entity pages", "catch the wiki up to the code", or runs /graph-wiki:scan.
 skills: [graph-wiki]
 domain: engineering
 model: sonnet

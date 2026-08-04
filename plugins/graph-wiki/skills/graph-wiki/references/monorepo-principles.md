@@ -23,7 +23,7 @@ A maintained wiki **compiles** this into one searchable, cross-referenced layer 
 | READMEs | Code Wiki |
 |---|---|
 | Written once, go stale silently | Incrementally updated on every scan/ingest; `lint` detects drift |
-| One-directional (README describes package) | Bidirectional — packages ↔ domains ↔ concepts ↔ decisions |
+| One-directional (README describes package) | Bidirectional — packages ↔ concepts ↔ decisions |
 | Manual maintenance | LLM does the bookkeeping |
 | Can't capture decisions (those live in PR descriptions) | ADRs capture decisions with traceable history |
 | Can't consolidate across tickets/PRs | Issues and architecture pages synthesize across sources |
@@ -48,7 +48,7 @@ The generic [wiki](../../wiki) pattern (entities/concepts/sources/synthesis/comp
 
 | Generic LLM Wiki | Code Wiki |
 |---|---|
-| `entities/` (people, orgs, places) | `entities/` (one graph-derived page per admitted entity kind: repository, domain, package, app, agent_plugin, dependency, test_suite) |
+| `entities/` (people, orgs, places) | `entities/` (one graph-derived page per admitted entity kind: repository, package, app, agent_plugin, dependency, test_suite) |
 | `concepts/` | `concepts/` (cross-cutting patterns; `<a>-vs-<b>.md` comparisons live here) |
 | `sources/` | Same, but source types are: spec, PR, ticket, article, transcript, RFC |
 | `synthesis/` | `concepts/` (with `kind: architecture`) |

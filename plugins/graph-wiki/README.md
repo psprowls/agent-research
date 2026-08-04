@@ -4,7 +4,7 @@ A Claude Code plugin that builds and maintains a persistent, cross-referenced kn
 
 ## What this plugin is
 
-`graph-wiki` gives your repo a comprehensive workflow including work tracking, code graph, and acompounding markdown wiki that an LLM maintains. Every package, app, domain, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
+`graph-wiki` gives your repo a comprehensive workflow including work tracking, code graph, and acompounding markdown wiki that an LLM maintains. Every package, app, and cross-cutting concept gets its own page. Ingested specs, PR summaries, articles, and design notes are integrated into the vault with citations and cross-references. The LLM keeps the wiki in sync with the code; you direct the analysis and curate what gets ingested.
 
 The wiki lives at `<workspace>/wiki/`. **Point the plugin at your workspace with the `GRAPH_WIKI_WORKSPACE` environment variable** — it is the supported way to locate one, and the one thing worth configuring up front: set it and every command resolves with no `--workspace` flag. Put it in the `env` block of the `.claude/settings.local.json` belonging to whichever directory you run Claude Code from; `gw config init --write-env` writes it for you.
 

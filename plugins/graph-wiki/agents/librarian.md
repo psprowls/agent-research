@@ -31,7 +31,7 @@ Follow `references/query-workflow.md`. Summary:
 ### 1. Read `index.md` first
 Pick 3-10 pages across categories most likely to contain the answer:
 - `concepts/` — cross-cutting patterns and high-level syntheses (filter by `kind: architecture` for big-picture questions, `kind: pattern` for reusable patterns)
-- `entities/` — package/app surface area (`pkg_*`, `app_*`) and feature-area context (`domain_*`)
+- `entities/` — package/app surface area (`pkg_*`, `app_*`)
 - `entities/dep_*` — external-library questions
 - `work/` — bug / tech-debt / planned / in-progress questions
 - `adrs/` — "why did we do it this way"

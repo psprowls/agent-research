@@ -159,7 +159,7 @@ genuinely shared/cross-language advice, additionally write one agnostic page wit
 no `language` key. Omit `language` entirely for single-language or shared sources.
 
 ### 5. Link the code entities (never edit entity pages)
-For each code entity (package, app, domain, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
+For each code entity (package, app, dependency) the source touches, add a `[[entities/<prefix>_<name>]]` wikilink under the source summary's `## Touches` section. Entity pages are scanner-owned and live under `entities/` — **do not edit them**. The scanner regenerates each entity's `## Referenced in wiki` section from these forward-links on the next `/graph-wiki:scan`. Set the source page's `entity_uri:` frontmatter to the primary/canonical entity's URI (or `null` if none).
 
 ### 6. Update concept / dependency pages
 For each cross-cutting concept the source mentions: update `## Key claims` / `## Used in`, add to `## Sources`, or create a stub concept page. (Concept *content* pages under `concepts/` are hand-maintained; dependency pages are graph-derived at `entities/dep_*` and are scanner-owned — never hand-edited.)

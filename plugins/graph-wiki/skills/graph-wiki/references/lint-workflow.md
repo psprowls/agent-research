@@ -29,7 +29,6 @@ Default report:
 - **Code drift** (monorepo-specific) — packages/apps/agent_plugins on disk vs. `entities/` pages in the vault (matched by entity `kind` + `uri`; covers `kind: package`, `kind: app`, and `kind: agent_plugin`; legacy `packages/<slug>/` pages still recognized). Pages declaring `status: planned` in frontmatter are excluded from `orphaned_in_vault` and surfaced separately under `planned_in_vault`, so deliberately seeded pages don't drown the signal.
 - **`package_sync` drift** (`lint/package_sync.py`) — for legacy/ingest-tracked package/app pages, runs `git diff --name-only <last_sync_commit>..HEAD` against `package_path` / `app_path`. Graph-derived `entities/` pages don't carry `last_sync_commit`, so code drift (above) is the entity-layout freshness signal; re-run `/graph-wiki:scan` to refresh them.
 - **`file_map` drift** (`lint/file_map.py`) — `## File map` entries that no longer exist on disk.
-- **`domain` placement** (`lint/domain.py`) — legacy package pages whose vault location disagrees with their `domain:` frontmatter. `entities/` pages all live in one folder, so this check only applies to legacy layouts.
 - **Obsidian render** (`lint/obsidian_render.py`, JSON key `obsidian_render_findings`) — markdown that breaks Obsidian's renderer: bare angle-bracket placeholders, malformed callouts, malformed wikilinks/embeds, unescaped table pipes. Covers `index.md` files too.
 - **Guidance frontmatter** (`guidance_io.lint`, JSON key `guidance_lint_findings`) — invalid frontmatter, non-allowlisted tags, keyword shape, and topic placement for pages under `wiki/guidance/`.
 - **Work lifecycle** (`work_io.lifecycle_lint`, JSON key `work_lifecycle` = `{total_items, findings}`) — all 31 lifecycle rules over every `wiki/work/*.md` item, same rule set as `gw work lint`.
@@ -84,7 +83,7 @@ For each flagged stale page, ask:
 
 ### D. Concepts mentioned without their own page
 
-Grep for concept-shaped phrases repeated across 3+ package/domain/concept pages but without a dedicated concept page. Suggest creating one. Comparisons (`<a>-vs-<b>.md`) live under `concepts/`.
+Grep for concept-shaped phrases repeated across 3+ package/concept pages but without a dedicated concept page. Suggest creating one. Comparisons (`<a>-vs-<b>.md`) live under `concepts/`.
 
 ### E. ADR chain health
 
@@ -93,7 +92,7 @@ Grep for concept-shaped phrases repeated across 3+ package/domain/concept pages 
 
 ### F. Cross-reference gaps
 
-For each recently-touched page, check: do all package/domain/dependency mentions have wikilinks? If something is referenced as plain text in 3+ places, promote it to a wikilink (and create a stub page if needed).
+For each recently-touched page, check: do all package/dependency mentions have wikilinks? If something is referenced as plain text in 3+ places, promote it to a wikilink (and create a stub page if needed).
 
 ### G. Index drift
 

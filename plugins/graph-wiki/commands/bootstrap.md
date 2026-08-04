@@ -7,7 +7,7 @@ description: Bootstrap a fresh Code Wiki in the resolved graph-wiki workspace �
 
 Bootstrap a new Code Wiki. Discovers the workspace via `workspace_io` (walks up from cwd for `.git`, reads `.graph-wiki.yaml` for the workspace path, defaults to `<repo>/graph-wiki`). Creates the wiki at `<workspace>/wiki/`.
 
-The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `concepts/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, domain, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/`/`domains/` page folders. Architecture syntheses live in `concepts/` as pages with `kind: architecture`. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
+The wiki contains `index.md`, `log.md`, and curated subdirs (`entities/`, `adrs/`, `concepts/`, `sources/`, `.templates/`) directly — there is no inner vault directory. `entities/` holds one graph-derived page per admitted entity (repository, package, app, agent_plugin, dependency, test_suite); there are no separate `apps/`/`packages/` page folders. Architecture syntheses live in `concepts/` as pages with `kind: architecture`. `raw/` and `work/` are owned by `workspace_io` and live at the workspace root as siblings of `wiki/`.
 
 ## Usage
 
@@ -53,7 +53,7 @@ After init:
 
 After init, `<workspace>/wiki/.templates/` holds the templates the scanner and ingest/query flows use as reference (copied from `packages/wiki-io/src/wiki_io/assets/page-templates/`):
 
-- **Per-entity-kind:** `entity-repository.md`, `entity-domain.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md` — the scanner renders one `entities/` page per admitted entity from these.
+- **Per-entity-kind:** `entity-repository.md`, `entity-package.md`, `entity-app.md`, `entity-agent-plugin.md`, `entity-dependency.md`, `entity-test-suite.md` — the scanner renders one `entities/` page per admitted entity from these.
 - **Curated pages:** `concept.md`, `concept-pattern.md`, `concept-architecture.md`, `source.md`, `adr.md`, `dependency.md`, `work.md`, plus `index.md`.
 
 Entity pages are written by `/graph-wiki:scan` from the code graph (see `references/scan-workflow.md`); the curated-page templates are used by `/graph-wiki:ingest` and `/graph-wiki:query` when filing new concept/source/ADR pages. Architecture syntheses use `concept-architecture.md`.

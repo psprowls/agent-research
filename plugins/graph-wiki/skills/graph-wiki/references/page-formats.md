@@ -88,7 +88,6 @@ uri: pkg:org/repo/<name>
 kind: package
 graph_name: <graph-name>
 last_scan_at: <YYYY-MM-DD>
-domains: []
 depends_on: []
 test_suites: []
 entry_points: []
@@ -121,7 +120,6 @@ uri: <app-uri>
 kind: app
 graph_name: <graph-name>
 last_scan_at: <YYYY-MM-DD>
-domains: []
 depends_on: []
 test_suites: []
 entry_points: []
@@ -140,32 +138,11 @@ _(scanner will populate on next scan)_
 | `<file>` | file | — TODO |
 ```
 
-## 3. Entity page (domain)
-
-Domain entity pages carry domain-specific scanner-owned keys (`parent_domain`, `sub_domains`, `packages`). No `## File map` section. Filename prefix: `domain_`.
-
-```markdown
----
-uri: <domain-uri>
-kind: domain
-graph_name: <graph-name>
-last_scan_at: <YYYY-MM-DD>
-parent_domain: ""
-sub_domains: []
-packages: []
----
-
-# <name>
-
-## Narrative
-_(scanner will populate on next scan)_
-```
-
 ## Other entity kinds
 
 All other admitted entity kinds (`repository`, `agent_plugin`, `dependency`, `test_suite`) also live in `entities/` with their respective filename prefixes (`repo_`, `agent-plugin_`, `dep_`, `unit_tests_` / `int_tests_` / `tests_`). Each carries the universal scanner-owned keys (`uri`, `kind`, `graph_name`, `last_scan_at`) plus kind-specific keys (see `wiki-schema.md` Entity pages). The authoritative templates are the packaged `entity-*.md` files in `packages/wiki-io/src/wiki_io/assets/page-templates/`.
 
-## 4. Concept page
+## 3. Concept page
 
 A cross-cutting technical pattern, convention, or idea used across packages.
 
@@ -215,7 +192,7 @@ From `packages/common-context-node-ts/src/globalContext.ts`.
 - ⚠️ Contradiction: `[[entities/pkg_shared-aws-node-ts]]` assumes `session.session_id` always populated, but `[[sources/auth-migration-spec]]` says pre-login requests have null.
 ```
 
-## 4a. Concept page — pattern variant
+## 3a. Concept page — pattern variant
 
 A pattern is a prescriptive concept ("when to apply this, what to watch out for") rather than a descriptive one ("what this is in our codebase"). Naming convention only — no new `category` and no new `kind:` discriminator on concepts. Mirrors how comparison pages work today (`<a>-vs-<b>.md`).
 
@@ -267,7 +244,7 @@ Notes:
 - The `pattern` tag is recommended so the index can group these pages; not enforced.
 - Body sections are recommended, not lint-enforced. Lint nudges (info-level) for naming/tag mismatch only.
 
-## 5. Source summary page
+## 4. Source summary page
 
 One per ingested source (article, spec, PR, transcript, ticket). Summarized **once**; other pages cite it.
 
@@ -312,7 +289,6 @@ Two sentences max. What the source proposes / argues / reports.
 - [[entities/pkg_shared-aws-node-ts]]
 - [[entities/pkg_shared-native-ts]]
 - [[entities/pkg_shared-domain-ts]]
-- [[entities/domain_auth]]
 - [[concepts/global-context]]
 
 ## Decisions triggered
@@ -320,15 +296,14 @@ Two sentences max. What the source proposes / argues / reports.
 
 ## Where it's cited in this wiki
 - [[concepts/global-context]]
-- [[entities/domain_auth]]
 - [[adrs/0014-jwt-sessions]]
 ```
 
 `last_sync_commit` (40-char SHA) and `last_sync_at` (YYYY-MM-DD) record the repo commit this page was last verified against. `/graph-wiki:ingest` writes both when re-ingesting an in-repo doc (`source_type: doc`) with a clean working tree on `main`. `/graph-wiki:lint` compares HEAD against `last_sync_commit` to flag source files that have changed since the last ingest.
 
-## 6. Architecture concept page (`kind: architecture`)
+## 5. Architecture concept page (`kind: architecture`)
 
-High-level synthesis that draws on many packages, domains, and sources. Lives in `concepts/` with `kind: architecture`. Use the `concept-architecture.md` template.
+High-level synthesis that draws on many packages and sources. Lives in `concepts/` with `kind: architecture`. Use the `concept-architecture.md` template.
 
 ```markdown
 ---
@@ -379,7 +354,7 @@ Two-three sentences capturing the current understanding of how requests flow thr
 - **2025-12-15** — initial write-up
 ```
 
-## 7. ADR page
+## 6. ADR page
 
 A dated, citable decision. Classic MADR-lite format.
 
@@ -426,14 +401,13 @@ Adopt short-lived JWTs signed by Cognito. Validation in middleware; refresh on t
 - [[entities/pkg_shared-aws-node-ts]] — middleware change
 - [[entities/pkg_shared-native-ts]] — refresh logic
 - [[entities/pkg_shared-domain-ts]] — header injection
-- [[entities/domain_auth]] — overall flow
 
 ## Follow-ups
 - Roll out to staging 2026-05
 - Deprecate opaque tokens 2026-Q3
 ```
 
-## 8. Dependency page
+## 7. Dependency page
 
 `/graph-wiki:scan` writes one graph-derived dependency page per dep the monorepo touches into `entities/dep_<name>.md`, using the scanner-owned `entity-dependency.md` template shape (`uri`, `kind: dependency`, `graph_name`, `last_scan_at`, `ecosystem`, `used_by`, `versions_in_use`). The `kind: package | service` example below is a **legacy curated-page shape** gated behind the opt-in `dependency_layer` lint group (`python scripts/lint_wiki.py --check dependency_layer`) — it is not what the scanner writes. See `wiki-schema.md` for the `kind: service` variant.
 
@@ -492,7 +466,7 @@ One paragraph: what this library does, why we use it, which surfaces.
 - [[work/rn-0-77-upgrade]]
 ```
 
-## 9. Work page
+## 8. Work page
 
 Unified namespace for everything "to do, doing, or done" — bugs, tech debt, test gaps, security/perf items, features, initiatives, spikes. `kind:` discriminates; a single 7-state lifecycle covers all. The committed plan lives in a `## Plan` markdown table. Slugs are `<YYYY-MM-DD>-<kind>-<w1>-<w2>-<w3>-<w4>.md`, where the 4 words are filer-supplied via `gw work file --slug-words` (falling back to the first 4 words of the title when omitted); children filed under a parent epic get `epic-<kind>` instead of `<kind>`. No migration — pre-existing pages keep their old `<YYYY-MM-DD>-<short-slug>.md` filenames.
 

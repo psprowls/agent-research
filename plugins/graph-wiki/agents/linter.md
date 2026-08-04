@@ -56,7 +56,7 @@ Any of the last five may fail-soft as `{"error": "<msg>"}` — report the error 
 - **Stale claims** — are stale-flagged pages likely outdated by recent PRs or code changes?
 - **Concept gaps** — grep for concept-shaped phrases across 3+ pages without a dedicated page
 - **ADR chain health** — `supersedes:` / `superseded_by:` pointing to existing IDs; `status: deprecated` should have a reason
-- **Cross-reference gaps** — plain-text mentions of packages/domains/deps that should be wikilinks
+- **Cross-reference gaps** — plain-text mentions of packages/deps that should be wikilinks
 - **Index drift** — `index.md` vs. actual vault contents
 
 ### Pass 3 — Report
