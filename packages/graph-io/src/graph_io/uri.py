@@ -45,14 +45,6 @@ def domain_uri(ctx: RepoContext, name: str) -> str:
     return f"domain:{ctx.org}/{ctx.repo}/{name}"
 
 
-def resource_uri(ctx: RepoContext, name: str) -> str:
-    """Architecture resource (capability / backing service) URI.
-
-    Config-derived like domains; one node per `graph.resources` key.
-    """
-    return f"resource:{ctx.org}/{ctx.repo}/{name}"
-
-
 # agent_plugin entities are repo-scoped (a development artifact lives in a
 # specific repo), unlike the retired concept-level `plugin:{name}`.
 def agent_plugin_uri(ctx: RepoContext, name: str) -> str:
