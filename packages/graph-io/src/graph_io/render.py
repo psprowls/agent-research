@@ -4,7 +4,7 @@ Public formatter module for graph_io. Shared by graph-wiki-cli's gw graph
 modules and other graph-wiki surfaces without pulling CLI code back into graph-io.
 
 Per-kind formatters (format_package, format_app, format_path, format_repo,
-format_domain, format_entry_point, format_suite, format_dependency,
+format_entry_point, format_suite, format_dependency,
 format_builtin, format_agent_plugin, format_symbol, format_matches) extracted
 from the corresponding q_describe_*.py inline printers to form a single source
 of truth (D-02).
@@ -293,8 +293,6 @@ def _package_relationships(desc: Any) -> list[Rel]:
         rels.append(Rel("internal deps", "internal_dependencies", list(desc.internal_dependencies)))
     if desc.internal_dependents:
         rels.append(Rel("internal dependents", "internal_dependents", list(desc.internal_dependents)))
-    if desc.domains:
-        rels.append(Rel("domains", "domains", list(desc.domains)))
     if desc.entry_points:
         rels.append(Rel("entry_points", "entry_points", [ep.name for ep in desc.entry_points]))
     if desc.test_suites:
@@ -333,8 +331,6 @@ def format_package(
 def format_app(desc: Any, fmt: str, *, children: list[Any] | None = None, effective_depth: int | None = None) -> str:
     """Format an AppDescription on the sectioned spine (including app_kind and signals)."""
     rels: list[Rel] = []
-    if desc.domains:
-        rels.append(Rel("domains", "domains", list(desc.domains)))
     if desc.entry_points:
         rels.append(Rel("entry_points", "entry_points", [ep.name for ep in desc.entry_points]))
     if desc.test_suites:
@@ -418,40 +414,6 @@ def format_repo(desc: Any, fmt: str, *, children: list[Any] | None = None, effec
         attributes=attributes,
         relationships=[],
         nav=["gw graph list --kind package", "gw graph list --kind app"],
-        fmt=fmt,
-        children=children,
-        children_depth=effective_depth,
-    )
-
-
-def format_domain(
-    desc: Any,
-    packages: list[str],
-    subdomains: list[str],
-    fmt: str,
-    *,
-    children: list[Any] | None = None,
-    effective_depth: int | None = None,
-) -> str:
-    """Format a DomainDescription on the spine. packages/subdomains are fetched
-    by the caller (NOT on DomainDescription) — pass via queries.domain_members."""
-    attributes = [
-        Attr.scalar("parent", "parent", desc.parent),
-        Attr.scalar("description", "description", desc.description),
-    ]
-    rels: list[Rel] = []
-    if packages:
-        rels.append(Rel("packages", "packages", list(packages)))
-    if subdomains:
-        rels.append(Rel("subdomains", "subdomains", list(subdomains)))
-    return describe_block(
-        kind="domain",
-        name=desc.name,
-        identity_label="uri",
-        identity_value=desc.uri,
-        attributes=attributes,
-        relationships=rels,
-        nav=[f"gw graph domain-refs {desc.name}", f"gw graph domain-deps {desc.name}"],
         fmt=fmt,
         children=children,
         children_depth=effective_depth,
@@ -570,8 +532,6 @@ def format_symbol(desc: Any, fmt: str, *, children: list[Any] | None = None, eff
         attributes.append(Attr.scalar("tokens", "token_count", desc.token_count))
     if desc.package:
         attributes.append(Attr.scalar("package", "package", desc.package))
-    if desc.domain:
-        attributes.append(Attr.scalar("domain", "domain", desc.domain))
     rels: list[Rel] = []
     if desc.callers:
         rels.append(Rel("callers", "callers", [c.name for c in desc.callers]))

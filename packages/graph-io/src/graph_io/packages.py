@@ -339,7 +339,7 @@ def refresh(
         attrs: dict[str, Any] = {
             "version": info["version"],
             # Phase 56 D-06: SCAN-02 source — stored in attrs_json so wiki-io can
-            # read node.attrs["description"] uniformly across kinds (like domains).
+            # read node.attrs["description"] uniformly across kinds.
             # Empty when pyproject has no [project].description; the TODO fallback
             # is wiki-io's job (Plan 01), not synthesized here.
             "description": info.get("description", ""),

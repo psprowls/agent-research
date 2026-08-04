@@ -29,12 +29,11 @@ class DriftReport:
     newly_linked: (pkg_name, wiki_path) pairs for packages that gained a
         `documents` edge this run (didn't have one before).
     undocumented: package names with no `documents` edge after the run.
-        Includes packages with `ambiguous` wiki matches (multiple matches
-        across domain folders).
+        Includes packages with `ambiguous` wiki matches (multiple matches).
     stale: workspace-relative wiki paths whose `wiki_page` nodes were
         removed this run (file no longer exists on disk).
-    ambiguous: package names with multiple matching wiki paths across
-        different domain folders (glob collision). These are included in
+    ambiguous: package names with multiple matching wiki paths
+        (glob collision). These are included in
         `undocumented` but not linked.
     """
 

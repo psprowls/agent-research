@@ -14,24 +14,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from graph_io.schema import apply_schema  # noqa: E402
 
-# D7: domains now come from <workspace>/.graph-wiki.yaml (graph.domains), not a
-# repo-root domains.yaml. This restores the exact domain set the sample_monorepo
-# fixture defined pre-feature (core/web/presentation) into the workspace manifest.
-_SAMPLE_DOMAINS_MANIFEST = (
-    "version: 2\n"
-    "graph:\n"
-    "  domains:\n"
-    "    core:\n"
-    "      packages: [mypkg, pyutil]\n"
-    "      description: Core utilities domain\n"
-    "    web:\n"
-    "      packages: [jspkg, webutil]\n"
-    "      parent: presentation\n"
-    "    presentation:\n"
-    "      packages: []\n"
-    "      description: Top-level UI layer\n"
-)
-
 
 @pytest.fixture(scope="session", autouse=True)
 def _isolate_from_ambient_workspace():
@@ -67,7 +49,6 @@ def seeded_workspace(tmp_path_factory) -> Path:
     # for tests that do not need the seeded DB.
     from graph_io import update
     from workspace_io.config import resolve_workspace
-    from workspace_io.paths import manifest_path
 
     fixture_src = Path(__file__).parent / "fixtures" / "sample_monorepo"
     repo_root = tmp_path_factory.mktemp("queries_seed") / "repo"
@@ -84,11 +65,8 @@ def seeded_workspace(tmp_path_factory) -> Path:
     subprocess.run(["git", "add", "."], cwd=repo_root, check=True)
     subprocess.run(["git", "commit", "-q", "-m", "seeded_db init"], cwd=repo_root, check=True)
 
-    # D7: write the workspace manifest carrying graph.domains before update.run
-    # (resolve_workspace is pure; update.run does not create the manifest).
     ws = resolve_workspace(repo_root)
     ws.mkdir(parents=True, exist_ok=True)
-    manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
 
     update.run(repo_root, workspace=ws, full=True)
     return ws

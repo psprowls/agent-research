@@ -13,8 +13,7 @@ from typing import Iterable
 from source_parser.parse import parse_bytes
 from source_parser.projections.graph import to_graph_records
 from workspace_io.config import resolve as resolve_workspace
-from workspace_io.manifest import read_graph_domains
-from workspace_io.paths import graph_dir, manifest_path
+from workspace_io.paths import graph_dir
 
 from graph_io import _ignore, builtins, packages, resolve, schema, store, tokens, upsert
 from graph_io.uri import repo_uri
@@ -290,8 +289,6 @@ def _update_one_repo(
         # update).
         from graph_io import (  # noqa: PLC0415
             agent_plugins,
-            derived_edges,
-            domains,
             entry_points,
             structural_nodes,
             test_suites,
@@ -301,10 +298,7 @@ def _update_one_repo(
         agent_plugins.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
         entry_points.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
         test_suites.emit(conn, repo_root=repo_root, ctx=ctx, skip_dirs=skip_dirs)
-        domains_config = read_graph_domains(manifest_path(workspace))
-        domains.emit(conn, domains_config=domains_config, ctx=ctx)
         resolve.sweep_skip_dir_files(conn, skip_dirs)
-        derived_edges.compute(conn, repo_root=repo_root, ctx=ctx)
         # Repo stamp: claim every node this member produced that isn't already
         # owned. builtin / dependency nodes stay global (repo NULL).
         conn.execute(

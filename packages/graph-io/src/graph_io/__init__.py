@@ -7,7 +7,6 @@ open_reader / open_writer openers re-exported below.
 
 __version__ = "0.1.1"
 
-from graph_io.cluster import Cluster, ClusterResult, CrossCuttingHub
 from graph_io.handle import GraphReader, GraphStore, open_reader, open_writer
 from graph_io.queries import _VALID_KINDS as VALID_KINDS
 from graph_io.queries import (
@@ -17,7 +16,6 @@ from graph_io.queries import (
     CallRecord,
     ChildNode,
     DependencyDescription,
-    DomainDescription,
     EntryPointDescription,
     ExporterRecord,
     ExportRecord,
@@ -47,9 +45,6 @@ __all__ = [
     "GraphNotInitializedError",
     "SchemaMismatchError",
     "SCHEMA_VERSION",
-    "Cluster",
-    "ClusterResult",
-    "CrossCuttingHub",
     "VALID_KINDS",
     "AgentPluginDescription",
     "AppDescription",
@@ -57,7 +52,6 @@ __all__ = [
     "CallRecord",
     "ChildNode",
     "DependencyDescription",
-    "DomainDescription",
     "EntryPointDescription",
     "ExporterRecord",
     "ExportRecord",

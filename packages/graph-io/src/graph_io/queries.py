@@ -13,7 +13,6 @@ from dataclasses import dataclass, field
 _CLI_KIND = {
     "package": "package",
     "app": "app",
-    "domain": "domain",
     "dependency": "dependency",
     "test_suite": "suite",
     "agent_plugin": "agent-plugin",
@@ -51,7 +50,6 @@ _VALID_KINDS = frozenset(
         "subpackage",
         "entry_point",
         "test_suite",
-        "domain",
         # Phase 43 (v1.8): admitted entity kinds for the wiki entity writer.
         "dependency",
         # agent-plugin entity: a claude-code plugin under development in this repo.
@@ -84,21 +82,6 @@ _NON_TEST_FILTER = (
     "AND f.path = {alias}.path "
     "AND json_extract(f.attrs_json, '$.is_test') = 1)"
 )
-
-# Recursive CTE: yields the id of the named Domain and every descendant
-# reachable via `domain_contains_domain` edges. The first ?-parameter is the
-# domain name. `UNION` (not `UNION ALL`) provides defence-in-depth against a
-# `domain_contains_domain` cycle — Phase 31 D-15 guarantees acyclicity, but
-# explicit dedup costs nothing at the bounded sizes we expect.
-_DOMAIN_DESCENDANTS_CTE = """
-WITH RECURSIVE descendants(id) AS (
-    SELECT id FROM nodes WHERE name = ? AND kind = 'domain'
-    UNION
-    SELECT e.dst FROM edges e
-    JOIN descendants d ON e.src = d.id
-    WHERE e.kind = 'domain_contains_domain'
-)
-"""
 
 
 @dataclass(frozen=True)
@@ -152,7 +135,6 @@ class SymbolDescription:
     path: str | None
     line: int | None
     package: str | None
-    domain: str | None
     exported_from: str | None
     token_count: int | None = None
     callers: list[CallRecord] = field(default_factory=list)
@@ -173,14 +155,6 @@ class RepoDescription:
     url: str | None
     default_branch: str | None
     package_count: int
-
-
-@dataclass(frozen=True)
-class DomainDescription:
-    name: str
-    uri: str
-    parent: str | None
-    description: str | None
 
 
 @dataclass(frozen=True)
@@ -208,7 +182,6 @@ class PackageDescription:
     version: str
     files: list[str]
     counts: dict[str, int]
-    domains: list[str] = field(default_factory=list)
     entry_points: list[EntryPointDescription] = field(default_factory=list)
     test_suites: list[SuiteDescription] = field(default_factory=list)
     # Phase 55 D-08: both directions of the depends_on_package edge.
@@ -232,7 +205,6 @@ class AppDescription:
     app_signals: list[str]
     files: list[str]
     counts: dict[str, int]
-    domains: list[str] = field(default_factory=list)
     entry_points: list[EntryPointDescription] = field(default_factory=list)
     test_suites: list[SuiteDescription] = field(default_factory=list)
 
@@ -492,7 +464,7 @@ def build_menu(conn: sqlite3.Connection, matches: list[NodeRecord]) -> list[Matc
             eco = m.attrs.get("ecosystem", "")
             command = f"gw graph describe {m.name} --kind dependency --ecosystem {eco}"
         else:
-            # Path-less entities (package, app, domain, suite, agent_plugin,
+            # Path-less entities (package, app, suite, agent_plugin,
             # entry_point) resolve by name under their explicit kind.
             command = f"gw graph describe {m.name} --kind {cli_kind}"
         out.append(MatchRecord(kind=m.kind, address=address, command=command))
@@ -516,18 +488,6 @@ def containing_package(conn: sqlite3.Connection, *, path: str) -> str | None:
         "WHERE p.kind IN ('package', 'app') AND f.path = ? "
         "LIMIT 1",
         (path,),
-    ).fetchone()
-    return row[0] if row else None
-
-
-def _first_domain_of_package(conn: sqlite3.Connection, *, package: str) -> str | None:
-    row = conn.execute(
-        "SELECT d.name FROM edges e "
-        "JOIN nodes p ON e.src = p.id "
-        "JOIN nodes d ON e.dst = d.id "
-        "WHERE e.kind='belongs_to_domain' AND p.kind='package' AND p.name = ? "
-        "ORDER BY d.name LIMIT 1",
-        (package,),
     ).fetchone()
     return row[0] if row else None
 
@@ -575,7 +535,6 @@ def describe_symbol(
     node_attrs = json.loads(attrs_json) if attrs_json else {}
 
     package = containing_package(conn, path=node_path) if node_path else None
-    domain = _first_domain_of_package(conn, package=package) if package else None
     exporters = exported_by(conn, name=db_name)
     exported_from = exporters[0].path if exporters else None
     return SymbolDescription(
@@ -584,7 +543,6 @@ def describe_symbol(
         path=node_path,
         line=node_line,
         package=package,
-        domain=domain,
         exported_from=exported_from,
         token_count=node_attrs.get("token_count"),
         callers=callers(conn, name=db_name, depth=1),
@@ -717,18 +675,6 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
         ).fetchall()
         counts = {kind: count for kind, count in rows}
 
-    # Domains the package belongs to (D-01)
-    domain_rows = conn.execute(
-        "SELECT d.name FROM edges e "
-        "JOIN nodes p ON e.src = p.id "
-        "JOIN nodes d ON e.dst = d.id "
-        "WHERE e.kind='belongs_to_domain' "
-        "AND p.kind='package' AND p.name = ? "
-        "ORDER BY d.name",
-        (name,),
-    ).fetchall()
-    domain_names = [r[0] for r in domain_rows]
-
     # EntryPoints declared by the package
     ep_rows = conn.execute(
         "SELECT ep.name, ep.uri, ep.attrs_json, f.path "
@@ -792,7 +738,6 @@ def describe_package(conn: sqlite3.Connection, *, name: str) -> PackageDescripti
         version=attrs.get("version", ""),
         files=file_paths,
         counts=counts,
-        domains=domain_names,
         entry_points=entry_points,
         test_suites=test_suites,
         internal_dependencies=internal_dependencies,
@@ -860,18 +805,6 @@ def describe_app(conn: sqlite3.Connection, *, name: str) -> AppDescription | Non
         ).fetchall()
         counts = {kind: count for kind, count in rows}
 
-    # Domain memberships — App nodes belong to domains the same way packages do.
-    domain_rows = conn.execute(
-        "SELECT d.name FROM edges e "
-        "JOIN nodes p ON e.src = p.id "
-        "JOIN nodes d ON e.dst = d.id "
-        "WHERE e.kind='belongs_to_domain' "
-        "AND p.kind='app' AND p.name = ? "
-        "ORDER BY d.name",
-        (name,),
-    ).fetchall()
-    domain_names = [r[0] for r in domain_rows]
-
     # EntryPoints declared by the App.
     ep_rows = conn.execute(
         "SELECT ep.name, ep.uri, ep.attrs_json, f.path "
@@ -912,7 +845,6 @@ def describe_app(conn: sqlite3.Connection, *, name: str) -> AppDescription | Non
         app_signals=list(attrs.get("app_signals") or []),
         files=file_paths,
         counts=counts,
-        domains=domain_names,
         entry_points=entry_points,
         test_suites=test_suites,
     )
@@ -991,34 +923,6 @@ def describe_repository(conn: sqlite3.Connection) -> RepoDescription | None:
     )
 
 
-def describe_domain(conn: sqlite3.Connection, *, name: str) -> DomainDescription | None:
-    """Return the named Domain's description, or None if not found.
-
-    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
-    """
-    row = conn.execute(
-        "SELECT id, name, uri, attrs_json FROM nodes WHERE kind='domain' AND name = ?",
-        (name,),
-    ).fetchone()
-    if not row:
-        return None
-    dom_id, dom_name, uri, attrs_json = row
-    attrs = json.loads(attrs_json) if attrs_json else {}
-    parent_row = conn.execute(
-        "SELECT p.name FROM edges e "
-        "JOIN nodes p ON e.src = p.id "
-        "WHERE e.kind='domain_contains_domain' AND e.dst = ? "
-        "LIMIT 1",
-        (dom_id,),
-    ).fetchone()
-    return DomainDescription(
-        name=dom_name,
-        uri=uri or "",
-        parent=parent_row[0] if parent_row else None,
-        description=attrs.get("description"),
-    )
-
-
 def describe_entry_point(
     conn: sqlite3.Connection,
     *,
@@ -1045,33 +949,9 @@ def describe_entry_point(
     return _load_entry_point_description(row)
 
 
-def domain_members(conn: sqlite3.Connection, name: str) -> tuple[list[str], list[str]]:
-    """Return (packages, subdomains) for a domain, ordered by name.
-
-    Shared by the CLI describer, core run_describe, and cg_describe so the
-    membership SQL has one home (previously triplicated)."""
-    pkg_rows = conn.execute(
-        "SELECT p.name FROM edges e "
-        "JOIN nodes p ON e.src = p.id "
-        "JOIN nodes d ON e.dst = d.id "
-        "WHERE e.kind='belongs_to_domain' AND d.kind='domain' AND d.name = ? "
-        "ORDER BY p.name",
-        (name,),
-    ).fetchall()
-    sub_rows = conn.execute(
-        "SELECT c.name FROM edges e "
-        "JOIN nodes c ON e.dst = c.id "
-        "JOIN nodes p ON e.src = p.id "
-        "WHERE e.kind='domain_contains_domain' AND p.kind='domain' AND p.name = ? "
-        "ORDER BY c.name",
-        (name,),
-    ).fetchall()
-    return [r[0] for r in pkg_rows], [r[0] for r in sub_rows]
-
-
 # Container kinds show one level of containment by default; structural/symbol
 # kinds show two so the first describe already reaches into the symbol level.
-_CONTAINER_KINDS = frozenset({"repository", "package", "app", "domain"})
+_CONTAINER_KINDS = frozenset({"repository", "package", "app"})
 
 
 def default_child_depth(kind: str) -> int:
@@ -1143,20 +1023,6 @@ _ENTRY_POINTS_SQL = (
     "ORDER BY ep.name"
 )
 
-_SUBDOMAINS_SQL = (
-    "SELECT d.id, d.kind, d.uri, d.path, d.line, d.name "
-    "FROM edges e JOIN nodes d ON e.dst = d.id "
-    "WHERE e.src = ? AND e.kind = 'domain_contains_domain' AND d.kind = 'domain' "
-    "ORDER BY d.name"
-)
-
-_DOMAIN_PACKAGES_SQL = (
-    "SELECT p.id, p.kind, p.uri, p.path, p.line, p.name "
-    "FROM edges e JOIN nodes p ON e.src = p.id "
-    "WHERE e.dst = ? AND e.kind = 'belongs_to_domain' AND p.kind IN ('package','app') "
-    "ORDER BY p.name"
-)
-
 
 def _direct_children(
     conn: sqlite3.Connection, node_id: int, kind: str
@@ -1164,9 +1030,9 @@ def _direct_children(
     """Kind-dispatched direct children as raw rows (id, kind, uri, path, line, name).
 
     Container/structural kinds descend `physically_contains`; symbol nesting
-    descends `contains`; test_suites/entry_points/domain members come from
-    their dedicated edges. External deps/domains are intentionally excluded
-    (they live in the `relationships` section). Returns [] for leaf kinds.
+    descends `contains`; test_suites/entry_points come from their dedicated
+    edges. External deps are intentionally excluded (they live in the
+    `relationships` section). Returns [] for leaf kinds.
     """
     if kind == "repository":
         return conn.execute(_phys_children_sql(("package", "app")), (node_id,)).fetchall()
@@ -1177,10 +1043,6 @@ def _direct_children(
         return rows
     if kind == "subpackage":
         return conn.execute(_phys_children_sql(("subpackage", "file")), (node_id,)).fetchall()
-    if kind == "domain":
-        rows = list(conn.execute(_SUBDOMAINS_SQL, (node_id,)).fetchall())
-        rows += conn.execute(_DOMAIN_PACKAGES_SQL, (node_id,)).fetchall()
-        return rows
     if kind == "test_suite":
         return conn.execute(_phys_children_sql(("file",)), (node_id,)).fetchall()
     if kind == "file":
@@ -1406,11 +1268,6 @@ def list_entry_points(conn: sqlite3.Connection) -> list[NodeRecord]:
 def list_test_suites(conn: sqlite3.Connection) -> list[NodeRecord]:
     """List all TestSuite nodes alphabetically. `conn` must be read-only."""
     return _list_by_kind(conn, "test_suite")
-
-
-def list_domains(conn: sqlite3.Connection) -> list[NodeRecord]:
-    """List all Domain nodes alphabetically. `conn` must be read-only."""
-    return _list_by_kind(conn, "domain")
 
 
 def list_dependencies(conn: sqlite3.Connection) -> list[NodeRecord]:
@@ -1642,142 +1499,6 @@ def entry_points_for_package(conn: sqlite3.Connection, *, package_name: str) -> 
     return [_load_entry_point_description(r) for r in rows]
 
 
-def tests_for_domain(conn: sqlite3.Connection, *, domain_name: str) -> list[SuiteDescription]:
-    """Return TestSuites covering the domain or any descendant.
-
-    D-09 UNION:
-      (a) direct `TestSuite -> Domain` edge (Phase 31 D-12 single-domain).
-      (b) indirect via `TestSuite -> Package -> belongs_to_domain`
-          (Phase 31 D-13 multi-domain inferred at query time).
-
-    `conn` must be a `sqlite3.Connection` opened with `mode=ro`.
-    """
-    sql = (
-        _DOMAIN_DESCENDANTS_CTE
-        + """
-        SELECT ts_name, ts_uri, ts_attrs, fc FROM (
-            SELECT ts.id AS ts_id, ts.name AS ts_name, ts.uri AS ts_uri,
-                   ts.attrs_json AS ts_attrs,
-                   (SELECT COUNT(*) FROM edges pc
-                    WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc
-            FROM edges e
-            JOIN descendants d ON e.dst = d.id
-            JOIN nodes ts ON e.src = ts.id
-            WHERE e.kind='tests' AND ts.kind='test_suite'
-            UNION
-            SELECT ts.id AS ts_id, ts.name AS ts_name, ts.uri AS ts_uri,
-                   ts.attrs_json AS ts_attrs,
-                   (SELECT COUNT(*) FROM edges pc
-                    WHERE pc.src = ts.id AND pc.kind='physically_contains') AS fc
-            FROM edges st
-            JOIN nodes p ON st.dst = p.id AND p.kind='package'
-            JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain'
-            JOIN descendants d ON bt.dst = d.id
-            JOIN nodes ts ON st.src = ts.id
-            WHERE st.kind='tests' AND ts.kind='test_suite'
-        )
-        ORDER BY ts_name
-    """
-    )
-    rows = conn.execute(sql, (domain_name,)).fetchall()
-    return [_load_suite_description(r) for r in rows]
-
-
-def domain_references(conn: sqlite3.Connection, *, domain_name: str) -> list[tuple[str, int, int]]:
-    """Bubble-up package references from the domain + its descendants.
-
-    Returns rows of `(package_name, total_usage_count, distinct_domain_count)`
-    ordered by total_usage_count DESC then package_name ASC. `conn` must be
-    a `sqlite3.Connection` opened with `mode=ro`.
-    """
-    sql = (
-        _DOMAIN_DESCENDANTS_CTE
-        + """
-        SELECT n.name,
-               COALESCE(SUM(CAST(
-                 json_extract(e.attrs_json, '$.usage_count') AS INTEGER
-               )), 0) AS total_usage,
-               COUNT(DISTINCT e.src) AS distinct_domains
-        FROM edges e
-        JOIN descendants d ON e.src = d.id
-        JOIN nodes n ON e.dst = n.id
-        WHERE e.kind='references' AND n.kind='package'
-        GROUP BY n.name
-        ORDER BY total_usage DESC, n.name ASC
-    """
-    )
-    rows = conn.execute(sql, (domain_name,)).fetchall()
-    return [(r[0], int(r[1] or 0), int(r[2] or 0)) for r in rows]
-
-
-def domain_depends_on(conn: sqlite3.Connection, *, domain_name: str) -> list[tuple[str, int]]:
-    """Bubble-up domain dependencies from the domain + its descendants.
-
-    Excludes self-loops (any descendant depending on any other descendant
-    of the same root) via `NOT IN (SELECT id FROM descendants)`. Returns
-    rows of `(target_domain_name, total_usage_count)` ordered by usage
-    DESC then name ASC. `conn` must be opened with `mode=ro`.
-    """
-    sql = (
-        _DOMAIN_DESCENDANTS_CTE
-        + """
-        SELECT n.name,
-               COALESCE(SUM(CAST(
-                 json_extract(e.attrs_json, '$.usage_count') AS INTEGER
-               )), 0) AS total_usage
-        FROM edges e
-        JOIN descendants d ON e.src = d.id
-        JOIN nodes n ON e.dst = n.id
-        WHERE e.kind='depends_on' AND n.kind='domain'
-        AND n.id NOT IN (SELECT id FROM descendants)
-        GROUP BY n.name
-        ORDER BY total_usage DESC, n.name ASC
-    """
-    )
-    rows = conn.execute(sql, (domain_name,)).fetchall()
-    return [(r[0], int(r[1] or 0)) for r in rows]
-
-
-def cross_cutting_packages(
-    conn: sqlite3.Connection,
-) -> list[tuple[PackageDescription, int]]:
-    """Packages with zero `belongs_to_domain` edges, ranked.
-
-    Ranked by SUM of `usage_count` across incoming `references` edges
-    (D-11). This is a deliberate divergence from ontology spec §11.4
-    ('ranked by incoming references count from distinct domains'): the
-    rendering choice prioritises 'how heavily depended on' over 'how
-    broadly depended on'. This is a query-layer rendering choice, NOT a
-    spec amendment — ONTOLOGY-SPEC.md stays as written.
-
-    Returns list of (PackageDescription, score) sorted by score
-    descending, ties broken alphabetically by package name (D-12).
-    `conn` must be opened with `mode=ro`.
-    """
-    rows = conn.execute(
-        "SELECT n.id, n.name, "
-        "COALESCE(SUM(CAST("
-        "  json_extract(e.attrs_json, '$.usage_count') AS INTEGER"
-        ")), 0) AS score "
-        "FROM nodes n "
-        "LEFT JOIN edges e ON e.dst = n.id AND e.kind='references' "
-        "WHERE n.kind='package' "
-        "AND NOT EXISTS ("
-        "  SELECT 1 FROM edges bt "
-        "  WHERE bt.src = n.id AND bt.kind='belongs_to_domain'"
-        ") "
-        "GROUP BY n.id, n.name "
-        "ORDER BY score DESC, n.name ASC"
-    ).fetchall()
-    out: list[tuple[PackageDescription, int]] = []
-    for _id, name, score in rows:
-        desc = describe_package(conn, name=name)
-        if desc is None:
-            continue  # defensive — shouldn't happen
-        out.append((desc, int(score or 0)))
-    return out
-
-
 # ============================================================================
 # CLI/core raw-SQL ports. Each function lifts the exact SQL from a non-wiki-io
 # call site VERBATIM (same columns/WHERE/ORDER BY/JSON extraction) so callers
@@ -1947,12 +1668,12 @@ def node_exists(conn: sqlite3.Connection, kind: str, name: str) -> bool:
 
 # ============================================================================
 # Entity-lookup + index-generation queries: name/path→entity resolution,
-# domain membership, consumer rollups. Callers keep application concerns
-# (single-vs-multi dispatch, warnings, ordering of returned tuples).
+# consumer rollups. Callers keep application concerns (single-vs-multi
+# dispatch, warnings, ordering of returned tuples).
 # ============================================================================
 
 # Entity-kind nodes worth a name-fallback match. File names are intentionally excluded.
-_ENTITY_KINDS = ("package", "class", "function", "method", "domain")
+_ENTITY_KINDS = ("package", "class", "function", "method")
 
 
 def package_for_file(conn: sqlite3.Connection, path: str) -> tuple[str, str] | None:
@@ -2011,63 +1732,6 @@ def package_or_app_by_dir(conn: sqlite3.Connection, path: str) -> tuple | None:
     return tuple(row) if row is not None else None
 
 
-def qualifying_domains(conn: sqlite3.Connection, *, kind: str, name: str, uri: str = "") -> set[str]:
-    """Return the set of domain names that qualify for this entity (D-04).
-
-    Per-kind logic:
-      - package/app:  direct `belongs_to_domain` edges (matched by `p.kind`/name).
-      - test_suite:   one-hop via `tests -> package -> belongs_to_domain`,
-                      resolved by `ts.uri` (DISTINCT, ORDER BY d.name).
-      - dependency:   one-hop via `used_by -> package -> belongs_to_domain`,
-                      resolved by `dep.name` (DISTINCT, ORDER BY d.name).
-      - agent_plugin: always empty.
-    Raises ValueError for any other kind.
-    """
-    if kind in ("package", "app"):
-        rows = conn.execute(
-            "SELECT d.name FROM edges e "
-            "JOIN nodes p ON e.src = p.id "
-            "JOIN nodes d ON e.dst = d.id "
-            "WHERE e.kind='belongs_to_domain' "
-            "AND p.kind = ? AND p.name = ? "
-            "AND d.kind='domain' "
-            "ORDER BY d.name",
-            (kind, name),
-        ).fetchall()
-        return {r[0] for r in rows}
-    if kind == "test_suite":
-        rows = conn.execute(
-            "SELECT DISTINCT d.name FROM edges t "
-            "JOIN nodes ts ON t.src = ts.id "
-            "JOIN nodes p ON t.dst = p.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE t.kind='tests' "
-            "AND ts.kind='test_suite' AND ts.uri = ? "
-            "AND p.kind='package' AND d.kind='domain' "
-            "ORDER BY d.name",
-            (uri,),
-        ).fetchall()
-        return {r[0] for r in rows}
-    if kind == "dependency":
-        rows = conn.execute(
-            "SELECT DISTINCT d.name FROM edges u "
-            "JOIN nodes p ON u.src = p.id "
-            "JOIN nodes dep ON u.dst = dep.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE u.kind='used_by' "
-            "AND p.kind='package' AND dep.kind='dependency' AND dep.name = ? "
-            "AND d.kind='domain' "
-            "ORDER BY d.name",
-            (name,),
-        ).fetchall()
-        return {r[0] for r in rows}
-    if kind == "agent_plugin":
-        return set()
-    raise ValueError(f"Only app/package/test_suite/dependency/agent_plugin are placeable; got {kind!r}")
-
-
 def consumer_packages(
     conn: sqlite3.Connection,
     *,
@@ -2106,78 +1770,3 @@ def consumer_packages(
         ).fetchall()
         return tuple(r[0] for r in rows)
     return ()
-
-
-def consumer_packages_in_domain(
-    conn: sqlite3.Connection,
-    *,
-    kind: str,
-    entity_uri: str = "",
-    entity_name: str = "",
-    domain_name: str,
-) -> tuple[str, ...]:
-    """Package names in `domain_name` that consume/are-tested-by this entity (D-06).
-
-    Per-kind logic:
-      - dependency:  `used_by` consumers in domain, by `dep.name`
-                     (DISTINCT, ORDER BY p.name).
-      - test_suite:  `tests` packages in domain, by `ts.uri`
-                     (DISTINCT, ORDER BY p.name).
-    Any other kind returns `()`.
-    """
-    if kind == "dependency":
-        rows = conn.execute(
-            "SELECT DISTINCT p.name FROM edges u "
-            "JOIN nodes p ON u.src = p.id "
-            "JOIN nodes dep ON u.dst = dep.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE u.kind='used_by' AND p.kind='package' "
-            "AND dep.kind='dependency' AND dep.name = ? "
-            "AND d.kind='domain' AND d.name = ? "
-            "ORDER BY p.name",
-            (entity_name, domain_name),
-        ).fetchall()
-        return tuple(r[0] for r in rows)
-    if kind == "test_suite":
-        rows = conn.execute(
-            "SELECT DISTINCT p.name FROM edges t "
-            "JOIN nodes ts ON t.src = ts.id "
-            "JOIN nodes p ON t.dst = p.id "
-            "JOIN edges bt ON bt.src = p.id AND bt.kind='belongs_to_domain' "
-            "JOIN nodes d ON d.id = bt.dst "
-            "WHERE t.kind='tests' AND ts.kind='test_suite' AND ts.uri = ? "
-            "AND p.kind='package' AND d.kind='domain' AND d.name = ? "
-            "ORDER BY p.name",
-            (entity_uri, domain_name),
-        ).fetchall()
-        return tuple(r[0] for r in rows)
-    return ()
-
-
-def subdomains(conn: sqlite3.Connection, parent_name: str) -> list[str]:
-    """Return child domain names for `parent_name` (via `domain_contains_domain`), ordered by name."""
-    rows = conn.execute(
-        "SELECT child.name FROM edges e "
-        "JOIN nodes parent ON e.src = parent.id "
-        "JOIN nodes child ON e.dst = child.id "
-        "WHERE e.kind='domain_contains_domain' "
-        "AND parent.kind='domain' AND parent.name = ? "
-        "AND child.kind='domain' "
-        "ORDER BY child.name",
-        (parent_name,),
-    ).fetchall()
-    return [r[0] for r in rows]
-
-
-def is_top_level_domain(conn: sqlite3.Connection, name: str) -> bool:
-    """True if `name` has NO inbound `domain_contains_domain` edge."""
-    row = conn.execute(
-        "SELECT 1 FROM edges e "
-        "JOIN nodes child ON e.dst = child.id "
-        "WHERE e.kind='domain_contains_domain' "
-        "AND child.kind='domain' AND child.name = ? "
-        "LIMIT 1",
-        (name,),
-    ).fetchone()
-    return row is None

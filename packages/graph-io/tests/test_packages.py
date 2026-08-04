@@ -592,13 +592,13 @@ def test_kind_flip_preserves_inbound_edge_fk(tmp_path: Path, conn: sqlite3.Conne
     pkg_id = pkg_row[0]
 
     # Manually insert an inbound edge against the pkg row from a synthetic
-    # domain node (use _upsert_edge to also create the src domain node).
+    # test_suite node (use _upsert_edge to also create the src test_suite node).
     upsert._upsert_edge(
         conn,
         GraphEdge(
-            src=("domain", "billing", None),
+            src=("test_suite", "billing-tests", None),
             dst=("package", "myapp", "myapp"),
-            kind="belongs_to_domain",
+            kind="tests",
             attrs={},
         ),
     )

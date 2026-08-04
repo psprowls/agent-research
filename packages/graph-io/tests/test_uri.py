@@ -11,7 +11,6 @@ from graph_io.uri import (
     agent_plugin_uri,
     app_uri,
     dependency_uri,
-    domain_uri,
     entry_point_uri,
     file_uri,
     parse_remote_url,
@@ -62,12 +61,6 @@ def test_entry_point_uri() -> None:
 
 def test_test_suite_uri() -> None:
     assert _test_suite_uri(RepoContext("org", "repo"), "unit") == "test_suite:org/repo/unit"
-
-
-def test_domain_uri_with_ctx() -> None:
-    # Domain identity is repo-scoped per Phase 31 D-05.
-    ctx = RepoContext(org="acme", repo="repo")
-    assert domain_uri(ctx, "billing") == "domain:acme/repo/billing"
 
 
 def test_valid_kinds_excludes_package_family() -> None:

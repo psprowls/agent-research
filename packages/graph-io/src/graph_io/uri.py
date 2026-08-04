@@ -41,10 +41,6 @@ def test_suite_uri(ctx: RepoContext, suite_name: str) -> str:
     return f"test_suite:{ctx.org}/{ctx.repo}/{suite_name}"
 
 
-def domain_uri(ctx: RepoContext, name: str) -> str:
-    return f"domain:{ctx.org}/{ctx.repo}/{name}"
-
-
 # agent_plugin entities are repo-scoped (a development artifact lives in a
 # specific repo), unlike the retired concept-level `plugin:{name}`.
 def agent_plugin_uri(ctx: RepoContext, name: str) -> str:

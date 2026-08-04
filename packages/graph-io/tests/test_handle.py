@@ -61,7 +61,6 @@ def test_public_reexports_importable():
         "AppDescription",
         "PathDescription",
         "RepoDescription",
-        "DomainDescription",
         "EntryPointDescription",
         "SuiteDescription",
         "DependencyDescription",

@@ -4,7 +4,7 @@ Only ``graph-io`` may build the ``code.db`` path, open a connection to it, or
 run SQL against the code graph. Every other package reaches the graph through
 ``graph_io.open_reader`` / ``graph_io.open_writer`` and the re-exported handle
 API, record dataclasses, and error classes. The conn-level modules (``queries``,
-``upsert``, ``resolve``, ``store``, ``cluster``, ``sync_wiki``, ``schema``) are
+``upsert``, ``resolve``, ``store``, ``sync_wiki``, ``schema``) are
 graph-io-internal.
 
 This test walks every ``packages/*/src/**/*.py`` EXCEPT ``packages/graph-io/``
@@ -24,11 +24,10 @@ _FORBIDDEN_MODULES = {
     "graph_io.queries",
     "graph_io.upsert",
     "graph_io.resolve",
-    "graph_io.cluster",
     "graph_io.sync_wiki",
     "graph_io.schema",
 }
-_FORBIDDEN_NAMES = {"store", "queries", "upsert", "resolve", "cluster", "sync_wiki", "schema"}
+_FORBIDDEN_NAMES = {"store", "queries", "upsert", "resolve", "sync_wiki", "schema"}
 
 
 def _production_files():

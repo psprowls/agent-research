@@ -9,7 +9,7 @@ from graph_io.schema import apply_schema
 
 
 def test_default_child_depth_mapping() -> None:
-    for kind in ("repository", "package", "app", "domain"):
+    for kind in ("repository", "package", "app"):
         assert queries.default_child_depth(kind) == 1
     for kind in ("file", "class", "function", "method", "type", "test_suite", "subpackage"):
         assert queries.default_child_depth(kind) == 2
@@ -51,9 +51,8 @@ def test_package_or_app_depth1_direct_children(seeded_db: sqlite3.Connection) ->
     assert "subpackage" in child_kinds or "file" in child_kinds
     assert "test_suite" in child_kinds  # via incoming `tests`, not double-counted
     assert "entry_point" in child_kinds
-    # External dependency/domain are NOT children.
+    # External dependencies are NOT children.
     assert "dependency" not in child_kinds
-    assert "domain" not in child_kinds
     # test_suite count matches the `tests` edge count exactly (no physically_contains double-count).
     expected_suite_count = seeded_db.execute(
         "SELECT COUNT(*) FROM edges e JOIN nodes ts ON e.src=ts.id "

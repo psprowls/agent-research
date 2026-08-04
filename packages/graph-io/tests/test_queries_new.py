@@ -108,6 +108,6 @@ def test_node_exists(tmp_path: Path):
     store = _seed(tmp_path / "code.db")
     try:
         assert store.node_exists(kind="package", name="pkg") is True
-        assert store.node_exists(kind="domain", name="pkg") is False
+        assert store.node_exists(kind="package", name="nonexistent-pkg") is False
     finally:
         store.close()

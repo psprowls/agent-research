@@ -2,7 +2,7 @@
 
 This is the ONLY sanctioned way for code outside graph-io to read or write the
 code graph. The handle methods thin-delegate to the module-internal
-queries/upsert/resolve/cluster functions; callers never see a
+queries/upsert/resolve functions; callers never see a
 ``sqlite3.Connection`` or build the ``code.db`` path themselves.
 """
 
@@ -15,7 +15,7 @@ from typing import TYPE_CHECKING, Iterator
 
 from workspace_io.paths import graph_dir
 
-from graph_io import cluster, graphml, queries, resolve, store, upsert
+from graph_io import graphml, queries, resolve, store, upsert
 from graph_io.queries import MatchRecord, NodeRecord
 
 if TYPE_CHECKING:
@@ -71,9 +71,6 @@ class GraphReader:
     def describe_repository(self):
         return queries.describe_repository(self._conn)
 
-    def describe_domain(self, *, name):
-        return queries.describe_domain(self._conn, name=name)
-
     def describe_entry_point(self, *, package_name, entry_name):
         return queries.describe_entry_point(self._conn, package_name=package_name, entry_name=entry_name)
 
@@ -109,19 +106,6 @@ class GraphReader:
     def exported_by(self, *, name):
         return queries.exported_by(self._conn, name=name)
 
-    # --- domain relations ---
-    def domain_members(self, name):
-        return queries.domain_members(self._conn, name)
-
-    def tests_for_domain(self, *, domain_name):
-        return queries.tests_for_domain(self._conn, domain_name=domain_name)
-
-    def domain_references(self, *, domain_name):
-        return queries.domain_references(self._conn, domain_name=domain_name)
-
-    def domain_depends_on(self, *, domain_name):
-        return queries.domain_depends_on(self._conn, domain_name=domain_name)
-
     # --- trees / relations ---
     def children_tree(self, *, node, depth):
         return queries.children_tree(self._conn, node=node, depth=depth)
@@ -141,9 +125,6 @@ class GraphReader:
     def resolve_entry_point(self, raw):
         return queries.resolve_entry_point(self._conn, raw)
 
-    def cross_cutting_packages(self):
-        return queries.cross_cutting_packages(self._conn)
-
     # --- list_* ---
     def list_repositories(self):
         return queries.list_repositories(self._conn)
@@ -160,9 +141,6 @@ class GraphReader:
     def list_test_suites(self):
         return queries.list_test_suites(self._conn)
 
-    def list_domains(self):
-        return queries.list_domains(self._conn)
-
     def list_dependencies(self):
         return queries.list_dependencies(self._conn)
 
@@ -174,12 +152,6 @@ class GraphReader:
 
     def list_scripts(self):
         return queries.list_scripts(self._conn)
-
-    # --- domain clusters (delegate to graph_io.cluster) ---
-    def domain_clusters(self, *, hub_threshold=None):
-        if hub_threshold is None:
-            return cluster.compute_clusters(self._conn)
-        return cluster.compute_clusters(self._conn, hub_threshold=hub_threshold)
 
     # --- raw dump (ops_dump) ---
     def dump_sql(self) -> Iterator[str]:
@@ -230,28 +202,14 @@ class GraphReader:
     def package_for_file(self, *, path):
         return queries.package_for_file(self._conn, path)
 
-    def entity_by_name(self, *, name, kinds=("package", "class", "function", "method", "domain")):
+    def entity_by_name(self, *, name, kinds=("package", "class", "function", "method")):
         return queries.entity_by_name(self._conn, name, kinds)
 
     def package_or_app_by_dir(self, *, path):
         return queries.package_or_app_by_dir(self._conn, path)
 
-    def qualifying_domains(self, *, kind, name, uri=""):
-        return queries.qualifying_domains(self._conn, kind=kind, name=name, uri=uri)
-
     def consumer_packages(self, *, kind, entity_uri="", entity_name=""):
         return queries.consumer_packages(self._conn, kind=kind, entity_uri=entity_uri, entity_name=entity_name)
-
-    def consumer_packages_in_domain(self, *, kind, entity_uri="", entity_name="", domain_name):
-        return queries.consumer_packages_in_domain(
-            self._conn, kind=kind, entity_uri=entity_uri, entity_name=entity_name, domain_name=domain_name
-        )
-
-    def subdomains(self, parent_name):
-        return queries.subdomains(self._conn, parent_name)
-
-    def is_top_level_domain(self, name):
-        return queries.is_top_level_domain(self._conn, name)
 
 
 class GraphStore(GraphReader):

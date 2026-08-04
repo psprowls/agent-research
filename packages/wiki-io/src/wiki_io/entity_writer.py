@@ -774,8 +774,8 @@ def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
         "kind": kind,
     }
     # Phase 56 SCAN-02 (D-05): derive `summary` UNIFORMLY across kinds from the
-    # node's description (domains already carry one; packages/apps are populated
-    # by graph-io's Plan 04 change). Read defensively so this works even before
+    # node's description (packages/apps are populated by graph-io's Plan 04
+    # change). Read defensively so this works even before
     # that lands. D-03/D-12: an empty/absent description yields a visible TODO
     # marker, never an empty string — so every page ends with a non-empty
     # summary. NOTE: `summary` is intentionally a fill-when-empty key, NOT a
@@ -791,7 +791,6 @@ def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
         if d is not None:
             fm["language"] = d.language
             fm["version"] = d.version
-            fm["domains"] = list(d.domains)
             fm["test_suites"] = [s.name for s in d.test_suites]
             fm["entry_points"] = [e.name for e in d.entry_points]
     elif kind == "app":
@@ -803,7 +802,6 @@ def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
             # surfaced as data keys (D-06).
             fm["language"] = d.language
             fm["version"] = d.version
-            fm["domains"] = list(d.domains)
             fm["test_suites"] = [s.name for s in d.test_suites]
             fm["entry_points"] = [e.name for e in d.entry_points]
             fm["app_kind"] = d.app_kind

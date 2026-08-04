@@ -25,7 +25,6 @@ def test_render_module_has_all_format_functions() -> None:
         "format_package",
         "format_path",
         "format_repo",
-        "format_domain",
         "format_entry_point",
         "format_suite",
         "format_app",
@@ -69,7 +68,6 @@ def test_format_package_human_spine() -> None:
         version="1.0",
         files=["a.py", "b.py"],
         counts={"function": 2},
-        domains=["core"],
         entry_points=[],
         test_suites=[],
         internal_dependencies=["other"],
@@ -81,7 +79,6 @@ def test_format_package_human_spine() -> None:
     assert "  files:    2" in out
     assert "  counts:   2 functions" in out
     assert "  internal deps:" in out and "other" in out
-    assert "  domains:" in out and "core" in out
     # internal dependents empty → omitted as a relationship line
     assert "internal dependents:" not in out
     assert "→ gw graph what-tests mypkg" in out
@@ -97,7 +94,6 @@ def test_format_package_json_spine() -> None:
         version="1.0",
         files=["a.py"],
         counts={"function": 1},
-        domains=["core"],
         entry_points=[],
         test_suites=[],
         internal_dependencies=["other"],
@@ -110,7 +106,6 @@ def test_format_package_json_spine() -> None:
     assert parsed["attributes"]["files"] == 1
     assert parsed["attributes"]["counts"] == {"function": 1}
     assert parsed["relationships"]["internal_dependencies"] == ["other"]
-    assert parsed["relationships"]["domains"] == ["core"]
 
 
 def test_format_app_human_and_json() -> None:
@@ -124,7 +119,6 @@ def test_format_app_human_and_json() -> None:
         app_signals=["console_scripts"],
         files=["cli.py"],
         counts={"function": 3},
-        domains=[],
         entry_points=[],
         test_suites=[],
     )
@@ -227,22 +221,6 @@ def test_format_agent_plugin_spine() -> None:
     assert parsed["attributes"]["mcp_servers"] == 0
 
 
-def test_format_domain_spine() -> None:
-    from graph_io.queries import DomainDescription
-
-    desc = DomainDescription(name="core", uri="dom://core", parent=None, description="Core domain")
-    human = render.format_domain(desc, packages=["pkgA"], subdomains=[], fmt="human")
-    assert human.startswith("domain core\n  uri: dom://core")
-    assert "  parent:      (none)" in human
-    assert "  description: Core domain" in human
-    assert "  packages: pkgA" in human
-    assert "subdomains:" not in human  # empty relationship omitted
-    parsed = json.loads(render.format_domain(desc, packages=["pkgA", "pkgB"], subdomains=["sub"], fmt="json"))
-    assert parsed["uri"] == "dom://core"
-    assert parsed["relationships"]["packages"] == ["pkgA", "pkgB"]
-    assert parsed["relationships"]["subdomains"] == ["sub"]
-
-
 def test_format_entry_point_spine() -> None:
     from graph_io.queries import EntryPointDescription
 
@@ -286,7 +264,6 @@ def test_format_symbol_human_spine() -> None:
         path="foo/a.py",
         line=42,
         package="foo",
-        domain="ingest",
         exported_from="foo/__init__.py",
         token_count=99,
         callers=[CallRecord(name="run_scan", path="foo/a.py", line=1, depth=1)],
@@ -297,7 +274,6 @@ def test_format_symbol_human_spine() -> None:
     assert "  exported: yes (from foo/__init__.py)" in out
     assert "  tokens:" in out and "99" in out  # token_count attribute (Design decision 8)
     assert "  package:  foo" in out
-    assert "  domain:   ingest" in out
     assert "  callers: run_scan" in out
     assert "  callees: validate" in out
     assert "→ gw graph callers process --depth 3" in out
@@ -313,7 +289,6 @@ def test_format_symbol_graceful_omissions_spine() -> None:
         path="foo/a.py",
         line=5,
         package=None,
-        domain=None,
         exported_from=None,
         callers=[],
         callees=[],
@@ -335,7 +310,6 @@ def test_format_symbol_json_spine() -> None:
         line=3,
         token_count=15,
         package="p",
-        domain=None,
         exported_from=None,
         callers=[],
         callees=[],
