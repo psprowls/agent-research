@@ -260,13 +260,6 @@ def cross_cutting_cmd(ctx: typer.Context) -> None:
 # the group --repo/--fmt/--mode options.
 # --------------------------------------------------------------------------- #
 
-# suggest-resources is Bedrock-free, so register the core function directly.
-from graph_wiki_core.commands.suggest_resources import (  # noqa: E402
-    suggest_resources_cmd as _suggest_resources_cmd,
-)
-
-graph_app.command(name="suggest-resources")(_suggest_resources_cmd)
-
 # export is Bedrock-free, so register the core function directly.
 from graph_wiki_core.commands.graph import (  # noqa: E402
     export_graph_cmd as _export_graph_cmd,

@@ -50,11 +50,3 @@ def test_describe_list_consolidation_registry() -> None:
         assert gone not in commands, f"{gone} should have been removed"
     # Deliberate carve-out: entry-point listing stays its own command.
     assert "list-entry-points" in commands
-
-
-def test_propose_and_suggest_commands_reachable() -> None:
-    # propose-domains and suggest-resources live on the core graph_app; the gw
-    # CLI mounts its own graph_app, so they must be wired here too to be reachable.
-    commands = _command_names()
-    assert "propose-domains" in commands
-    assert "suggest-resources" in commands

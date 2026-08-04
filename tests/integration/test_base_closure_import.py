@@ -198,12 +198,12 @@ def test_graph_app_builds_without_propose_domains_in_base_closure() -> None:
     try/except ImportError (propose_domains.py is Bedrock-gated). In the base
     closure that import fails, so graph_app must still build — just without the
     propose-domains subcommand — while keeping its other subcommands (proven
-    here by suggest-resources, registered right after the guarded block)."""
+    here by export, registered unconditionally)."""
     code = (
         "from graph_wiki_core.commands.graph import graph_app\n"
         "names = sorted(c.name for c in graph_app.registered_commands)\n"
         "assert 'propose-domains' not in names, names\n"
-        "assert 'suggest-resources' in names, names\n"
+        "assert 'export' in names, names\n"
         "print('OK')\n"
     )
     result = _run_in_base_closure(code)

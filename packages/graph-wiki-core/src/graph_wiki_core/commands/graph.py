@@ -729,9 +729,3 @@ except ImportError:  # pragma: no cover — exercised by the base-closure import
     pass
 else:
     graph_app.command(name="propose-domains")(_propose_domains_cmd)
-
-from graph_wiki_core.commands.suggest_resources import (  # noqa: E402
-    suggest_resources_cmd as _suggest_resources_cmd,
-)
-
-graph_app.command(name="suggest-resources")(_suggest_resources_cmd)
