@@ -697,7 +697,6 @@ async def test_run_lint_model_override(tmp_path: Path) -> None:
                 "code_drift": {},
                 "file_map_drift": [],
                 "package_sync_drift": [],
-                "domain_placement": [],
                 "workflow_hints": [],
                 "concept_kind": [],
                 "dependency_layer": [],

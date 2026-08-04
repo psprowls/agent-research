@@ -54,7 +54,6 @@ def test_lint_result_dataclass_shape() -> None:
         "code_drift",
         "file_map_drift",
         "package_sync_drift",
-        "domain_placement",
         "workflow_hints",
         "semantic_findings",
         "errors",
@@ -191,7 +190,6 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
     from subagent_runtime.pool import FanOutResult
 
     mock_dependency = MagicMock(return_value=[])
-    mock_domain = MagicMock(return_value=[])
     mock_file_map = MagicMock(return_value=[])
     mock_package_sync = MagicMock(return_value=[])
     mock_workflow = MagicMock(return_value=[])
@@ -199,7 +197,6 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
     with (
         patch("graph_wiki_core.commands.lint.resolve_wiki_and_repo", return_value=(wiki, repo)),
         patch("graph_wiki_core.commands.lint_mechanical.check_dependency_layer", mock_dependency),
-        patch("graph_wiki_core.commands.lint_mechanical.check_domain_placement", mock_domain),
         patch("graph_wiki_core.commands.lint_mechanical.check_file_map_drift", mock_file_map),
         patch("graph_wiki_core.commands.lint_mechanical.check_package_sync_drift", mock_package_sync),
         patch("graph_wiki_core.commands.lint_mechanical.check_workflow_hints", mock_workflow),
@@ -211,7 +208,6 @@ async def test_run_lint_calls_all_module_check_functions(tmp_path: Path) -> None
         await run_lint(workspace_path=wiki)
 
     assert mock_dependency.called, "check_dependency_layer not called"
-    assert mock_domain.called, "check_domain_placement not called"
     assert mock_file_map.called, "check_file_map_drift not called"
     assert mock_package_sync.called, "check_package_sync_drift not called"
     assert mock_workflow.called, "check_workflow_hints not called"
@@ -657,7 +653,6 @@ async def test_run_lint_fail_soft_error_dicts_escalate_into_errors(tmp_path: Pat
         "code_drift": {"skipped": True},
         "file_map_drift": [],
         "package_sync_drift": [],
-        "domain_placement": [],
         "workflow_hints": [],
         "concept_kind": [],
         "dependency_layer": [],

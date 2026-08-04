@@ -3,7 +3,7 @@
 scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None)
 aggregates the canonical mechanical pass (wiki_io.lint_wiki.mechanical_scan)
 with the code-drift block (heuristic package walk + exports drift), the
-per-group drift checks (file_map, package_sync, domain_placement,
+per-group drift checks (file_map, package_sync,
 workflow_hints, concept_kind), the optional ``dependency_layer`` group, and
 the fail-soft parity wrappers (guidance lint, work lifecycle, obsidian
 render, scanner heading drift). print_report(r) renders the report.
@@ -25,7 +25,6 @@ from pathlib import Path
 
 from wiki_io.lint.concept_kind import check as check_concept_kind
 from wiki_io.lint.dependency import check as check_dependency_layer
-from wiki_io.lint.domain import check as check_domain_placement
 from wiki_io.lint.file_map import check as check_file_map_drift
 from wiki_io.lint.obsidian_render import check as check_obsidian_render
 from wiki_io.lint.package_sync import check as check_package_sync_drift
@@ -171,7 +170,6 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None, i
 
     package_sync_drift = check_package_sync_drift(repo_path, wiki) if repo_path else _SKIPPED
 
-    domain_placement = check_domain_placement(pages)
     workflow_hints_issues = check_workflow_hints(pages, workspace)
     concept_kind_issues = check_concept_kind(pages, wiki)
 
@@ -248,7 +246,6 @@ def scan(wiki, stale_days, log_gap_days, repo_path=None, optional_checks=None, i
         "code_drift": code_drift,
         "file_map_drift": file_map_drift,
         "package_sync_drift": package_sync_drift,
-        "domain_placement": domain_placement,
         "dependency_layer": dependency_layer,
         "workflow_hints": workflow_hints_issues,
         "concept_kind": concept_kind_issues,
@@ -356,12 +353,6 @@ def print_report(r):
         header("package sync drift", len(psd))
         for issue in psd[:20]:
             print(f"   - {issue}")
-    print()
-
-    dplace = r.get("domain_placement", [])
-    header("domain placement issues", len(dplace))
-    for issue in dplace[:20]:
-        print(f"   - {issue}")
     print()
 
     wh = r.get("workflow_hints", [])

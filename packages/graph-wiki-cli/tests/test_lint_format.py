@@ -22,7 +22,6 @@ def _blank_result(**over):
         log_gap=None,
         file_map_drift=[],
         package_sync_drift=[],
-        domain_placement=[],
         workflow_hints=[],
         concept_kind=[],
         scanner_heading_drift=[],

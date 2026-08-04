@@ -53,7 +53,6 @@ def format_wiki_lint(result: Any) -> list[str]:
 
     _section("File map drift", result.file_map_drift)
     _section("Package sync drift", result.package_sync_drift)
-    _section("Domain placement", result.domain_placement)
     _section("Workflow hints", result.workflow_hints)
     _section("Concept kinds", result.concept_kind)
     _section("Scanner heading drift", result.scanner_heading_drift)

@@ -421,7 +421,6 @@ class WikiLintOutput(BaseModel):
     code_drift: dict
     file_map_drift: list[str]
     package_sync_drift: list[str]
-    domain_placement: list[str]
     workflow_hints: list[str]
     concept_kind: list[str]
     dependency_layer: list[str] | None
@@ -462,7 +461,6 @@ async def wiki_lint(input: WikiLintInput, ctx: Context) -> WikiLintOutput:
         code_drift=result.code_drift,
         file_map_drift=result.file_map_drift,
         package_sync_drift=result.package_sync_drift,
-        domain_placement=result.domain_placement,
         workflow_hints=result.workflow_hints,
         concept_kind=result.concept_kind,
         dependency_layer=result.dependency_layer,

@@ -10,7 +10,7 @@ The whole-wiki aggregation that consumes it (scan/print_report — code drift,
 per-group drift checks, fail-soft parity wrappers) lives in
 graph_wiki_core.commands.lint_mechanical, the single lint aggregator shared
 by ``gw lint`` and the plugin lint script. Per-group checks live under
-``lint/`` (``file_map``, ``domain``, ``package_sync``, ...), each exposing a
+``lint/`` (``file_map``, ``package_sync``, ...), each exposing a
 ``check(...)`` entry point.
 
 Import-only library module; delivery surfaces pass resolved wiki paths.

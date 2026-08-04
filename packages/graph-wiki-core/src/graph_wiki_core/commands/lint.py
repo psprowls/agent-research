@@ -83,7 +83,6 @@ class LintResult:
     code_drift: dict = field(default_factory=lambda: _SKIPPED.copy())
     file_map_drift: list[str] = field(default_factory=list)
     package_sync_drift: list[str] = field(default_factory=list)
-    domain_placement: list[str] = field(default_factory=list)
     workflow_hints: list[str] = field(default_factory=list)
     concept_kind: list[str] = field(default_factory=list)
     dependency_layer: list[str] | None = None
@@ -320,7 +319,6 @@ async def run_lint(
         code_drift=report["code_drift"],
         file_map_drift=report["file_map_drift"],
         package_sync_drift=report["package_sync_drift"],
-        domain_placement=report["domain_placement"],
         workflow_hints=report["workflow_hints"],
         concept_kind=report["concept_kind"],
         dependency_layer=report["dependency_layer"],

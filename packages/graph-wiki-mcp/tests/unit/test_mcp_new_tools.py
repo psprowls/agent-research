@@ -298,7 +298,6 @@ async def test_wiki_lint_emits_progress() -> None:
         code_drift={"skipped": True},
         file_map_drift=[],
         package_sync_drift=[],
-        domain_placement=[],
         workflow_hints=[],
         dependency_layer=None,
         semantic_findings={"page_quality": [], "adr_chain": [], "stale_claims": []},

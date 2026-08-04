@@ -1,4 +1,4 @@
-"""Tests for the 7 ported lint mechanical modules.
+"""Tests for the 6 ported lint mechanical modules.
 
 Verifies: importability, GROUP constants, and that check() returns a list
 when invoked against fixture vaults. Finding-count parity with lattice-wiki-core
@@ -13,7 +13,6 @@ from pathlib import Path
 
 from wiki_io.lint import (
     dependency,
-    domain,
     file_map,
     package_sync,
     workflow_hints,
@@ -24,13 +23,12 @@ EDGE_CASE_VAULT = FIXTURES / "edge-case-vault"
 
 EXPECTED_GROUPS = {
     "dependency_layer",
-    "domain",
     "file_map",
     "package_sync",
     "workflow_hints",
 }
 
-ALL_MODULES = [dependency, domain, file_map, package_sync, workflow_hints]
+ALL_MODULES = [dependency, file_map, package_sync, workflow_hints]
 
 
 def _load_pages(wiki: Path) -> dict:
@@ -80,13 +78,6 @@ def test_dependency_check_returns_list() -> None:
     """dependency.check(pages) returns a list."""
     pages = _load_pages(EDGE_CASE_VAULT)
     result = dependency.check(pages)
-    assert isinstance(result, list), f"Expected list, got {type(result)}"
-
-
-def test_domain_check_returns_list() -> None:
-    """domain.check(pages) returns a list."""
-    pages = _load_pages(EDGE_CASE_VAULT)
-    result = domain.check(pages)
     assert isinstance(result, list), f"Expected list, got {type(result)}"
 
 

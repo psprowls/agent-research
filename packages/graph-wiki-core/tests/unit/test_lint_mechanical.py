@@ -59,7 +59,6 @@ def test_lint_wiki_scan_runs_on_fixture_vault(tmp_path: Path) -> None:
         "code_drift",
         "file_map_drift",
         "package_sync_drift",
-        "domain_placement",
         "dependency_layer",
         "workflow_hints",
         "concept_kind",
