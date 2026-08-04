@@ -449,15 +449,11 @@ class TestRenderDirectEntities:
         spec = {
             "nodes": [
                 ("repository", "agent-research", {"uri": "repo:agent-research"}),
-                ("domain", "d1", {"uri": "domain:d1"}),
-                ("domain", "d2", {"uri": "domain:d2"}),
                 ("package", "pkg-1", {"uri": "pkg:pkg-1"}),
                 ("package", "pkg-2", {"uri": "pkg:pkg-2"}),
                 ("test_suite", "suite", {"uri": "test_suite:suite"}),
             ],
             "edges": [
-                ("package", "pkg-1", "domain", "d1", "belongs_to_domain", {}),
-                ("package", "pkg-2", "domain", "d2", "belongs_to_domain", {}),
                 ("test_suite", "suite", "package", "pkg-1", "tests", {}),
                 ("test_suite", "suite", "package", "pkg-2", "tests", {}),
             ],
@@ -466,8 +462,8 @@ class TestRenderDirectEntities:
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
-        # No flat `### Test Suites` group. The multi-domain suite nests under
-        # both pkg-1 (domain d1) and pkg-2 (domain d2) per D-10.
+        # No flat `### Test Suites` group. A suite tested by multiple packages
+        # nests under each consuming package per D-10.
         assert "### Test Suites" not in text
         assert "  - Test Suites" in text
         assert text.count("[[entities/tests_suite|suite]]") == 2
@@ -582,13 +578,11 @@ def _build_realistic_graph_spec():
     return {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
-            ("domain", "billing", {"uri": "domain:agent-research/billing"}),
             ("package", "pkg-a", {"uri": "pkg:agent-research/pkg-a"}),
             ("package", "pkg-b", {"uri": "pkg:agent-research/pkg-b"}),
             ("package", "pkg-c", {"uri": "pkg:agent-research/pkg-c"}),
             ("package", "pkg-d", {"uri": "pkg:agent-research/pkg-d"}),
-            ("package", "pkg-cross", {"uri": "pkg:agent-research/pkg-cross"}),  # zero domains
+            ("package", "pkg-cross", {"uri": "pkg:agent-research/pkg-cross"}),
             ("test_suite", "suite-a", {"uri": "test_suite:agent-research/pkg-a/unit"}),
             ("test_suite", "suite-b", {"uri": "test_suite:agent-research/pkg-b/unit"}),
             ("test_suite", "suite-multi", {"uri": "test_suite:agent-research/cross/integration"}),
@@ -599,10 +593,6 @@ def _build_realistic_graph_spec():
             ("agent_plugin", "graph-wiki", {"ecosystem": "claude-code", "uri": "agent_plugin:o/r/graph-wiki"}),
         ],
         "edges": [
-            ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ("package", "pkg-b", "domain", "core", "belongs_to_domain", {}),
-            ("package", "pkg-c", "domain", "billing", "belongs_to_domain", {}),
-            ("package", "pkg-d", "domain", "billing", "belongs_to_domain", {}),
             ("test_suite", "suite-a", "package", "pkg-a", "tests", {}),
             ("test_suite", "suite-b", "package", "pkg-b", "tests", {}),
             ("test_suite", "suite-multi", "package", "pkg-a", "tests", {}),
@@ -672,7 +662,6 @@ def test_write_if_changed_writes_when_graph_mutates(tmp_path, make_index_fixture
     assert r1.changed is True
 
     spec["nodes"].append(("package", "pkg-new", {"uri": "pkg:agent-research/pkg-new"}))
-    spec["edges"].append(("package", "pkg-new", "domain", "core", "belongs_to_domain", {}))
     conn2 = make_index_fixture_graph(spec)
 
     r2 = generate_index(conn2, wiki_root)
@@ -907,14 +896,11 @@ def test_internal_dependencies_subsection_distinct_from_dependencies(tmp_path, m
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
             ("package", "consumer", {"uri": "pkg:agent-research/consumer"}),
             ("package", "target", {"uri": "pkg:agent-research/target"}),
             ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
         ],
         "edges": [
-            ("package", "consumer", "domain", "core", "belongs_to_domain", {}),
-            ("package", "target", "domain", "core", "belongs_to_domain", {}),
             # external dep: consumer uses boto3
             ("package", "consumer", "dependency", "boto3", "used_by", {}),
             # internal dep: consumer depends on the target workspace package
@@ -990,10 +976,6 @@ def _make_fanout_fixture() -> sqlite3.Connection:
     # Insert nodes directly to allow two 'tests'-named suite rows
     conn.execute(
         "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
-        ("domain", "d1", "", None, "{}", "domain:d1"),
-    )
-    conn.execute(
-        "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES (?,?,?,?,?,?)",
         ("package", "pkg-alpha", "", None, '{"uri":"pkg:pkg-alpha"}', "pkg:pkg-alpha"),
     )
     conn.execute(
@@ -1032,7 +1014,6 @@ def _make_fanout_fixture() -> sqlite3.Connection:
             (kind, name, path),
         ).fetchone()[0]
 
-    d1 = nid("domain", "d1")
     pkg_a = nid("package", "pkg-alpha")
     pkg_b = nid("package", "pkg-beta")
     ts_a = nid("test_suite", "tests", "packages/alpha/tests")
@@ -1041,8 +1022,6 @@ def _make_fanout_fixture() -> sqlite3.Connection:
     conn.executemany(
         "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?,?,?,?)",
         [
-            (pkg_a, d1, "belongs_to_domain", "{}"),
-            (pkg_b, d1, "belongs_to_domain", "{}"),
             (ts_a, pkg_a, "tests", "{}"),  # alpha-suite tests only alpha-pkg
             (ts_b, pkg_b, "tests", "{}"),  # beta-suite tests only beta-pkg
         ],
