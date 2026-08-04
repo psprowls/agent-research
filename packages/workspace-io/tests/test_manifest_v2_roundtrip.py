@@ -22,7 +22,7 @@ def test_v2_write_then_read(tmp_path):
         plugin={"backend_default": "claude", "backend_overrides": {}},
         state_gate={"enabled": True, "branches": ["main"]},
         guidance={"enabled": False},
-        graph={"domains": {}, "resources": {}, "resource_matchers": []},
+        graph={"domains": {}},
         workflow={"commit_strategy": "per-task", "model_routing": {}},
         roles={},
     )
@@ -161,7 +161,7 @@ def test_v2_graph_domains_roundtrip(tmp_path):
         "version": 2,
         "initialized_at": "2026-06-20",
         "plugins": [{"name": "x", "installed_version": "1.0", "applied_version": "1.0"}],
-        "graph": {"domains": domains, "resources": {}, "resource_matchers": []},
+        "graph": {"domains": domains},
     }
     write(mpath, data)
     result = read(mpath)
@@ -222,7 +222,7 @@ def test_v2_default_valued_blocks_omitted(tmp_path):
         "plugins": [{"name": "x", "installed_version": "1.0", "applied_version": "1.0"}],
         "plugin": {"backend_default": "claude", "backend_overrides": {}},
         "state_gate": {"enabled": True, "branches": ["main"]},
-        "graph": {"domains": {}, "resources": {}, "resource_matchers": []},
+        "graph": {"domains": {}},
         "workflow": {"commit_strategy": "per-task", "model_routing": {}},
         "roles": {},
     }
@@ -233,23 +233,6 @@ def test_v2_default_valued_blocks_omitted(tmp_path):
     assert "plugin:" not in text
     assert "workflow:" not in text
     assert "roles:" not in text
-
-
-def test_v2_graph_partial_no_empty_siblings(tmp_path):
-    """graph with only domains populated writes graph/domains but no empty resources or resource_matchers."""
-    mpath = tmp_path / ".graph-wiki.yaml"
-    data = {
-        "version": 2,
-        "initialized_at": "2026-06-20",
-        "plugins": [{"name": "x", "installed_version": "1.0", "applied_version": "1.0"}],
-        "graph": {"domains": {"core": {}}, "resources": {}, "resource_matchers": []},
-    }
-    write(mpath, data)
-    text = mpath.read_text(encoding="utf-8")
-    assert "graph:" in text
-    assert "domains:" in text
-    assert "resources:" not in text
-    assert "resource_matchers:" not in text
 
 
 def test_write_preserves_link_file_keys(tmp_path):
