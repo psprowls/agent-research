@@ -20,7 +20,6 @@ _DESCRIBE_KINDS = (
     "package",
     "path",
     "repository",
-    "domain",
     "entry_point",
     "test_suite",
 )
@@ -51,7 +50,7 @@ def build_graph_tools(reader: GraphReader) -> list[BaseTool]:
 
         Args:
             name: optional symbol name (exact match).
-            kind: optional; one of class|function|file|module|package|domain|entry_point|test_suite.
+            kind: optional; one of class|function|file|module|package|entry_point|test_suite.
             in_package: optional case-insensitive package name.
         """
         if name is None and kind is None and in_package is None:
@@ -67,7 +66,7 @@ def build_graph_tools(reader: GraphReader) -> list[BaseTool]:
         """Describe a graph entity by kind and identifier.
 
         Args:
-            kind: one of package|path|repository|domain|entry_point|test_suite.
+            kind: one of package|path|repository|entry_point|test_suite.
             identifier: string; ignored when kind=repository. For
                 entry_point, the qualified ``package:entry`` form is required
                 (bare entry names are not resolved here — the CLI/core router
@@ -101,15 +100,6 @@ def build_graph_tools(reader: GraphReader) -> list[BaseTool]:
                 return _missing(kind, identifier)
             children, eff = reader.children_for(kind="test_suite", name=result.name, depth=None)
             return _render.format_suite(result, fmt="human", children=children, effective_depth=eff)
-        if kind == "domain":
-            result = reader.describe_domain(name=identifier)
-            if result is None:
-                return _missing(kind, identifier)
-            packages, subdomains = reader.domain_members(identifier)
-            children, eff = reader.children_for(kind="domain", name=result.name, depth=None)
-            return _render.format_domain(
-                result, packages, subdomains, fmt="human", children=children, effective_depth=eff
-            )
         if kind == "entry_point":
             # entry_point: needs "<package>:<entry>". Reject other shapes with the
             # standard not-found string so the LLM gets a recoverable signal (D-12)

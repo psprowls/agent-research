@@ -34,7 +34,7 @@ def test_cg_describe_kind_enum(seeded_graph_reader):
     tools = _by_name(build_graph_tools(seeded_graph_reader))
     out = tools["cg_describe"].invoke({"kind": "bogus", "identifier": "x"})
     assert "error: invalid kind 'bogus'" in out
-    assert "valid: package, path, repository, domain, entry_point, test_suite" in out
+    assert "valid: package, path, repository, entry_point, test_suite" in out
 
 
 @pytest.mark.parametrize(
@@ -43,7 +43,6 @@ def test_cg_describe_kind_enum(seeded_graph_reader):
         ("package", "mypkg"),
         ("path", "packages/mypkg/src/mypkg/foo.py"),
         ("repository", ""),
-        ("domain", "any-nonexistent-domain"),
         ("entry_point", "any-nonexistent-ep"),
         ("test_suite", "any-nonexistent-suite"),
     ],

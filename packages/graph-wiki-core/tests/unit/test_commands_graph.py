@@ -63,10 +63,10 @@ def test_graph_build_help_flags(runner):
     assert "--fmt" not in result.output
 
 
-def test_graph_describe_help_lists_six_kinds(runner):
+def test_graph_describe_help_lists_five_kinds(runner):
     result = runner.invoke(app, ["describe", "--help"])
     assert result.exit_code == 0, result.output
-    for kind in ["package", "path", "repository", "domain", "entry-point", "test-suite"]:
+    for kind in ["package", "path", "repository", "entry-point", "test-suite"]:
         assert kind in result.output, f"missing kind {kind} in:\n{result.output}"
 
 
@@ -214,21 +214,6 @@ def test_describe_repository_output(
     # next newline with a stable placeholder.
     normalized = re.sub(r"(url:\s+).*", r"\1<normalized>", result.output)
     assert normalized == snapshot
-
-
-def test_describe_domain_output(
-    runner: CliRunner,
-    seeded_graph_workspace: Path,
-    snapshot: SnapshotAssertion,
-) -> None:
-    """describe domain core → byte-identical snapshot."""
-    result = runner.invoke(
-        app,
-        ["describe", "domain", "core"],
-        env={"GRAPH_WIKI_WORKSPACE": str(seeded_graph_workspace)},
-    )
-    assert result.exit_code == 0, result.output
-    assert result.output == snapshot
 
 
 def test_describe_entry_point_output(

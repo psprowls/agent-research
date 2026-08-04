@@ -1,7 +1,6 @@
 """Shared path-resolution helper for graph-wiki-core commands.
 
-Single source of truth for `_resolve_paths` — both `graph.py` and
-`propose_domains.py` import from here so they can never diverge.
+Single source of truth for `_resolve_paths` — `graph.py` imports from here.
 (todo 260530-iqr: DRY convergence after hxy fixed graph.py)
 
 `resolve_wiki_and_repo` is the public re-export delivery surfaces

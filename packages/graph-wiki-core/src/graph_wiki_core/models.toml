@@ -191,15 +191,6 @@ sweep_candidates = [
   { model_id = "moonshot.kimi-k2-thinking", backend = "bedrock" },
 ]
 
-# Phase 48 D-19 — LLM proposal for `graph propose-domains`. Separate from
-# scanner so cost-per-role is trackable and the model can be tuned
-# independently. Initial config mirrors scanner; revisit in v1.9 eval.
-[roles.domain_proposer]
-model_id        = "moonshotai.kimi-k2.5"
-region          = "us-east-1"
-max_tokens      = 1024
-max_concurrency = 5
-
 # Living Wiki M4 — cross-page drift propagator. Judges a whole curated page
 # (concept/adr/architecture) against the CURRENT narratives of the changed
 # entities that backlink it, and proposes ledger notes for stale claims. Cheap

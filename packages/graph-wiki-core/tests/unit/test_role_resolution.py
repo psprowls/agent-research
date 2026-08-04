@@ -37,8 +37,6 @@ ALL_ROLES = [
     "query_orchestrator",
 ]
 
-DOMAIN_PROPOSER_ROLE = "domain_proposer"
-
 
 @pytest.mark.parametrize("role", ALL_ROLES)
 def test_load_role_config_returns_dict_for_core_roles(role):
@@ -141,7 +139,7 @@ def test_skill_roles_are_registered(role):
 
 
 # ---------------------------------------------------------------------------
-# make_llm — basic construction + domain_proposer
+# make_llm — basic construction
 # ---------------------------------------------------------------------------
 
 
@@ -163,30 +161,26 @@ def test_make_llm_unknown_role_raises_keyerror():
         make_llm("does-not-exist")
 
 
-def test_domain_proposer_role():
-    """Phase 48 D-19 + D-21: `[roles.domain_proposer]` is present with the
-    expected config, `make_llm` instantiates successfully, and `model_override`
-    swaps the model_id while preserving the rest of the role config.
+def test_scanner_model_override_swaps_model_id():
+    """D-21: `model_override` swaps the model_id while keeping the role's
+    other config intact — bedrock-backend coverage ported from the removed
+    `domain_proposer` role test (Phase 48 D-19/D-21) onto `scanner` so the
+    bedrock model_override path stays covered after that role's removal.
     """
     from graph_wiki_core.roles import load_role_config, make_llm
     from langchain_aws import ChatBedrockConverse
 
-    # D-19: raw role config matches the post-Haiku-purge spec.
-    cfg = load_role_config(DOMAIN_PROPOSER_ROLE)
+    cfg = load_role_config("scanner")
     assert cfg["model_id"] == KIMI_MODEL_ID
-    assert cfg["region"] == "us-east-1"
-    assert cfg["max_tokens"] == 1024
-    assert cfg["max_concurrency"] == 5
 
-    # D-19: `make_llm("domain_proposer")` returns a working LLM handle.
-    llm = make_llm(DOMAIN_PROPOSER_ROLE)
+    llm = make_llm("scanner")
     assert isinstance(llm, ChatBedrockConverse)
     actual = getattr(llm, "model_id", None) or getattr(llm, "model", None)
     assert actual == KIMI_MODEL_ID
 
-    # D-21: `model_override` swaps the model_id while keeping the role's
-    # other config intact.
-    llm_override = make_llm(DOMAIN_PROPOSER_ROLE, model_override=NOVA_LITE_ARN)
+    # model_override swaps the model_id while keeping the role's other config
+    # intact.
+    llm_override = make_llm("scanner", model_override=NOVA_LITE_ARN)
     assert isinstance(llm_override, ChatBedrockConverse)
     actual_override = getattr(llm_override, "model_id", None) or getattr(llm_override, "model", None)
     assert actual_override == NOVA_LITE_ARN

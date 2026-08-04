@@ -117,24 +117,6 @@ def _resolve_sample_monorepo_fixture() -> Path:
 
 _GRAPH_IO_FIXTURE = _resolve_sample_monorepo_fixture()
 
-# D7: domains now come from <workspace>/.graph-wiki.yaml (graph.domains), not a
-# repo-root domains.yaml. Restores the sample_monorepo fixture's pre-feature
-# domain set (core/web/presentation) into the workspace manifest.
-_SAMPLE_DOMAINS_MANIFEST = (
-    "version: 2\n"
-    "graph:\n"
-    "  domains:\n"
-    "    core:\n"
-    "      packages: [mypkg, pyutil]\n"
-    "      description: Core utilities domain\n"
-    "    web:\n"
-    "      packages: [jspkg, webutil]\n"
-    "      parent: presentation\n"
-    "    presentation:\n"
-    "      packages: []\n"
-    "      description: Top-level UI layer\n"
-)
-
 
 @pytest.fixture(scope="session")
 def seeded_graph_workspace(tmp_path_factory):
@@ -168,7 +150,7 @@ def seeded_graph_workspace(tmp_path_factory):
     subprocess.run(["git", "commit", "-q", "-m", "seeded init"], cwd=repo_root, check=True)
     ws = resolve_workspace(repo_root, require_manifest=False).workspace
     ws.mkdir(parents=True, exist_ok=True)
-    manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
+    manifest_path(ws).write_text("version: 2\n", encoding="utf-8")
     update.run(repo_root, full=True)
     return ws  # not a generator — session-scoped, no teardown needed
 
@@ -202,7 +184,7 @@ def seeded_graph_conn(tmp_path_factory):
     subprocess.run(["git", "commit", "-q", "-m", "seeded init"], cwd=repo_root, check=True)
     ws = resolve_workspace(repo_root, require_manifest=False).workspace
     ws.mkdir(parents=True, exist_ok=True)
-    manifest_path(ws).write_text(_SAMPLE_DOMAINS_MANIFEST, encoding="utf-8")
+    manifest_path(ws).write_text("version: 2\n", encoding="utf-8")
     update.run(repo_root, full=True)
     conn = read_only_connect(graph_dir(ws) / "code.db")
     try:

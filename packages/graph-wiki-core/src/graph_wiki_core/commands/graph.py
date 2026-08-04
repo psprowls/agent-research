@@ -23,7 +23,7 @@ Decision references:
   D-05 exit-code contract preserved exactly incl. AMBIGUOUS(7) for entry-point
   D-06 graph build uses update.run (raises on error)
   D-07 trace schema unchanged; exit_code from agent's own exception mapping
-  D-08 describe is a Typer subapp with 6 sub-sub-commands
+  D-08 describe is a Typer subapp with 5 sub-sub-commands
   D-09 kebab-case CLI names ↔ snake_case dispatch keys
 
 Pattern template: open_reader + except GraphNotInitializedError/SchemaMismatchError.
@@ -156,7 +156,6 @@ DESCRIBE_REQUIRES_IDENTIFIER: dict[str, bool] = {
     "package": True,
     "path": True,
     "repository": False,
-    "domain": True,
     "entry_point": True,
     "test_suite": True,
     "app": True,
@@ -216,7 +215,7 @@ def run_describe(
 
     Dispatches over the shared `_render.format_<kind>` spine formatters using
     the `GraphReader` describe/resolve methods. Covers package/app/path/repository/
-    domain/dependency/agent_plugin/builtin/entry_point/test_suite.
+    dependency/agent_plugin/builtin/entry_point/test_suite.
 
     Returns (exit_code, stdout, stderr). On success stdout is exactly the
     `_render.format_<kind>(...)` human string (byte-identical). not-found →
@@ -258,15 +257,6 @@ def run_describe(
                 return exit_codes.GENERIC, "", f"error: path not found in graph: {identifier}"
             children, eff = reader.children_for(kind="file", path=desc.path, depth=depth)
             out = _render.format_path(desc, fmt="human", children=children, effective_depth=eff)
-            return exit_codes.SUCCESS, out, ""
-
-        if kind == "domain":
-            desc = reader.describe_domain(name=identifier)
-            if desc is None:
-                return exit_codes.GENERIC, "", f"error: not found: {identifier}"
-            packages, subdomains = reader.domain_members(identifier)
-            children, eff = reader.children_for(kind="domain", name=desc.name, depth=depth)
-            out = _render.format_domain(desc, packages, subdomains, fmt="human", children=children, effective_depth=eff)
             return exit_codes.SUCCESS, out, ""
 
         if kind == "entry_point":
@@ -411,7 +401,7 @@ graph_app = typer.Typer(
 )
 
 graph_describe_app = typer.Typer(
-    help="Describe a graph entity (6 kinds: package, path, repository, domain, entry-point, test-suite).",
+    help="Describe a graph entity (5 kinds: package, path, repository, entry-point, test-suite).",
     no_args_is_help=True,
 )
 graph_app.add_typer(graph_describe_app, name="describe")
@@ -529,7 +519,7 @@ def graph_build_cmd(
 
 
 # --------------------------------------------------------------------------- #
-# graph describe (6 sub-sub-commands)
+# graph describe (5 sub-sub-commands)
 # --------------------------------------------------------------------------- #
 
 
@@ -575,22 +565,6 @@ def describe_repository_cmd(
         kind="repository",
         identifier=None,
         command="graph describe repository",
-        trace=trace,
-        workspace=workspace,
-    )
-
-
-@graph_describe_app.command(name="domain")
-def describe_domain_cmd(
-    name: str = typer.Argument(..., help="Domain name"),
-    trace: bool = typer.Option(False, "--trace", help="Write JSONL trace"),
-    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
-) -> None:
-    """Describe a domain."""
-    _describe_cli(
-        kind="domain",
-        identifier=name,
-        command="graph describe domain",
         trace=trace,
         workspace=workspace,
     )
@@ -686,15 +660,6 @@ def graph_query_cmd(
         raise typer.Exit(code=exit_code)
 
 
-# --------------------------------------------------------------------------- #
-# graph propose-domains  (Phase 48 D-22)
-# --------------------------------------------------------------------------- #
-# Registered here (instead of in propose_domains.py) so the registration runs
-# whenever this module is imported — and avoids a circular `commands/graph.py`
-# ↔ `commands/propose_domains.py` import. The function body (with all
-# orchestration logic, dataclasses, helpers) lives in `propose_domains.py`.
-
-
 @graph_app.command(name="export")
 def export_graph_cmd(
     workspace: str = typer.Option("", "--workspace", help="Workspace path (default: GRAPH_WIKI_WORKSPACE env var)"),
@@ -714,18 +679,3 @@ def export_graph_cmd(
         typer.echo(stderr, err=True)
     if exit_code != exit_codes.SUCCESS:
         raise typer.Exit(code=exit_code)
-
-
-# `propose-domains` needs the Bedrock stack (SubagentPool + langchain_core). This
-# module must import in graph-wiki-core's BASE closure — commands/scan.py imports
-# run_build at module scope, and the plugin path re-execs against that closure —
-# so the registration is guarded the way scan.py guards its own stack: absent the
-# extra, the subcommand simply is not registered.
-try:
-    from graph_wiki_core.commands.propose_domains import (  # noqa: E402
-        propose_domains_cmd as _propose_domains_cmd,
-    )
-except ImportError:  # pragma: no cover — exercised by the base-closure import test
-    pass
-else:
-    graph_app.command(name="propose-domains")(_propose_domains_cmd)
