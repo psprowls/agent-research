@@ -109,14 +109,14 @@ def test_uri_less_node_resolved_via_repo_column(tmp_path, make_index_fixture_gra
 
     collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
     # Must NOT raise — the repo column resolves the stray node.
-    per_repo, _name_to_entity, _domain_repo = _place_entities(conn, wiki_root, collision_set)
+    per_repo, _name_to_entity = _place_entities(conn, wiki_root, collision_set)
 
     # The stub package is bucketed under repo-alpha (its repo column), direct.
-    _, alpha_direct = per_repo["repo-alpha"]
+    alpha_direct = per_repo["repo-alpha"]
     assert any(e.name == "stub-pkg" for e in alpha_direct)
     # And NOT under repo-beta.
     if "repo-beta" in per_repo:
-        _, beta_direct = per_repo["repo-beta"]
+        beta_direct = per_repo["repo-beta"]
         assert all(e.name != "stub-pkg" for e in beta_direct)
 
 
@@ -140,8 +140,8 @@ def test_single_repo_uri_less_node_unchanged(tmp_path, make_index_fixture_graph)
     wiki_root.mkdir()
 
     collision_set = _compute_collision_set(conn, _ADMITTED_KINDS, _kind_list_fns())
-    per_repo, _name_to_entity, _domain_repo = _place_entities(conn, wiki_root, collision_set)
-    _, solo_direct = per_repo["solo"]
+    per_repo, _name_to_entity = _place_entities(conn, wiki_root, collision_set)
+    solo_direct = per_repo["solo"]
     assert any(e.name == "stub-pkg" for e in solo_direct)
 
 

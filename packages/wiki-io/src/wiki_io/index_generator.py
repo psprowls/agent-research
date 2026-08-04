@@ -15,16 +15,15 @@ Decisions encoded here (see `.planning/phases/44-scanner-generated-index/44-CONT
 - D-02: `generate_index` does a FULL rewrite of `wiki/index.md`. The file
   is fully owned by this module — no HTML-comment markers, no partial
   rewrites, no per-folder `*/index.md` files written.
-- D-03 (amended 2026-06-12 — repository grouping): rendered section order is
-  H1 → banner → one `## Repository: <name>` section per repository node
-  (domains nested inside, entities as kind-prefixed headings; replaces the
-  old `## Domains` → `## By Kind` slot) → `## ADRs` → `## Concepts` →
+- D-03 (amended 2026-06-12 — repository grouping; further amended when
+  domain bucketing was removed): rendered section order is H1 → banner →
+  one `## Repository: <name>` section per repository node (entities as
+  kind-prefixed headings, directly under the repository heading; replaces
+  the old `## Domains` → `## By Kind` slot) → `## ADRs` → `## Concepts` →
   `## Sources` → `## Work`.
-- D-04: Single-placement rule for entities. An entity placed under a
-  single qualifying domain renders inside that domain's block
-  (`### Domain: X`, within its repository section); zero or multiple
-  qualifying domains render directly under the repository header.
-  Plugins always render direct (no qualifying-domain edges in v1.8).
+- D-04 (historical; domain bucketing removed): every placeable entity now
+  renders directly under its repository header — there is no longer a
+  single-vs-multi-qualifying-domain distinction to make.
 - D-09: `BY_KIND_ORDER` is a hard-coded tuple, NOT derived from
   `ADMITTED_KINDS` — guarantees stable section order independent of
   schema evolution.
@@ -72,8 +71,8 @@ from wiki_io.wikilinks import vault_wikilink
 # key; it MUST include test_suite/dependency or those entities would never be
 # discovered/placed and could not nest under their packages (breaking IDX-04/05).
 # `BY_KIND_ORDER` (D-03/D-08, kept as the D-R6 kind-major order) drives the
-# kind-major heading order for entities (via `_kind_major`) in any container —
-# direct-under-repo or domain block — apps first, then packages, then plugins.
+# kind-major heading order for entities (via `_kind_major`) directly under a
+# repository heading — apps first, then packages, then plugins.
 # test_suites/dependencies are never headings; they appear exclusively nested
 # under the package/app that uses them (per D-01), which is what makes dropping
 # them from the heading order safe — every package/app nests its own items.
@@ -161,7 +160,7 @@ class IndexWriteResult:
 
     `direct_count` = heading entities rendered directly under a repo header
     (the old `by_kind_count` slot); `repo_count` = rendered `## Repository:`
-    sections; `domain_count` keeps its meaning (rendered top-level domains).
+    sections.
     """
 
     path: Path
@@ -169,18 +168,17 @@ class IndexWriteResult:
     changed: bool
     entity_count: int
     curated_count: int
-    domain_count: int
     direct_count: int
     repo_count: int
 
 
 @dataclass(frozen=True)
 class PlacedEntity:
-    """An entity placed under a domain or in the by-kind fallback.
+    """An entity placed directly under its repository section.
 
-    `parent_pkg_names` is populated for dependencies/test_suites under a
-    single-domain placement so `_render_domain_section` can nest them under
-    consumer/tested-package bullets (D-06).
+    `parent_pkg_names` is populated for dependencies/test_suites so
+    `_render_pkg_nested` can nest them under consumer/tested-package
+    bullets (D-06).
 
     `suite_kind` / `pkg_for_suite` are populated for test_suite entities so
     Phase 53's `short_filename` can derive kind-aware names like
@@ -207,45 +205,6 @@ class PlacedEntity:
 # ============================================================================
 
 
-def _compute_qualifying_domains(reader: GraphReaderLike, *, kind: str, name: str, uri: str = "") -> set[str]:
-    """Return the set of domain names that qualify for this entity (D-04).
-
-    Thin wrapper over `reader.qualifying_domains` (the SQL was ported verbatim
-    into graph-io). Per-kind semantics:
-
-    - package:    direct `belongs_to_domain` edges.
-    - app:        direct `belongs_to_domain` edges (Phase 57 D-03/D-04 —
-                  apps route identically to packages: single qualifying
-                  domain → that domain section; zero/multi → By-Kind).
-    - test_suite: one-hop transitive via `tests -> package -> belongs_to_domain`.
-                  Resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
-    - dependency: one-hop transitive via `used_by` -> `package` -> `belongs_to_domain`.
-                  Edge direction: package -[used_by]-> dependency.
-    - agent_plugin: always empty (D-04 — agent_plugins have no domain edges in v1.8).
-    """
-    return reader.qualifying_domains(kind=kind, name=name, uri=uri)
-
-
-def _consumer_pkgs_in_domain(
-    reader: GraphReaderLike,
-    *,
-    kind: str,
-    entity_uri: str = "",
-    entity_name: str = "",
-    domain_name: str,
-) -> tuple[str, ...]:
-    """Return the package names (in `domain_name`) that consume or are tested by
-    this dependency / test_suite. Used by `_place_entities` to populate
-    `PlacedEntity.parent_pkg_names` for intra-domain nesting (D-06).
-
-    Thin wrapper over `reader.consumer_packages_in_domain` (SQL ported verbatim).
-    For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
-    For dependency: resolved by `dep.name` (dependencies are name-unique)."""
-    return reader.consumer_packages_in_domain(
-        kind=kind, entity_uri=entity_uri, entity_name=entity_name, domain_name=domain_name
-    )
-
-
 def _consumer_pkgs(
     reader: GraphReaderLike,
     *,
@@ -253,13 +212,12 @@ def _consumer_pkgs(
     entity_uri: str = "",
     entity_name: str = "",
 ) -> tuple[str, ...]:
-    """DOMAIN-AGNOSTIC consumer/tested package (and app) names (Phase 57 D-01).
+    """Consumer/tested package (and app) names (Phase 57 D-01).
 
-    The superset of `_consumer_pkgs_in_domain` across all domains: every
-    package/app that uses this dependency (`used_by`) or is tested by this
-    test_suite (`tests`), regardless of domain. Used by `_render_repository_section`
-    so a direct-placed (multi/zero-domain) dependency or test_suite still nests
-    under every package/app that consumes it. Sorted alphabetically for determinism.
+    Every package/app that uses this dependency (`used_by`) or is tested by
+    this test_suite (`tests`). Used by `_render_repository_section` so a
+    placed dependency or test_suite still nests under every package/app
+    that consumes it. Sorted alphabetically for determinism.
 
     Thin wrapper over `reader.consumer_packages` (SQL ported verbatim).
     For test_suite: resolved by `ts.uri` (unique, stable) not `ts.name` (D-08).
@@ -295,18 +253,16 @@ def _place_entities(
     wiki_root: Path,
     collision_set: frozenset[str],
 ) -> tuple[
-    dict[str, tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]],
-    dict[str, PlacedEntity],
-    dict[str, str],
+    dict[str, list[PlacedEntity]],  # per_repo
+    dict[str, PlacedEntity],  # name_to_entity
 ]:
-    """Walk all placeable kinds. Return (per_repo, name_to_entity, domain_repo).
+    """Walk all placeable kinds. Return (per_repo, name_to_entity).
 
-    2026-06-12 repository grouping (D-R1/D-R3/D-R7):
-      per_repo[repo_node_name] = (domain_buckets, direct_entities)
+    2026-06-12 repository grouping (D-R1/D-R7), domain bucketing removed:
+      per_repo[repo_node_name] = direct_entities
 
-    The D-04 single-placement rule is unchanged per entity (D-R3):
-      qualifying_count == 1 -> domain_buckets[that_domain] (in the DOMAIN's repo, D-R2)
-      qualifying_count != 1 -> direct_entities             (in the ENTITY's repo, D-R7)
+    Every entity renders directly under its own repository section
+    (D-R7) — there is no longer a domain tier to route through.
 
     Repo resolution: parse `{org}/{repo}` from the URI (`_parse_repo_key`)
     and match a repository node's own `repo:` URI. Unresolvable URIs
@@ -316,9 +272,7 @@ def _place_entities(
     repository nodes they raise ValueError (all-or-nothing D-19, no silent
     drops).
 
-    `domain_repo` maps every domain name to its repo (from the domain's own
-    URI, D-R2) so the repository-section renderer can filter top-level
-    domains per repo. `name_to_entity` keeps its global meaning (D-09/D-11).
+    `name_to_entity` keeps its global meaning (D-09/D-11).
 
     Iterates `_PLACEABLE_KINDS` (NOT the heading-kind order) so test_suites
     and dependencies are discovered and can nest (D-01 crux).
@@ -358,19 +312,11 @@ def _place_entities(
             f"{len(repos)} repository nodes and no URI/repo-column match"
         )
 
-    domain_repo: dict[str, str] = {}
-    for d in reader.list_domains():
-        domain_repo[d.name] = _repo_for(
-            d.attrs.get("uri") or "", kind="domain", name=d.name, repo=d.attrs.get("repo") or ""
-        )
-
-    per_repo: dict[str, tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]] = {}
+    per_repo: dict[str, list[PlacedEntity]] = {}
     name_to_entity: dict[str, PlacedEntity] = {}
 
-    def _buckets_for(repo_name: str) -> tuple[dict[str, list[PlacedEntity]], list[PlacedEntity]]:
-        if repo_name not in per_repo:
-            per_repo[repo_name] = ({}, [])
-        return per_repo[repo_name]
+    def _direct_for(repo_name: str) -> list[PlacedEntity]:
+        return per_repo.setdefault(repo_name, [])
 
     kind_to_list_fn = {
         "app": reader.list_apps,
@@ -383,12 +329,10 @@ def _place_entities(
         list_fn = kind_to_list_fn[kind]
         for node in list_fn():
             uri = node.attrs.get("uri") or ""
-            qualifying = _compute_qualifying_domains(reader, kind=kind, name=node.name, uri=uri)
             # D-01: populate parent_pkg_names with the DOMAIN-AGNOSTIC consumer
-            # set for every dep/test_suite (not only single-domain ones), so a
-            # direct-placed dep/suite still nests under its consumer packages.
-            # For test_suite: pass entity_uri (unique, stable); for dependency:
-            # pass entity_name (D-08).
+            # set for every dep/test_suite, so a placed dep/suite nests under
+            # its consumer packages. For test_suite: pass entity_uri (unique,
+            # stable); for dependency: pass entity_name (D-08).
             parent_pkgs: tuple[str, ...] = ()
             if kind == "test_suite":
                 parent_pkgs = _consumer_pkgs(reader, kind=kind, entity_uri=uri)
@@ -418,48 +362,39 @@ def _place_entities(
             )
             if kind in ("package", "app"):
                 name_to_entity[entity.name] = entity
-            if len(qualifying) == 1:
-                the_domain = next(iter(qualifying))
-                domain_buckets, _ = _buckets_for(domain_repo[the_domain])
-                domain_buckets.setdefault(the_domain, []).append(entity)
+            node_repo = node.attrs.get("repo") or ""
+            resolved = _repo_for_or_none(uri, repo=node_repo)
+            if resolved is not None:
+                _direct_for(resolved).append(entity)
+            elif kind == "dependency":
+                # Global dependency (the StickerGiant case): an external dep
+                # is ONE ecosystem-global graph node (repo=NULL, repo-less
+                # URI) shared across repos. It has no repo of its own; its
+                # natural home is the repository(ies) of the package(s) that
+                # CONSUME it (D-01 nesting model). Place a copy into each
+                # distinct consumer repo's direct list so it nests under its
+                # consumer in every consuming repo section. An unconsumed
+                # global dep (no consumer_repos) is skipped — it has no
+                # natural home and would never render (deps only render
+                # nested under consumers).
+                consumer_repos: set[str] = set()
+                for pkg_name in parent_pkgs:
+                    pkg_entity = name_to_entity.get(pkg_name)
+                    if pkg_entity is None:
+                        continue
+                    pkg_repo = _repo_for_or_none(pkg_entity.uri)
+                    if pkg_repo is not None:
+                        consumer_repos.add(pkg_repo)
+                for repo_name in consumer_repos:
+                    _direct_for(repo_name).append(entity)
             else:
-                node_repo = node.attrs.get("repo") or ""
-                resolved = _repo_for_or_none(uri, repo=node_repo)
-                if resolved is not None:
-                    _, direct = _buckets_for(resolved)
-                    direct.append(entity)
-                elif kind == "dependency":
-                    # Global dependency (the StickerGiant case): an external dep
-                    # is ONE ecosystem-global graph node (repo=NULL, repo-less
-                    # URI) shared across repos. It has no repo of its own; its
-                    # natural home is the repository(ies) of the package(s) that
-                    # CONSUME it (D-01 nesting model). Place a copy into each
-                    # distinct consumer repo's direct list so it nests under its
-                    # consumer in every consuming repo section. An unconsumed
-                    # global dep (no consumer_repos) is skipped — it has no
-                    # natural home and would never render (deps only render
-                    # nested under consumers).
-                    consumer_repos: set[str] = set()
-                    for pkg_name in parent_pkgs:
-                        pkg_entity = name_to_entity.get(pkg_name)
-                        if pkg_entity is None:
-                            continue
-                        pkg_repo = _repo_for_or_none(pkg_entity.uri)
-                        if pkg_repo is not None:
-                            consumer_repos.add(pkg_repo)
-                    for repo_name in consumer_repos:
-                        _, direct = _buckets_for(repo_name)
-                        direct.append(entity)
-                else:
-                    # Genuinely unplaceable NON-dependency entity — preserve the
-                    # strict all-or-nothing raise (D-19; no silent drops).
-                    _repo_for(uri, kind=kind, name=node.name, repo=node_repo)
+                # Genuinely unplaceable NON-dependency entity — preserve the
+                # strict all-or-nothing raise (D-19; no silent drops).
+                _repo_for(uri, kind=kind, name=node.name, repo=node_repo)
 
-    for domain_buckets, direct in per_repo.values():
-        for d in domain_buckets:
-            domain_buckets[d].sort(key=lambda e: e.uri)
-        direct.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
-    return per_repo, name_to_entity, domain_repo
+    for entities in per_repo.values():
+        entities.sort(key=lambda e: (_PLACEABLE_KINDS.index(e.kind), e.uri))
+    return per_repo, name_to_entity
 
 
 # ============================================================================
@@ -569,16 +504,6 @@ def _scan_guidance_topics(wiki_root: Path) -> list[tuple[str, int]]:
 # ============================================================================
 
 
-def _list_subdomains(reader: GraphReaderLike, parent_name: str) -> list[str]:
-    """Return child domain names for `parent_name` (via `domain_contains_domain`)."""
-    return reader.subdomains(parent_name)
-
-
-def _is_top_level_domain(reader: GraphReaderLike, name: str) -> bool:
-    """True if `name` has NO inbound `domain_contains_domain` edge."""
-    return reader.is_top_level_domain(name)
-
-
 def _entity_wikilink(entity: PlacedEntity, collision_set: frozenset[str], label: str | None = None) -> str:
     """Forward-derive the piped `[[entities/<stem>|<text>]]` wikilink.
 
@@ -620,8 +545,7 @@ def _render_pkg_nested(
 ) -> list[str]:
     """Render the THREE nested sub-lists under one package/app entity heading (D-09).
 
-    Shared by `_render_domain_section` and `_render_repository_section` so both
-    contexts stay consistent. Each sub-list is omitted when empty (D-08):
+    Used by `_render_repository_section`. Each sub-list is omitted when empty (D-08):
 
       1. Test Suites          — test_suites that test this package (`tests`)
       2. Dependencies         — external deps this package uses (`used_by`)
@@ -658,12 +582,12 @@ def _build_sub_for_pkg(
     entities: list[PlacedEntity],
 ) -> dict[str, dict[str, list[PlacedEntity]]]:
     """Group dependencies/test_suites under each consumer/tested package name
-    via their (domain-agnostic) `parent_pkg_names` (Phase 57 D-01/D-10).
+    via their `parent_pkg_names` (Phase 57 D-01/D-10).
 
     Built ONCE over ALL placed entities in `_render` and shared across all
-    repository sections, so a direct-placed dep/suite still nests under a
-    package that renders in a domain section, and vice-versa — duplication
-    across packages is expected (D-10)."""
+    repository sections, so a dep/suite nests under every consumer package
+    regardless of which repository section that package renders in —
+    duplication across packages is expected (D-10)."""
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]] = {}
     for e in entities:
         if e.kind not in ("test_suite", "dependency"):
@@ -695,9 +619,9 @@ def _render_entity_heading(
 ) -> list[str]:
     """Render one entity as a kind-prefixed heading block (D-R4/D-R5).
 
-    `level` is the markdown heading depth: 3 directly under the repo header,
-    4 inside a `### Domain:` block, one deeper per sub-domain level. Body is
-    the `{summary} — [[entities/<stem>|open page]]` line plus the
+    `level` is the markdown heading depth: always 3, directly under the
+    repository heading (domain bucketing removed). Body is the
+    `{summary} — [[entities/<stem>|open page]]` line plus the
     `_render_pkg_nested` sub-lists (packages/apps only — unchanged shape).
     """
     label = KIND_HEADING_LABELS[entity.kind]
@@ -711,97 +635,24 @@ def _render_entity_heading(
     return lines
 
 
-def _render_domain_section(
-    reader: GraphReaderLike,
-    domain_buckets: dict[str, list[PlacedEntity]],
-    *,
-    domain_name: str,
-    depth: int,
-    collision_set: frozenset[str],
-    name_to_entity: dict[str, PlacedEntity],
-    sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
-) -> list[str]:
-    """Recursively render one domain block inside a repository section (D-R2).
-
-    `depth == 0` -> `### Domain: X`; deeper -> `#### Sub-Domain: Y`, ….
-    Entities render as kind-prefixed headings one level below the domain
-    heading (D-R4), kind-major (D-R6). Returns [] (D-08 fully-empty
-    omission) when the block has zero heading entities AND every sub-domain
-    block is also empty.
-    """
-    level = 3 + depth
-    label = f"Domain: {domain_name}" if depth == 0 else f"Sub-Domain: {domain_name}"
-
-    entity_lines: list[str] = []
-    for e in _kind_major(domain_buckets.get(domain_name, [])):
-        entity_lines.extend(
-            _render_entity_heading(
-                reader,
-                e,
-                level=level + 1,
-                collision_set=collision_set,
-                name_to_entity=name_to_entity,
-                sub_for_pkg=sub_for_pkg,
-            )
-        )
-
-    sub_domain_blocks: list[str] = []
-    for sub_name in _list_subdomains(reader, domain_name):
-        sub_domain_blocks.extend(
-            _render_domain_section(
-                reader,
-                domain_buckets,
-                domain_name=sub_name,
-                depth=depth + 1,
-                collision_set=collision_set,
-                name_to_entity=name_to_entity,
-                sub_for_pkg=sub_for_pkg,
-            )
-        )
-
-    if not entity_lines and not sub_domain_blocks:
-        return []  # D-08 fully-empty omission
-    return [f"{'#' * level} {label}", "", *entity_lines, *sub_domain_blocks]
-
-
 def _render_repository_section(
     reader: GraphReaderLike,
     *,
     repo_name: str,
     repo_uri: str = "",
-    domain_buckets: dict[str, list[PlacedEntity]],
     direct: list[PlacedEntity],
-    repo_domains: list[str],
     collision_set: frozenset[str],
     name_to_entity: dict[str, PlacedEntity],
     sub_for_pkg: dict[str, dict[str, list[PlacedEntity]]],
-) -> tuple[list[str], int, int]:
+) -> tuple[list[str], int]:
     """Render one `## Repository: <name>` section (D-R1).
 
-    Nested domain blocks first (alphabetical top-level domains of THIS repo
-    per `repo_domains`, D-R2), then direct entities kind-major (D-R6).
-    Sub-domain recursion assumes a child domain lives in the same repository
-    as its parent (cross-repo domain_contains_domain edges are not supported).
-    Returns (lines, rendered_domain_count, direct_heading_count) —
-    ([], 0, 0) when the whole section is empty (D-08).
+    All member entities render as direct, kind-major (D-R6) headings —
+    domain bucketing has been removed; there is only this single tier.
+    Returns (lines, direct_heading_count) — ([], 0) when the section is
+    empty (D-08).
     """
     lines: list[str] = []
-    domain_count = 0
-    for d in repo_domains:
-        if not _is_top_level_domain(reader, d):
-            continue
-        section = _render_domain_section(
-            reader,
-            domain_buckets,
-            domain_name=d,
-            depth=0,
-            collision_set=collision_set,
-            name_to_entity=name_to_entity,
-            sub_for_pkg=sub_for_pkg,
-        )
-        if section:
-            lines.extend(section)
-            domain_count += 1
     direct_count = 0
     for e in _kind_major(direct):
         lines.extend(
@@ -827,12 +678,12 @@ def _render_repository_section(
         for ts in sorted(orphan_suites, key=lambda x: x.uri):
             lines.append(_entity_bullet(ts, collision_set, "  "))
     if not lines:
-        return [], 0, 0
+        return [], 0
     heading = f"## Repository: {repo_name}"
     if repo_uri:
         stem = _short_filename(repo_uri, collision_set)
         heading = f"{heading} — {vault_wikilink(f'entities/{stem}', 'open page')}"
-    return [heading, "", *lines], domain_count, direct_count
+    return [heading, "", *lines], direct_count
 
 
 def _render_curated_section(label: str, entries: list[dict]) -> list[str]:
@@ -899,30 +750,28 @@ def _render_guidance_section(topics: list[tuple[str, int]]) -> list[str]:
 
 def _render(
     reader: GraphReaderLike, wiki_root: Path, display_name: str | None = None
-) -> tuple[str, int, int, int, int, int]:
+) -> tuple[str, int, int, int, int]:
     """Render the full index.
 
     `display_name` titles the index (the wiki's human topic). Falls back to the
     wiki directory name when not supplied.
 
-    Returns (text, entity_count, curated_count, domain_count, direct_count, repo_count).
+    Returns (text, entity_count, curated_count, direct_count, repo_count).
     """
     # Phase 53 D-05: one-shot collision pre-pass, threaded through every
     # entity-link derivation so the index agrees with `write_entities`.
     collision_set = _compute_collision_set(reader, _ADMITTED_KINDS, _kind_list_fns())
 
-    per_repo, name_to_entity, domain_repo = _place_entities(reader, wiki_root, collision_set)
+    per_repo, name_to_entity = _place_entities(reader, wiki_root, collision_set)
 
     all_placed: list[PlacedEntity] = []
-    for buckets, direct in per_repo.values():
-        for ents in buckets.values():
-            all_placed.extend(ents)
-        all_placed.extend(direct)
+    for entities in per_repo.values():
+        all_placed.extend(entities)
     entity_count = len(all_placed)
 
     # D-01/D-10: one global dep/suite-under-package grouping over ALL placed
     # entities, shared across all repo sections, so nesting behavior is
-    # identical regardless of which repo/domain a consumer renders in.
+    # identical regardless of which repo a consumer renders in.
     sub_for_pkg = _build_sub_for_pkg(all_placed)
 
     workspace_root = wiki_root.parent
@@ -944,18 +793,14 @@ def _render(
     repo_name_to_uri = {r.name: (r.attrs.get("uri") or "") for r in reader.list_repositories()}
 
     repo_count = 0
-    domain_count = 0
     direct_count = 0
     for repo_name in sorted(per_repo):
-        buckets, direct = per_repo[repo_name]
-        repo_domains = sorted(d for d, r in domain_repo.items() if r == repo_name)
-        section, d_count, dir_count = _render_repository_section(
+        direct = per_repo[repo_name]
+        section, dir_count = _render_repository_section(
             reader,
             repo_name=repo_name,
             repo_uri=repo_name_to_uri.get(repo_name, ""),
-            domain_buckets=buckets,
             direct=direct,
-            repo_domains=repo_domains,
             collision_set=collision_set,
             name_to_entity=name_to_entity,
             sub_for_pkg=sub_for_pkg,
@@ -963,7 +808,6 @@ def _render(
         if section:
             lines.extend(section)
             repo_count += 1
-            domain_count += d_count
             direct_count += dir_count
 
     for stable_id, _lane_dir, section_label in CURATED_LANES:
@@ -975,7 +819,7 @@ def _render(
     lines.extend(_render_curated_section("Work", work_entries))
 
     text = "\n".join(lines).rstrip("\n") + "\n"  # POSIX trailing newline
-    return text, entity_count, curated_count, domain_count, direct_count, repo_count
+    return text, entity_count, curated_count, direct_count, repo_count
 
 
 def generate_index(reader: GraphReaderLike, wiki_root: Path, display_name: str | None = None) -> IndexWriteResult:
@@ -988,7 +832,7 @@ def generate_index(reader: GraphReaderLike, wiki_root: Path, display_name: str |
     bytes differ. D-19: all-or-nothing — exceptions in render/place
     propagate out untouched.
     """
-    text, entity_count, curated_count, domain_count, direct_count, repo_count = _render(reader, wiki_root, display_name)
+    text, entity_count, curated_count, direct_count, repo_count = _render(reader, wiki_root, display_name)
     path = wiki_root / "index.md"
     new_bytes = text.encode("utf-8")
     existing_bytes: bytes | None
@@ -1003,7 +847,6 @@ def generate_index(reader: GraphReaderLike, wiki_root: Path, display_name: str |
             changed=False,
             entity_count=entity_count,
             curated_count=curated_count,
-            domain_count=domain_count,
             direct_count=direct_count,
             repo_count=repo_count,
         )
@@ -1017,7 +860,6 @@ def generate_index(reader: GraphReaderLike, wiki_root: Path, display_name: str |
         changed=True,
         entity_count=entity_count,
         curated_count=curated_count,
-        domain_count=domain_count,
         direct_count=direct_count,
         repo_count=repo_count,
     )
@@ -1033,9 +875,7 @@ __all__ = [
     "PlacedEntity",
     "_PLACEABLE_KINDS",
     "_build_sub_for_pkg",
-    "_compute_qualifying_domains",
     "_consumer_pkgs",
-    "_consumer_pkgs_in_domain",
     "_entity_bullet",
     "_infer_title",
     "_kind_major",
@@ -1046,7 +886,6 @@ __all__ = [
     "_render",
     "_render_concepts_section",
     "_render_curated_section",
-    "_render_domain_section",
     "_render_entity_heading",
     "_render_guidance_section",
     "_render_pkg_nested",

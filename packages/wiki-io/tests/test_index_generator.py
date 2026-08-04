@@ -1,13 +1,17 @@
 """Tests for `wiki_io.index_generator` — Phase 44 Plans 01 + 02.
 
 Layout:
-- Plan 01 unit tests: TestIndexWriteResult, TestQualifyingDomains, TestPlacement,
-  TestCuratedScan, TestWorkScan, TestRenderDomainTree, TestRenderByKind, plus
-  the happy-path integration test `test_generate_index_against_fixture_graph`.
-- Plan 02 acceptance tests: determinism, write-if-changed, single-placement
-  edge cases, sub-domain nesting, empty-omission, curated consolidation,
-  generated-files exclusion, plus a syrupy snapshot against the live
-  agent-research graph (skipped when no live graph is present).
+- Plan 01 unit tests: TestIndexWriteResult, TestPlacement, TestCuratedScan,
+  TestWorkScan, TestRenderByKind, plus the happy-path integration test
+  `test_generate_index_against_fixture_graph`.
+- Plan 02 acceptance tests: determinism, write-if-changed, direct-placement
+  edge cases, empty-omission, curated consolidation, generated-files
+  exclusion, plus a syrupy snapshot against the live agent-research graph
+  (skipped when no live graph is present).
+
+Domain bucketing was removed from `index_generator`: every placeable entity
+now renders directly under its repository section (no `### Domain:` /
+`#### Sub-Domain:` tier).
 """
 
 from __future__ import annotations
@@ -26,9 +30,7 @@ from wiki_io.index_generator import (
     GENERATED_FILES,
     KIND_HEADING_LABELS,
     IndexWriteResult,
-    _compute_qualifying_domains,
     _consumer_pkgs,
-    _consumer_pkgs_in_domain,
     _parse_repo_key,
     _place_entities,
     _render,
@@ -44,12 +46,12 @@ from wiki_io.index_generator import (
 def _place(conn):
     """Call _place_entities with a no-pages wiki_root + empty collision_set.
 
-    Repository grouping (2026-06-12): _place_entities returns
-    (per_repo, name_to_entity, domain_repo). These placement tests only care
-    about the per-repo buckets; with no entity pages on disk all summaries
-    degrade to "".
+    Domain bucketing removed: _place_entities returns (per_repo,
+    name_to_entity), where per_repo maps repo name -> flat list of
+    PlacedEntity. These placement tests only care about the per-repo
+    entity lists; with no entity pages on disk all summaries degrade to "".
     """
-    per_repo, _name_to_entity, _domain_repo = _place_entities(conn, Path("/nonexistent-wiki-root"), frozenset())
+    per_repo, _name_to_entity = _place_entities(conn, Path("/nonexistent-wiki-root"), frozenset())
     return per_repo
 
 
@@ -66,7 +68,6 @@ class TestIndexWriteResult:
             changed=False,
             entity_count=0,
             curated_count=0,
-            domain_count=0,
             direct_count=0,
             repo_count=0,
         )
@@ -139,182 +140,15 @@ class TestParseRepoKey:
 
 
 # ============================================================================
-# Plan 01 / Task 2 — Qualifying domains + placement
+# Plan 01 / Task 2 — Placement
 # ============================================================================
-
-
-class TestQualifyingDomains:
-    def test_package_with_one_domain(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "core", {"uri": "domain:core"}),
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="package", name="pkg-a") == {"core"}
-
-    def test_package_with_zero_domains(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-            ],
-            "edges": [],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="package", name="pkg-a") == set()
-
-    def test_package_with_multi_domains(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "core", {"uri": "domain:core"}),
-                ("domain", "billing", {"uri": "domain:billing"}),
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-a", "domain", "billing", "belongs_to_domain", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="package", name="pkg-a") == {"core", "billing"}
-
-    def test_test_suite_one_hop(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "core", {"uri": "domain:core"}),
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-                ("test_suite", "suite-a", {"uri": "test_suite:suite-a"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-                ("test_suite", "suite-a", "package", "pkg-a", "tests", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="test_suite", name="suite-a", uri="test_suite:suite-a") == {
-            "core"
-        }
-
-    def test_test_suite_multi_package_multi_domain(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "d1", {"uri": "domain:d1"}),
-                ("domain", "d2", {"uri": "domain:d2"}),
-                ("package", "pkg-1", {"uri": "pkg:pkg-1"}),
-                ("package", "pkg-2", {"uri": "pkg:pkg-2"}),
-                ("test_suite", "suite", {"uri": "test_suite:suite"}),
-            ],
-            "edges": [
-                ("package", "pkg-1", "domain", "d1", "belongs_to_domain", {}),
-                ("package", "pkg-2", "domain", "d2", "belongs_to_domain", {}),
-                ("test_suite", "suite", "package", "pkg-1", "tests", {}),
-                ("test_suite", "suite", "package", "pkg-2", "tests", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="test_suite", name="suite", uri="test_suite:suite") == {
-            "d1",
-            "d2",
-        }
-
-    def test_dependency_one_hop(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "core", {"uri": "domain:core"}),
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-                ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-a", "dependency", "boto3", "used_by", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="dependency", name="boto3") == {"core"}
-
-    def test_dependency_multi_consumer_same_domain(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "core", {"uri": "domain:core"}),
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-                ("package", "pkg-b", {"uri": "pkg:pkg-b"}),
-                ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-b", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-a", "dependency", "boto3", "used_by", {}),
-                ("package", "pkg-b", "dependency", "boto3", "used_by", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="dependency", name="boto3") == {"core"}
-
-    def test_dependency_multi_consumer_multi_domain(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("domain", "d1", {"uri": "domain:d1"}),
-                ("domain", "d2", {"uri": "domain:d2"}),
-                ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
-                ("package", "pkg-b", {"uri": "pkg:pkg-b"}),
-                ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "d1", "belongs_to_domain", {}),
-                ("package", "pkg-b", "domain", "d2", "belongs_to_domain", {}),
-                ("package", "pkg-a", "dependency", "boto3", "used_by", {}),
-                ("package", "pkg-b", "dependency", "boto3", "used_by", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="dependency", name="boto3") == {"d1", "d2"}
-
-    def test_agent_plugin_always_empty(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
-            ],
-            "edges": [],
-        }
-        conn = make_index_fixture_graph(spec)
-        assert _compute_qualifying_domains(conn, kind="agent_plugin", name="graph-wiki") == set()
-
-    def test_invalid_kind_raises(self, make_index_fixture_graph):
-        conn = make_index_fixture_graph({"nodes": [], "edges": []})
-        with pytest.raises(ValueError):
-            _compute_qualifying_domains(conn, kind="file", name="x")
 
 
 REPO_NODE = ("repository", "agent-research", {"uri": "repo:local/agent-research"})
 
 
 class TestPlacement:
-    def test_single_domain_goes_to_section(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                REPO_NODE,
-                ("domain", "core", {"uri": "domain:local/agent-research/core"}),
-                ("package", "pkg-a", {"uri": "pkg:local/agent-research/pkg-a"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        per_repo = _place(conn)
-        assert list(per_repo) == ["agent-research"]
-        buckets, direct = per_repo["agent-research"]
-        assert "core" in buckets
-        assert len(buckets["core"]) == 1
-        assert buckets["core"][0].kind == "package"
-        assert buckets["core"][0].name == "pkg-a"
-        assert direct == []
-
-    def test_zero_domain_goes_direct(self, make_index_fixture_graph):
+    def test_entity_goes_direct(self, make_index_fixture_graph):
         spec = {
             "nodes": [
                 REPO_NODE,
@@ -323,35 +157,10 @@ class TestPlacement:
             "edges": [],
         }
         conn = make_index_fixture_graph(spec)
-        buckets, direct = _place(conn)["agent-research"]
-        assert buckets == {}
+        direct = _place(conn)["agent-research"]
         assert len(direct) == 1
         assert direct[0].kind == "package"
         assert direct[0].name == "pkg-cross"
-
-    def test_multi_domain_goes_direct(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                REPO_NODE,
-                ("domain", "d1", {"uri": "domain:local/agent-research/d1"}),
-                ("domain", "d2", {"uri": "domain:local/agent-research/d2"}),
-                ("package", "pkg-1", {"uri": "pkg:local/agent-research/pkg-1"}),
-                ("package", "pkg-2", {"uri": "pkg:local/agent-research/pkg-2"}),
-                ("test_suite", "suite", {"uri": "test_suite:local/agent-research/suite"}),
-            ],
-            "edges": [
-                ("package", "pkg-1", "domain", "d1", "belongs_to_domain", {}),
-                ("package", "pkg-2", "domain", "d2", "belongs_to_domain", {}),
-                ("test_suite", "suite", "package", "pkg-1", "tests", {}),
-                ("test_suite", "suite", "package", "pkg-2", "tests", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        buckets, direct = _place(conn)["agent-research"]
-        suite_direct = [e for e in direct if e.name == "suite"]
-        assert len(suite_direct) == 1
-        for d in buckets.values():
-            assert not any(e.name == "suite" for e in d)
 
     def test_agent_plugin_always_direct(self, make_index_fixture_graph):
         # agent_plugin URI parses to "o/r" which matches no repo node —
@@ -364,9 +173,8 @@ class TestPlacement:
             "edges": [],
         }
         conn = make_index_fixture_graph(spec)
-        buckets, direct = _place(conn)["agent-research"]
+        direct = _place(conn)["agent-research"]
         assert any(e.kind == "agent_plugin" and e.name == "graph-wiki" for e in direct)
-        assert buckets == {}
 
     def test_direct_sort_order(self, make_index_fixture_graph):
         spec = {
@@ -380,31 +188,9 @@ class TestPlacement:
             "edges": [],
         }
         conn = make_index_fixture_graph(spec)
-        _buckets, direct = _place(conn)["agent-research"]
+        direct = _place(conn)["agent-research"]
         kinds = [e.kind for e in direct if e.name in ("graph-wiki", "pkg-cross", "boto3")]
         assert kinds == ["package", "dependency", "agent_plugin"]
-
-    def test_intra_domain_parent_pkgs_populated(self, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                REPO_NODE,
-                ("domain", "core", {"uri": "domain:local/agent-research/core"}),
-                ("package", "pkg-a", {"uri": "pkg:local/agent-research/pkg-a"}),
-                ("package", "pkg-b", {"uri": "pkg:local/agent-research/pkg-b"}),
-                ("dependency", "boto3", {"uri": "dependency:pypi/boto3", "ecosystem": "pypi"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-b", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-a", "dependency", "boto3", "used_by", {}),
-                ("package", "pkg-b", "dependency", "boto3", "used_by", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        buckets, _direct = _place(conn)["agent-research"]
-        deps = [e for e in buckets["core"] if e.kind == "dependency"]
-        assert len(deps) == 1
-        assert deps[0].parent_pkg_names == ("pkg-a", "pkg-b")
 
     # --- 2026-06-12 repository grouping: repo resolution ---
 
@@ -421,30 +207,10 @@ class TestPlacement:
         conn = make_index_fixture_graph(spec)
         per_repo = _place(conn)
         assert sorted(per_repo) == ["repo-alpha", "repo-beta"]
-        _, direct_alpha = per_repo["repo-alpha"]
-        _, direct_beta = per_repo["repo-beta"]
+        direct_alpha = per_repo["repo-alpha"]
+        direct_beta = per_repo["repo-beta"]
         assert [e.name for e in direct_alpha] == ["pkg-one"]
         assert [e.name for e in direct_beta] == ["pkg-two"]
-
-    def test_domain_repo_membership_from_domain_uri(self, make_index_fixture_graph):
-        # D-R2: the DOMAIN's own URI decides where its block lives — an
-        # entity placed in that domain follows the domain, not its own URI.
-        spec = {
-            "nodes": [
-                ("repository", "repo-alpha", {"uri": "repo:local/repo-alpha"}),
-                ("repository", "repo-beta", {"uri": "repo:local/repo-beta"}),
-                ("domain", "core", {"uri": "domain:local/repo-beta/core"}),
-                ("package", "pkg-one", {"uri": "pkg:local/repo-alpha/pkg-one"}),
-            ],
-            "edges": [
-                ("package", "pkg-one", "domain", "core", "belongs_to_domain", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        per_repo = _place(conn)
-        buckets_beta, _ = per_repo["repo-beta"]
-        assert [e.name for e in buckets_beta["core"]] == ["pkg-one"]
-        assert "repo-alpha" not in per_repo
 
     def test_unparseable_uri_with_single_repo_falls_in(self, make_index_fixture_graph):
         spec = {
@@ -455,7 +221,7 @@ class TestPlacement:
             "edges": [],
         }
         conn = make_index_fixture_graph(spec)
-        _buckets, direct = _place(conn)["agent-research"]
+        direct = _place(conn)["agent-research"]
         assert [e.name for e in direct] == ["pkg-x"]
 
     def test_unparseable_uri_with_multi_repo_raises(self, make_index_fixture_graph):
@@ -601,70 +367,6 @@ class TestWorkScan:
 # ============================================================================
 
 
-class TestRenderDomainTree:
-    def test_single_domain_with_one_package(self, tmp_path, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("repository", "agent-research", {"uri": "repo:agent-research"}),
-                ("domain", "core", {"uri": "domain:agent-research/core"}),
-                ("package", "pkg-a", {"uri": "pkg:agent-research/pkg-a"}),
-            ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        wiki_root = tmp_path / "wiki"
-        wiki_root.mkdir(parents=True, exist_ok=True)
-        text, *_ = _render(conn, wiki_root)
-        assert "\n## Repository: agent-research" in text
-        assert "## Domains" not in text
-        assert "\n### Domain: core" in text
-        assert "\n#### Package: pkg-a" in text
-        assert "[[entities/pkg_pkg-a|open page]]" in text
-
-    def test_sub_domain_nesting(self, tmp_path, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("repository", "agent-research", {"uri": "repo:agent-research"}),
-                ("domain", "core", {"uri": "domain:agent-research/core"}),
-                ("domain", "billing", {"uri": "domain:agent-research/billing"}),
-                ("package", "pkg-core", {"uri": "pkg:agent-research/pkg-core"}),
-                ("package", "pkg-billing", {"uri": "pkg:agent-research/pkg-billing"}),
-            ],
-            "edges": [
-                ("package", "pkg-core", "domain", "core", "belongs_to_domain", {}),
-                ("package", "pkg-billing", "domain", "billing", "belongs_to_domain", {}),
-                ("domain", "core", "domain", "billing", "domain_contains_domain", {}),
-            ],
-        }
-        conn = make_index_fixture_graph(spec)
-        wiki_root = tmp_path / "wiki"
-        wiki_root.mkdir(parents=True, exist_ok=True)
-        text, *_ = _render(conn, wiki_root)
-        assert "\n### Domain: core" in text
-        assert "\n#### Sub-Domain: billing" in text
-        assert "\n### Domain: billing" not in text
-        assert "\n#### Package: pkg-core" in text
-        assert "\n##### Package: pkg-billing" in text
-
-    def test_empty_domain_omitted(self, tmp_path, make_index_fixture_graph):
-        spec = {
-            "nodes": [
-                ("repository", "agent-research", {"uri": "repo:agent-research"}),
-                ("domain", "empty-domain", {"uri": "domain:empty-domain"}),
-            ],
-            "edges": [],
-        }
-        conn = make_index_fixture_graph(spec)
-        wiki_root = tmp_path / "wiki"
-        wiki_root.mkdir(parents=True, exist_ok=True)
-        text, *_ = _render(conn, wiki_root)
-        assert "Domain: empty-domain" not in text
-        # repo has no entities at all -> whole repo section omitted (D-08)
-        assert "## Repository:" not in text
-
-
 class TestRenderDirectEntities:
     def test_direct_entities_kind_major_order(self, tmp_path, make_index_fixture_graph):
         # D-R6: apps first, then packages, then agent plugins — as `###`
@@ -727,26 +429,21 @@ class TestRenderDirectEntities:
         assert "Cross summary — [[entities/pkg_pkg-cross|open page]]" in text
 
     def test_no_direct_entities_no_stray_headings(self, tmp_path, make_index_fixture_graph):
-        # All entities placed in domains -> repo section contains only the
-        # domain block; no level-3 entity headings, no `## By Kind`.
+        # A lone package renders as its own direct heading; the flat
+        # `## By Kind` structure never renders (domain bucketing removed).
         spec = {
             "nodes": [
                 ("repository", "agent-research", {"uri": "repo:agent-research"}),
-                ("domain", "core", {"uri": "domain:core"}),
                 ("package", "pkg-a", {"uri": "pkg:pkg-a"}),
             ],
-            "edges": [
-                ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ],
+            "edges": [],
         }
         conn = make_index_fixture_graph(spec)
         wiki_root = tmp_path / "wiki"
         wiki_root.mkdir(parents=True, exist_ok=True)
         text, *_ = _render(conn, wiki_root)
         assert "## By Kind" not in text
-        assert "\n### Domain: core" in text
-        assert "\n#### Package: pkg-a" in text
-        assert "\n### Package:" not in text
+        assert "\n### Package: pkg-a" in text
 
     def test_test_suites_subheading(self, tmp_path, make_index_fixture_graph):
         spec = {
@@ -807,8 +504,6 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
-            ("domain", "billing", {"uri": "domain:agent-research/billing"}),
             ("package", "pkg-a", {"uri": "pkg:agent-research/pkg-a"}),
             ("package", "pkg-b", {"uri": "pkg:agent-research/pkg-b"}),
             ("package", "pkg-cross", {"uri": "pkg:agent-research/pkg-cross"}),
@@ -817,8 +512,6 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
             ("agent_plugin", "graph-wiki", {"uri": "agent_plugin:o/r/graph-wiki", "ecosystem": "claude-code"}),
         ],
         "edges": [
-            ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ("package", "pkg-b", "domain", "billing", "belongs_to_domain", {}),
             ("test_suite", "suite-a", "package", "pkg-a", "tests", {}),
             ("package", "pkg-a", "dependency", "boto3", "used_by", {}),
             ("package", "pkg-b", "dependency", "boto3", "used_by", {}),
@@ -844,37 +537,27 @@ def test_generate_index_against_fixture_graph(tmp_path, make_index_fixture_graph
     assert result.changed is True
     assert result.entity_count == 6  # 3 pkgs + 1 ts + 1 dep + 1 agent_plugin
     assert result.curated_count == 2
-    assert result.domain_count == 2
     assert result.repo_count == 1
-    # D-R8: direct_count = heading entities rendered directly under a repo
-    # header. boto3 (multi-domain dependency) only nests under its consumers,
-    # so pkg-cross (package) + graph-wiki (agent_plugin) remain.
-    assert result.direct_count == 2
+    # direct_count = heading entities rendered directly under a repo header
+    # (domain bucketing removed — every heading kind is direct now):
+    # pkg-a, pkg-b, pkg-cross (packages) + graph-wiki (agent_plugin) = 4.
+    assert result.direct_count == 4
 
     text = (wiki_root / "index.md").read_text(encoding="utf-8")
     assert "\n## Repository: agent-research" in text
     assert "## Domains" not in text
     assert "## By Kind" not in text
-    assert "\n### Domain: billing" in text
-    assert "\n### Domain: core" in text
-    # Single-domain entities are `####` headings inside their domain block …
-    assert "\n#### Package: pkg-a" in text
-    assert "\n#### Package: pkg-b" in text
-    # … and zero/multi-domain entities are `###` headings under the repo.
+    # Every placeable entity is a `###` heading directly under the repo.
+    assert "\n### Package: pkg-a" in text
+    assert "\n### Package: pkg-b" in text
     assert "\n### Package: pkg-cross" in text
     assert "\n### Agent Plugin: graph-wiki" in text
-    assert "\n### Package: pkg-a" not in text
-    # Domains render before direct entities (spec section order); billing < core.
-    billing_idx = text.find("\n### Domain: billing")
-    core_idx = text.find("\n### Domain: core")
-    cross_idx = text.find("\n### Package: pkg-cross")
-    assert -1 < billing_idx < core_idx < cross_idx
     # Flat kind groups are gone.
     assert "### Apps" not in text
     assert "### Packages" not in text
     assert "### Agent Plugins" not in text
     assert "### Dependencies" not in text
-    # boto3 nests under pkg-a (core) and pkg-b (billing) as bullets (D-10).
+    # boto3 nests under pkg-a and pkg-b as bullets (D-10).
     assert "  - Dependencies" in text
     assert "[[entities/dep_boto3|boto3]]" in text
     assert "[[entities/pkg_pkg-a|open page]]" in text
@@ -1025,93 +708,27 @@ def test_cross_cutting_renders_direct_under_repo(tmp_path, make_index_fixture_gr
     cross_link = "[[entities/pkg_pkg-cross|open page]]"
     assert text.count(cross_link) == 1
     assert "\n### Package: pkg-cross" in text
-    core_idx = text.find("\n### Domain: core")
-    billing_idx = text.find("\n### Domain: billing")
-    cross_idx = text.find("\n### Package: pkg-cross")
-    assert core_idx > -1 and billing_idx > -1 and cross_idx > -1
-    # Domain blocks render before direct entities inside the repo section.
-    assert core_idx < cross_idx
-    assert billing_idx < cross_idx
-
-
-def test_multi_domain_entity_nests_only_under_consumers(tmp_path, make_index_fixture_graph):
-    """INDEX-04/D-01/D-10 — a multi-domain test_suite is placed direct under the repo but
-    nests under each package it tests (in those packages' domain sections),
-    appearing once per tested package (duplication is expected, D-10)."""
-    spec = _build_realistic_graph_spec()
-    conn = make_index_fixture_graph(spec)
-    wiki_root = tmp_path / "wiki"
-    wiki_root.mkdir(parents=True, exist_ok=True)
-
-    text, *_ = _render(conn, wiki_root)
-    # Phase 53 D-05: short_filename for `test_suite:agent-research/cross/integration`
-    # with no `suite_kind` attr falls back to `tests_<pkg>` where `<pkg>` is the
-    # second-to-last URI segment (`cross`).
-    multi_substr = "tests_cross"
-    count = text.count(multi_substr)
-    # suite-multi tests pkg-a (core) and pkg-c (billing) → nests under each (D-10).
-    assert count == 2, f"suite-multi should nest under both packages; found {count}"
-    # Phase 57 D-08: no flat `### Test Suites` group — it nests under packages.
-    assert "### Test Suites" not in text
-    assert "  - Test Suites" in text
-
-
-def test_sub_domain_nesting(tmp_path, make_index_fixture_graph):
-    """D-07 — sub-domains nest under parent via domain_contains_domain."""
-    spec = {
-        "nodes": [
-            ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
-            ("domain", "billing", {"uri": "domain:agent-research/billing"}),
-            ("package", "pkg-core", {"uri": "pkg:agent-research/pkg-core"}),
-            ("package", "pkg-billing", {"uri": "pkg:agent-research/pkg-billing"}),
-        ],
-        "edges": [
-            ("package", "pkg-core", "domain", "core", "belongs_to_domain", {}),
-            ("package", "pkg-billing", "domain", "billing", "belongs_to_domain", {}),
-            ("domain", "core", "domain", "billing", "domain_contains_domain", {}),
-        ],
-    }
-    conn = make_index_fixture_graph(spec)
-    wiki_root = tmp_path / "wiki"
-    wiki_root.mkdir(parents=True, exist_ok=True)
-
-    text, *_ = _render(conn, wiki_root)
-    assert "\n### Domain: core" in text
-    assert "\n#### Sub-Domain: billing" in text
-    assert "\n### Domain: billing" not in text
-    assert "\n#### Package: pkg-core" in text
-    assert "\n##### Package: pkg-billing" in text
-    core_idx = text.find("\n### Domain: core")
-    sub_idx = text.find("\n#### Sub-Domain: billing")
-    assert core_idx < sub_idx
 
 
 def test_empty_sections_omitted(tmp_path, make_index_fixture_graph):
-    """D-08 — empty sub-bullets + empty domains omitted."""
+    """D-08 — empty sub-bullets omitted."""
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "active-domain", {"uri": "domain:agent-research/active-domain"}),
-            ("domain", "empty-domain", {"uri": "domain:agent-research/empty-domain"}),
             ("package", "pkg-solo", {"uri": "pkg:agent-research/pkg-solo"}),
         ],
-        "edges": [
-            ("package", "pkg-solo", "domain", "active-domain", "belongs_to_domain", {}),
-        ],
+        "edges": [],
     }
     conn = make_index_fixture_graph(spec)
     wiki_root = tmp_path / "wiki"
     wiki_root.mkdir(parents=True, exist_ok=True)
 
     text, *_ = _render(conn, wiki_root)
-    assert "\n### Domain: active-domain" in text
-    assert "\n#### Package: pkg-solo" in text
+    assert "\n### Package: pkg-solo" in text
     assert "[[entities/pkg_pkg-solo|open page]]" in text
     # pkg-solo has no suites/deps -> no nested sub-lists anywhere (D-08).
     assert "Test Suites" not in text
     assert "Dependencies" not in text
-    assert "Domain: empty-domain" not in text
 
 
 def test_agent_plugin_always_direct_under_repo(tmp_path, make_index_fixture_graph):
@@ -1119,13 +736,10 @@ def test_agent_plugin_always_direct_under_repo(tmp_path, make_index_fixture_grap
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
             ("package", "pkg-a", {"uri": "pkg:agent-research/pkg-a"}),
             ("agent_plugin", "graph-wiki", {"ecosystem": "claude-code", "uri": "agent_plugin:o/r/graph-wiki"}),
         ],
-        "edges": [
-            ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-        ],
+        "edges": [],
     }
     conn = make_index_fixture_graph(spec)
     wiki_root = tmp_path / "wiki"
@@ -1135,27 +749,20 @@ def test_agent_plugin_always_direct_under_repo(tmp_path, make_index_fixture_grap
     agent_plugin_slug = "agent-plugin_graph-wiki"
     assert text.count(agent_plugin_slug) == 1
     assert "\n### Agent Plugin: graph-wiki" in text
-    core_idx = text.find("\n### Domain: core")
-    plug_idx = text.find("\n### Agent Plugin: graph-wiki")
-    assert -1 < core_idx < plug_idx
 
 
 def test_multi_repo_renders_two_alphabetical_sections(tmp_path, make_index_fixture_graph):
     """D-R1 — two repository nodes render two self-contained, alphabetical
-    `## Repository:` sections with entities split by URI (D-R7), domains
-    nested in their own repo's section (D-R2)."""
+    `## Repository:` sections with entities split by URI (D-R7)."""
     spec = {
         "nodes": [
             ("repository", "repo-alpha", {"uri": "repo:local/repo-alpha"}),
             ("repository", "repo-beta", {"uri": "repo:local/repo-beta"}),
-            ("domain", "core", {"uri": "domain:local/repo-beta/core"}),
             ("package", "pkg-one", {"uri": "pkg:local/repo-alpha/pkg-one"}),
             ("package", "pkg-two", {"uri": "pkg:local/repo-beta/pkg-two"}),
             ("package", "pkg-three", {"uri": "pkg:local/repo-beta/pkg-three"}),
         ],
-        "edges": [
-            ("package", "pkg-two", "domain", "core", "belongs_to_domain", {}),
-        ],
+        "edges": [],
     }
     conn = make_index_fixture_graph(spec)
     wiki_root = tmp_path / "wiki"
@@ -1165,12 +772,11 @@ def test_multi_repo_renders_two_alphabetical_sections(tmp_path, make_index_fixtu
     b_idx = text.find("\n## Repository: repo-beta")
     assert -1 < a_idx < b_idx
     one_idx = text.find("\n### Package: pkg-one")
-    dom_idx = text.find("\n### Domain: core")
-    two_idx = text.find("\n#### Package: pkg-two")
+    two_idx = text.find("\n### Package: pkg-two")
     three_idx = text.find("\n### Package: pkg-three")
-    # pkg-one inside alpha; beta holds its domain (with pkg-two) then pkg-three.
+    # pkg-one inside alpha; beta holds pkg-three then pkg-two (alphabetical by URI).
     assert a_idx < one_idx < b_idx
-    assert b_idx < dom_idx < two_idx < three_idx
+    assert b_idx < three_idx < two_idx
 
 
 def test_empty_repo_section_omitted(tmp_path, make_index_fixture_graph):
@@ -1203,7 +809,6 @@ def test_zero_repos_curated_lanes_only(tmp_path, make_index_fixture_graph):
     assert "## Concepts" in text
     assert result.repo_count == 0
     assert result.direct_count == 0
-    assert result.domain_count == 0
 
 
 # ============================================================================
@@ -1272,9 +877,9 @@ def test_generated_files_excluded(tmp_path, make_index_fixture_graph):
 # ============================================================================
 
 
-def test_app_zero_domain_renders_direct_apps_first(tmp_path, make_index_fixture_graph):
-    """IDX-01/D-R6 — a zero-domain app renders directly under the repo header,
-    before packages (apps first)."""
+def test_app_renders_direct_apps_first(tmp_path, make_index_fixture_graph):
+    """IDX-01/D-R6 — an app renders directly under the repo header, before
+    packages (apps first)."""
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
@@ -1293,29 +898,6 @@ def test_app_zero_domain_renders_direct_apps_first(tmp_path, make_index_fixture_
     assert pkg_idx > -1
     assert app_idx < pkg_idx  # apps listed first (D-R6)
     assert "[[entities/app_myapp|open page]]" in text
-
-
-def test_app_single_domain_renders_under_its_domain(tmp_path, make_index_fixture_graph):
-    """IDX-01/D-04 — a single-domain app renders under its `## Domain: X`
-    section (same routing as packages), not in By-Kind."""
-    spec = {
-        "nodes": [
-            ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
-            ("app", "myapp", {"uri": "app:agent-research/myapp", "app_kind": "cli"}),
-        ],
-        "edges": [
-            ("app", "myapp", "domain", "core", "belongs_to_domain", {}),
-        ],
-    }
-    conn = make_index_fixture_graph(spec)
-    wiki_root = tmp_path / "wiki"
-    wiki_root.mkdir(parents=True, exist_ok=True)
-    text, *_ = _render(conn, wiki_root)
-    assert "\n### Domain: core" in text
-    assert "\n#### App: myapp" in text
-    assert "[[entities/app_myapp|open page]]" in text
-    assert "\n### App:" not in text  # not a direct entity
 
 
 def test_internal_dependencies_subsection_distinct_from_dependencies(tmp_path, make_index_fixture_graph):
@@ -1363,14 +945,10 @@ def test_inline_summary_from_entity_page_frontmatter(tmp_path, make_index_fixtur
     spec = {
         "nodes": [
             ("repository", "agent-research", {"uri": "repo:agent-research"}),
-            ("domain", "core", {"uri": "domain:agent-research/core"}),
             ("package", "pkg-a", {"uri": "pkg:agent-research/pkg-a"}),
             ("package", "pkg-b", {"uri": "pkg:agent-research/pkg-b"}),
         ],
-        "edges": [
-            ("package", "pkg-a", "domain", "core", "belongs_to_domain", {}),
-            ("package", "pkg-b", "domain", "core", "belongs_to_domain", {}),
-        ],
+        "edges": [],
     }
     conn = make_index_fixture_graph(spec)
     wiki_root = tmp_path / "wiki"
@@ -1383,10 +961,10 @@ def test_inline_summary_from_entity_page_frontmatter(tmp_path, make_index_fixtur
     )
     text, *_ = _render(conn, wiki_root)
     # pkg-a renders its summary before the open-page link (D-R4 body shape).
-    assert "\n#### Package: pkg-a" in text
+    assert "\n### Package: pkg-a" in text
     assert "Some summary — [[entities/pkg_pkg-a|open page]]" in text
     # pkg-b (no entity page) renders the bare link with NO summary prefix.
-    assert "\n#### Package: pkg-b" in text
+    assert "\n### Package: pkg-b" in text
     assert "[[entities/pkg_pkg-b|open page]]\n" in text
     assert "— [[entities/pkg_pkg-b|open page]]" not in text
 
@@ -1481,8 +1059,7 @@ def test_consumer_pkgs_fanout_regression_guard():
     name='tests', so each returned BOTH packages (fan-out). After the fix,
     _consumer_pkgs joins on ts.uri=?, giving exactly one consumer per suite.
 
-    The guard also covers _consumer_pkgs_in_domain with a domain variant, and
-    confirms that a URI matching no suite returns empty (no name-fallback).
+    Also confirms that a URI matching no suite returns empty (no name-fallback).
     """
     conn = _make_fanout_fixture()
 
@@ -1494,12 +1071,6 @@ def test_consumer_pkgs_fanout_regression_guard():
     pkgs_for_beta = _consumer_pkgs(conn, kind="test_suite", entity_uri=uri_beta)
     assert pkgs_for_alpha == ("pkg-alpha",), f"expected ('pkg-alpha',), got {pkgs_for_alpha!r} — fan-out detected"
     assert pkgs_for_beta == ("pkg-beta",), f"expected ('pkg-beta',), got {pkgs_for_beta!r} — fan-out detected"
-
-    # _consumer_pkgs_in_domain: same correctness within a domain
-    pkgs_alpha_d1 = _consumer_pkgs_in_domain(conn, kind="test_suite", entity_uri=uri_alpha, domain_name="d1")
-    pkgs_beta_d1 = _consumer_pkgs_in_domain(conn, kind="test_suite", entity_uri=uri_beta, domain_name="d1")
-    assert pkgs_alpha_d1 == ("pkg-alpha",), f"expected ('pkg-alpha',), got {pkgs_alpha_d1!r} — domain fan-out detected"
-    assert pkgs_beta_d1 == ("pkg-beta",), f"expected ('pkg-beta',), got {pkgs_beta_d1!r} — domain fan-out detected"
 
     # A URI matching no suite returns empty (no name-fallback)
     no_match = _consumer_pkgs(conn, kind="test_suite", entity_uri="test_suite:org/repo/no-such-suite")
