@@ -46,7 +46,7 @@ from __future__ import annotations
 
 import hashlib
 
-# Admitted entity kinds — the 7 graph-derived kinds the wiki materializes
+# Admitted entity kinds — the 6 graph-derived kinds the wiki materializes
 # as standalone pages under `wiki/entities/`. Underscore-form per D-02 matches
 # the graph store's `_VALID_KINDS` casing. Phase 43+ imports this constant when
 # routing graph rows to the correct template / URI builder.
@@ -70,7 +70,6 @@ import hashlib
 ADMITTED_KINDS: frozenset[str] = frozenset(
     {
         "repository",
-        "domain",
         "package",
         "app",
         "agent_plugin",
@@ -89,7 +88,6 @@ ADMITTED_KINDS: frozenset[str] = frozenset(
 # which is the only filename-layer prefix surface that remains.
 _URI_PREFIX_BY_KIND: dict[str, str] = {
     "repository": "repo",
-    "domain": "domain",
     "package": "pkg",
     "app": "app",
     "agent_plugin": "agent_plugin",
@@ -119,7 +117,6 @@ DATA_KEYS: frozenset[str] = frozenset(
         "graph_name",
         "last_scan_at",
         # Edge-derived (package)
-        "domains",
         "depends_on",
         "test_suites",
         "entry_points",
@@ -129,10 +126,6 @@ DATA_KEYS: frozenset[str] = frozenset(
         # Node-attr-derived (app — Phase 52 D-06; mirrors package + app-specific keys)
         "app_kind",
         "app_signals",
-        # Edge-derived (domain)
-        "parent_domain",
-        "sub_domains",
-        "packages",
         # Edge-derived (test_suite)
         "tested_packages",
         "suite_kind",
@@ -159,7 +152,6 @@ _FILENAME_PREFIX_BY_URI_PREFIX: dict[str, str] = {
     "repo": "repo",
     "pkg": "pkg",
     "app": "app",
-    "domain": "domain",
     "agent_plugin": "agent-plugin",
     "dependency": "dep",
     "test_suite": "tests",
@@ -297,13 +289,9 @@ from wiki_io.md_escape import escape_angle_brackets  # noqa: E402
 # retired family-grouping kind).
 STRUCTURAL_KEYS: frozenset[str] = frozenset(
     {
-        "domains",
         "depends_on",
         "test_suites",
         "entry_points",
-        "parent_domain",
-        "sub_domains",
-        "packages",
         "tested_packages",
         "used_by",
     }
@@ -759,7 +747,6 @@ def _kind_list_fns() -> dict[str, Callable]:
         "repository": lambda reader: reader.list_repositories(),
         "package": lambda reader: reader.list_packages(),
         "app": lambda reader: reader.list_apps(),
-        "domain": lambda reader: reader.list_domains(),
         "test_suite": lambda reader: reader.list_test_suites(),
         "dependency": lambda reader: reader.list_dependencies(),
         "agent_plugin": lambda reader: reader.list_agent_plugins(),
@@ -821,10 +808,6 @@ def scanner_frontmatter_for_node(reader: Any, kind: str, node: Any) -> dict:
             fm["entry_points"] = [e.name for e in d.entry_points]
             fm["app_kind"] = d.app_kind
             fm["app_signals"] = list(d.app_signals)
-    elif kind == "domain":
-        d = reader.describe_domain(name=node.name)
-        if d is not None and d.parent:
-            fm["parent_domain"] = d.parent
     elif kind == "test_suite":
         d = reader.describe_test_suite(suite_name=node.name)
         if d is not None:

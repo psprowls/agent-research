@@ -32,9 +32,9 @@ When this file says "wiki root" it means the directory containing this `CLAUDE.m
 index.md                  → content catalog — regenerated every scan/ingest
 log.md                    → append-only timeline
 entities/                 → one page per code-graph entity, written by scan:
-                            repository / domain / package / app / agent_plugin /
+                            repository / package / app / agent_plugin /
                             dependency / test_suite. Filenames are slugs like
-                            `pkg_<name>`, `dep_<name>`, `domain_<name>`.
+                            `pkg_<name>`, `dep_<name>`.
 concepts/                 → cross-cutting technical concepts; optional kind: concept | pattern | architecture
 sources/                  → one summary per ingested source (cites files in ../raw/)
 adrs/                     → architecture decision records
@@ -50,7 +50,7 @@ Work items live under the wiki at `work/`. Reference them from any page with `[[
 ```yaml
 ---
 title: <Title>
-category: app | package | domain | concept | dependency | work | source | adr | index
+category: app | package | concept | dependency | work | source | adr | index
 summary: <one-line summary>
 tags: [tag1, tag2]
 updated: YYYY-MM-DD
@@ -76,7 +76,7 @@ Sources may live under `../raw/<...>` (clipped articles, specs, PRs, transcripts
 
 1. Run `ingest_source.py --source <path>` (wiki and repo discovered automatically)
 2. Read the source directly
-3. **Discuss with the user first** — TL;DR, key claims, which packages/domains/concepts will be touched, any contradictions with code
+3. **Discuss with the user first** — TL;DR, key claims, which packages/concepts will be touched, any contradictions with code
 4. Wait for confirmation
 5. Create/merge the summary page at `sources/<YYYY-MM>-<slug>.md`. For in-repo docs, record `last_sync_commit` and `last_sync_at` in frontmatter so lint can flag staleness later
 6. Update every relevant entity, concept, and source page (typically 5-15 pages)

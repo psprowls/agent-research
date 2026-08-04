@@ -1,8 +1,9 @@
 """Pure-function tests for wiki_io.package_pages.resolve_overview_path.
 
 Moved from graph-io's sync-wiki suite when the layout conventions were
-repatriated (package-layering-review R1): these pin the three filesystem
-conventions and the ambiguity rule.
+repatriated (package-layering-review R1): these pin the two filesystem
+conventions. The domain glob (and its ambiguity case) was removed alongside
+the domain entity kind (Task 8).
 """
 
 from __future__ import annotations
@@ -40,20 +41,6 @@ def test_packages_convention_wins_over_apps(workspace: Path) -> None:
     _make_overview(workspace, "wiki/packages/dual/dual.md")
     _make_overview(workspace, "wiki/apps/dual/dual.md")
     assert resolve_overview_path("dual", workspace) == ("wiki/packages/dual/dual.md", False)
-
-
-def test_resolves_domains_overview_via_glob(workspace: Path) -> None:
-    _make_overview(workspace, "wiki/domains/billing/packages/billing-core/billing-core.md")
-    assert resolve_overview_path("billing-core", workspace) == (
-        "wiki/domains/billing/packages/billing-core/billing-core.md",
-        False,
-    )
-
-
-def test_domain_glob_collision_is_ambiguous(workspace: Path) -> None:
-    _make_overview(workspace, "wiki/domains/a/packages/core/core.md")
-    _make_overview(workspace, "wiki/domains/b/packages/core/core.md")
-    assert resolve_overview_path("core", workspace) == (None, True)
 
 
 def test_missing_page_is_not_found(workspace: Path) -> None:

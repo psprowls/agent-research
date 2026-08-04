@@ -29,11 +29,6 @@ from wiki_io.entity_writer import short_filename
             {},
             "app_graph-wiki-agent",
         ),
-        (
-            "domain:agent-research/agent-research/observability",
-            {},
-            "domain_observability",
-        ),
         ("agent_plugin:org/repo/graph-wiki", {}, "agent-plugin_graph-wiki"),
         ("dependency:pypi/langchain-aws", {}, "dep_langchain-aws"),
         (
@@ -44,7 +39,7 @@ from wiki_io.entity_writer import short_filename
     ],
 )
 def test_examples_no_collision(uri: str, kwargs: dict, expected: str) -> None:
-    """Happy-path: each of the 7 admitted URI shapes produces its documented stem."""
+    """Happy-path: each of the 6 admitted URI shapes produces its documented stem."""
     assert short_filename(uri, frozenset(), **kwargs) == expected
 
 
@@ -121,14 +116,13 @@ _FRAGMENT = st.text(
 
 @st.composite
 def _uri_strategy(draw: st.DrawFn) -> str:
-    """Draw a URI from the 7 admitted templates with random fragment fills."""
+    """Draw a URI from the 6 admitted templates with random fragment fills."""
     template = draw(
         st.sampled_from(
             [
                 "repo",
                 "pkg",
                 "app",
-                "domain",
                 "agent_plugin",
                 "dependency",
                 "test_suite",
@@ -141,8 +135,6 @@ def _uri_strategy(draw: st.DrawFn) -> str:
         return f"pkg:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     if template == "app":
         return f"app:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
-    if template == "domain":
-        return f"domain:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     if template == "agent_plugin":
         return f"agent_plugin:{draw(_FRAGMENT)}/{draw(_FRAGMENT)}/{draw(_FRAGMENT)}"
     if template == "dependency":

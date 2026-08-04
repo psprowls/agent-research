@@ -3,7 +3,6 @@ uri: <app-uri>
 kind: app
 graph_name: <graph-name>
 last_scan_at: <YYYY-MM-DD>
-domains: []
 depends_on: []
 test_suites: []
 entry_points: []

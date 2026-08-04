@@ -32,9 +32,9 @@ When this file says "wiki root" it means the directory containing this `AGENTS.m
 index.md                  → content catalog — regenerated every scan/ingest
 log.md                    → append-only timeline
 entities/                 → one page per code-graph entity, written by scan:
-                            repository / domain / package / app / agent_plugin /
+                            repository / package / app / agent_plugin /
                             dependency / test_suite. Filenames are slugs like
-                            `pkg_<name>`, `dep_<name>`, `domain_<name>`.
+                            `pkg_<name>`, `dep_<name>`.
 concepts/                 → cross-cutting technical concepts; optional kind: concept | pattern | architecture
 sources/                  → one summary per ingested source (cites files in ../raw/)
 adrs/                     → architecture decision records
@@ -49,7 +49,7 @@ Work items live under the wiki at `work/`. Reference them from any page with `[[
 ```yaml
 ---
 title: <Title>
-category: app | package | domain | concept | dependency | work | source | adr | index
+category: app | package | concept | dependency | work | source | adr | index
 summary: <one-line summary>
 tags: [tag1, tag2]
 updated: YYYY-MM-DD

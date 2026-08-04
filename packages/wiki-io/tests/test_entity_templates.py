@@ -5,7 +5,9 @@ Closes the loop between Plan 01's `ADMITTED_KINDS` constant and Plan 02's
 without updating ADMITTED_KINDS, or vice versa.
 
 Phase 51 PKGFAM-03: count was 6 (`entity-package-family.md` retired).
-Phase 52 D-06: count is now 7 (`entity-app.md` added).
+Phase 52 D-06: count was 7 (`entity-app.md` added).
+Task 8: count is now 6 again (`entity-domain.md` retired; domain entity kind
+removed).
 """
 
 from __future__ import annotations
@@ -22,13 +24,14 @@ ENTITY_TEMPLATES = sorted(TEMPLATE_DIR.glob("entity-*.md"))
 
 
 def test_six_entity_templates_exist() -> None:
-    """Exactly 7 entity-*.md files exist (one per admitted kind).
+    """Exactly 6 entity-*.md files exist (one per admitted kind).
 
     Phase 51 PKGFAM-03: was 6 after `entity-package-family.md` was retired.
-    Phase 52 D-06: now 7 with the addition of `entity-app.md`.
+    Phase 52 D-06: was 7 with the addition of `entity-app.md`.
+    Task 8: back to 6 with the removal of `entity-domain.md`.
     """
-    assert len(ENTITY_TEMPLATES) == 7, (
-        f"expected 7 entity templates, got {len(ENTITY_TEMPLATES)}: {[p.name for p in ENTITY_TEMPLATES]}"
+    assert len(ENTITY_TEMPLATES) == 6, (
+        f"expected 6 entity templates, got {len(ENTITY_TEMPLATES)}: {[p.name for p in ENTITY_TEMPLATES]}"
     )
 
 
@@ -153,7 +156,6 @@ def test_all_entity_templates_have_referenced_in_wiki_section() -> None:
     kinds = [
         "package",
         "app",
-        "domain",
         "repository",
         "dependency",
         "test-suite",

@@ -26,7 +26,7 @@ from wiki_io.entity_writer import (
 
 # Entity-kind nodes worth a name-fallback match (file names are noisy).
 # Mirrors the former `_ENTITY_KINDS` in graph_wiki_core.commands.ingest.
-ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method", "domain"})
+ENTITY_KINDS: frozenset[str] = frozenset({"package", "class", "function", "method"})
 
 
 def lookup_entity_by_path(reader: GraphReaderLike, repo_root: Path, source_path: Path) -> tuple[str, str] | None:
@@ -122,7 +122,7 @@ def entity_filename_for_uri(uri: str, reader: GraphReaderLike | None = None) -> 
 
     Returns None for URI prefixes with no entity page (cls:/fn:/method:),
     since `short_filename` raises ValueError on those — ingest only matches
-    package/domain entities for linkable targets.
+    package entities for linkable targets.
     """
     if not uri:
         return None

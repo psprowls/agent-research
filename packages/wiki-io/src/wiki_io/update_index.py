@@ -20,13 +20,12 @@ from wiki_io.md_escape import escape_angle_brackets
 from wiki_io.wikilinks import vault_wikilink
 
 # Categories rendered in the main index (navigation backbone only)
-MAIN_INDEX_CATEGORIES = ["app", "domain", "package"]
+MAIN_INDEX_CATEGORIES = ["app", "package"]
 
 # Keep the full order for category sub-index generation
 CATEGORY_ORDER = [
     "app",
     "package",
-    "domain",
     "concept",
     "dependency",
     "work",
@@ -53,7 +52,6 @@ SUBPAGE_STEMS = {"api", "patterns", "issues", "context", "flows", "work", "testi
 CATEGORY_DIRS = {
     "apps": "app",
     "packages": "package",
-    "domains": "domain",
     "concepts": "concept",
     "dependencies": "dependency",
     "work": "work",
@@ -63,7 +61,6 @@ CATEGORY_DIRS = {
 CATEGORY_LABELS = {
     "app": "App",
     "package": "Package",
-    "domain": "Domain",
     "concept": "Concept",
     "dependency": "Dependency",
     "work": "Work",
@@ -212,7 +209,7 @@ def render_index(pages, wiki_name, vault_name):
         f"_Auto-generated {today} • {nav_total} navigation pages_",
         "",
         f"> Navigation index for `{vault_name}/`. Updated during command-layer scan/ingest flows.",
-        "> Answer queries by reading this file first, then open relevant package/domain pages.",
+        "> Answer queries by reading this file first, then open relevant package pages.",
         "",
     ]
 

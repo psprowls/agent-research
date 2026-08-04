@@ -10,7 +10,6 @@ from graph_io.handle import GraphReader
 from graph_io.queries import (
     AgentPluginDescription,
     DependencyDescription,
-    DomainDescription,
     NodeRecord,
     PackageDescription,
     RepoDescription,
@@ -44,7 +43,6 @@ class MockGraphConn(GraphReader):
         self._conn = self
         self._nodes: dict[str, list[NodeRecord]] = {
             "repository": [],
-            "domain": [],
             "package": [],
             "app": [],
             "agent_plugin": [],
@@ -105,18 +103,6 @@ def mock_graph_conn() -> MockGraphConn:
                 path="packages/wiki-io",
                 line=None,
                 attrs={"uri": "pkg:local/agent-research/wiki-io", "language": "python", "version": "0.1.1"},
-            ),
-        ],
-    )
-    conn.set_nodes(
-        "domain",
-        [
-            NodeRecord(
-                kind="domain",
-                name="storage",
-                path=None,
-                line=None,
-                attrs={"uri": "domain:local/agent-research/storage"},
             ),
         ],
     )
@@ -189,7 +175,6 @@ def mock_graph_conn() -> MockGraphConn:
             version="0.2.1",
             files=["packages/graph-io/src/graph_io/queries.py"],
             counts={"function": 30},
-            domains=["storage"],
             entry_points=[],
             test_suites=[],
         ),
@@ -203,7 +188,6 @@ def mock_graph_conn() -> MockGraphConn:
             version="0.1.1",
             files=["packages/wiki-io/src/wiki_io/entity_writer.py"],
             counts={"function": 15},
-            domains=[],
             entry_points=[],
             test_suites=[],
         ),
@@ -218,16 +202,6 @@ def mock_graph_conn() -> MockGraphConn:
             url=None,
             default_branch="main",
             package_count=7,
-        ),
-    )
-    conn.set_description(
-        "domain",
-        "storage",
-        DomainDescription(
-            name="storage",
-            uri="domain:local/agent-research/storage",
-            parent=None,
-            description=None,
         ),
     )
     conn.set_description(

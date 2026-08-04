@@ -2,7 +2,7 @@
 
 Validates the surviving Phase 42 contracts (D-10):
 
-1. ADMITTED_KINDS is the 7 underscore-form kinds (D-02; `package_family`
+1. ADMITTED_KINDS is the 6 underscore-form kinds (D-02; `package_family`
    retired in Phase 51 PKGFAM-03; `app` admitted in Phase 52 D-06).
 2. DATA_KEYS is disjoint from the human-only keys (D-09).
 
@@ -25,13 +25,12 @@ from wiki_io.entity_writer import (
 
 
 def test_admitted_kinds_shape() -> None:
-    """ADMITTED_KINDS is exactly the 7 underscore-form kinds (D-02;
+    """ADMITTED_KINDS is exactly the 6 underscore-form kinds (D-02;
     `package_family` retired in Phase 51 PKGFAM-03; `app` admitted in
     Phase 52 D-06)."""
     expected = frozenset(
         {
             "repository",
-            "domain",
             "package",
             "app",
             "agent_plugin",
@@ -55,7 +54,7 @@ def test_data_keys_disjoint_from_human() -> None:
     human_only = {"status", "last_reviewed", "owner", "notes"}
     assert DATA_KEYS.isdisjoint(human_only)
     # Spot-check a baseline of D-07 keys ARE present.
-    for key in ("uri", "kind", "domains", "depends_on", "ecosystem"):
+    for key in ("uri", "kind", "depends_on", "ecosystem"):
         assert key in DATA_KEYS, f"missing baseline key: {key!r}"
 
 
@@ -90,7 +89,9 @@ def test_structural_keys_subset_invariant() -> None:
 
     assert STRUCTURAL_KEYS.issubset(DATA_KEYS)
     # Phase 51 PKGFAM-03: dropped `members` (package_family carrier).
-    assert len(STRUCTURAL_KEYS) == 9
+    # Task 8: dropped `domains`, `parent_domain`, `sub_domains`, `packages`
+    # (domain entity kind removed).
+    assert len(STRUCTURAL_KEYS) == 5
 
 
 # ----------------------------------------------------------------------------
@@ -100,10 +101,10 @@ def test_structural_keys_subset_invariant() -> None:
 
 def test_merge_preserves_human_authored_status() -> None:
     existing = {"uri": "pkg:x/y/z", "kind": "package", "status": "deprecated"}
-    scanner_update = {"uri": "pkg:x/y/z", "kind": "package", "domains": ["a"]}
+    scanner_update = {"uri": "pkg:x/y/z", "kind": "package", "depends_on": ["a"]}
     out = merge_frontmatter(existing, scanner_update)
     assert out["status"] == "deprecated"
-    assert out["domains"] == ["a"]
+    assert out["depends_on"] == ["a"]
     assert out["uri"] == "pkg:x/y/z"
 
 
@@ -116,7 +117,7 @@ def test_merge_replaces_scanner_keys() -> None:
 
 def test_merge_key_order_uri_kind_first() -> None:
     existing = {"notes": "hi", "uri": "x", "kind": "package", "status": "live"}
-    scanner_update = {"uri": "x", "kind": "package", "domains": ["d"]}
+    scanner_update = {"uri": "x", "kind": "package", "depends_on": ["d"]}
     out = merge_frontmatter(existing, scanner_update)
     keys = list(out.keys())
     assert keys[0] == "uri"
@@ -132,7 +133,7 @@ def test_merge_scanner_keys_alphabetical() -> None:
         "kind": "package",
         "test_suites": ["t1"],
         "depends_on": ["d1"],
-        "domains": ["x"],
+        "entry_points": ["e1"],
     }
     out = merge_frontmatter(existing, scanner_update)
     scanner_keys_emitted = [k for k in out.keys() if k in DATA_KEYS - {"uri", "kind"}]
@@ -141,10 +142,10 @@ def test_merge_scanner_keys_alphabetical() -> None:
 
 def test_merge_drops_empty_scanner_values() -> None:
     existing = {"uri": "x", "kind": "package"}
-    scanner_update = {"uri": "x", "kind": "package", "depends_on": [], "domains": ["d"]}
+    scanner_update = {"uri": "x", "kind": "package", "depends_on": [], "test_suites": ["d"]}
     out = merge_frontmatter(existing, scanner_update)
     assert "depends_on" not in out
-    assert out["domains"] == ["d"]
+    assert out["test_suites"] == ["d"]
 
 
 def test_merge_sorts_and_dedupes_collection_values() -> None:
@@ -360,8 +361,8 @@ def test_rotate_no_op_when_below_threshold(tmp_path):
 
 
 def test_detect_structural_change_returns_true_on_list_diff() -> None:
-    existing = {"depends_on": ["a", "b"], "domains": ["x"]}
-    new = {"depends_on": ["a", "c"], "domains": ["x"]}
+    existing = {"depends_on": ["a", "b"]}
+    new = {"depends_on": ["a", "c"]}
     assert _detect_structural_change(existing, new) is True
 
 
@@ -386,7 +387,7 @@ def test_detect_structural_change_on_create_no_existing() -> None:
 def test_render_entity_page_deterministic_key_order(tmp_path):
     template_path = tmp_path / "tpl.md"
     template_path.write_text("---\nkind: package\n---\n# Test\n\n## Narrative\n")
-    fm = {"uri": "pkg:x/y/z", "kind": "package", "domains": ["a"], "status": "live"}
+    fm = {"uri": "pkg:x/y/z", "kind": "package", "depends_on": ["a"], "status": "live"}
     out = _render_entity_page(template_path, fm, {})
     lines = out.split("\n")
     assert lines[0] == "---"
@@ -397,7 +398,7 @@ def test_render_entity_page_deterministic_key_order(tmp_path):
 def test_render_entity_page_byte_stable_across_runs(tmp_path):
     template_path = tmp_path / "tpl.md"
     template_path.write_text("---\nkind: package\n---\n# Test\n")
-    fm = {"uri": "pkg:x", "kind": "package", "domains": ["a"]}
+    fm = {"uri": "pkg:x", "kind": "package", "depends_on": ["a"]}
     out1 = _render_entity_page(template_path, fm, {})
     out2 = _render_entity_page(template_path, fm, {})
     assert out1 == out2
@@ -484,14 +485,12 @@ def _wire_mock_queries(monkeypatch, q_module):
     monkeypatch.setattr(q_module, "list_repositories", lambda c: c.list_nodes("repository"))
     monkeypatch.setattr(q_module, "list_packages", lambda c: c.list_nodes("package"))
     monkeypatch.setattr(q_module, "list_apps", lambda c: c.list_nodes("app"))
-    monkeypatch.setattr(q_module, "list_domains", lambda c: c.list_nodes("domain"))
     monkeypatch.setattr(q_module, "list_test_suites", lambda c: c.list_nodes("test_suite"))
     monkeypatch.setattr(q_module, "list_dependencies", lambda c: c.list_nodes("dependency"))
     monkeypatch.setattr(q_module, "list_agent_plugins", lambda c: c.list_nodes("agent_plugin"))
     monkeypatch.setattr(q_module, "describe_repository", lambda c: c.get_description("repository", None))
     monkeypatch.setattr(q_module, "describe_package", lambda c, *, name: c.get_description("package", name))
     monkeypatch.setattr(q_module, "describe_app", lambda c, *, name: c.get_description("app", name))
-    monkeypatch.setattr(q_module, "describe_domain", lambda c, *, name: c.get_description("domain", name))
     monkeypatch.setattr(
         q_module, "describe_test_suite", lambda c, *, suite_name: c.get_description("test_suite", suite_name)
     )
@@ -514,8 +513,8 @@ def test_write_entities_creates_pages_per_admitted_kind(
 
     wiki_root = tmp_path / "wiki"
     result = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
-    # 1 repo + 2 packages + 1 domain + 1 test_suite + 1 dep + 1 agent_plugin = 7 created
-    assert len(result.created) == 7, f"expected 7 created, got {len(result.created)}: {result.created}"
+    # 1 repo + 2 packages + 1 test_suite + 1 dep + 1 agent_plugin = 6 created
+    assert len(result.created) == 6, f"expected 6 created, got {len(result.created)}: {result.created}"
     assert len(result.updated) == 0
     assert len(result.deleted) == 0
     assert result.needs_narrative == set(result.created)
@@ -620,21 +619,27 @@ def test_write_entities_needs_narrative_on_structural_change(
     monkeypatch,
 ):
     from graph_io import queries as q
-    from graph_io.queries import PackageDescription
+    from graph_io.queries import PackageDescription, SuiteDescription
 
     _wire_mock_queries(monkeypatch, q)
     wiki_root = tmp_path / "wiki"
     write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
-    # Mutate package description so domains list changes — should trigger needs_narrative
+    # Mutate package description so test_suites list changes — should trigger needs_narrative
     new_desc = PackageDescription(
         name="graph-io",
         language="python",
         version="0.2.1",
         files=["x"],
         counts={},
-        domains=["storage", "new-domain"],
         entry_points=[],
-        test_suites=[],
+        test_suites=[
+            SuiteDescription(
+                name="graph-io-new-tests",
+                uri="test_suite:local/agent-research/graph-io-new-tests",
+                kind="pytest",
+                file_count=3,
+            )
+        ],
     )
     mock_graph_conn.set_description("package", "graph-io", new_desc)
     r2 = write_entities(mock_graph_conn, wiki_root, ADMITTED_KINDS)
@@ -737,18 +742,6 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
         ],
     )
     mock_graph_conn.set_nodes(
-        "domain",
-        [
-            _NodeRecord_phase52(
-                kind="domain",
-                name="observability",
-                path=None,
-                line=None,
-                attrs={"uri": "domain:test-org/test-repo/observability"},
-            ),
-        ],
-    )
-    mock_graph_conn.set_nodes(
         "agent_plugin",
         [
             _NodeRecord_phase52(
@@ -818,7 +811,6 @@ def test_write_entities_short_filenames(tmp_path, mock_graph_conn, monkeypatch):
     expected_files = [
         "repo_test-repo.md",
         "pkg_widget.md",
-        "domain_observability.md",
         "agent-plugin_demo-plugin.md",
         "dep_example-lib.md",
         "unit_tests_widget.md",
@@ -843,7 +835,6 @@ def test_write_entities_cross_org_collision(tmp_path, mock_graph_conn, monkeypat
     _wire_mock_queries(monkeypatch, q)
 
     mock_graph_conn.set_nodes("repository", [])
-    mock_graph_conn.set_nodes("domain", [])
     mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("dependency", [])
     mock_graph_conn.set_nodes("test_suite", [])
@@ -887,7 +878,6 @@ def test_dep_prefix_alias(tmp_path, mock_graph_conn, monkeypatch):
 
     mock_graph_conn.set_nodes("repository", [])
     mock_graph_conn.set_nodes("package", [])
-    mock_graph_conn.set_nodes("domain", [])
     mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("test_suite", [])
     mock_graph_conn.set_nodes(
@@ -947,7 +937,6 @@ def test_write_entities_renders_app_pages(tmp_path, mock_graph_conn, monkeypatch
     # Override fixture: only an app node, plus the default required template kinds.
     mock_graph_conn.set_nodes("repository", [])
     mock_graph_conn.set_nodes("package", [])
-    mock_graph_conn.set_nodes("domain", [])
     mock_graph_conn.set_nodes("agent_plugin", [])
     mock_graph_conn.set_nodes("dependency", [])
     mock_graph_conn.set_nodes("test_suite", [])

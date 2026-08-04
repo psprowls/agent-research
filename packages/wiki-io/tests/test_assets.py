@@ -19,8 +19,8 @@ def test_core_entity_templates_still_present() -> None:
     names = _template_names()
     for expected in (
         "entity-repository.md",
-        "entity-domain.md",
         "entity-package.md",
+        "entity-app.md",
         "entity-agent-plugin.md",
         "entity-dependency.md",
         "entity-test-suite.md",

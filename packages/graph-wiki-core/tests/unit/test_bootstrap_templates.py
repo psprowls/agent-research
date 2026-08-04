@@ -17,7 +17,6 @@ EXPECTED_TEMPLATES = {
     "entity-agent-plugin.md",
     "entity-app.md",
     "entity-dependency.md",
-    "entity-domain.md",
     "entity-package.md",
     "entity-repository.md",
     "entity-test-suite.md",
@@ -46,6 +45,7 @@ async def test_bootstrap_copies_all_templates(tmp_path: Path) -> None:
     assert templates == EXPECTED_TEMPLATES
     assert "work.md" in templates
     assert "guidance.md" in templates
-    # 16 top-level page templates + 9 per-kind work-item body templates
-    # (.templates/bodies/*.md), counted recursively by the bootstrap copier.
-    assert result.page_templates_copied == 25
+    # 15 top-level page templates (Task 8: entity-domain.md retired) + 9
+    # per-kind work-item body templates (.templates/bodies/*.md), counted
+    # recursively by the bootstrap copier.
+    assert result.page_templates_copied == 24

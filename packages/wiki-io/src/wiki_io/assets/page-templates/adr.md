@@ -39,7 +39,6 @@ What is decided, in present tense.
 
 ## Impact
 - [[entities/pkg_<pkg>]]
-- [[entities/domain_<domain>]]
 
 ## Follow-ups
 - …
