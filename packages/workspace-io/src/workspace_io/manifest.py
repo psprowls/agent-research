@@ -10,7 +10,6 @@ _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
 _KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
 _KNOWN_GUIDANCE_KEYS = {"enabled"}
-_KNOWN_GRAPH_KEYS = {"domains"}
 _KNOWN_WORKFLOW_KEYS = {"commit_strategy", "model_routing"}
 _VALID_COMMIT_STRATEGIES = {"per-task", "at-end"}
 _VALID_ROUTING_TIERS = {"mechanical", "standard", "frontier"}
@@ -104,22 +103,6 @@ def read(path: Path) -> dict:
         if not isinstance(enabled, bool):
             raise RuntimeError(f"{path}: guidance.enabled must be a bool, got {type(enabled).__name__}")
         raw["guidance"] = {"enabled": enabled}
-    # Validate and normalise the optional [graph] block. Always returns
-    # {"domains": {...}}; absent -> empty. Mirrors the plugin / state_gate
-    # normalization style.
-    graph = raw.get("graph")
-    if graph is None:
-        raw["graph"] = {"domains": {}}
-    else:
-        if not isinstance(graph, dict):
-            raise RuntimeError(f"{path}: 'graph' must be a mapping, got {type(graph).__name__}")
-        unknown = set(graph.keys()) - _KNOWN_GRAPH_KEYS
-        if unknown:
-            raise RuntimeError(f"{path}: unknown keys in graph block: {sorted(unknown)}")
-        domains = graph.get("domains", {}) or {}
-        if not isinstance(domains, dict):
-            raise RuntimeError(f"{path}: graph.domains must be a mapping, got {type(domains).__name__}")
-        raw["graph"] = {"domains": domains}
     # Validate and normalise the optional [workflow] block (config consolidation).
     # Always returns {"commit_strategy": str, "model_routing": dict}; absent →
     # per-task commits with routing off.
@@ -213,13 +196,6 @@ def write(path: Path, data: dict) -> None:
         # read() re-injects it, so writing it would be pure churn.
         if guidance.get("enabled", False) is True:
             payload["guidance"] = guidance
-    graph = data.get("graph")
-    if graph is not None:
-        graph_payload = {}
-        if graph.get("domains"):
-            graph_payload["domains"] = graph["domains"]
-        if graph_payload:
-            payload["graph"] = graph_payload
     workflow = data.get("workflow")
     if workflow is not None:
         wf_payload = {}
@@ -278,16 +254,3 @@ def read_guidance(manifest_path: Path) -> bool:
     """
     block = read(manifest_path).get("guidance") or {"enabled": False}
     return block["enabled"]
-
-
-def read_graph_domains(manifest_path: Path) -> dict[str, dict]:
-    """Return the `graph.domains` mapping ({domain_name: info_dict}) or {}.
-
-    Reads the manifest and returns the normalized `graph.domains` block.
-    Defaults to {} when the manifest is missing or carries no `graph` block.
-    Mirrors `read_state_gate()` / `read_roles()`: a thin read-only accessor
-    that does not mutate disk and does not validate per-domain field shape
-    (graph_io.domains.emit owns that).
-    """
-    block = read(manifest_path).get("graph") or {"domains": {}}
-    return block.get("domains") or {}
