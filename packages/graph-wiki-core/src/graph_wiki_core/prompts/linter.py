@@ -63,11 +63,11 @@ Check all of the following:
 1. **Vague or placeholder summaries** — summaries under 10 words, obviously templated, or clearly not describing the page's actual content.
 2. **Missing required frontmatter** — pages lacking title, category, summary, or updated fields.
 3. **Inconsistent terminology** — the same concept referred to by different names across pages (e.g., "auth service" vs "authentication module" for the same component).
-4. **Missing wikilinks where expected** — plain-text mentions of packages, domains, or known concepts that should be [[wikilinks]] per vault convention.
+4. **Missing wikilinks where expected** — plain-text mentions of packages or known concepts that should be [[wikilinks]] per vault convention.
 5. **Orphaned pages** — pages not linked from any other page and not present in index.md.
 6. **Dead wikilinks** — [[wikilinks]] whose target page does not appear in the provided page set.
 7. **Stale claims contradicting code** — body text describing behavior, versions, or APIs that appear to contradict the current state of the codebase (based on source_path or package_path frontmatter).
-8. **Missing ADRs for major decisions** — significant architectural choices mentioned in package or domain pages without a corresponding ADR page.
+8. **Missing ADRs for major decisions** — significant architectural choices mentioned in package pages without a corresponding ADR page.
 9. **Missing index entries** — pages that exist in the vault but are absent from index.md."""
 
 _ADR_CHAIN_CHECKS = """\

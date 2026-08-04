@@ -67,7 +67,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Vault layout
@@ -82,7 +82,7 @@
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
       ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
-      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
+      ├── entities/               # One page per graph-derived entity (repositories, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── adrs/                   # Architecture Decision Records
       ├── .templates/             # Page templates (reference only, not indexed)
@@ -96,9 +96,8 @@
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/entities/app_<name>.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, deployment | `vault_path/entities/app_<name>.md` |
   | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/entities/pkg_<name>.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
   | `concept` | Cross-cutting technical idea, pattern, or architecture synthesis. Optional `kind:` frontmatter — `concept` (default), `pattern`, or `architecture` — selects the page template. Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
   | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
   | `work` | Unified bug / tech-debt / feature / epic / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
@@ -134,7 +133,7 @@
   - **If the vault doesn't know, say so.** Suggest a source to ingest or a concept page to create; don't invent content.
   - **Use `[[wikilink]]` syntax** for all cross-references between vault pages. Plain Markdown links are wrong — wikilinks keep renames tracked.
   - **Wikilinks must point at existing vault pages.** Never fabricate a wikilink target that doesn't exist in the vault.
-  - **Cite aggressively.** Every claim on a package/domain page links to a source page or a code path.
+  - **Cite aggressively.** Every claim on a package page links to a source page or a code path.
   
   ## Style
   
@@ -163,7 +162,7 @@
   
   Emit a `source_type` field from this closed enum: `spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`. Classify it from the document's content. If the source is staged under a `raw/<type>/` folder (specs, articles, prs, tickets, transcripts, examples) the type is taken from that folder and your value is ignored — so this matters most for in-repo docs and loose files. Use `note` (the catch-all) when unsure. `source_type` is descriptive metadata and does NOT control where the page is written.
   
-  Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
+  Do NOT author a package page. Code entities (packages, apps, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
   
   `update_index()` and `append_log()` run automatically — omit those steps.
   
@@ -232,7 +231,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Vault layout
@@ -247,7 +246,7 @@
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
       ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
-      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
+      ├── entities/               # One page per graph-derived entity (repositories, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── adrs/                   # Architecture Decision Records
       ├── .templates/             # Page templates (reference only, not indexed)
@@ -261,9 +260,8 @@
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/entities/app_<name>.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, deployment | `vault_path/entities/app_<name>.md` |
   | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/entities/pkg_<name>.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
   | `concept` | Cross-cutting technical idea, pattern, or architecture synthesis. Optional `kind:` frontmatter — `concept` (default), `pattern`, or `architecture` — selects the page template. Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
   | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
   | `work` | Unified bug / tech-debt / feature / epic / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
@@ -299,7 +297,7 @@
   - **If the vault doesn't know, say so.** Suggest a source to ingest or a concept page to create; don't invent content.
   - **Use `[[wikilink]]` syntax** for all cross-references between vault pages. Plain Markdown links are wrong — wikilinks keep renames tracked.
   - **Wikilinks must point at existing vault pages.** Never fabricate a wikilink target that doesn't exist in the vault.
-  - **Cite aggressively.** Every claim on a package/domain page links to a source page or a code path.
+  - **Cite aggressively.** Every claim on a package page links to a source page or a code path.
   
   ## Style
   
@@ -328,7 +326,7 @@
   
   Emit a `source_type` field from this closed enum: `spec`, `article`, `pr`, `ticket`, `transcript`, `example`, `doc`, `note`. Classify it from the document's content. If the source is staged under a `raw/<type>/` folder (specs, articles, prs, tickets, transcripts, examples) the type is taken from that folder and your value is ignored — so this matters most for in-repo docs and loose files. Use `note` (the catch-all) when unsure. `source_type` is descriptive metadata and does NOT control where the page is written.
   
-  Do NOT author a package page. Code entities (packages, apps, domains, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
+  Do NOT author a package page. Code entities (packages, apps, dependencies, test suites) are scanner-owned and live under `entities/`. To associate this source with a code entity, reference it from the body with a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) under a `## Touches` section — the scanner derives the backlink onto the entity page. Never write into `entities/` pages.
   
   `update_index()` and `append_log()` run automatically — omit those steps.
   
@@ -381,16 +379,15 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Page categories
   
   | Category | What it documents | Directory |
   |---|---|---|
-  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, domains consumed, deployment | `vault_path/entities/app_<name>.md` |
+  | `app` | One application workspace (web, mobile, CLI) — platform, entry points, deployment | `vault_path/entities/app_<name>.md` |
   | `package` | One library/service workspace — what it exports, who depends on it, key patterns | `vault_path/entities/pkg_<name>.md` |
-  | `domain` | A feature area spanning multiple packages (e.g. "auth", "billing") | `vault_path/entities/domain_<name>.md` |
   | `concept` | Cross-cutting technical idea, pattern, or architecture synthesis. Optional `kind:` frontmatter — `concept` (default), `pattern`, or `architecture` — selects the page template. Comparisons (`<a>-vs-<b>.md`) live here too. | `vault_path/concepts/` |
   | `dependency` | An external package or service the monorepo depends on — `kind:` discriminates | `vault_path/entities/dep_<name>.md` |
   | `work` | Unified bug / tech-debt / feature / epic / spike — replaces issues + roadmap | `work/` (sibling of the vault; owned by the workspace manager) |
@@ -403,7 +400,7 @@
   - **If the vault doesn't know, say so.** Suggest a source to ingest or a concept page to create; don't invent content.
   - **Use `[[wikilink]]` syntax** for all cross-references between vault pages. Plain Markdown links are wrong — wikilinks keep renames tracked.
   - **Wikilinks must point at existing vault pages.** Never fabricate a wikilink target that doesn't exist in the vault.
-  - **Cite aggressively.** Every claim on a package/domain page links to a source page or a code path.
+  - **Cite aggressively.** Every claim on a package page links to a source page or a code path.
   
   ## Style
   
@@ -448,7 +445,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Prioritization
@@ -511,7 +508,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Prioritization
@@ -559,7 +556,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Prioritization
@@ -586,11 +583,11 @@
   1. **Vague or placeholder summaries** — summaries under 10 words, obviously templated, or clearly not describing the page's actual content.
   2. **Missing required frontmatter** — pages lacking title, category, summary, or updated fields.
   3. **Inconsistent terminology** — the same concept referred to by different names across pages (e.g., "auth service" vs "authentication module" for the same component).
-  4. **Missing wikilinks where expected** — plain-text mentions of packages, domains, or known concepts that should be [[wikilinks]] per vault convention.
+  4. **Missing wikilinks where expected** — plain-text mentions of packages or known concepts that should be [[wikilinks]] per vault convention.
   5. **Orphaned pages** — pages not linked from any other page and not present in index.md.
   6. **Dead wikilinks** — [[wikilinks]] whose target page does not appear in the provided page set.
   7. **Stale claims contradicting code** — body text describing behavior, versions, or APIs that appear to contradict the current state of the codebase (based on source_path or package_path frontmatter).
-  8. **Missing ADRs for major decisions** — significant architectural choices mentioned in package or domain pages without a corresponding ADR page.
+  8. **Missing ADRs for major decisions** — significant architectural choices mentioned in package pages without a corresponding ADR page.
   9. **Missing index entries** — pages that exist in the vault but are absent from index.md.
   
   ## Output format
@@ -626,7 +623,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Prioritization
@@ -653,11 +650,11 @@
   1. **Vague or placeholder summaries** — summaries under 10 words, obviously templated, or clearly not describing the page's actual content.
   2. **Missing required frontmatter** — pages lacking title, category, summary, or updated fields.
   3. **Inconsistent terminology** — the same concept referred to by different names across pages (e.g., "auth service" vs "authentication module" for the same component).
-  4. **Missing wikilinks where expected** — plain-text mentions of packages, domains, or known concepts that should be [[wikilinks]] per vault convention.
+  4. **Missing wikilinks where expected** — plain-text mentions of packages or known concepts that should be [[wikilinks]] per vault convention.
   5. **Orphaned pages** — pages not linked from any other page and not present in index.md.
   6. **Dead wikilinks** — [[wikilinks]] whose target page does not appear in the provided page set.
   7. **Stale claims contradicting code** — body text describing behavior, versions, or APIs that appear to contradict the current state of the codebase (based on source_path or package_path frontmatter).
-  8. **Missing ADRs for major decisions** — significant architectural choices mentioned in package or domain pages without a corresponding ADR page.
+  8. **Missing ADRs for major decisions** — significant architectural choices mentioned in package pages without a corresponding ADR page.
   9. **Missing index entries** — pages that exist in the vault but are absent from index.md.
   
   ## Output format
@@ -680,7 +677,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Prioritization
@@ -742,7 +739,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Prioritization
@@ -809,7 +806,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Vault layout
@@ -824,7 +821,7 @@
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
       ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
-      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
+      ├── entities/               # One page per graph-derived entity (repositories, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── adrs/                   # Architecture Decision Records
       ├── .templates/             # Page templates (reference only, not indexed)
@@ -926,7 +923,7 @@
   3. **All LLM writes for the wiki go under the vault path.** No exceptions.
   4. **Every vault page has YAML frontmatter** with `title`, `category`, `summary`, `updated`.
   5. **Every ingest or scan touches ≥3 files:** the changed/new page(s), `index.md`, `log.md`.
-  6. **Every claim on a package/domain page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
+  6. **Every claim on a package page cites** either a source page (`[[sources/xxx]]`) or a code path (`packages/foo/src/bar.ts`).
   7. **Good query answers get filed back** — explorations compound.
   
   ## Vault layout
@@ -941,7 +938,7 @@
       ├── index.md                # Content catalog (updated every ingest/scan)
       ├── log.md                  # Append-only timeline
       ├── concepts/               # Cross-cutting technical concepts; optional kind: concept | pattern | architecture
-      ├── entities/               # One page per graph-derived entity (repositories, domains, packages, apps, dependencies, test suites) as <prefix>_<name>.md
+      ├── entities/               # One page per graph-derived entity (repositories, packages, apps, dependencies, test suites) as <prefix>_<name>.md
       ├── sources/                # One summary page per ingested source (cites files in <workspace>/raw/)
       ├── adrs/                   # Architecture Decision Records
       ├── .templates/             # Page templates (reference only, not indexed)

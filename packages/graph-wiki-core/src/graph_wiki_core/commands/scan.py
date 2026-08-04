@@ -160,12 +160,12 @@ def _live_file_map_descriptions(page_path: Path) -> dict[str, str]:
 
 # ---------------------------------------------------------------------------
 # Unified prose-refresh gating (spec decision 5): diff-gated kinds refresh when
-# their scoped diff is non-empty; repository/domain are first-fill-only;
+# their scoped diff is non-empty; repository is first-fill-only;
 # dependency diffs a derived manifest/lock scope.
 # ---------------------------------------------------------------------------
 
 PROSE_DIFF_GATED_KINDS: frozenset[str] = frozenset({"package", "app", "test_suite", "agent_plugin"})
-PROSE_FIRST_FILL_ONLY_KINDS: frozenset[str] = frozenset({"repository", "domain"})
+PROSE_FIRST_FILL_ONLY_KINDS: frozenset[str] = frozenset({"repository"})
 
 _MANIFEST_FILES_BY_ECOSYSTEM: dict[str, tuple[str, ...]] = {
     "pypi": ("pyproject.toml", "setup.py", "setup.cfg"),
@@ -424,10 +424,6 @@ _NARRATIVE_RELATION_LABELS: dict[str, str] = {
     "depends_on": "Depends on",
     "test_suites": "Test suites",
     "entry_points": "Entry points",
-    "domains": "Domains",
-    "parent_domain": "Parent domain",
-    "sub_domains": "Sub-domains",
-    "packages": "Packages",
     "tested_packages": "Tested packages",
     "used_by": "Used by",
     "members": "Members",
@@ -1147,7 +1143,7 @@ async def apply_scan_results(
 
     # --- Refill-gated anchor stamp (spec §4): healthy page AND successful result.
     # A failed or absent result leaves the anchor untouched so the next scan
-    # retries. repository/domain/dependency pages join the stamp.
+    # retries. repository/dependency pages join the stamp.
     if head:
         for uri, task in task_by_uri.items():
             result = prose_by_uri.get(uri)

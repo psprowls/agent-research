@@ -45,7 +45,6 @@ from wiki_io.git_state import truncate_diff as _real_truncate_diff
 
 _PKG_A = "pkg:org/repo/pkg-a"
 _REPO_URI = "repo:org/repo"
-_DOMAIN_URI = "domain:org/repo/core"
 _DEP_URI = "dependency:pypi/requests"
 
 # Single described row (pyproject.toml) so source-file commits (mod.py etc.)
@@ -71,7 +70,7 @@ def _head(repo: Path) -> str:
 
 
 def _seed_graph(db_path: Path) -> None:
-    """repository + package pkg-a + domain core + dependency pypi/requests
+    """repository + package pkg-a + dependency pypi/requests
     (used_by pkg-a)."""
     from graph_io import schema
 
@@ -89,10 +88,6 @@ def _seed_graph(db_path: Path) -> None:
             "'pkg:org/repo/pkg-a')"
         )
         pkg_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
-        conn.execute(
-            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
-            "('domain', 'core', NULL, NULL, '{}', 'domain:org/repo/core')"
-        )
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('dependency', 'requests', NULL, NULL, '{\"ecosystem\": \"pypi\"}', "
@@ -255,14 +250,13 @@ def test_unknown_anchor_yields_diff_task_with_none_diff(gating_ws, monkeypatch) 
     assert tasks[_PKG_A].diff is None
 
 
-def test_filled_repository_and_domain_never_restale(gating_ws) -> None:
-    """[row 6] Filled repository/domain pages emit no tasks even with new
+def test_filled_repository_never_restale(gating_ws) -> None:
+    """[row 6] Filled repository pages emit no tasks even with new
     commits (first-fill-only kinds)."""
     workspace, repo = gating_ws
     wiki = workspace / "wiki"
     _emit(workspace, repo)
     _fill_page(_page_for(wiki, _REPO_URI), anchor=None)
-    _fill_page(_page_for(wiki, _DOMAIN_URI), anchor=None)
 
     (repo / "README.md").write_text("changed\n", encoding="utf-8")
     _git(repo, "add", "-A")
@@ -270,7 +264,6 @@ def test_filled_repository_and_domain_never_restale(gating_ws) -> None:
 
     tasks = _tasks(_emit(workspace, repo))
     assert _REPO_URI not in tasks
-    assert _DOMAIN_URI not in tasks
 
 
 def test_dependency_manifest_change_triggers_diff(gating_ws) -> None:
@@ -364,7 +357,7 @@ def test_one_bad_entity_does_not_abort_worklist_assembly(gating_ws, monkeypatch)
     tasks = _tasks(_emit(workspace, repo))
     assert _PKG_A not in tasks  # the bad entity was skipped, not fatal
     # The other placeholder entities still emitted their first_fill tasks.
-    for uri in (_REPO_URI, _DOMAIN_URI, _DEP_URI):
+    for uri in (_REPO_URI, _DEP_URI):
         assert uri in tasks, f"{uri} task missing — one bad entity aborted assembly"
 
 

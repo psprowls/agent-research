@@ -130,7 +130,7 @@ def propagation_candidates(
     Each candidate carries its current narrative and the git-derived files that
     moved since its ``drift_propagated_commit`` (an absent anchor yields no
     specific files — empty ``since_sha`` -> ``changed_files_since`` returns None).
-    A kind without a graph ``node.path`` (repository/domain/dependency) is not a
+    A kind without a graph ``node.path`` (repository/dependency) is not a
     candidate — it has no change signal.
 
     ``repo_paths`` (``{repo-key -> member checkout path}``) makes the change diff

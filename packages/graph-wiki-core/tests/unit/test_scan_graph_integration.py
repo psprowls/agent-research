@@ -3,9 +3,8 @@
 Covers D-01..D-08 of the scanner-consumes-graph-io plan:
   - D-01: scan calls cg update before fan-out (via graph helper surface)
   - D-02: cg update precedes discover_workspaces and SubagentPool.run_all
-  - D-03: decoration step adds pkg['uri'] and overwrites pkg['domain']
-          when graph carries belongs_to_domain; wiki_relative_path
-          is recomputed when domain changes
+  - D-03: decoration step adds pkg['uri']; wiki_relative_path is recomputed
+          from the graph-derived path
   - D-04: wiki-io's _wiki_relative_path_for is reused (not reimplemented)
   - D-05: a single read-only conn is opened on success and closed in finally
   - D-06: cg update is incremental (full=False) with no trace, no model
@@ -42,12 +41,10 @@ def _has_not_initialized_fallback_line(stderr: str) -> bool:
 
 
 def _seed_minimal_graph(db_path: Path) -> None:
-    """Create a minimal sqlite DB with two packages and one belongs_to_domain edge.
+    """Create a minimal sqlite DB with two packages.
 
     Layout:
       package nodes: pkg-a, pkg-b
-      domain node:   my-domain
-      edges:         pkg-a -[belongs_to_domain]-> my-domain
       uri values:    pkg-a -> pkg:org/repo/pkg-a
                      pkg-b -> pkg:org/repo/pkg-b
     """
@@ -67,21 +64,9 @@ def _seed_minimal_graph(db_path: Path) -> None:
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('package', 'pkg-a', 'packages/pkg-a', NULL, '{\"language\": \"python\"}', 'pkg:org/repo/pkg-a')"
         )
-        pkg_a_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
         conn.execute(
             "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
             "('package', 'pkg-b', 'packages/pkg-b', NULL, '{\"language\": \"python\"}', 'pkg:org/repo/pkg-b')"
-        )
-        # Domain node
-        conn.execute(
-            "INSERT INTO nodes(kind, name, path, line, attrs_json, uri) VALUES "
-            "('domain', 'my-domain', NULL, NULL, '{}', 'domain:org/repo/my-domain')"
-        )
-        dom_id = conn.execute("SELECT id FROM nodes WHERE kind='domain' AND name='my-domain'").fetchone()[0]
-        # belongs_to_domain edge: pkg-a -> my-domain
-        conn.execute(
-            "INSERT INTO edges(src, dst, kind, attrs_json) VALUES (?, ?, 'belongs_to_domain', NULL)",
-            (pkg_a_id, dom_id),
         )
         conn.commit()
     finally:
@@ -390,7 +375,7 @@ def test_conn_closed_on_exception(tmp_workspace_with_packages, monkeypatch):
 
     # Substitute read_only_connect with a MagicMock so we can assert close().
     mock_conn = MagicMock()
-    # Mock execute() to return an object with fetchall() so domain query works.
+    # Mock execute() to return an object with fetchall() so graph queries work.
     mock_conn.execute.return_value.fetchall.return_value = []
     monkeypatch.setattr(scan_module, "open_reader", lambda db_path: mock_conn)
 

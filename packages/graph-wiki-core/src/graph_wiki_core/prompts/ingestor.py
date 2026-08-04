@@ -45,7 +45,7 @@ _SOURCE_LANDING = (
     "in-repo docs and loose files. Use `note` (the catch-all) when unsure. "
     "`source_type` is descriptive metadata and does NOT control where the page "
     "is written.\n\n"
-    "Do NOT author a package page. Code entities (packages, apps, domains, "
+    "Do NOT author a package page. Code entities (packages, apps, "
     "dependencies, test suites) are scanner-owned and live under `entities/`. "
     "To associate this source with a code entity, reference it from the body with "
     "a `[[entities/<prefix>_<name>]]` wikilink (e.g. `[[entities/pkg_graph-io]]`) "
