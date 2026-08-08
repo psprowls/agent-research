@@ -207,6 +207,7 @@ For each planned-but-undispatched entry from §2.6:
      is already here, no orca call needed for that half.
    - Remember this dispatch's key as attend-pending for this Run, so its
      `worker_done` (§4.1) triggers the flip-back to `in-progress`.
+   - This is the one piece of session-local state in this skill — if the session crashes before `worker_done` arrives, flip the worktree back manually with `orca worktree set --worktree <selector> --workspace-status in-progress` if it looks stuck at `in-review` after a resume.
 4. `orca orchestration task-update --id <task_id> --status in_progress --run <run_id>`
    so the next cycle's `task-list` (§2.1) reflects it as an existing task.
 
@@ -245,7 +246,7 @@ item* / *stop the run*:
   mirror itself is the skip record, no session memory involved.
 - **Stop the run**: exit the loop. Report run state (what's done, what's
   live, what's blocked). For each still-live dispatch, ask (plain text) if
-  the user wants `orca orchestration worker-stop --dispatch <id> --run <run_id>`,
+  the user wants `orca orchestration worker-stop --dispatch <id>`,
   then stop.
 
 ### 4.2 Failure flow (dead worker found outside a `worker_done` message)
@@ -303,7 +304,7 @@ resumes identically to one that's been running for hours.
 
 **User stop** (mid-run, on explicit instruction): exit the loop between
 cycles — never mid-dispatch. Live workers keep running independently; offer
-`orca orchestration worker-stop --dispatch <id> --run <run_id>` for each one
+`orca orchestration worker-stop --dispatch <id>` for each one
 before exiting — same mechanics as the failure question's Stop branch
 (§4.1).
 
