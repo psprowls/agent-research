@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import typer
+from graph_wiki_core.commands.orchestrate import run_work_orchestrate
 from graph_wiki_core.commands.work import (
     run_work_advance,
     run_work_archive,
@@ -266,3 +267,38 @@ def advance(
             typer.echo(f"  stamped {key}: {value}")
         for f in result.findings:
             typer.echo(f"  [{f['severity']}] {f['rule_id']} — {f['message']}")
+
+
+@work_app.command()
+def orchestrate(
+    slug: str = typer.Argument(..., help="Root work item slug to plan dispatches for"),
+    live: str = typer.Option("", "--live", help="Comma-separated running dispatch keys (<slug>#<phase>)"),
+    workspace: str = typer.Option("", "--workspace", help="Workspace path"),
+    json_output: bool = typer.Option(False, "--json"),
+) -> None:
+    """Compute the auto-drive dispatch plan for a work item's subtree (read-only)."""
+    workspace_path = Path(workspace) if workspace else None
+    try:
+        result = asyncio.run(
+            run_work_orchestrate(workspace_path=workspace_path, slug=slug, live=tuple(_split_csv(live)))
+        )
+    except RuntimeError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(code=3)
+
+    if json_output:
+        typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
+    else:
+        slots = f"{result.slots_free}/{result.max_parallel}"
+        typer.echo(f"{result.slug}: terminal={result.terminal} slots_free={slots}")
+        for d in result.dispatches:
+            wt_action = d["worktree"]["action"]
+            mode = d["mode"]
+            model = d["model"]
+            typer.echo(f"  dispatch {d['key']}: {d['skill']} mode={mode} model={model} worktree={wt_action}")
+        for a in result.advances:
+            typer.echo(f"  advance {a['slug']}: {a['reason']}")
+        for b in result.blocked:
+            typer.echo(f"  blocked {b['slug']} ({b['kind']}): {b['reason']}")
+        for w in result.warnings:
+            typer.echo(f"  [warn] {w}", err=True)

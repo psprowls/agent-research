@@ -250,3 +250,57 @@ def test_work_regen_index_exit_0(tmp_path: Path) -> None:
         result = runner.invoke(app, ["work", "regen-index", "--json"])
 
     assert result.exit_code == 0
+
+
+def test_work_subcommands_include_orchestrate() -> None:
+    from graph_wiki_cli.cli import app
+
+    root_command = typer.main.get_command(app)
+    work_group = root_command.commands["work"]
+    assert "orchestrate" in work_group.commands
+
+
+def test_work_orchestrate_json_exit_0_with_blocked_items() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.orchestrate import WorkOrchestrateResult
+
+    mock_result = WorkOrchestrateResult(
+        slug="epic-x",
+        terminal=False,
+        max_parallel=2,
+        permission_mode="bypassPermissions",
+        blocked=[{"slug": "epic-x-b", "kind": "capacity", "reason": "ready, but no worker slot free"}],
+    )
+
+    with patch("graph_wiki_cli.work_cli.main.run_work_orchestrate", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(app, ["work", "orchestrate", "epic-x", "--json"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["blocked"][0]["kind"] == "capacity"
+
+
+def test_work_orchestrate_passes_live_csv() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.orchestrate import WorkOrchestrateResult
+
+    mock_result = WorkOrchestrateResult(slug="epic-x")
+    mock_run = AsyncMock(return_value=mock_result)
+
+    with patch("graph_wiki_cli.work_cli.main.run_work_orchestrate", new=mock_run):
+        result = runner.invoke(app, ["work", "orchestrate", "epic-x", "--live", "a#execute,b#plan", "--json"])
+
+    assert result.exit_code == 0
+    assert mock_run.call_args.kwargs["live"] == ("a#execute", "b#plan")
+
+
+def test_work_orchestrate_exit_3_on_invalid_config() -> None:
+    from graph_wiki_cli.cli import app
+
+    with patch(
+        "graph_wiki_cli.work_cli.main.run_work_orchestrate",
+        new=AsyncMock(side_effect=RuntimeError("workflow.auto_drive: bad")),
+    ):
+        result = runner.invoke(app, ["work", "orchestrate", "epic-x", "--json"])
+
+    assert result.exit_code == 3
