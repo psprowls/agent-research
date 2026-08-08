@@ -71,6 +71,16 @@ git worktree list --porcelain
   line reads `refs/heads/<merge target>`. The R4 merge executes there, not
   in this worker's own worktree.
 
+**Known gap:** the design spec names "dirty state" (uncommitted changes) as
+an Escalation-path trigger alongside failing tests and merge conflicts, but
+does not specify a detection procedure, and this plan didn't operationalize
+one — R2 does not check `git status` for uncommitted changes. In practice
+every task in this plan's own workflow ends with a commit, so a dirty
+worktree at finish-stage would itself be anomalous; if it's observed, treat
+it as a reason to escalate manually rather than proceeding, but there's no
+automated check for it here. Live-validation item: decide whether to add one
+before this skill's first real relay run.
+
 Carry forward into R3: the merge target, the classified case, the target
 worktree path (forked-child case only), the current HEAD SHA (`git rev-parse
 HEAD`; this is `resolved_in` for the shared-epic-worktree merge case), the
