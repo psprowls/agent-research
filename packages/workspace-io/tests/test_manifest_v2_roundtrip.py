@@ -22,7 +22,7 @@ def test_v2_write_then_read(tmp_path):
         plugin={"backend_default": "claude", "backend_overrides": {}},
         state_gate={"enabled": True, "branches": ["main"]},
         guidance={"enabled": False},
-        workflow={"commit_strategy": "per-task", "model_routing": {}},
+        workflow={"commit_strategy": "per-task", "model_routing": {}, "auto_drive": {}},
         roles={},
     )
     assert result == expected

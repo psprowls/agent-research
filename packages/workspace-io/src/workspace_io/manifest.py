@@ -10,9 +10,16 @@ _KNOWN_PLUGIN_KEYS = {"backend_default", "backend_overrides"}
 _VALID_BACKENDS = {"claude", "bedrock"}
 _KNOWN_STATE_GATE_KEYS = {"enabled", "branches"}
 _KNOWN_GUIDANCE_KEYS = {"enabled"}
-_KNOWN_WORKFLOW_KEYS = {"commit_strategy", "model_routing"}
+_KNOWN_WORKFLOW_KEYS = {"commit_strategy", "model_routing", "auto_drive"}
 _VALID_COMMIT_STRATEGIES = {"per-task", "at-end"}
 _VALID_ROUTING_TIERS = {"mechanical", "standard", "frontier"}
+_KNOWN_AUTO_DRIVE_KEYS = {"max_parallel", "permission_mode", "models", "overrides"}
+# Hard-coded here on the _VALID_ROUTING_TIERS precedent — workspace-io cannot
+# import work-io's enums; kind/effort membership is validated in work_io.auto_drive.
+_VALID_AUTO_DRIVE_PHASES = {"design", "plan", "execute", "finish"}
+_KNOWN_OVERRIDE_KEYS = {"match", "model", "reasoning_effort"}
+_VALID_MATCH_KEYS = {"phase", "kind", "effort"}
+_VALID_REASONING_EFFORTS = {"low", "medium", "high", "xhigh", "max"}
 _KNOWN_ROLE_FIELDS = {"model_id", "region", "max_tokens", "max_concurrency", "backend"}
 
 #: Hand-edited link-file keys (repo_directory / multi-repo member config). Not
@@ -104,11 +111,11 @@ def read(path: Path) -> dict:
             raise RuntimeError(f"{path}: guidance.enabled must be a bool, got {type(enabled).__name__}")
         raw["guidance"] = {"enabled": enabled}
     # Validate and normalise the optional [workflow] block (config consolidation).
-    # Always returns {"commit_strategy": str, "model_routing": dict}; absent →
-    # per-task commits with routing off.
+    # Always returns {"commit_strategy": str, "model_routing": dict, "auto_drive": dict}; absent →
+    # per-task commits, routing off, auto-drive defaults.
     workflow = raw.get("workflow")
     if workflow is None:
-        raw["workflow"] = {"commit_strategy": "per-task", "model_routing": {}}
+        raw["workflow"] = {"commit_strategy": "per-task", "model_routing": {}, "auto_drive": {}}
     else:
         if not isinstance(workflow, dict):
             raise RuntimeError(f"{path}: 'workflow' must be a mapping, got {type(workflow).__name__}")
@@ -133,7 +140,12 @@ def read(path: Path) -> dict:
         for tier, val in routing.items():
             if not isinstance(val, str) or not val.strip():
                 raise RuntimeError(f"{path}: workflow.model_routing[{tier!r}] must be a non-empty string")
-        raw["workflow"] = {"commit_strategy": commit_strategy, "model_routing": routing}
+        auto_drive = _validate_auto_drive(path, workflow.get("auto_drive", {}))
+        raw["workflow"] = {
+            "commit_strategy": commit_strategy,
+            "model_routing": routing,
+            "auto_drive": auto_drive,
+        }
     # Validate and normalise the optional top-level [roles] mapping (flattened
     # from plugins[].roles[] — schema change, no migration per pre-v2 rule).
     roles = raw.get("roles")
@@ -152,6 +164,84 @@ def read(path: Path) -> dict:
                     f"(valid: {sorted(_KNOWN_ROLE_FIELDS)})"
                 )
     return raw
+
+
+def _validate_auto_drive(path: Path, auto_drive: object) -> dict:
+    """Structural validation of workflow.auto_drive — types and shapes only.
+
+    Kind/effort (and match-phase) enum membership lives in
+    work_io.auto_drive.validate_auto_drive; this layer cannot import work-io.
+    """
+    auto_drive = auto_drive or {}
+    if not isinstance(auto_drive, dict):
+        raise RuntimeError(f"{path}: workflow.auto_drive must be a mapping")
+    unknown = set(auto_drive.keys()) - _KNOWN_AUTO_DRIVE_KEYS
+    if unknown:
+        raise RuntimeError(
+            f"{path}: unknown keys in workflow.auto_drive: {sorted(unknown)} (valid: {sorted(_KNOWN_AUTO_DRIVE_KEYS)})"
+        )
+    if "max_parallel" in auto_drive:
+        mp = auto_drive["max_parallel"]
+        # bool is an int subclass; `max_parallel: true` is a config error, not 1.
+        if isinstance(mp, bool) or not isinstance(mp, int) or mp < 1:
+            raise RuntimeError(f"{path}: workflow.auto_drive.max_parallel must be an integer >= 1, got {mp!r}")
+    if "permission_mode" in auto_drive:
+        pm = auto_drive["permission_mode"]
+        if not isinstance(pm, str) or not pm.strip():
+            raise RuntimeError(f"{path}: workflow.auto_drive.permission_mode must be a non-empty string")
+    if "models" in auto_drive:
+        models = auto_drive["models"]
+        if not isinstance(models, dict):
+            raise RuntimeError(f"{path}: workflow.auto_drive.models must be a mapping")
+        unknown_phases = set(models.keys()) - _VALID_AUTO_DRIVE_PHASES
+        if unknown_phases:
+            raise RuntimeError(
+                f"{path}: unknown phases in workflow.auto_drive.models: {sorted(unknown_phases)} "
+                f"(valid: {sorted(_VALID_AUTO_DRIVE_PHASES)})"
+            )
+        for phase, val in models.items():
+            if not isinstance(val, str) or not val.strip():
+                raise RuntimeError(f"{path}: workflow.auto_drive.models[{phase!r}] must be a non-empty string")
+    if "overrides" in auto_drive:
+        overrides = auto_drive["overrides"]
+        if not isinstance(overrides, list):
+            raise RuntimeError(f"{path}: workflow.auto_drive.overrides must be a list")
+        for i, rule in enumerate(overrides):
+            where = f"workflow.auto_drive.overrides[{i}]"
+            if not isinstance(rule, dict):
+                raise RuntimeError(f"{path}: {where} must be a mapping")
+            unknown_rule = set(rule.keys()) - _KNOWN_OVERRIDE_KEYS
+            if unknown_rule:
+                raise RuntimeError(
+                    f"{path}: unknown keys in {where}: {sorted(unknown_rule)} (valid: {sorted(_KNOWN_OVERRIDE_KEYS)})"
+                )
+            if "match" not in rule or "model" not in rule:
+                raise RuntimeError(f"{path}: {where} requires both 'match' and 'model'")
+            match = rule["match"]
+            if not isinstance(match, dict) or not match:
+                raise RuntimeError(f"{path}: {where}.match must be a non-empty mapping")
+            unknown_match = set(match.keys()) - _VALID_MATCH_KEYS
+            if unknown_match:
+                raise RuntimeError(
+                    f"{path}: unknown keys in {where}.match: {sorted(unknown_match)} "
+                    f"(valid: {sorted(_VALID_MATCH_KEYS)})"
+                )
+            for mkey, mval in match.items():
+                vals = mval if isinstance(mval, list) else [mval]
+                if not vals or not all(isinstance(v, str) and v.strip() for v in vals):
+                    raise RuntimeError(
+                        f"{path}: {where}.match[{mkey!r}] must be a non-empty string "
+                        "or non-empty list of non-empty strings"
+                    )
+            model = rule["model"]
+            if not isinstance(model, str) or not model.strip():
+                raise RuntimeError(f"{path}: {where}.model must be a non-empty string")
+            if "reasoning_effort" in rule and rule["reasoning_effort"] not in _VALID_REASONING_EFFORTS:
+                raise RuntimeError(
+                    f"{path}: {where}.reasoning_effort must be one of "
+                    f"{sorted(_VALID_REASONING_EFFORTS)}, got {rule['reasoning_effort']!r}"
+                )
+    return auto_drive
 
 
 def write(path: Path, data: dict) -> None:
@@ -203,6 +293,8 @@ def write(path: Path, data: dict) -> None:
             wf_payload["commit_strategy"] = workflow["commit_strategy"]
         if workflow.get("model_routing"):
             wf_payload["model_routing"] = workflow["model_routing"]
+        if workflow.get("auto_drive"):
+            wf_payload["auto_drive"] = workflow["auto_drive"]
         if wf_payload:
             payload["workflow"] = wf_payload
     roles = data.get("roles")
