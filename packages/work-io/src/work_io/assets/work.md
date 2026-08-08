@@ -23,6 +23,8 @@ tags: []
 phase:                          # design | plan | execute | finish | done
 spec_doc: relative path from <workspace> to the spec doc written in design phase
 plan_doc: relative path from <workspace> to the plan doc written in plan phase
+worktree:                       # absolute path of the linked worktree this item's code work happens in (advance-stamped)
+branch:                         # branch checked out in that worktree (advance-stamped)
 ---
 
 # <Work item title>

@@ -363,3 +363,35 @@ def test_filing_module_has_no_wiki_io_import() -> None:
     text = Path(spec.origin).read_text(encoding="utf-8")
     assert "wiki_io" not in text
     assert "_emit_yaml" not in text
+
+
+# ---------------------------------------------------------------------------
+# worktree/branch advance-stamped keys
+# ---------------------------------------------------------------------------
+
+
+def test_validate_accepts_worktree_and_branch_keys() -> None:
+    from work_io.filing import validate
+
+    fm = {
+        "title": "t",
+        "category": "work",
+        "kind": "feature",
+        "status": "open",
+        "summary": "s",
+        "opened": "2026-08-05",
+        "affects": [],
+        "worktree": "/tmp/wt",
+        "branch": "feature/x",
+    }
+    assert validate(fm) == []
+
+
+def test_frontmatter_round_trips_worktree_branch_keys() -> None:
+    from work_io.frontmatter import emit, parse
+
+    fm = {"title": "t", "worktree": "/tmp/wt", "branch": "feature/x"}
+    reparsed, body = parse(emit(fm) + "\nbody\n")
+    assert reparsed["worktree"] == "/tmp/wt"
+    assert reparsed["branch"] == "feature/x"
+    assert body == "body\n"
