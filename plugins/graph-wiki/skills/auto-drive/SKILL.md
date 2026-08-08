@@ -63,3 +63,98 @@ re-derives the Run this way; there is no separate `--resume` flag.
 
 Every command in the rest of this skill passes `--run <run_id>` explicitly —
 don't rely on implicit terminal binding once other dispatches may exist.
+
+## 2. The cycle
+
+Loop until Wrap-up (§5) or the user says stop. Each iteration is
+self-contained — never trust anything from a previous iteration in this same
+session; re-derive from Orca + the vault every time. This is what makes
+crash/compaction resume the same code path as a normal cycle.
+
+### 2.1 Derive live keys
+
+1. `orca orchestration task-list --run <run_id> --json`. Every task's
+   `--task-title` was set to a dispatch key (`<slug>#<phase>`) at creation
+   (§3) — this task mirror is the dedupe ledger for the whole loop.
+2. For each task not already marked `completed`/`failed` by a prior
+   `task-update` (§4.1), run
+   `orca orchestration worker-show --dispatch <dispatch_id> --json` and read
+   `result.worker.state`:
+   - `ready` or `running` (any non-terminal state) → **live**.
+   - `failed`, `stopped`, or the dispatch is unreachable (vanished terminal,
+     `worker-show` reports not-found) → **failure flow** (§4.2).
+3. Build the `--live` key list for §2.2 from every task classified live.
+
+### 2.2 Plan
+
+`gw work orchestrate <slug> --live <key,...> --json` (workspace resolves via
+`GRAPH_WIKI_WORKSPACE`; omit `--live` on the very first plan call of a fresh
+Run — there's nothing live yet). The result:
+
+- `terminal` (bool), `max_parallel` / `slots_free` (ints), `permission_mode`
+  (str, default `bypassPermissions`), `live` (the echoed input list).
+- `dispatches[]` — each entry: `key` (`<slug>#<phase>`), `slug`, `phase`,
+  `kind`, `effort`, `skill`, `mode` (`autonomous` | `attend` | `relay`),
+  `model` (`null` = inherit, omit `--model`), `reasoning_effort`,
+  `worktree` (`action`: `reuse` | `fork-child` | `create-top-level`, `path`,
+  `branch`, `base_branch`, `exists`), `merge_target`, `prompt`.
+- `advances[]` — each: `slug`, `reason`.
+- `blocked[]` — each: `slug`, `kind` (one of exactly `deps`, `capacity`,
+  `affects-overlap`, `effort-required`, `human`, `worktree-pending`,
+  `invalid`), `reason`.
+- `warnings[]` — plain strings (e.g. a stale `--live` key matching nothing).
+  Print these as notes; they are not blockers.
+
+### 2.3 Terminal?
+
+`terminal: true` → go to Wrap-up (§5) and stop looping. Nothing else in this
+cycle runs.
+
+### 2.4 Advances
+
+For every entry in `advances[]`: `gw work advance <slug from entry>`. If
+`advances[]` was non-empty, the plan you just read is now stale — restart
+the cycle at §2.1 (skip §2.5–2.7 this iteration; don't act on a plan you
+know is out of date).
+
+### 2.5 Blockers
+
+- **`effort-required`**: ask the user — via `AskUserQuestion`, this is the
+  coordinator's own human, not a worker relay — to size the item
+  (xtra-small / small / medium / large / xtra-large). Run
+  `gw work advance <slug> --effort <value>`, then restart the cycle at §2.1.
+- **Every other kind** (`deps`, `capacity`, `affects-overlap`, `human`,
+  `worktree-pending`, `invalid`): print one line each
+  (`blocked <slug> (<kind>): <reason>`) and take no action. `capacity` and
+  `worktree-pending` resolve themselves next cycle as slots/worktrees free
+  up; `deps`, `affects-overlap`, `human`, and `invalid` need a human decision
+  outside this loop. Note: `affects-overlap` fires both on a real overlap
+  *and* on an item with an empty `affects` list (declaring `affects` is what
+  unlocks parallel dispatch) — don't report an empty-`affects` block to the
+  user as "another dispatch is using this," the reason string already says
+  which case it is.
+
+### 2.6 Dispatch diff
+
+Dispatch only `dispatches[]` entries whose `key` has **no existing task** in
+§2.1's `task-list` output — the task mirror is the sole dedupe ledger. A key
+with a task is live, settled, or an intentional skip (§4.1); in every case,
+leave it alone. For each undispatched entry, run Dispatch mechanics (§3).
+
+### 2.7 Wait
+
+```
+orca orchestration check --run <run_id> --wait \
+  --types worker_done,escalation,question --timeout-ms 600000 --json
+```
+
+- **On delivery:** process **every** message in the batch (§4) before
+  acking. Then acknowledge with the delivery id from the response:
+  `orca orchestration check --run <run_id> --ack <delivery_id>` (a bound Run
+  replays the same delivery until acked — don't ack before every message in
+  the batch is handled). Restart the cycle at §2.1.
+- **On timeout with nothing delivered:**
+  `orca orchestration worker-show --dispatch <id> --json` for every
+  still-live dispatch. All still `ready`/`running` → loop back into another
+  `--wait`. Any `failed`/`stopped`/unreachable → failure flow (§4.2), then
+  restart the cycle at §2.1.
