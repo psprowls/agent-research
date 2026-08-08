@@ -276,3 +276,46 @@ the loop unless the user says so.
 Worker heartbeats are never in `--types` (§2.7), so they're never delivered
 here; liveness between deliveries is checked only via `worker-show` on
 wait-timeout.
+
+## 5. Resume & wrap-up
+
+**Resume** is just re-running `/graph-wiki:auto-drive <slug>` (§1 re-binds
+the same Run by objective). Cycle 1's live-derivation (§2.1) classifies
+every existing task — live, settled, or dead — before anything else
+happens; dead dispatches enter the failure flow immediately. Nothing is
+reconstructed from conversation memory: a fresh session with zero context
+resumes identically to one that's been running for hours.
+
+**Wrap-up** (§2.3 reported `terminal: true`):
+
+1. `orca orchestration worker-release --dispatch <id> --run <run_id>` for
+   any dispatch still holding a terminal that settled successfully but
+   wasn't released yet.
+2. Print a run summary: items resolved, branches merged back (from each
+   settled dispatch's `merge_target`), anything skipped (§4.1's skip
+   choices this run), anything left in `blocked[]`.
+3. Stop. Merging the epic branch to `develop` is **not** this coordinator's
+   job — it happens inside the root item's finish-relay stage (child 5's
+   scope), not here.
+
+**User stop** (mid-run, on explicit instruction): exit the loop between
+cycles — never mid-dispatch. Live workers keep running independently; offer
+`orca orchestration worker-stop --dispatch <id> --run <run_id>` for each one
+before exiting — same mechanics as the failure question's Stop branch
+(§4.1).
+
+## Out of scope
+
+- Any dispatch-decision logic — readiness, worktree choice, model, prompt
+  assembly, parallelism caps, `affects` serialization — all owned by
+  `gw work orchestrate`. A wrong-looking plan (bad worktree action, a
+  missing blocker kind, a bad prompt) gets filed against the decision-engine
+  work item; never patched around in this skill's prose.
+- Finish-stage relay behavior *inside* the worker — deciding what the
+  merge/PR/hold/discard options mean and sending the `ask` — child 5's
+  scope. This skill only mirrors the `question` it receives (§4.3).
+- A vault-wide watcher or scheduled sweep mode. Orca automations may invoke
+  this skill later; today it drives exactly one slug per invocation.
+- Auto-retry of failed stages, and automatic merge-conflict resolution for
+  parallel forks — both explicit policy (see the failure question and the
+  `affects`-disjoint rule), not gaps.
