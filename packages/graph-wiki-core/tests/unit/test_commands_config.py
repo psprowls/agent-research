@@ -94,3 +94,73 @@ async def test_guidance_enabled_lands_in_projection(workspace):
     await run_config_set("guidance.enabled", "true")
     payload = json.loads(projection_path(workspace).read_text(encoding="utf-8"))
     assert payload["guidance"] == {"enabled": True}
+
+
+def test_config_set_auto_drive_scalars_round_trip(tmp_path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.config import run_config_get, run_config_set
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\ninitialized_at: '2026-08-07'\n")
+
+    asyncio.run(run_config_set("workflow.auto_drive.max_parallel", "3", ws))
+    cv = asyncio.run(run_config_get("workflow.auto_drive.max_parallel", ws))
+    assert (cv.value, cv.origin) == (3, "manifest")
+
+    asyncio.run(run_config_set("workflow.auto_drive.models.design", "claude-fable-5", ws))
+    cv = asyncio.run(run_config_get("workflow.auto_drive.models.design", ws))
+    assert (cv.value, cv.origin) == ("claude-fable-5", "manifest")
+
+
+def test_config_set_rejects_overrides_key(tmp_path) -> None:
+    import asyncio
+
+    import pytest
+    from graph_wiki_core.commands.config import run_config_set
+    from workspace_io.registry import ReadOnlyKeyError
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\ninitialized_at: '2026-08-07'\n")
+
+    with pytest.raises(ReadOnlyKeyError, match="hand-edit"):
+        asyncio.run(run_config_set("workflow.auto_drive.overrides", "[]", ws))
+
+
+def test_config_set_surfaces_enum_warnings_from_hand_edited_overrides(tmp_path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.config import run_config_set
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text(
+        "version: 2\n"
+        "initialized_at: '2026-08-07'\n"
+        "workflow:\n"
+        "  auto_drive:\n"
+        "    overrides:\n"
+        "      - match: {phase: execute, effort: xs}\n"
+        "        model: claude-haiku-4-5\n"
+    )
+
+    cv = asyncio.run(run_config_set("workflow.auto_drive.max_parallel", "2", ws))
+    assert any("'xs'" in w for w in cv.warnings)
+
+
+def test_config_set_no_warnings_on_clean_block(tmp_path) -> None:
+    import asyncio
+
+    from graph_wiki_core.commands.config import run_config_set
+
+    ws = tmp_path / "ws"
+    ws.mkdir()
+    (ws / ".graph-wiki.yaml").write_text("version: 2\ninitialized_at: '2026-08-07'\n")
+
+    cv = asyncio.run(run_config_set("workflow.auto_drive.models.plan", "claude-sonnet-5", ws))
+    assert cv.warnings == []
+
+    cv = asyncio.run(run_config_set("workflow.commit_strategy", "at-end", ws))
+    assert cv.warnings == []
