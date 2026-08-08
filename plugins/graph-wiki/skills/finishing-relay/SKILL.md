@@ -75,3 +75,87 @@ Carry forward into R3: the merge target, the classified case, the target
 worktree path (forked-child case only), commit count and one-line summary of
 this stage's commits (`git log <merge-base>..HEAD --oneline` against the
 merge target), and R1's test result.
+
+## R3 — One ask
+
+Send exactly one `orca orchestration ask`, using this session's own
+`--from` / `--dispatch-capability` from its dispatch preamble:
+
+```
+orca orchestration ask --from <this session's --from> \
+  --dispatch-capability <this session's --dispatch-capability> \
+  --question "Finish stage for <slug> on branch <current branch> ready to settle. <N> commit(s): <one-line summary>. Tests: <pass/fail summary>. Merge target: <merge target>. How should this be handled?" \
+  --options "<merge,pr,hold,discard — or pr,hold,discard on detached HEAD>" \
+  --timeout-ms 600000
+```
+
+`ask` blocks until the coordinator replies and prints the reply body — there
+is no separate poll/fetch step. **Live-validation item:** if the call times
+out or disconnects, the resume mechanism is not a documented flag in this
+session's own preamble (see CLI Reference); check
+`orca orchestration ask --help` for the real resume syntax before sending a
+second, duplicate question.
+
+The reply body is one of the option labels (`merge`, `pr`, `hold`,
+`discard`). Any other reply text: treat it as `hold` and note the verbatim
+reply in the R5 report — don't guess at unrecognized intent.
+
+## R4 — Execute the choice
+
+### `merge`
+
+- **Shared-epic-worktree case:** no-op merge — the commits are already on
+  the merge target. Skip straight to R5 with `resolved_in` = the HEAD SHA
+  captured in R2.
+- **Forked-child case:**
+  ```bash
+  git -C <target worktree path from R2> merge <this worker's branch>
+  ```
+  **Conflicts:** never auto-resolve (parent-epic policy). Enter the
+  **Escalation path** with the conflict file list in the body; wait for
+  instructions.
+  **On a clean merge:** re-run the test suite (R1's command) in the target
+  worktree, on the merged result. **Failing tests post-merge:** enter the
+  Escalation path — the merge already happened, so the escalation body must
+  say so explicitly (don't let the coordinator think it's still pending).
+  Continue to R5 with `resolved_in` = the merge commit SHA
+  (`git -C <target worktree path> rev-parse HEAD`).
+
+### `pr`
+
+```bash
+git push -u origin <this worker's branch>
+gh pr create --title "<slug title>" --body "$(cat <<'EOF'
+## Summary
+<2-3 bullets of what changed>
+
+## Test Plan
+- [ ] <verification steps>
+EOF
+)"
+```
+
+Reuses `finishing-a-development-branch`'s Option 2 body template verbatim.
+Continue to R5 with the PR URL.
+
+### `hold`
+
+Nothing to execute. Continue to R5.
+
+### `discard`
+
+Send a second, option-less `ask` asking for exact confirmation:
+
+```
+orca orchestration ask --from <this session's --from> \
+  --dispatch-capability <this session's --dispatch-capability> \
+  --question "Confirm discard of <slug> branch <branch> (<N> commits: <list>). Reply exactly 'discard' to confirm, anything else cancels." \
+  --timeout-ms 600000
+```
+
+- Reply is exactly `discard` → confirmed. **Discard is recorded, not
+  executed**: delete nothing. Continue to R5 with the branch name and commit
+  list for the report — the human removes the branch/worktree later, after
+  Orca releases it (see Worktree & branch ownership, below).
+- Any other reply → downgrade to `hold`; say so explicitly in the R5 report
+  (state the reply that caused the downgrade).
