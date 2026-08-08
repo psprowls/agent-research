@@ -16,3 +16,12 @@ def test_shipped_template_parses() -> None:
     fm, body = parse(_template_text())
     assert fm["category"] == "work"
     assert "## Summary" in body
+
+
+def test_work_template_documents_worktree_branch_keys() -> None:
+    from importlib.resources import files
+
+    text = (files("work_io.assets") / "work.md").read_text(encoding="utf-8")
+    assert "worktree:" in text
+    assert "branch:" in text
+    assert "auto_drive:" not in text  # scoped out with the backed-out dispatcher
