@@ -653,7 +653,7 @@ def _next_for_slug(wiki: Path, workspace: Path, slug: str, items: list[dict]) ->
 def _child_gated_result(result: WorkNextResult) -> bool:
     """Whether --descend applies: the routed item is waiting on open children.
 
-    Mirrors work_io.hierarchy._child_gated_node's gating rule exactly (epic at
+    Mirrors work_io.hierarchy.child_gated_node's gating rule exactly (epic at
     execute with open children, or feature at execute/finish with open
     children), but operates on the already-computed WorkNextResult (rollup
     already reduced to dict form) rather than re-deriving it from raw items.

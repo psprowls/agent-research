@@ -443,7 +443,10 @@ def plan(
             accepted_worktrees.add(worktree_action.path)
 
         mode = _MODE_BY_PHASE.get(phase, "autonomous")
-        merge_target = epic_branch if (item["slug"] != root and item.get("parent")) else default_base
+        # Every non-root candidate reached _frontier's walk via children_of, which only
+        # indexes items with a truthy "parent" — so item["slug"] != root already implies
+        # item.get("parent") is set; the parent check would be redundant.
+        merge_target = epic_branch if item["slug"] != root else default_base
         model_resolution = resolve_model(
             auto_drive, phase=phase, kind=str(item.get("kind", "")), effort=item.get("effort")
         )

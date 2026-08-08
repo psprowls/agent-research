@@ -432,6 +432,122 @@ def test_plan_candidate_overlapping_live_affects_is_blocked() -> None:
     assert "pkg/a" in blocked_b.reason
 
 
+def test_plan_mitigated_item_blocks_as_human() -> None:
+    from work_io.orchestrate import plan
+
+    items = [_item("m", kind="bug", status="mitigated", phase="execute", affects=["pkg/m"])]
+    result = plan(
+        items,
+        "m",
+        auto_drive=AUTO_DRIVE,
+        permission_mode="bypassPermissions",
+        live=(),
+        worktree_exists={},
+        workspace="/ws",
+        default_base="develop",
+    )
+    assert result.dispatches == ()
+    [blocked_m] = result.blocked
+    assert blocked_m.kind == "human"
+    assert "never dispatches" in blocked_m.reason
+
+
+def test_plan_unsized_test_gap_blocks_as_effort_required() -> None:
+    from work_io.orchestrate import plan
+
+    items = [_item("gap-x", kind="test-gap", status="open", phase=None, affects=["pkg/g"])]
+    result = plan(
+        items,
+        "gap-x",
+        auto_drive=AUTO_DRIVE,
+        permission_mode="bypassPermissions",
+        live=(),
+        worktree_exists={},
+        workspace="/ws",
+        default_base="develop",
+    )
+    assert result.dispatches == ()
+    [blocked_gap] = result.blocked
+    assert blocked_gap.kind == "effort-required"
+    assert blocked_gap.reason.startswith("effort required")
+
+
+def test_plan_worktree_pending_blocks_without_consuming_slot_or_relaxing_claim() -> None:
+    """Cold-start with 3 unstamped epic children and ample capacity: only the
+    first pick-order candidate gets create-top-level; the rest land in
+    blocked/worktree-pending (not dispatched, not capacity), and the claim
+    made by the first candidate is never relaxed for later ones in the plan."""
+    from work_io.orchestrate import plan
+
+    items = [
+        _item("epic-y", kind="epic", status="accepted", phase="execute"),
+        _item(
+            "epic-y-a",
+            kind="bug",
+            phase="execute",
+            status="in-progress",
+            parent="epic-y",
+            affects=["pkg/a"],
+            opened="2026-08-01",
+        ),
+        _item(
+            "epic-y-b",
+            kind="bug",
+            phase="execute",
+            status="in-progress",
+            parent="epic-y",
+            affects=["pkg/b"],
+            opened="2026-08-02",
+        ),
+        _item(
+            "epic-y-c",
+            kind="bug",
+            phase="execute",
+            status="in-progress",
+            parent="epic-y",
+            affects=["pkg/c"],
+            opened="2026-08-03",
+        ),
+    ]
+    result = plan(
+        items,
+        "epic-y",
+        auto_drive={**AUTO_DRIVE, "max_parallel": 3},
+        permission_mode="bypassPermissions",
+        live=(),
+        worktree_exists={},
+        workspace="/ws",
+        default_base="develop",
+    )
+    assert [d.slug for d in result.dispatches] == ["epic-y-a"]
+    assert [(b.slug, b.kind) for b in result.blocked] == [
+        ("epic-y-b", "worktree-pending"),
+        ("epic-y-c", "worktree-pending"),
+    ]
+
+
+def test_plan_echoes_max_parallel_permission_mode_and_live() -> None:
+    from work_io.orchestrate import plan
+
+    items = [
+        _item("live-item", kind="bug", phase="execute", status="in-progress", affects=["pkg/a"]),
+        _item("b", kind="bug", phase="execute", status="in-progress", affects=["pkg/b"]),
+    ]
+    result = plan(
+        items,
+        "b",
+        auto_drive={**AUTO_DRIVE, "max_parallel": 5},
+        permission_mode="acceptEdits",
+        live=("live-item#execute",),
+        worktree_exists={},
+        workspace="/ws",
+        default_base="develop",
+    )
+    assert result.max_parallel == 5
+    assert result.permission_mode == "acceptEdits"
+    assert result.live == ("live-item#execute",)
+
+
 def test_plan_is_deterministic() -> None:
     from work_io.orchestrate import plan
 
