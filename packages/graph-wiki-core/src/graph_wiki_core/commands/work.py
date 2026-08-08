@@ -175,6 +175,53 @@ def _git_log_commits(repo: Path, start_sha: str, end_sha: str) -> list[str] | No
     return [line for line in out.splitlines() if line.strip()]
 
 
+def _abs_git_path(raw: str, cwd: Path) -> Path | None:
+    """Resolve a `git rev-parse --git-dir`-style answer, which may be relative to cwd."""
+    p = Path(raw.strip())
+    if not str(p):
+        return None
+    try:
+        return (p if p.is_absolute() else cwd / p).resolve()
+    except OSError:
+        return None
+
+
+def _worktree_state(cwd: Path, repo: Path) -> tuple[str, str] | None:
+    """(worktree_toplevel, branch) when `cwd` is a linked worktree of `repo`, else None.
+
+    Uses the same detection the using-git-worktrees skill's Step 0 Part 2 does:
+    `--git-dir` differs from `--git-common-dir` in a linked worktree — but also
+    inside a submodule, so `--show-superproject-working-tree` rules that out.
+    The common dir's parent must be `repo` itself, otherwise this is a worktree
+    of some unrelated checkout and stamping it would point the item at code the
+    workspace does not describe. A detached HEAD returns None: there is no
+    branch worth recording, and the finish stage creates one anyway.
+
+    Best-effort throughout — every git failure degrades to None (same contract
+    as _git_head), because `advance` must never fail on provenance capture.
+    """
+    git_dir_raw = _git_run(cwd, "rev-parse", "--git-dir")
+    common_raw = _git_run(cwd, "rev-parse", "--git-common-dir")
+    if git_dir_raw is None or common_raw is None:
+        return None
+    git_dir = _abs_git_path(git_dir_raw, cwd)
+    common = _abs_git_path(common_raw, cwd)
+    if git_dir is None or common is None or git_dir == common:
+        return None  # main checkout (or unreadable)
+    if (_git_run(cwd, "rev-parse", "--show-superproject-working-tree") or "").strip():
+        return None  # submodule, not a worktree
+    try:
+        if common.parent != Path(repo).resolve():
+            return None  # linked worktree of a different repo
+    except OSError:
+        return None
+    top = _git_run(cwd, "rev-parse", "--show-toplevel")
+    branch = _git_run(cwd, "branch", "--show-current")
+    if top is None or branch is None or not branch.strip():
+        return None  # detached HEAD — nothing useful to stamp
+    return top.strip(), branch.strip()
+
+
 def _write_results_stub(workspace: Path, repo: Path, slug: str, *, phase: str, start_sha: str) -> None:
     """Best-effort: write work/<slug>/NN-<phase>-results.md as a mechanical git-facts stub.
 
@@ -706,6 +753,18 @@ async def run_work_advance(
             if head is not None:
                 fm["phase_started_commit"] = head
                 stamped["phase_started_commit"] = head
+
+    # Worktree provenance: stamp only when the recorded path is unset or gone,
+    # so running `advance` from an unrelated worktree cannot silently repoint a
+    # live item. The execute stage's session is cd'd into its worktree when it
+    # calls advance, so this populates itself with no skill change.
+    if repo is not None:
+        recorded = fm.get("worktree")
+        if not recorded or not Path(str(recorded)).is_dir():
+            detected = _worktree_state(Path.cwd(), repo)
+            if detected is not None:
+                fm["worktree"], fm["branch"] = detected
+                stamped["worktree"], stamped["branch"] = detected
 
     if t.phase:
         applied["phase"] = [fm.get("phase"), t.phase]
