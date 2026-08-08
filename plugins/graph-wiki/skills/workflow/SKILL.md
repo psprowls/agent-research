@@ -82,6 +82,15 @@ which transitions happen at dispatch time.
 Invoke the stage skill named by `action.skill` via the Skill tool (namespaced
 `graph-wiki:<skill>`), prepending a work-item brief:
 
+**Auto-drive relay override.** If `action.skill` is
+`finishing-a-development-branch` **and** the dispatch prompt that launched
+this session contains an `Auto-drive context:` line, dispatch
+`graph-wiki:finishing-relay` instead of `finishing-a-development-branch` —
+the merge target is already embedded in that same line, so no extra
+forwarding is needed beyond the standard work-item brief below. This
+override needs no STOP line: `finishing-relay` doesn't self-chain into
+another stage, same as the stock skill it replaces.
+
 - title, kind, summary, `affects`, and effort from the item's frontmatter
 - links to prior artifacts (`spec_doc`, `plan_doc`) so the stage starts from
   the durable state, not from memory
@@ -134,6 +143,13 @@ Run `gw work advance <slug>` with whatever flags the stage produced
 the finish stage). Report the lint findings it returns — they are the item's
 health check, not noise. If the command errors with *effort required*, ask the
 user to size the item as in step 1 — never pick an effort yourself — then retry.
+
+**Relay no-advance outcomes.** If the just-completed stage was
+`graph-wiki:finishing-relay` and it reported a `pr`, `hold`, or `discard`
+outcome (not `merge`), skip this step's `gw work advance` call entirely —
+the relay skill already settled the item's state for that outcome (its own
+R5 step runs the advance itself when the outcome is `merge`, so this step is
+a no-op for every relay outcome). Go straight to step 6.
 
 If the advance lands the item at `phase: done` and `status: resolved`, run
 **Terminal handling** (below) instead of the step 6 hand-off.
