@@ -304,3 +304,52 @@ def test_work_orchestrate_exit_3_on_invalid_config() -> None:
         result = runner.invoke(app, ["work", "orchestrate", "epic-x", "--json"])
 
     assert result.exit_code == 3
+
+
+def test_work_orchestrate_human_output_shows_dispatches_and_blocked() -> None:
+    from graph_wiki_cli.cli import app
+    from graph_wiki_core.commands.orchestrate import WorkOrchestrateResult
+
+    mock_result = WorkOrchestrateResult(
+        slug="epic-x",
+        terminal=False,
+        max_parallel=2,
+        permission_mode="bypassPermissions",
+        slots_free=1,
+        dispatches=[
+            {
+                "key": "epic-x-a#execute",
+                "slug": "epic-x-a",
+                "phase": "execute",
+                "kind": "bug",
+                "effort": None,
+                "skill": "test-driven-development",
+                "mode": "autonomous",
+                "model": "claude-sonnet-5",
+                "reasoning_effort": None,
+                "worktree": {
+                    "action": "create-top-level",
+                    "path": None,
+                    "branch": "epic/x",
+                    "base_branch": "develop",
+                    "exists": None,
+                },
+                "merge_target": "develop",
+                "prompt": "Run /graph-wiki:next epic-x-a.",
+            }
+        ],
+        advances=[{"slug": "epic-x", "reason": "epic children complete"}],
+        blocked=[{"slug": "epic-x-b", "kind": "capacity", "reason": "ready, but no worker slot free"}],
+        warnings=["--live key 'ghost#plan' matches no known item"],
+    )
+
+    with patch("graph_wiki_cli.work_cli.main.run_work_orchestrate", new=AsyncMock(return_value=mock_result)):
+        result = runner.invoke(app, ["work", "orchestrate", "epic-x"])
+
+    assert result.exit_code == 0
+    assert "epic-x-a#execute" in result.output
+    assert "test-driven-development" in result.output
+    assert "epic-x" in result.output
+    assert "epic-x-b" in result.output
+    assert "capacity" in result.output
+    assert "ghost#plan" in result.output

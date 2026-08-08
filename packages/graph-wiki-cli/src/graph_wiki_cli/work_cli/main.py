@@ -289,8 +289,8 @@ def orchestrate(
     if json_output:
         typer.echo(json.dumps(dataclasses.asdict(result), indent=2))
     else:
-        slots = f"{result.slots_free}/{result.max_parallel}"
-        typer.echo(f"{result.slug}: terminal={result.terminal} slots_free={slots}")
+        slots_display = f"{result.slots_free}/{result.max_parallel}"
+        typer.echo(f"{result.slug}: terminal={result.terminal} slots_free={slots_display}")
         for d in result.dispatches:
             wt_action = d["worktree"]["action"]
             mode = d["mode"]
