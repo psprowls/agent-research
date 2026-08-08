@@ -72,9 +72,12 @@ git worktree list --porcelain
   in this worker's own worktree.
 
 Carry forward into R3: the merge target, the classified case, the target
-worktree path (forked-child case only), commit count and one-line summary of
-this stage's commits (`git log <merge-base>..HEAD --oneline` against the
-merge target), and R1's test result.
+worktree path (forked-child case only), the current HEAD SHA (`git rev-parse
+HEAD`; this is `resolved_in` for the shared-epic-worktree merge case), the
+full commit list with commit count and one-line summary (`git log
+<merge-base>..HEAD --oneline` against the merge target — the full list feeds
+the discard re-ask in R4, the one-line summary feeds the R3 question text),
+and R1's test result.
 
 ## R3 — One ask
 
@@ -92,9 +95,8 @@ orca orchestration ask --from <this session's --from> \
 `ask` blocks until the coordinator replies and prints the reply body — there
 is no separate poll/fetch step. **Live-validation item:** if the call times
 out or disconnects, the resume mechanism is not a documented flag in this
-session's own preamble (see CLI Reference); check
-`orca orchestration ask --help` for the real resume syntax before sending a
-second, duplicate question.
+session's own preamble; check `orca orchestration ask --help` for the real
+resume syntax before sending a second, duplicate question.
 
 The reply body is one of the option labels (`merge`, `pr`, `hold`,
 `discard`). Any other reply text: treat it as `hold` and note the verbatim
@@ -135,8 +137,9 @@ EOF
 )"
 ```
 
-Reuses `finishing-a-development-branch`'s Option 2 body template verbatim.
-Continue to R5 with the PR URL.
+`<slug title>` is the work item's frontmatter `title:` field. Reuses
+`finishing-a-development-branch`'s Option 2 body template verbatim. Continue
+to R5 with the PR URL.
 
 ### `hold`
 
