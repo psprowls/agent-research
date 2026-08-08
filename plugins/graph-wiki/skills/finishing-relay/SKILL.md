@@ -203,8 +203,10 @@ failure):
    orca orchestration check --terminal <this session's terminal handle>
    ```
    Send a heartbeat (`--type heartbeat`, `--phase "waiting"`, this session's
-   own command shape) roughly every 5 minutes while polling — the
-   coordinator uses heartbeats to tell "still waiting" from "hung."
+   own command shape) roughly every 5 minutes while polling — this
+   session's own dispatch rules require a heartbeat on this cadence
+   whenever it's active and waiting, regardless of whether this particular
+   coordinator wait path consumes it.
    **Live-validation item:** confirm on the first real run which field of
    the `check` output carries the reply body for an escalation reply — not
    documented in `--help` output for this address form.
