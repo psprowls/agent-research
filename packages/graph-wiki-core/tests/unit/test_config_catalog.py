@@ -69,3 +69,16 @@ def test_hook_env_defaults_match_catalog():
     ):
         # Qualified ${VAR:-default} form so ":-50}" can't match some other var.
         assert f"${{{var}:-{entry(var).default}}}" in sources, var
+
+
+def test_auto_drive_entries_present():
+    from graph_wiki_core.config_catalog import entry
+
+    assert entry("workflow.auto_drive.max_parallel").default == 2
+    assert entry("workflow.auto_drive.permission_mode").default == "bypassPermissions"
+    for phase in ("design", "plan", "execute", "finish"):
+        models_entry = entry(f"workflow.auto_drive.models.{phase}")
+        assert models_entry is not None and models_entry.default is None
+    overrides_entry = entry("workflow.auto_drive.overrides")
+    assert overrides_entry.writable is False
+    assert "hand-edit" in overrides_entry.description
