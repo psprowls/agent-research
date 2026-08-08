@@ -304,7 +304,7 @@ def _load_items_for_deps(work_dir: Path) -> list[dict]:
 def _hierarchy_view(items: list[dict]) -> list[dict]:
     """Project loaded items ({slug, fm, plan}) to the extended hierarchy view
     the work_io.hierarchy helpers consume (rollup/deps read a subset; descend
-    reads all of it)."""
+    and orchestrate read all of it)."""
     return [
         {
             "slug": it["slug"],
@@ -314,6 +314,11 @@ def _hierarchy_view(items: list[dict]) -> list[dict]:
             "phase": str(it["fm"]["phase"]) if it["fm"].get("phase") else None,
             "depends_on": tuple(str(d) for d in (it["fm"].get("depends_on") or [])),
             "opened": str(it["fm"].get("opened", "")),
+            "affects": list(it["fm"].get("affects") or []),
+            "effort": str(it["fm"]["effort"]) if it["fm"].get("effort") else None,
+            "worktree": it["fm"].get("worktree"),
+            "branch": it["fm"].get("branch"),
+            "has_plan_doc": bool(it["fm"].get("plan_doc")),
         }
         for it in items
     ]
