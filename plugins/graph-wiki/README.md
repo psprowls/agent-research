@@ -139,6 +139,18 @@ The `[plugin]` block is validated on every read: unknown keys raise `RuntimeErro
 
 Sub-agents (`graph-wiki:scanner`, `graph-wiki:ingestor`, `graph-wiki:linter`, `graph-wiki:librarian`) are dispatched automatically by commands and can also be invoked directly.
 
+## Auto-drive (Orca)
+
+Auto-drive runs a work item's full pipeline unattended, one command instead
+of walking `/graph-wiki:next <slug>` stage by stage: `/graph-wiki:auto-drive
+<slug>` dispatches each ready stage as an Orca-supervised worker session and
+loops until the item (or an epic's whole dependency graph) is terminal. Two
+stages still need you directly: the design stage is human-attended (join the
+worker when its worktree card flips to `in-review`), and the finish stage
+relays its merge/PR/hold/discard decision to your coordinator session as a
+question. See `docs/auto-drive.md` for the full setup guide and operator
+reference.
+
 ## See also
 
 - `skills/graph-wiki/references/` — detailed workflow references for each command
