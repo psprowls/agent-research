@@ -11,6 +11,7 @@ from workspace_io.registry import (
     InvalidValueError,
     LinkFileKeyError,
     ProvenanceKeyError,
+    ReadOnlyKeyError,
     RegistryError,
     SecretKeyError,
     UnknownKeyError,
@@ -184,3 +185,23 @@ def test_set_value_bricking_manifest_restores_and_raises(workspace):
     assert after_manifest == before_manifest
     assert after_projection == before_projection
     manifest.read(workspace / ".graph-wiki.yaml")  # still read()-able
+
+
+def test_writable_false_refuses_set_and_unset(tmp_path):
+    entry = ConfigEntry(
+        key="workflow.auto_drive.overrides",
+        type="list",
+        default=None,
+        description="First-match-wins override rules — hand-edit the manifest.",
+        writable=False,
+    )
+    with pytest.raises(ReadOnlyKeyError, match="hand-edit"):
+        set_key([entry], "workflow.auto_drive.overrides", "[]", workspace=tmp_path)
+    with pytest.raises(ReadOnlyKeyError, match="hand-edit"):
+        unset_key([entry], "workflow.auto_drive.overrides", workspace=tmp_path)
+
+
+def test_writable_false_still_resolves(tmp_path):
+    entry = ConfigEntry(key="workflow.auto_drive.overrides", type="list", default=None, description="…", writable=False)
+    got = resolve_key([entry], "workflow.auto_drive.overrides", workspace=tmp_path)
+    assert (got.value, got.origin) == (None, "default")

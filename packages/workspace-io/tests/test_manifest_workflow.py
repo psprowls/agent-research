@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import pytest
+import yaml
 from workspace_io import manifest
 
 MINIMAL = "version: 2\ninitialized_at: 2026-07-04\nplugins: []\n"
@@ -17,7 +18,7 @@ def _write(tmp_path: Path, text: str) -> Path:
 def test_workflow_absent_normalizes_to_default(tmp_path):
     p = _write(tmp_path, MINIMAL)
     data = manifest.read(p)
-    assert data["workflow"] == {"commit_strategy": "per-task", "model_routing": {}}
+    assert data["workflow"] == {"commit_strategy": "per-task", "model_routing": {}, "auto_drive": {}}
 
 
 def test_workflow_roundtrip(tmp_path):
@@ -116,3 +117,103 @@ def test_read_roles_returns_flattened_mapping(tmp_path):
 
 def test_read_roles_missing_manifest_returns_empty(tmp_path):
     assert manifest.read_roles(tmp_path / ".graph-wiki.yaml") == {}
+
+
+# ---------------------------------------------------------------------------
+# workflow.auto_drive block (Orca auto-drive config — child 1 of the epic)
+# ---------------------------------------------------------------------------
+
+
+def test_auto_drive_absent_normalizes_to_empty(tmp_path):
+    p = _write(tmp_path, MINIMAL)
+    assert manifest.read(p)["workflow"]["auto_drive"] == {}
+
+
+def test_auto_drive_absent_with_workflow_block(tmp_path):
+    p = _write(tmp_path, MINIMAL + "workflow:\n  commit_strategy: at-end\n")
+    assert manifest.read(p)["workflow"]["auto_drive"] == {}
+
+
+def test_auto_drive_full_block_accepted(tmp_path):
+    p = _write(
+        tmp_path,
+        MINIMAL
+        + (
+            "workflow:\n"
+            "  auto_drive:\n"
+            "    max_parallel: 3\n"
+            "    permission_mode: bypassPermissions\n"
+            "    models:\n"
+            "      design: claude-fable-5\n"
+            "      execute: claude-sonnet-5\n"
+            "    overrides:\n"
+            "      - match: {phase: execute, kind: [bug, tech-debt], effort: [xtra-small, small]}\n"
+            "        model: claude-haiku-4-5\n"
+            "      - match: {phase: plan, kind: epic}\n"
+            "        model: claude-fable-5\n"
+            "        reasoning_effort: high\n"
+        ),
+    )
+    block = manifest.read(p)["workflow"]["auto_drive"]
+    assert block["max_parallel"] == 3
+    assert block["permission_mode"] == "bypassPermissions"
+    assert block["models"] == {"design": "claude-fable-5", "execute": "claude-sonnet-5"}
+    assert block["overrides"][0]["match"]["kind"] == ["bug", "tech-debt"]
+    assert block["overrides"][1]["reasoning_effort"] == "high"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "workflow:\n  auto_drive: notamapping\n",
+        "workflow:\n  auto_drive:\n    nope: 1\n",
+        "workflow:\n  auto_drive:\n    max_parallel: 0\n",
+        "workflow:\n  auto_drive:\n    max_parallel: true\n",
+        "workflow:\n  auto_drive:\n    max_parallel: notanint\n",
+        "workflow:\n  auto_drive:\n    permission_mode: ''\n",
+        "workflow:\n  auto_drive:\n    models: [design]\n",
+        "workflow:\n  auto_drive:\n    models:\n      done: m\n",
+        "workflow:\n  auto_drive:\n    models:\n      design: ''\n",
+        "workflow:\n  auto_drive:\n    overrides: {}\n",
+        "workflow:\n  auto_drive:\n    overrides: [notamapping]\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - model: m\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {phase: plan}\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {}\n        model: m\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {nope: x}\n        model: m\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {phase: ''}\n        model: m\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {kind: []}\n        model: m\n",
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {phase: plan}\n        model: ''\n",
+        (
+            "workflow:\n  auto_drive:\n    overrides:\n      - match: {phase: plan}\n"
+            "        model: m\n        reasoning_effort: extreme\n"
+        ),
+        "workflow:\n  auto_drive:\n    overrides:\n      - match: {phase: plan}\n        model: m\n        nope: 1\n",
+    ],
+)
+def test_auto_drive_rejects_bad_shapes(tmp_path, body):
+    p = _write(tmp_path, MINIMAL + body)
+    with pytest.raises(RuntimeError):
+        manifest.read(p)
+
+
+def test_auto_drive_write_round_trip(tmp_path):
+    p = tmp_path / ".graph-wiki.yaml"
+    block = {
+        "max_parallel": 2,
+        "overrides": [{"match": {"phase": "plan"}, "model": "claude-sonnet-5"}],
+    }
+    manifest.write(
+        p,
+        {"version": 2, "initialized_at": "2026-08-07", "plugins": [], "workflow": {"auto_drive": block}},
+    )
+    assert manifest.read(p)["workflow"]["auto_drive"] == block
+
+
+def test_auto_drive_empty_not_written_to_disk(tmp_path):
+    p = tmp_path / ".graph-wiki.yaml"
+    manifest.write(
+        p,
+        {"version": 2, "initialized_at": "2026-08-07", "plugins": [], "workflow": {"auto_drive": {}}},
+    )
+    raw = yaml.safe_load(p.read_text(encoding="utf-8"))
+    assert "workflow" not in raw

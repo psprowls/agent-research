@@ -55,6 +55,10 @@ class ProvenanceKeyError(RegistryError):
     pass
 
 
+class ReadOnlyKeyError(RegistryError):
+    pass
+
+
 class InvalidValueError(RegistryError):
     pass
 
@@ -69,6 +73,7 @@ class ConfigEntry:
     env_var: str | None = None
     allowed: tuple[str, ...] = ()
     secret: bool = False
+    writable: bool = True  # False = documented in the catalog but hand-edit only
 
     def __post_init__(self) -> None:
         # `allowed` is only checked for str entries (see coerce); reject it on
@@ -218,6 +223,11 @@ def _writable_entry(catalog: Sequence[ConfigEntry], key: str) -> ConfigEntry:
     entry = find_entry(catalog, key)
     if entry is None:
         raise _unknown(catalog, key)
+    if not entry.writable:
+        raise ReadOnlyKeyError(
+            f"'{key}' is hand-edit only — edit it directly in <workspace>/.graph-wiki.yaml. "
+            "gw config does not write structured lists."
+        )
     if entry.secret:
         raise SecretKeyError(f"'{key}' is a secret and is never stored. export {entry.env_var or key}=... instead.")
     if entry.kind == "env-only":

@@ -40,6 +40,7 @@ class ConfigValue:
     env_var: str | None
     secret: bool
     shadows: object | None = None  # explicit manifest value hidden behind an env override
+    warnings: list[str] = field(default_factory=list)  # set-time validate_auto_drive findings
 
 
 def _to_config_value(workspace: Path, resolved: Resolved) -> ConfigValue:
@@ -69,10 +70,26 @@ async def run_config_get(key: str, workspace_path: Path | None = None) -> Config
     return _to_config_value(workspace, resolve_key(CATALOG, key, workspace=workspace))
 
 
+def _auto_drive_warnings(workspace: Path) -> list[str]:
+    """Enum-membership findings for the manifest's auto_drive block.
+
+    Set-time loudness only — hand-edited manifests bypass gw config set and
+    are caught by gw work orchestrate's startup validation (epic child 2).
+    """
+    from work_io.auto_drive import validate_auto_drive
+    from workspace_io import manifest, paths
+
+    block = manifest.read(paths.manifest_path(workspace)).get("workflow", {}).get("auto_drive", {})
+    return [f"workflow.auto_drive: {e}" for e in validate_auto_drive(block)]
+
+
 async def run_config_set(key: str, value: str, workspace_path: Path | None = None) -> ConfigValue:
     """Write a key into the manifest (validated + rollback-safe) and re-resolve it."""
     workspace = _resolve_workspace(workspace_path)
-    return _to_config_value(workspace, set_key(CATALOG, key, value, workspace=workspace))
+    cv = _to_config_value(workspace, set_key(CATALOG, key, value, workspace=workspace))
+    if key.startswith("workflow.auto_drive."):
+        cv.warnings.extend(_auto_drive_warnings(workspace))
+    return cv
 
 
 async def run_config_unset(key: str, workspace_path: Path | None = None) -> ConfigValue:

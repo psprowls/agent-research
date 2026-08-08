@@ -127,6 +127,50 @@ _MANIFEST_ENTRIES: tuple[ConfigEntry, ...] = (
         None,
         "Model alias for frontier-tier plan tasks ('inherit' = session model).",
     ),
+    ConfigEntry(
+        "workflow.auto_drive.max_parallel",
+        "int",
+        2,
+        "Concurrent auto-drive worker sessions across a Run.",
+    ),
+    ConfigEntry(
+        "workflow.auto_drive.permission_mode",
+        "str",
+        "bypassPermissions",
+        "Permission mode for auto-drive worker sessions; anything stricter turns every write into a block.",
+    ),
+    ConfigEntry(
+        "workflow.auto_drive.models.design",
+        "str",
+        None,
+        "Auto-drive model for design-stage workers (unset = inherit the coordinator session model).",
+    ),
+    ConfigEntry(
+        "workflow.auto_drive.models.plan",
+        "str",
+        None,
+        "Auto-drive model for plan-stage workers (unset = inherit the coordinator session model).",
+    ),
+    ConfigEntry(
+        "workflow.auto_drive.models.execute",
+        "str",
+        None,
+        "Auto-drive model for execute-stage workers (unset = inherit the coordinator session model).",
+    ),
+    ConfigEntry(
+        "workflow.auto_drive.models.finish",
+        "str",
+        None,
+        "Auto-drive model for finish-stage workers (unset = inherit the coordinator session model).",
+    ),
+    ConfigEntry(
+        "workflow.auto_drive.overrides",
+        "list",
+        None,
+        "First-match-wins model override rules keyed by phase/kind/effort — hand-edit the manifest "
+        "(workflow.auto_drive.overrides in <workspace>/.graph-wiki.yaml); not settable via gw config set.",
+        writable=False,
+    ),
 )
 
 _ENV_ONLY_ENTRIES: tuple[ConfigEntry, ...] = (
