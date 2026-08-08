@@ -85,6 +85,37 @@ def test_hooks_enable_disable_repo_override(tmp_path, monkeypatch):
     assert "hooks" not in data
 
 
+def _seed_bad_auto_drive_overrides(tmp_path):
+    (tmp_path / ".graph-wiki.yaml").write_text(
+        "version: 2\n"
+        "initialized_at: '2026-08-07'\n"
+        "workflow:\n"
+        "  auto_drive:\n"
+        "    overrides:\n"
+        "      - match: {phase: execute, effort: xs}\n"
+        "        model: claude-haiku-4-5\n",
+        encoding="utf-8",
+    )
+
+
+def test_config_set_prints_warning_line_for_bad_enum_override(tmp_path, monkeypatch):
+    _seed_bad_auto_drive_overrides(tmp_path)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))
+    r = runner.invoke(app, ["config", "set", "workflow.auto_drive.max_parallel", "2"])
+    assert r.exit_code == 0, r.output
+    assert "warning:" in r.output
+    assert "'xs'" in r.output
+
+
+def test_config_set_json_output_includes_warnings_for_bad_enum_override(tmp_path, monkeypatch):
+    _seed_bad_auto_drive_overrides(tmp_path)
+    monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))
+    r = runner.invoke(app, ["config", "set", "workflow.auto_drive.max_parallel", "2", "--json"])
+    assert r.exit_code == 0, r.output
+    payload = json.loads(r.output)
+    assert any("'xs'" in w for w in payload["warnings"])
+
+
 def test_init_repo_override(tmp_path, monkeypatch):
     _seed(tmp_path)
     monkeypatch.setenv("GRAPH_WIKI_WORKSPACE", str(tmp_path))

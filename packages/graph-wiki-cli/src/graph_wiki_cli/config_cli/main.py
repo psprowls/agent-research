@@ -49,7 +49,7 @@ def _echo_value(cv, json_output: bool) -> None:
     typer.echo(f"{cv.key} = {cv.value!r}  (origin: {cv.origin})")
     if cv.shadows is not None:
         typer.echo(f"  note: manifest value {cv.shadows!r} is shadowed by ${cv.env_var}")
-    for w in getattr(cv, "warnings", []):
+    for w in cv.warnings:
         typer.echo(f"  warning: {w}", err=True)
 
 
