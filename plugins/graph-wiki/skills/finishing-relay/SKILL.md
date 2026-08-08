@@ -228,9 +228,9 @@ host-managed by definition.
 
 ## Out of scope
 
-- Coordinator-side changes — `auto-drive` SKILL.md already handles both
-  message types this skill sends (worker_done and escalation); nothing
-  here needs a coordinator change.
+- Coordinator-side changes — `auto-drive` SKILL.md §4.3 (question
+  mirroring) and §4.4 (escalation) already handle both message types this
+  skill sends; nothing here needs a coordinator change.
 - `gw work orchestrate` changes — the `Auto-drive context:` prompt line and
   the `merge_target` field it carries already ship
   (`packages/work-io/src/work_io/orchestrate.py:313-329`).
