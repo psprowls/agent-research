@@ -152,7 +152,10 @@ orca orchestration check --run <run_id> --wait \
   acking. Then acknowledge with the delivery id from the response:
   `orca orchestration check --run <run_id> --ack <delivery_id>` (a bound Run
   replays the same delivery until acked — don't ack before every message in
-  the batch is handled). Restart the cycle at §2.1.
+  the batch is handled). **Live-validation item:** the exact JSON field name
+  for the delivery id is not documented in `--help` output (runtime-only) —
+  read it off the first real `check --wait --json` response and use that
+  field name here. Restart the cycle at §2.1.
 - **On timeout with nothing delivered:**
   `orca orchestration worker-show --dispatch <id> --json` for every
   still-live dispatch. All still `ready`/`running` → loop back into another
