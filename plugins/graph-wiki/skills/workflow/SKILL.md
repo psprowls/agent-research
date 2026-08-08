@@ -145,11 +145,20 @@ health check, not noise. If the command errors with *effort required*, ask the
 user to size the item as in step 1 — never pick an effort yourself — then retry.
 
 **Relay no-advance outcomes.** If the just-completed stage was
-`graph-wiki:finishing-relay` and it reported a `pr`, `hold`, or `discard`
-outcome (not `merge`), skip this step's `gw work advance` call entirely —
-the relay skill already settled the item's state for that outcome (its own
-R5 step runs the advance itself when the outcome is `merge`, so this step is
-a no-op for every relay outcome). Go straight to step 6.
+`graph-wiki:finishing-relay`, skip this step's own `gw work advance` call
+entirely for **every** relay outcome, including `merge` — the relay skill
+already settled the item's state: for `merge`, its own R5 step already ran
+`gw work advance <slug> --resolved-in <ref>`; for `pr`/`hold`/`discard`, R5
+deliberately chose not to advance. Calling `gw work advance` again here for
+the `merge` outcome would double-advance an already-advanced item and error.
+Because step 5 isn't calling advance itself in the `merge` case, it won't
+naturally observe a `phase: done` / `status: resolved` landing either — to
+decide whether **Terminal handling** applies, check the item's resulting
+state directly (re-run `gw work next <slug> --json`, or trust relay's own
+`worker_done` report) instead of relying on this step's advance call to
+surface it. For the `pr`/`hold`/`discard` outcomes the item deliberately
+stays at `phase: finish`, so skip Terminal handling and go straight to step
+6 — but see step 6's carve-out below before using its stock hand-off text.
 
 If the advance lands the item at `phase: done` and `status: resolved`, run
 **Terminal handling** (below) instead of the step 6 hand-off.
@@ -158,6 +167,12 @@ If the advance lands the item at `phase: done` and `status: resolved`, run
 
 End with: "Phase advanced to `<phase>`. Clear context (`/clear`) and run
 `/graph-wiki:next <slug>` to continue."
+
+**Relay no-advance hand-off.** For a `graph-wiki:finishing-relay` stage that
+reported `pr`, `hold`, or `discard`, the stock hand-off text above is wrong —
+nothing advanced. Say instead: "`<slug>` stays at `phase: finish` pending an
+attended pass (relay outcome: `<pr|hold|discard>`). Clear context (`/clear`)
+and run `/graph-wiki:next <slug>` when ready to continue attended."
 
 (Items that have reached a terminal state are handled by **Terminal handling**
 below, not this hand-off.)
