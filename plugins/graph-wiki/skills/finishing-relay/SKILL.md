@@ -162,3 +162,80 @@ orca orchestration ask --from <this session's --from> \
   Orca releases it (see Worktree & branch ownership, below).
 - Any other reply → downgrade to `hold`; say so explicitly in the R5 report
   (state the reply that caused the downgrade).
+
+## R5 — Settle the item and report
+
+- **`merge`:**
+  ```bash
+  gw work advance <slug> --resolved-in <resolved_in from R4>
+  ```
+  Then send `worker_done --outcome succeeded` (this session's own dispatch
+  preamble command, `--task-id`/`--dispatch-id` filled in from it) with a
+  body naming the merge target, the resolved-in reference, and a one-line
+  summary of what shipped.
+- **`pr` / `hold` / `discard`:** **no `gw work advance` call** — the item
+  stays at `phase: finish` for a later attended pass. Send
+  `worker_done --outcome succeeded` with a body stating exactly what
+  happened:
+  - `pr` → the PR URL.
+  - `hold` → the branch name and that it's untouched.
+  - `discard` (confirmed) → the branch name and commit list, noting the
+    branch was **not** deleted (recorded only).
+  - `discard` (downgraded to hold) → the branch name and the verbatim reply
+    that caused the downgrade.
+
+## Escalation path (failure handling)
+
+Entered from R1 (failing tests) and R4 (merge conflicts, post-merge test
+failure):
+
+1. Send an escalation with the concrete failure output (test failures,
+   conflict file list) in the body:
+   ```
+   orca orchestration send --from <this session's --from> \
+     --dispatch-capability <this session's --dispatch-capability> \
+     --type escalation --subject "Blocked: <one-line reason>" \
+     --body "<failure output>" --task-id <this session's --task-id>
+   ```
+2. Poll for a reply about every 60 seconds, for a bounded window of ~30
+   minutes:
+   ```
+   orca orchestration check --terminal <this session's terminal handle>
+   ```
+   Send a heartbeat (`--type heartbeat`, `--phase "waiting"`, this session's
+   own command shape) roughly every 5 minutes while polling — the
+   coordinator uses heartbeats to tell "still waiting" from "hung."
+   **Live-validation item:** confirm on the first real run which field of
+   the `check` output carries the reply body for an escalation reply — not
+   documented in `--help` output for this address form.
+3. A reply with instructions (e.g. "fix the tests", "merge anyway") →
+   follow it, then re-enter the flow at R1 so the checks re-run against the
+   new state.
+4. No reply within the window, or a reply saying give up → send
+   `worker_done --outcome failed` with the failure summary. The
+   coordinator's existing failure question (retry / skip / stop) takes over
+   from there.
+
+## Worktree & branch ownership
+
+Relay mode never removes worktrees and never deletes branches — not for
+`merge`, not for `discard`. Orca owns worker worktree lifecycle: the
+coordinator releases this session's terminal on `worker_done`, and any
+child-worktree removal after merge-back is the coordinator's or the human's
+concern, not this skill's. `finishing-a-development-branch`'s Step 6
+cleanup logic is intentionally absent here — every auto-drive worktree is
+host-managed by definition.
+
+## Out of scope
+
+- Coordinator-side changes — `auto-drive` SKILL.md already handles both
+  message types this skill sends (worker_done and escalation); nothing
+  here needs a coordinator change.
+- `gw work orchestrate` changes — the `Auto-drive context:` prompt line and
+  the `merge_target` field it carries already ship
+  (`packages/work-io/src/work_io/orchestrate.py:313-329`).
+- Changes to `finishing-a-development-branch`'s own behavior — this skill
+  is fully self-contained; the stock skill is untouched.
+- Automatic `wontfix` on discard, auto-retry, and automatic merge-conflict
+  resolution — all explicit policy (Escalation path, `discard`
+  recorded-not-executed), not gaps.
