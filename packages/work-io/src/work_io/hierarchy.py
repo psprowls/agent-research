@@ -71,8 +71,8 @@ def unresolved_depends_on(items: list[dict], depends_on: list[str]) -> dict[str,
     return unresolved
 
 
-_DESCEND_DEPTH_CAP = 32
-_PICK_ORDER = {"in-progress": 0, "accepted": 1, "open": 2}
+WALK_DEPTH_CAP = 32
+PICK_ORDER = {"in-progress": 0, "accepted": 1, "open": 2}
 
 
 @dataclass(frozen=True)
@@ -85,7 +85,7 @@ class DescendResult:
     reason: str | None = None
 
 
-def _child_gated_node(item: dict, children: list[dict]) -> bool:
+def child_gated_node(item: dict, children: list[dict]) -> bool:
     """Descend-into rule: epic at execute with open children, or feature at
     execute/finish with open children. Anything else — including an epic still
     at plan/design — is its own actionable leaf (an epic at plan is dispatched
@@ -116,12 +116,12 @@ def descend(items: list[dict], slug: str) -> DescendResult:
     visited = {slug}
     while True:
         children = [it for it in items if it.get("parent") == node["slug"]]
-        if not _child_gated_node(node, children):
+        if not child_gated_node(node, children):
             return DescendResult(path=tuple(path), leaf=node["slug"])
         candidates = [
             c
             for c in children
-            if c.get("status") in _PICK_ORDER
+            if c.get("status") in PICK_ORDER
             and not dep_states(items, tuple(str(d) for d in (c.get("depends_on") or ())))
         ]
         if not candidates:
@@ -131,7 +131,7 @@ def descend(items: list[dict], slug: str) -> DescendResult:
                 blocked_at=node["slug"],
                 reason="no dep-ready child: open children are blocked on dependencies or not dispatchable",
             )
-        candidates.sort(key=lambda c: (_PICK_ORDER[str(c.get("status"))], str(c.get("opened") or ""), c["slug"]))
+        candidates.sort(key=lambda c: (PICK_ORDER[str(c.get("status"))], str(c.get("opened") or ""), c["slug"]))
         nxt = candidates[0]
         if nxt["slug"] in visited:
             return DescendResult(
@@ -140,12 +140,12 @@ def descend(items: list[dict], slug: str) -> DescendResult:
                 blocked_at=node["slug"],
                 reason="parent cycle detected: " + " -> ".join([*path, nxt["slug"]]),
             )
-        if len(path) >= _DESCEND_DEPTH_CAP:
+        if len(path) >= WALK_DEPTH_CAP:
             return DescendResult(
                 path=tuple(path),
                 leaf=None,
                 blocked_at=node["slug"],
-                reason=f"descend depth cap ({_DESCEND_DEPTH_CAP}) reached: " + " -> ".join([*path, nxt["slug"]]),
+                reason=f"descend depth cap ({WALK_DEPTH_CAP}) reached: " + " -> ".join([*path, nxt["slug"]]),
             )
         path.append(nxt["slug"])
         visited.add(nxt["slug"])
