@@ -204,7 +204,7 @@ def _sort_candidates(candidates: list[tuple[dict, _workflow.RouteResult]]) -> li
     return sorted(
         candidates,
         key=lambda pair: (
-            _hierarchy.PICK_ORDER.get(pair[0].get("status"), 99),
+            _hierarchy.PICK_ORDER.get(str(pair[0].get("status")), 99),
             str(pair[0].get("opened") or ""),
             pair[0]["slug"],
         ),
@@ -244,7 +244,7 @@ def _epic_worktree_stamp(items: list[dict], root_item: dict) -> tuple[str, str] 
     if not stamped:
         return None
     stamped.sort(
-        key=lambda it: (_hierarchy.PICK_ORDER.get(it.get("status"), 99), str(it.get("opened") or ""), it["slug"])
+        key=lambda it: (_hierarchy.PICK_ORDER.get(str(it.get("status")), 99), str(it.get("opened") or ""), it["slug"])
     )
     chosen = stamped[0]
     return str(chosen["worktree"]), str(chosen["branch"])
@@ -451,6 +451,9 @@ def plan(
             auto_drive, phase=phase, kind=str(item.get("kind", "")), effort=item.get("effort")
         )
         key = f"{item['slug']}#{phase}"
+        assert route_result.skill is not None, (
+            "survivors only carries routes with a truthy skill (see r.skill filter above)"
+        )
         dispatches.append(
             PlannedDispatch(
                 key=key,
